@@ -1,0 +1,40 @@
+{
+  "name": "@wayfinder/supabase",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts",
+    "./client": "./src/client.ts",
+    "./middleware": "./src/middleware.ts",
+    "./middleware-app": "./src/middleware-app.ts",
+    "./roles": "./src/roles.ts",
+    "./admin-server": "./src/admin-server.ts",
+    "./auth-callback": "./src/auth-callback.ts",
+    "./meeting-ics": "./src/meeting-ics.ts",
+    "./natural-support-invite": "./src/natural-support-invite.ts",
+    "./preview-server": "./src/preview-server.ts",
+    "./preview-cookies": "./src/preview-cookies.ts",
+    "./preview-middleware": "./src/preview-middleware.ts",
+    "./notify-user": "./src/notify-user.ts",
+    "./error-log": "./src/error-log.ts"
+  },
+  "scripts": {
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.6.1",
+    "@supabase/supabase-js": "^2.49.8",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@types/web-push": "^3.6.4",
+    "next": "^15.3.2",
+    "typescript": "^5.8.3"
+  },
+  "peerDependencies": {
+    "next": ">=14"
+  }
+}

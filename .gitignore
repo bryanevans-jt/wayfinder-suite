@@ -1,0 +1,43 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build / Next.js
+.next
+out
+dist
+build
+.turbo
+
+# Environment and secrets
+.env
+.env*.local
+wayfinder-key.json
+wayfinder-backend-*.json
+*-credentials.json
+
+# Debug / logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# IDE / OS
+.idea
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+
+# Testing / coverage
+coverage
+.nyc_output
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Vercel
+.vercel

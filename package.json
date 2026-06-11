@@ -1,0 +1,22 @@
+{
+  "name": "wayfinder-suite",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "dev:staff": "npm run dev -w @wayfinder/staff",
+    "dev:client": "npm run dev -w @wayfinder/client",
+    "generate-vapid": "node scripts/generate-vapid-keys.mjs"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "turbo": "^2.5.4",
+    "typescript": "^5.8.3"
+  },
+  "packageManager": "npm@11.12.1",
+  "engines": {
+    "node": ">=20"
+  }
+}

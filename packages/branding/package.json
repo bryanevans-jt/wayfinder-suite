@@ -1,0 +1,13 @@
+{
+  "name": "@wayfinder/branding",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./constants": "./src/constants.ts"
+  },
+  "peerDependencies": {
+    "next": "^15.0.0",
+    "react": "^19.0.0"
+  }
+}

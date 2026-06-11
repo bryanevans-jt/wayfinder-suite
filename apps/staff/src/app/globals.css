@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand-green: #3c6c25;
+  --brand-gold: #b68035;
+  --brand-black: #000000;
+  --brand-white: #ffffff;
+}
+
+body {
+  @apply bg-brand-white text-brand-black antialiased;
+}
