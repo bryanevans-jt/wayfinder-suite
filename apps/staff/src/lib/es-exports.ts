@@ -237,7 +237,11 @@ export async function loadEsCaseloadRows(
     name: string;
     state?: string | null;
   }>;
-  if (serviceQuery.error?.message.includes("state") && serviceIds.length > 0) {
+  if (
+    "error" in serviceQuery &&
+    serviceQuery.error?.message.includes("state") &&
+    serviceIds.length > 0
+  ) {
     const fallback = await supabase.from("services").select("id, name").in("id", serviceIds);
     serviceRows = (fallback.data ?? []) as Array<{ id: string; name: string; state?: string | null }>;
   }

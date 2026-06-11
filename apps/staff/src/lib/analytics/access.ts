@@ -45,7 +45,9 @@ export async function assertAnalyticsSession(): Promise<
     return { error: NextResponse.json({ error: USER_FACING_FORBIDDEN }, { status: 403 }) };
   }
 
-  const role = session.isPreviewing ? session.effectiveRole : (profile.role as string);
+  const role = (
+    session.isPreviewing ? session.effectiveRole : profile.role
+  ) as string;
   const effectiveUserId = session.effectiveUserId;
 
   let admin: ReturnType<typeof createServiceRoleClient>;

@@ -7,7 +7,8 @@ import {
   employerStatusBadgeClass,
   employerStatusLabel,
 } from "@/lib/employer-constants";
-import { EMPLOYMENT_CATEGORIES, EMPLOYMENT_CATEGORY_LABELS } from "@wayfinder/branding";
+import { supabaseEmbedName } from "@/lib/supabase-embed";
+import { EMPLOYMENT_CATEGORIES, EMPLOYMENT_CATEGORY_LABELS, type EmploymentCategory } from "@wayfinder/branding";
 import { friendlyClientError, USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -36,7 +37,7 @@ export type EmployerRow = {
   position_need_secondary?: string | null;
   position_need_secondary_other?: string | null;
   submission_source?: string | null;
-  offices?: { name: string } | null;
+  offices?: { name: string } | { name: string }[] | null;
 };
 
 type Props = {
@@ -79,9 +80,9 @@ export function CommunityPartnersWorkspace({
     website: "",
     notes: "",
     office_id: "",
-    position_need_primary: "" as const,
+    position_need_primary: "" as EmploymentCategory | "",
     position_need_primary_other: "",
-    position_need_secondary: "" as const,
+    position_need_secondary: "" as EmploymentCategory | "",
     position_need_secondary_other: "",
   });
 
@@ -428,7 +429,7 @@ export function CommunityPartnersWorkspace({
               </tr>
             ) : (
               employers.map((row) => {
-                const officeName = row.offices?.name ?? "—";
+                const officeName = supabaseEmbedName(row.offices) ?? "—";
                 const location = [row.city, row.state].filter(Boolean).join(", ") || "—";
                 return (
                   <tr

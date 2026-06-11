@@ -7,7 +7,8 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
   const raw = atob(base64);
-  const out = new Uint8Array(raw.length);
+  const buffer = new ArrayBuffer(raw.length);
+  const out = new Uint8Array(buffer);
   for (let i = 0; i < raw.length; i++) {
     out[i] = raw.charCodeAt(i);
   }
@@ -73,7 +74,7 @@ export function PushNotificationsToggle({
       if (!subscription) {
         subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(publicKey),
+          applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
         });
       }
 
@@ -139,7 +140,6 @@ export function PushNotificationsToggle({
           <span className="text-xs font-medium text-brand-green">Push notifications on</span>
           <button
             type="button"
-            disabled={status === "busy"}
             onClick={() => void disable()}
             className="text-xs text-brand-black/60 underline hover:text-brand-black disabled:opacity-50"
           >

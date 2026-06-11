@@ -9,6 +9,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAppSession, requireEsClientAccess } from "@/lib/app-session";
 import { findEmployerMatches } from "@/lib/employer-matching";
+import { supabaseEmbedName } from "@/lib/supabase-embed";
 import { ClientProfileForm, type ClientProfileData } from "@/components/client-profile-form";
 import { EmployerMatchPanel } from "@/components/employer-match-panel";
 import { ClientApplicationForm } from "./client-application-form";
@@ -248,7 +249,9 @@ export default async function EsClientDetailPage({ params }: PageProps) {
               id: a.id as string,
               company_name: a.company_name as string | null,
               employer_id: (a as { employer_id?: string | null }).employer_id ?? null,
-              employer_name: (a as { employers?: { name: string } | null }).employers?.name ?? null,
+              employer_name: supabaseEmbedName(
+                (a as { employers?: { name: string } | { name: string }[] | null }).employers
+              ),
               status: a.status as string | null,
               status_other_reason: (a as { status_other_reason?: string }).status_other_reason ?? null,
               notes: a.notes as string | null,

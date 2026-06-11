@@ -2,6 +2,7 @@
 
 import { EmployerPositionNeedFields } from "@/components/employer-position-need-fields";
 import { COMMUNITY_PARTNERS_NETWORK_NAME } from "@/lib/employer-constants";
+import type { EmploymentCategory } from "@wayfinder/branding";
 import { friendlyClientError, USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
 import { useEffect, useState } from "react";
 
@@ -25,9 +26,9 @@ export function CommunityPartnersJoinForm() {
     website: "",
     notes: "",
     company_fax: "",
-    position_need_primary: "" as const,
+    position_need_primary: "" as EmploymentCategory | "",
     position_need_primary_other: "",
-    position_need_secondary: "" as const,
+    position_need_secondary: "" as EmploymentCategory | "",
     position_need_secondary_other: "",
   });
 

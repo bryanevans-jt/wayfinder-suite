@@ -16,6 +16,7 @@ import {
   findClientMatchesForEmployer,
   type ClientMatchCandidate,
 } from "@/lib/employer-matching";
+import { supabaseEmbedOne } from "@/lib/supabase-embed";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -205,7 +206,14 @@ export default async function CommunityPartnerDetailPage({ params }: PageProps) 
         />
         <EmployerStatusLogPanel logs={statusLogs} />
         <EmployerDetailForm
-          employer={employer as EmployerRow}
+          employer={
+            {
+              ...employer,
+              offices: supabaseEmbedOne(
+                (employer as { offices?: { name: string } | { name: string }[] | null }).offices
+              ),
+            } as EmployerRow
+          }
           offices={(offices ?? []) as { id: string; name: string }[]}
           readOnly={session.isPreviewing}
           canDelete={canDelete}
