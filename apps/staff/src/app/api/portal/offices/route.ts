@@ -66,29 +66,63 @@ export async function PATCH(request: NextRequest) {
     }
     if (body.state !== undefined) {
       const state = body.state.trim();
-      if (state) patch.state = state;
+      patch.state = state || null;
     }
 
     if (Object.keys(patch).length === 0) {
       return Response.json({ error: "Nothing to update" }, { status: 400 });
     }
 
-    let error = (await admin.from("offices").update(patch).eq("id", id)).error;
-    if (error?.message.includes("Could not find the 'city'")) {
+    let result = await admin
+      .from("offices")
+      .update(patch)
+      .eq("id", id)
+      .select("id, name, city, state")
+      .maybeSingle();
+
+    if (result.error?.message.includes("Could not find the 'city'")) {
+      if (body.city !== undefined) {
+        return Response.json(
+          {
+            error:
+              "Could not save city — run migration 20250614120000_offices_city_state_columns.sql in Supabase.",
+          },
+          { status: 503 }
+        );
+      }
       const { city: _city, ...withoutCity } = patch;
       if (Object.keys(withoutCity).length > 0) {
-        error = (await admin.from("offices").update(withoutCity).eq("id", id)).error;
+        result = await admin
+          .from("offices")
+          .update(withoutCity)
+          .eq("id", id)
+          .select("id, name, city, state")
+          .maybeSingle();
       }
     }
-    if (error?.message.includes("Could not find the 'state'")) {
+    if (result.error?.message.includes("Could not find the 'state'")) {
+      if (body.state !== undefined) {
+        return Response.json(
+          {
+            error:
+              "Could not save state — run migration 20250614120000_offices_city_state_columns.sql in Supabase.",
+          },
+          { status: 503 }
+        );
+      }
       const { state: _state, ...withoutState } = patch;
       if (Object.keys(withoutState).length > 0) {
-        error = (await admin.from("offices").update(withoutState).eq("id", id)).error;
+        result = await admin
+          .from("offices")
+          .update(withoutState)
+          .eq("id", id)
+          .select("id, name, city, state")
+          .maybeSingle();
       }
     }
 
-    if (error) throw new Error(error.message);
-    return Response.json({ ok: true });
+    if (result.error) throw new Error(result.error.message);
+    return Response.json({ ok: true, office: result.data });
   } catch (error) {
     return await jsonPortalError(error);
   }

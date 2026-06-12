@@ -230,7 +230,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                     body: JSON.stringify({
                       name: newOfficeName,
                       state: newOfficeState,
-                      city: newOfficeCity.trim() || newOfficeName.trim(),
+                      city: newOfficeCity.trim() || undefined,
                     }),
                   });
                   const data = (await res.json()) as { error?: string };
@@ -2052,12 +2052,12 @@ function OfficeListItem({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(office.name);
   const [city, setCity] = useState(office.city ?? "");
-  const [state, setState] = useState(office.state ?? "GA");
+  const [state, setState] = useState(office.state ?? "");
 
   useEffect(() => {
     setName(office.name);
     setCity(office.city ?? "");
-    setState(office.state ?? "GA");
+    setState(office.state ?? "");
   }, [office]);
 
   if (editing && canManage) {
@@ -2078,6 +2078,7 @@ function OfficeListItem({
             aria-label="State"
             disabled={busy}
           >
+            <option value="">Select state</option>
             <option value="GA">GA</option>
             <option value="TN">TN</option>
           </select>
@@ -2109,7 +2110,7 @@ function OfficeListItem({
             onClick={() => {
               setName(office.name);
               setCity(office.city ?? "");
-              setState(office.state ?? "GA");
+              setState(office.state ?? "");
               setEditing(false);
             }}
           >

@@ -25,7 +25,7 @@ export async function insertOfficeRow(
   admin: SupabaseClient,
   name: string,
   opts?: { state?: string; city?: string }
-): Promise<{ id: string; name: string }> {
+): Promise<{ id: string; name: string; city: string | null; state: string | null }> {
   const trimmedName = name.trim();
   const { data: template } = await admin.from("offices").select("state, city").limit(1).maybeSingle();
 
@@ -35,9 +35,9 @@ export async function insertOfficeRow(
   const cityHint = (opts?.city ?? templateCity ?? trimmedName).trim();
 
   const attempts = uniqueRows([
-    { name: trimmedName },
-    { name: trimmedName, state: stateHint },
     { name: trimmedName, state: stateHint, city: cityHint },
+    { name: trimmedName, state: stateHint },
+    { name: trimmedName },
     { name: trimmedName, state: "GA" },
     { name: trimmedName, state: "TN" },
     { name: trimmedName, state: "GA", city: cityHint },
@@ -47,9 +47,18 @@ export async function insertOfficeRow(
   let lastMessage = "Could not create office";
 
   for (const row of attempts) {
-    const { data, error } = await admin.from("offices").insert(row).select("id, name").single();
+    const { data, error } = await admin
+      .from("offices")
+      .insert(row)
+      .select("id, name, city, state")
+      .single();
     if (!error && data?.id) {
-      return { id: data.id as string, name: data.name as string };
+      return {
+        id: data.id as string,
+        name: data.name as string,
+        city: (data.city as string | null) ?? null,
+        state: (data.state as string | null) ?? null,
+      };
     }
     lastMessage = error?.message ?? lastMessage;
     if (!error || !isRetryableOfficeInsertError(error.message)) {
