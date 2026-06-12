@@ -1,4 +1,4 @@
-import { createServerClient } from "@wayfinder/supabase";
+import { createServerClient, resolveAuthClientId } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
   respondWithLoggedError,
@@ -25,17 +25,13 @@ async function getClientUser(supabase: Awaited<ReturnType<typeof createServerCli
     return null;
   }
 
-  const { data: client } = await supabase
-    .from("clients")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const clientId = await resolveAuthClientId(supabase, user.id);
 
-  if (!client?.id) {
+  if (!clientId) {
     return null;
   }
 
-  return { user, clientId: client.id as string };
+  return { user, clientId };
 }
 
 export async function GET() {
@@ -56,7 +52,8 @@ export async function GET() {
       .maybeSingle();
 
     if (!thread) {
-      const { data: assignment } = await supabase
+      const admin = createServiceRoleClient();
+      const { data: assignment } = await admin
         .from("es_client_assignments")
         .select("es_user_id")
         .eq("client_id", ctx.clientId)
@@ -64,7 +61,6 @@ export async function GET() {
         .maybeSingle();
 
       if (assignment?.es_user_id) {
-        const admin = createServiceRoleClient();
         const { error: upsertErr } = await admin.from("client_message_threads").upsert(
           {
             client_id: ctx.clientId,

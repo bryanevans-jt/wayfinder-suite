@@ -10,6 +10,7 @@ export * from "./client-insert";
 export * from "./client-create";
 export * from "./office-insert";
 export * from "./dashboard-client";
+export * from "./auth-client-row";
 export * from "./business-hours";
 export * from "./meeting-ics";
 export * from "./natural-support-invite";

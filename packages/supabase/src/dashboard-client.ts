@@ -43,21 +43,11 @@ export async function resolveDashboardClient(
   const { data: clientRow } = await supabase
     .from("clients")
     .select("id")
-    .eq("user_id", userId)
+    .or(`user_id.eq.${userId},profile_id.eq.${userId}`)
     .maybeSingle();
 
   if (clientRow?.id) {
     return { clientId: clientRow.id, readOnly: false, userId };
-  }
-
-  const { data: byProfile } = await supabase
-    .from("clients")
-    .select("id")
-    .eq("profile_id", userId)
-    .maybeSingle();
-
-  if (byProfile?.id) {
-    return { clientId: byProfile.id, readOnly: false, userId };
   }
 
   return null;

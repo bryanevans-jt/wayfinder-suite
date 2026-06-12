@@ -1,4 +1,4 @@
-import { createServerClient } from "@wayfinder/supabase";
+import { createServerClient, resolveAuthClientId } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
   respondWithLoggedError,
@@ -34,13 +34,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: USER_FACING_FORBIDDEN }, { status: 403 });
     }
 
-    const { data: client } = await supabase
-      .from("clients")
-      .select("id")
-      .eq("user_id", user.id)
-      .maybeSingle();
+    const clientId = await resolveAuthClientId(supabase, user.id);
 
-    if (!client?.id) {
+    if (!clientId) {
       return NextResponse.json({ error: USER_FACING_NOT_FOUND }, { status: 404 });
     }
 
@@ -53,16 +49,16 @@ export async function POST(request: Request) {
     let { data: thread } = await supabase
       .from("client_message_threads")
       .select("id, current_es_user_id")
-      .eq("client_id", client.id)
+      .eq("client_id", clientId)
       .maybeSingle();
 
     const admin = createServiceRoleClient();
 
     if (!thread) {
-      const { data: assignment } = await supabase
+      const { data: assignment } = await admin
         .from("es_client_assignments")
         .select("es_user_id")
-        .eq("client_id", client.id)
+        .eq("client_id", clientId)
         .limit(1)
         .maybeSingle();
 
@@ -76,7 +72,7 @@ export async function POST(request: Request) {
       const { data: created, error: threadErr } = await admin
         .from("client_message_threads")
         .upsert(
-          { client_id: client.id, current_es_user_id: assignment.es_user_id },
+          { client_id: clientId, current_es_user_id: assignment.es_user_id },
           { onConflict: "client_id" }
         )
         .select("id, current_es_user_id")
@@ -118,7 +114,7 @@ export async function POST(request: Request) {
         title: "New client message",
         body: text.slice(0, 120),
         link_path: "/dashboard/messages",
-        metadata: { thread_id: thread.id, client_id: client.id },
+        metadata: { thread_id: thread.id, client_id: clientId },
         app: "staff",
       });
     }

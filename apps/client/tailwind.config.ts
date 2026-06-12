@@ -20,6 +20,7 @@ const config: Config = {
   content: [
     "./src/**/*.{js,ts,jsx,tsx,mdx}",
     "../../packages/auth-ui/src/**/*.{js,ts,jsx,tsx}",
+    "../../packages/branding/src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {

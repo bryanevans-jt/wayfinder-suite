@@ -54,7 +54,7 @@ export function LoginForm({
       return;
     }
     setNotice(
-      `Check your email for the ${productName} sign-in link. If nothing arrives within a minute, check spam and confirm Supabase email (SMTP) is configured for your project.`
+      `Check your email for the ${productName} sign-in link. If nothing arrives within a minute, check your spam folder.`
     );
   }
 

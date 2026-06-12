@@ -26,7 +26,7 @@ export const DEVELOPER_BADGE_LOGO_PATH = "/logo.png";
  */
 export const EMAIL_LOGO_PATH = WAYFINDER_LOGO_PATH;
 
-export const APP_VERSION = "0.1.0";
+export const APP_VERSION = "0.9.1";
 
 export const LEGAL_ENTITY = "Joshua Tree Service Group";
 
