@@ -6,6 +6,7 @@ export {
   DEVELOPER_BADGE_LOGO_PATH,
   LEGAL_ENTITY,
   STAFF_APP_PRODUCT_NAME,
+  WAYFINDER_LOGO_ALT,
   STAFF_APP_URL_SLUG,
   WAYFINDER_LOGO_PATH,
 } from "./constants";
@@ -52,3 +53,8 @@ export {
 export { MEETING_TIMEZONES } from "./meeting-timezones";
 export { WayfinderFooter } from "./wayfinder-footer";
 export { WayfinderTopNav, type WayfinderNavBadge } from "./wayfinder-top-nav";
+export { wayfinderSecurityHeaders } from "./security-headers";
+export {
+  TERMS_OF_USE_LAST_UPDATED,
+  TermsOfUseContent,
+} from "./legal/terms-of-use-content";

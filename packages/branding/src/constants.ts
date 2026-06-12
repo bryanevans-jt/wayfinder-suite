@@ -4,6 +4,9 @@ export const CLIENT_APP_PRODUCT_NAME = "Wayfinder";
 /** Staff-facing product name (App Store / staff app). */
 export const STAFF_APP_PRODUCT_NAME = "Wayfinder Pro";
 
+/** Logo alt text in the shared header (logo is the visible brand mark). */
+export const WAYFINDER_LOGO_ALT = "Wayfinder";
+
 /** Suggested production URL slug for the client app (e.g. wayfinder.thejoshuatree.org). */
 export const CLIENT_APP_URL_SLUG = "wayfinder";
 

@@ -1,4 +1,4 @@
-import { StaffSidebar } from "@/components/staff-sidebar";
+import { StaffDashboardShell } from "@/components/staff-dashboard-shell";
 import { PreviewBanner } from "@/components/preview-banner";
 import { getAppSession, staffAppOrigin } from "@wayfinder/supabase/preview-server";
 import { isSuperAdminRole } from "@wayfinder/supabase/roles";
@@ -24,10 +24,9 @@ export default async function DashboardLayout({
           staffAppUrl={staffAppOrigin()}
         />
       ) : null}
-      <div className="flex min-h-0 flex-1">
-        <StaffSidebar staffRole={navRole} showAuditLink={showAuditLink} />
-        <div className="min-w-0 flex-1 bg-white">{children}</div>
-      </div>
+      <StaffDashboardShell staffRole={navRole} showAuditLink={showAuditLink}>
+        {children}
+      </StaffDashboardShell>
     </div>
   );
 }

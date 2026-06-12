@@ -24,7 +24,7 @@ export default async function ClientLoginPage({
           again.
         </p>
       ) : null}
-      <LoginFormShell productName={CLIENT_APP_PRODUCT_NAME} />
+      <LoginFormShell productName={CLIENT_APP_PRODUCT_NAME} termsHref="/terms" />
     </main>
   );
 }

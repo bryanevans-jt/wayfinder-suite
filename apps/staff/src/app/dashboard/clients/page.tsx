@@ -4,6 +4,10 @@ import { clientDisplayName, dedupeServicesForSelect, serviceDisplayName } from "
 import { USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import {
+  RESPONSIVE_TABLE_CLASS,
+  ResponsiveTableShell,
+} from "@/components/responsive-table-shell";
 import { AddClientLauncher } from "./add-client-launcher";
 import { EsNaturalSupportButton } from "./es-natural-support-button";
 
@@ -26,7 +30,7 @@ export default async function EsClientsPage() {
 
   if (!isEsRole(effectiveRole)) {
     return (
-      <main className="px-6 py-10">
+      <main className="px-4 py-8 sm:px-6 sm:py-10">
         <h1 className="text-2xl font-semibold text-brand-black">Clients</h1>
         <p className="mt-2 max-w-xl text-brand-black/80">
           Client management is available to Employer Services (ES) accounts. Your current role
@@ -75,7 +79,7 @@ export default async function EsClientsPage() {
 
     if (clientsErr) {
       return (
-        <main className="px-6 py-10">
+        <main className="px-4 py-8 sm:px-6 sm:py-10">
           <h1 className="text-2xl font-semibold text-brand-black">Clients</h1>
           <p className="mt-2 text-sm text-red-700">{USER_FACING_SYSTEM_ERROR}</p>
         </main>
@@ -158,7 +162,7 @@ export default async function EsClientsPage() {
     }) ?? [];
 
   return (
-    <main className="px-6 py-10">
+    <main className="px-4 py-8 sm:px-6 sm:py-10">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-brand-black">Clients</h1>
@@ -175,8 +179,8 @@ export default async function EsClientsPage() {
         ) : null}
       </div>
 
-      <div className="mt-8 overflow-x-auto rounded-xl border border-neutral-200 bg-white">
-        <table className="min-w-full border-collapse text-left text-sm">
+      <ResponsiveTableShell className="mt-8">
+        <table className={RESPONSIVE_TABLE_CLASS}>
           <thead>
             <tr className="border-b border-neutral-200 bg-neutral-50">
               <th className="px-4 py-3 font-semibold text-brand-black">Name</th>
@@ -242,7 +246,7 @@ export default async function EsClientsPage() {
             )}
           </tbody>
         </table>
-      </div>
+      </ResponsiveTableShell>
     </main>
   );
 }

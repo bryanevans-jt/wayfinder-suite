@@ -4,7 +4,8 @@
   "private": true,
   "exports": {
     ".": "./src/index.ts",
-    "./constants": "./src/constants.ts"
+    "./constants": "./src/constants.ts",
+    "./security-headers": "./src/security-headers.ts"
   },
   "peerDependencies": {
     "next": "^15.0.0",

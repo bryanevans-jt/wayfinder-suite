@@ -22,18 +22,25 @@ type Props = {
   productName: string;
   variantLabel?: string;
   shouldCreateUser?: boolean;
+  termsHref?: string;
 };
 
 /**
  * Client-only mount for the login form so devtools / embedded browsers that inject
  * attributes (e.g. data-cursor-ref) cannot cause React hydration mismatches.
  */
-export function LoginFormShell({ productName, variantLabel, shouldCreateUser }: Props) {
+export function LoginFormShell({
+  productName,
+  variantLabel,
+  shouldCreateUser,
+  termsHref,
+}: Props) {
   return (
     <LoginFormClient
       productName={productName}
       variantLabel={variantLabel}
       shouldCreateUser={shouldCreateUser}
+      termsHref={termsHref}
     />
   );
 }

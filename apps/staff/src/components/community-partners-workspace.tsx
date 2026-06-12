@@ -7,6 +7,10 @@ import {
   employerStatusBadgeClass,
   employerStatusLabel,
 } from "@/lib/employer-constants";
+import {
+  RESPONSIVE_TABLE_CLASS,
+  ResponsiveTableShell,
+} from "@/components/responsive-table-shell";
 import { supabaseEmbedName } from "@/lib/supabase-embed";
 import { EMPLOYMENT_CATEGORIES, EMPLOYMENT_CATEGORY_LABELS, type EmploymentCategory } from "@wayfinder/branding";
 import { friendlyClientError, USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
@@ -403,8 +407,8 @@ export function CommunityPartnersWorkspace({
 
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
 
-      <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white">
-        <table className="min-w-full border-collapse text-left text-sm">
+      <ResponsiveTableShell>
+        <table className={RESPONSIVE_TABLE_CLASS}>
           <thead>
             <tr className="border-b border-neutral-200 bg-neutral-50">
               <th className="px-4 py-3 font-semibold text-brand-black">Employer</th>
@@ -471,7 +475,7 @@ export function CommunityPartnersWorkspace({
             )}
           </tbody>
         </table>
-      </div>
+      </ResponsiveTableShell>
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 
 export function CommunityPartnersJoinForm() {
   const [issuedAt, setIssuedAt] = useState<number | null>(null);
+  const [formToken, setFormToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -35,15 +36,21 @@ export function CommunityPartnersJoinForm() {
   useEffect(() => {
     void fetch("/api/community-partners/form-token")
       .then((r) => r.json())
-      .then((d: { issuedAt?: number }) => {
-        if (typeof d.issuedAt === "number") setIssuedAt(d.issuedAt);
+      .then((d: { issuedAt?: number; token?: string }) => {
+        if (typeof d.issuedAt === "number" && typeof d.token === "string") {
+          setIssuedAt(d.issuedAt);
+          setFormToken(d.token);
+        }
       })
-      .catch(() => setIssuedAt(Date.now()));
+      .catch(() => {
+        setIssuedAt(null);
+        setFormToken(null);
+      });
   }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (issuedAt == null) {
+    if (issuedAt == null || formToken == null) {
       setError("Form is still loading. Please wait a moment.");
       return;
     }
@@ -53,7 +60,7 @@ export function CommunityPartnersJoinForm() {
       const res = await fetch("/api/community-partners/join", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, issuedAt }),
+        body: JSON.stringify({ ...form, issuedAt, token: formToken }),
       });
       const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
@@ -219,7 +226,7 @@ export function CommunityPartnersJoinForm() {
 
       <button
         type="submit"
-        disabled={busy || issuedAt == null}
+        disabled={busy || issuedAt == null || formToken == null}
         className="w-full rounded-lg bg-brand-green px-4 py-3 text-sm font-semibold text-white disabled:opacity-60 sm:w-auto"
       >
         {busy ? "Submitting…" : "Submit join request"}

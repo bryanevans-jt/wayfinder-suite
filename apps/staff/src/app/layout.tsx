@@ -1,5 +1,6 @@
 import {
   STAFF_APP_PRODUCT_NAME,
+  WAYFINDER_LOGO_ALT,
   WayfinderFooter,
   WayfinderTopNav,
 } from "@wayfinder/branding";
@@ -22,6 +23,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: STAFF_APP_PRODUCT_NAME,
   description: "Joshua Tree Wayfinder Pro — staff workspace for employment specialists and administrators",
+  robots: { index: false, follow: false },
 };
 
 export default async function RootLayout({
@@ -52,7 +54,7 @@ export default async function RootLayout({
         <WayfinderTopNav
           badgeLabel={staffNavBadge(staffRole)}
           homeHref={staffHomeHref(staffRole)}
-          productName={STAFF_APP_PRODUCT_NAME}
+          productName={WAYFINDER_LOGO_ALT}
         />
         <div className="flex min-h-0 flex-1 flex-col">{children}</div>
         <WayfinderFooter productName={STAFF_APP_PRODUCT_NAME} />

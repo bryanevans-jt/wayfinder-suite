@@ -167,28 +167,35 @@ function showNotificationsForRole(staffRole: string | null): boolean {
   );
 }
 
-type StaffSidebarProps = {
+function workspaceLabel(staffRole: string | null): string {
+  if (isCounselorRole(staffRole)) return "Counselor workspace";
+  if (isSuperAdminRole(staffRole)) return "Super admin";
+  if (isAdminTierRole(staffRole)) return "Admin workspace";
+  if (isSupervisorRole(staffRole)) return "Supervisor workspace";
+  return "Staff workspace";
+}
+
+export type StaffSidebarPanelProps = {
   staffRole: string | null;
   showAuditLink?: boolean;
+  onNavigate?: () => void;
+  className?: string;
 };
 
-export function StaffSidebar({ staffRole, showAuditLink = false }: StaffSidebarProps) {
+export function StaffSidebarPanel({
+  staffRole,
+  showAuditLink = false,
+  onNavigate,
+  className = "",
+}: StaffSidebarPanelProps) {
   const pathname = usePathname() ?? "";
   const nav = navItemsForRole(staffRole, showAuditLink);
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r border-neutral-200 bg-white">
+    <div className={`flex min-h-0 flex-col ${className}`.trim()}>
       <div className="flex flex-1 flex-col gap-1 p-4">
         <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-brand-green">
-          {isCounselorRole(staffRole)
-            ? "Counselor workspace"
-            : isSuperAdminRole(staffRole)
-              ? "Super admin"
-              : isAdminTierRole(staffRole)
-                ? "Admin workspace"
-                : isSupervisorRole(staffRole)
-                  ? "Supervisor workspace"
-                  : "Staff workspace"}
+          {workspaceLabel(staffRole)}
         </p>
         {showNotificationsForRole(staffRole) ? <StaffNotificationsBell /> : null}
         <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-brand-black/50">
@@ -200,6 +207,7 @@ export function StaffSidebar({ staffRole, showAuditLink = false }: StaffSidebarP
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                 active
                   ? "bg-brand-green/10 text-brand-green"
@@ -212,6 +220,20 @@ export function StaffSidebar({ staffRole, showAuditLink = false }: StaffSidebarP
         })}
       </div>
       <StaffSidebarAccount showPasskey={!isCounselorRole(staffRole)} />
+    </div>
+  );
+}
+
+type StaffSidebarProps = {
+  staffRole: string | null;
+  showAuditLink?: boolean;
+};
+
+/** @deprecated Prefer StaffDashboardShell for responsive layout. */
+export function StaffSidebar({ staffRole, showAuditLink = false }: StaffSidebarProps) {
+  return (
+    <aside className="flex w-60 shrink-0 flex-col border-r border-neutral-200 bg-white">
+      <StaffSidebarPanel staffRole={staffRole} showAuditLink={showAuditLink} />
     </aside>
   );
 }

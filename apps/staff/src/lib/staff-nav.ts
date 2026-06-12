@@ -32,7 +32,7 @@ export function staffNavBadge(role: string | null | undefined): WayfinderNavBadg
   if (isSuperAdminRole(role)) return "Super admin";
   if (isAdminTierRole(role) && !isSuperAdminRole(role)) return "Admin";
   if (isSupervisorTierRole(role) && !isAdminTierRole(role)) return "Supervisor";
-  return isCounselorRole(role) ? "Counselor" : "Staff";
+  return isCounselorRole(role) ? "Counselor" : "Pro";
 }
 
 export function staffHomeHref(role: string | null | undefined): string {

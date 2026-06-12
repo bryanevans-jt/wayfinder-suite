@@ -27,12 +27,12 @@ export default async function ClientDashboardPage({
   const displayEmail = authUser.user?.email ?? session.effectiveUserId;
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 bg-brand-white px-6 py-16">
+    <main className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-6 bg-brand-white px-4 py-8 sm:gap-8 sm:px-6 sm:py-16">
       <header className="space-y-2">
-        <p className="text-sm font-medium uppercase tracking-wide text-brand-green">
+        <p className="text-xs font-medium uppercase tracking-wide text-brand-green sm:text-sm">
           Wayfinder · {support ? "Support dashboard" : "Client dashboard"}
         </p>
-        <h1 className="text-3xl font-semibold text-brand-green">Welcome</h1>
+        <h1 className="text-2xl font-semibold text-brand-green sm:text-3xl">Welcome</h1>
         <p className="text-brand-black/85">
           Signed in as{" "}
           <span className="font-medium text-brand-green">{displayEmail}</span>

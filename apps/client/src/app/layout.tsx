@@ -1,5 +1,6 @@
 import {
   CLIENT_APP_PRODUCT_NAME,
+  WAYFINDER_LOGO_ALT,
   WayfinderFooter,
   WayfinderTopNav,
 } from "@wayfinder/branding";
@@ -46,7 +47,7 @@ export default async function RootLayout({
         <WayfinderTopNav
           badgeLabel="Client"
           homeHref="/dashboard"
-          productName={CLIENT_APP_PRODUCT_NAME}
+          productName={WAYFINDER_LOGO_ALT}
         />
         <div className="flex min-h-0 flex-1 flex-col">{children}</div>
         <WayfinderFooter productName={CLIENT_APP_PRODUCT_NAME} />

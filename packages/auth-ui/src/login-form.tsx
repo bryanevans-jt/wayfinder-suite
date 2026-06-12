@@ -2,6 +2,7 @@
 
 import { createClient } from "@wayfinder/supabase/client";
 import { friendlyAuthError } from "@wayfinder/supabase/error-log";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 type LoginFormProps = {
@@ -11,17 +12,19 @@ type LoginFormProps = {
   variantLabel?: string;
   /** Staff login should not auto-create client accounts. */
   shouldCreateUser?: boolean;
+  /** Link to Terms of Use (shown above sign-in actions). */
+  termsHref?: string;
 };
 
 export function LoginForm({
   productName,
   variantLabel,
   shouldCreateUser = true,
+  termsHref,
 }: LoginFormProps) {
   const supabase = useMemo(() => createClient(), []);
   const [email, setEmail] = useState("");
-  const [otpCode, setOtpCode] = useState("");
-  const [busy, setBusy] = useState<null | "magic" | "passkey" | "otp">(null);
+  const [busy, setBusy] = useState<null | "magic" | "passkey">(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   async function sendMagicLink(e: React.FormEvent) {
@@ -69,32 +72,6 @@ export function LoginForm({
     }
   }
 
-  /** When SMTP is unavailable, use `email_otp` from Supabase admin generate_link. */
-  async function signInWithAdminOtp(e: React.FormEvent) {
-    e.preventDefault();
-    setNotice(null);
-    if (!email.trim() || !otpCode.trim()) {
-      setNotice("Enter your email and the one-time code from generate_link.");
-      return;
-    }
-    setBusy("otp");
-    const { data, error } = await supabase.auth.verifyOtp({
-      email: email.trim(),
-      token: otpCode.trim(),
-      type: "email",
-    });
-    setBusy(null);
-    if (error) {
-      setNotice(friendlyAuthError(error.message));
-      return;
-    }
-    if (data?.session) {
-      window.location.assign("/dashboard");
-      return;
-    }
-    setNotice("Code accepted but no session was created. Generate a fresh code and try again.");
-  }
-
   return (
     <div className="w-full max-w-md space-y-8 rounded-2xl border border-brand-green/25 bg-brand-white p-8 shadow-lg">
       <header className="space-y-2 text-center">
@@ -107,6 +84,19 @@ export function LoginForm({
           Magic link or passkey — zero passwords stored here.
         </p>
       </header>
+
+      {termsHref ? (
+        <p className="text-center text-xs leading-relaxed text-brand-black/65">
+          By signing in, you agree to our{" "}
+          <Link
+            href={termsHref}
+            className="font-medium text-brand-green underline underline-offset-2"
+          >
+            Terms of Use
+          </Link>
+          .
+        </p>
+      ) : null}
 
       <form onSubmit={sendMagicLink} className="space-y-4">
         <label className="block text-sm font-medium text-brand-black">
@@ -148,57 +138,11 @@ export function LoginForm({
         {busy === "passkey" ? "Waiting for passkey…" : "Sign in with passkey"}
       </button>
 
-      <details className="rounded-lg border border-brand-black/10 bg-brand-black/[0.02] px-3 py-2 text-sm">
-        <summary className="cursor-pointer font-medium text-brand-black">
-          Email not working? Sign in with admin code
-        </summary>
-        <form onSubmit={signInWithAdminOtp} className="mt-3 space-y-3">
-          <p className="text-xs text-brand-black/70">
-            Run Supabase admin <code className="text-xs">generate_link</code> and
-            paste the <code className="text-xs">email_otp</code> value here (not
-            the long hashed token).
-          </p>
-          <label className="block text-sm font-medium text-brand-black">
-            One-time code
-            <input
-              type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              value={otpCode}
-              onChange={(e) => setOtpCode(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-brand-black/20 bg-brand-white px-3 py-2 text-brand-black outline-none ring-brand-green/40 transition focus:ring-2"
-              placeholder="6-digit code"
-              disabled={busy !== null}
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={busy !== null}
-            className="w-full rounded-lg border border-brand-green/40 bg-brand-white px-4 py-2 text-sm font-semibold text-brand-green hover:bg-brand-green/5 disabled:opacity-60"
-          >
-            {busy === "otp" ? "Verifying…" : "Verify code"}
-          </button>
-        </form>
-      </details>
-
       {notice ? (
         <p className="rounded-lg bg-brand-black/5 px-3 py-2 text-center text-sm text-brand-black">
           {notice}
         </p>
       ) : null}
-
-      <p className="text-center text-xs text-brand-black/60">
-        Passkeys require{" "}
-        <a
-          className="text-brand-green underline underline-offset-2"
-          href="https://supabase.com/docs/guides/auth/auth-passkeys"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Passkeys
-        </a>{" "}
-        enabled in your Supabase project.
-      </p>
     </div>
   );
 }

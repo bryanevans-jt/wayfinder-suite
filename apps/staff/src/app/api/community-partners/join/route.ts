@@ -5,7 +5,7 @@ import { notifyStaffOfPublicEmployerSubmission } from "@/lib/employer-submission
 import {
   honeypotTriggered,
   publicSubmissionRateLimited,
-  validatePublicFormTiming,
+  validatePublicFormToken,
 } from "@/lib/public-form-guard";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
@@ -26,9 +26,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, id: "received" });
   }
 
-  const timingError = validatePublicFormTiming(body.issuedAt);
-  if (timingError) {
-    return NextResponse.json({ error: timingError }, { status: 400 });
+  const tokenError = validatePublicFormToken(body.issuedAt, body.token);
+  if (tokenError) {
+    return NextResponse.json({ error: tokenError }, { status: 400 });
   }
 
   const name = (body.name as string | undefined)?.trim();

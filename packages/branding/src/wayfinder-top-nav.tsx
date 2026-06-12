@@ -3,7 +3,7 @@ import Link from "next/link";
 import { WAYFINDER_LOGO_PATH } from "./constants";
 
 export type WayfinderNavBadge =
-  | "Staff"
+  | "Pro"
   | "Counselor"
   | "Client"
   | "Super admin"

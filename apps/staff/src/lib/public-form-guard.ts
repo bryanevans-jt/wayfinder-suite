@@ -1,6 +1,24 @@
+import { createHmac, timingSafeEqual } from "crypto";
+
 const MIN_SUBMIT_MS = 3000;
 const MAX_TOKEN_AGE_MS = 60 * 60 * 1000;
 const MAX_SUBMISSIONS_PER_EMAIL_PER_HOUR = 3;
+
+function formSigningSecret(): string | null {
+  return process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || null;
+}
+
+export function issuePublicFormToken():
+  | { issuedAt: number; token: string }
+  | { error: string } {
+  const secret = formSigningSecret();
+  if (!secret) {
+    return { error: "Form is temporarily unavailable." };
+  }
+  const issuedAt = Date.now();
+  const token = createHmac("sha256", secret).update(String(issuedAt)).digest("base64url");
+  return { issuedAt, token };
+}
 
 export function validatePublicFormTiming(issuedAt: unknown): string | null {
   const ts = typeof issuedAt === "number" ? issuedAt : Number(issuedAt);
@@ -14,6 +32,40 @@ export function validatePublicFormTiming(issuedAt: unknown): string | null {
   if (age > MAX_TOKEN_AGE_MS) {
     return "This form session expired. Refresh the page and try again.";
   }
+  return null;
+}
+
+export function validatePublicFormToken(
+  issuedAt: unknown,
+  token: unknown
+): string | null {
+  const timingError = validatePublicFormTiming(issuedAt);
+  if (timingError) {
+    return timingError;
+  }
+
+  const secret = formSigningSecret();
+  if (!secret) {
+    return "Form is temporarily unavailable.";
+  }
+
+  if (typeof token !== "string" || !token.trim()) {
+    return "Invalid form session. Refresh the page and try again.";
+  }
+
+  const ts = typeof issuedAt === "number" ? issuedAt : Number(issuedAt);
+  const expected = createHmac("sha256", secret).update(String(ts)).digest("base64url");
+
+  try {
+    const provided = Buffer.from(token.trim());
+    const reference = Buffer.from(expected);
+    if (provided.length !== reference.length || !timingSafeEqual(provided, reference)) {
+      return "Invalid form session. Refresh the page and try again.";
+    }
+  } catch {
+    return "Invalid form session. Refresh the page and try again.";
+  }
+
   return null;
 }
 

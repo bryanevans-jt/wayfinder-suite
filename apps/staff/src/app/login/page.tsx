@@ -67,7 +67,11 @@ export default async function StaffLoginPage({
           passkey again.
         </p>
       ) : null}
-      <LoginFormShell productName={STAFF_APP_PRODUCT_NAME} shouldCreateUser={false} />
+      <LoginFormShell
+        productName={STAFF_APP_PRODUCT_NAME}
+        shouldCreateUser={false}
+        termsHref="/terms"
+      />
     </main>
   );
 }
