@@ -120,9 +120,7 @@ export function AddClientModal({
           </button>
         </div>
         <p className="mt-1 text-sm text-brand-black/70">
-          Sends the client a Supabase invite email so they can finish sign-in. Requires{" "}
-          <code className="rounded bg-neutral-100 px-1 text-xs">SUPABASE_SERVICE_ROLE_KEY</code>{" "}
-          on the server and outbound email configured in Supabase.
+          We&apos;ll email the client a login link so they can sign in to their portal.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">

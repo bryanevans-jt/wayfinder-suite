@@ -5,17 +5,27 @@ import { formatPortalDateTime } from "@/lib/portal-datetime";
 import {
   clientDisplayName,
   personDisplayName,
-  servicesForClientEdit,
 } from "@wayfinder/branding";
 import {
   AddClientModal,
   type CounselorOption,
 } from "@/app/dashboard/clients/add-client-modal";
 import { AdminMessageAuditPanel } from "@/components/admin-message-audit-panel";
+import { ClientDetailDrawer } from "@/components/client-detail-drawer";
 import { ClientImportPanel } from "@/components/client-import-panel";
+import { ClientListRow } from "@/components/client-list-row";
 import { ErrorLogPanel } from "@/components/error-log-panel";
 import { ClientProfileModal } from "@/components/client-profile-modal";
 import { NaturalSupportModal } from "@/components/natural-support-modal";
+import {
+  PortalNav,
+  isActivityLogsNav,
+  isTeamCounselorsNav,
+  isTeamEsNav,
+  isTeamSupervisorsNav,
+  type PortalNavState,
+} from "@/components/portal-nav";
+import { PortalSetupChecklist } from "@/components/portal-setup-checklist";
 import { friendlyClientError, USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -34,30 +44,8 @@ type ConfigResponse = {
   role: string;
 };
 
-const MANAGE_TABS = [
-  "Offices",
-  "Clients",
-  "Employment Specialists",
-  "Counselors",
-  "Supervisors",
-  "Assignments",
-  "Activity logs",
-  "Message audit",
-  "Users",
-] as const;
-const SUPERVISOR_TABS = [
-  "Clients",
-  "Employment Specialists",
-  "Offices",
-  "Assignments",
-  "Activity logs",
-] as const;
-const VIEW_TABS = SUPERVISOR_TABS;
-
-type Tab = (typeof MANAGE_TABS)[number] | "Error log" | (typeof SUPERVISOR_TABS)[number];
-
 export function PortalWorkspace({ mode, title, subtitle }: Props) {
-  const [tab, setTab] = useState<Tab>(mode === "supervisor" ? "Clients" : "Offices");
+  const [nav, setNav] = useState<PortalNavState>({ primary: "clients" });
   const [config, setConfig] = useState<ConfigResponse | null>(null);
   const [logs, setLogs] = useState<ActivityLogRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -90,17 +78,11 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
     id: string;
     label: string;
   } | null>(null);
+  const [drawerClient, setDrawerClient] = useState<PortalBootstrap["clients"][number] | null>(
+    null
+  );
 
   const canManage = mode !== "supervisor";
-  const tabs = useMemo(
-    () =>
-      canManage
-        ? mode === "super_admin"
-          ? ([...MANAGE_TABS, "Error log"] as const)
-          : MANAGE_TABS
-        : VIEW_TABS,
-    [canManage, mode]
-  );
   const canEditLogs = config?.canEditLogs ?? false;
   const canAssignAdmins = config?.canAssignAdmins ?? false;
   const b = config?.bootstrap;
@@ -135,10 +117,10 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
   }, [reload]);
 
   useEffect(() => {
-    if (tab === "Activity logs") {
+    if (isActivityLogsNav(nav)) {
       void reloadLogs();
     }
-  }, [tab, reloadLogs]);
+  }, [nav, reloadLogs]);
 
   const officeName = useMemo(() => {
     const map = new Map((b?.offices ?? []).map((o) => [o.id, o.name]));
@@ -208,7 +190,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
     try {
       await action();
       await reload();
-      if (tab === "Activity logs") await reloadLogs();
+      if (isActivityLogsNav(nav)) await reloadLogs();
     } catch (e) {
       setError(friendlyClientError(e));
     } finally {
@@ -224,24 +206,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
         <p className="mt-2 max-w-3xl text-sm text-brand-black/75">{subtitle}</p>
       </header>
 
-      <nav className="mt-8 flex flex-wrap gap-2 border-b border-neutral-200 pb-3">
-        {tabs.map((t) => {
-          return (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
-                tab === t
-                  ? "bg-brand-green/10 text-brand-green"
-                  : "text-brand-black/70 hover:bg-neutral-100"
-              }`}
-            >
-              {t}
-            </button>
-          );
-        })}
-      </nav>
+      <PortalNav mode={mode} canManage={canManage} nav={nav} onChange={setNav} />
 
       {error ? (
         <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
@@ -251,7 +216,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
 
       {!b ? (
         <p className="mt-6 text-sm text-brand-black/60">Loading…</p>
-      ) : tab === "Offices" ? (
+      ) : nav.primary === "offices" ? (
         <section className="mt-6 max-w-3xl space-y-6">
           {canManage ? (
             <form
@@ -338,12 +303,16 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
             ))}
           </ul>
         </section>
-      ) : tab === "Clients" ? (
+      ) : nav.primary === "clients" ? (
         <section className="mt-6 max-w-6xl space-y-4">
+          {canManage ? (
+            <PortalSetupChecklist bootstrap={b} canManage={canManage} onNavigate={setNav} />
+          ) : null}
           {canManage ? (
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-brand-black/70">
-                Create clients, assign offices and ES staff, and update contact details.
+                Search clients, add new ones, or import from CSV. Click a client to update their
+                details.
               </p>
               <button
                 type="button"
@@ -387,7 +356,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               onChange={(e) => setClientFilterEs(e.target.value)}
               className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
             >
-              <option value="">All ES</option>
+              <option value="">All employment specialists</option>
               {b.esUsers.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.display_name}
@@ -401,75 +370,33 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 <tr>
                   <th className="px-3 py-2">Client</th>
                   <th className="px-3 py-2">Office</th>
-                  <th className="px-3 py-2">ES</th>
-                  <th className="px-3 py-2">Service</th>
-                  <th className="px-3 py-2">Stage</th>
-                  <th className="px-3 py-2">Counselor</th>
-                  <th className="px-3 py-2">Profile</th>
-                  <th className="px-3 py-2">Support</th>
-                  {canManage ? <th className="px-3 py-2">Actions</th> : null}
+                  <th className="px-3 py-2">Employment specialist</th>
+                  <th className="px-3 py-2">Current stage</th>
+                  {canManage ? (
+                    <th className="px-3 py-2"> </th>
+                  ) : (
+                    <th className="px-3 py-2">Profile</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {filteredClients.length === 0 ? (
                   <tr>
-                    <td colSpan={canManage ? 9 : 8} className="px-3 py-8 text-center text-brand-black/60">
-                      No clients match your filters.
+                    <td colSpan={5} className="px-3 py-8 text-center text-brand-black/60">
+                      {b.clients.length === 0 && canManage
+                        ? "No clients yet. Add one above or use CSV import for bulk onboarding."
+                        : "No clients match your filters."}
                     </td>
                   </tr>
                 ) : canManage ? (
                   filteredClients.map((c) => (
-                    <ClientListItem
+                    <ClientListRow
                       key={c.id}
                       client={c}
-                      offices={b.offices}
-                      esUsers={b.esUsers}
-                      counselors={portalCounselors}
-                      serviceCatalog={b.serviceCatalog}
-                      serviceMilestones={b.serviceMilestones}
                       busy={busy}
                       officeName={officeName}
                       esLabel={esLabel}
-                      onSave={(payload) =>
-                        run(async () => {
-                          const res = await fetch("/api/portal/clients", {
-                            method: "PATCH",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ id: c.id, ...payload }),
-                          });
-                          const data = (await res.json()) as { error?: string };
-                          if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
-                        })
-                      }
-                      onDelete={() =>
-                        run(async () => {
-                          const label = clientDisplayName(c);
-                          if (
-                            !confirm(
-                              `Delete client “${label}”? This removes their client record but not their login account.`
-                            )
-                          ) {
-                            return;
-                          }
-                          const res = await fetch(`/api/portal/clients?id=${c.id}`, {
-                            method: "DELETE",
-                          });
-                          const data = (await res.json()) as { error?: string };
-                          if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
-                        })
-                      }
-                      onOpenProfile={() =>
-                        setProfileModalClient({
-                          id: c.id,
-                          label: clientDisplayName(c),
-                        })
-                      }
-                      onOpenSupport={() =>
-                        setSupportModalClient({
-                          id: c.id,
-                          label: clientDisplayName(c),
-                        })
-                      }
+                      onManage={() => setDrawerClient(c)}
                     />
                   ))
                 ) : (
@@ -485,9 +412,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                       <td className="px-3 py-3">
                         {c.es_user_ids.map((id) => esLabel(id)).join(", ") || "—"}
                       </td>
-                      <td className="px-3 py-3">{c.service_name ?? "—"}</td>
                       <td className="px-3 py-3">{c.stage_title ?? "—"}</td>
-                      <td className="px-3 py-3">{c.counselor_name ?? "—"}</td>
                       <td className="px-3 py-3">
                         <button
                           type="button"
@@ -499,21 +424,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                             })
                           }
                         >
-                          Profile
-                        </button>
-                      </td>
-                      <td className="px-3 py-3">
-                        <button
-                          type="button"
-                          className="font-medium text-brand-green hover:underline"
-                          onClick={() =>
-                            setSupportModalClient({
-                              id: c.id,
-                              label: clientDisplayName(c),
-                            })
-                          }
-                        >
-                          Invite
+                          View profile
                         </button>
                       </td>
                     </tr>
@@ -538,7 +449,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
             />
           ) : null}
         </section>
-      ) : tab === "Employment Specialists" ? (
+      ) : isTeamEsNav(nav) ? (
         <section className="mt-6 max-w-4xl space-y-6">
           {canManage ? (
             <form
@@ -565,7 +476,8 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
             >
               <h2 className="text-lg font-semibold text-brand-black">Add Employment Specialist</h2>
               <p className="text-sm text-brand-black/70">
-                Sends a Supabase invite if they do not have an account yet, then assigns the ES role.
+                We&apos;ll email them a login link if they&apos;re new to Wayfinder, then grant
+                employment specialist access.
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <input
@@ -695,7 +607,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
             </table>
           </div>
         </section>
-      ) : tab === "Counselors" && canManage ? (
+      ) : isTeamCounselorsNav(nav) && canManage ? (
         <section className="mt-6 max-w-4xl space-y-6">
           <p className="text-sm text-brand-black/70">
             Counselors are external partners with <strong>view-only</strong> access to their
@@ -821,11 +733,11 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
             </table>
           </div>
         </section>
-      ) : tab === "Supervisors" && canManage ? (
+      ) : isTeamSupervisorsNav(nav) && canManage ? (
         <section className="mt-6 max-w-4xl space-y-6">
           <p className="text-sm text-brand-black/70">
-            Supervisors oversee <strong>Employment Specialists</strong> — not counselors. Link
-            supervisors to ES staff under Assignments, then scope activity logs by office or ES.
+            Supervisors oversee employment specialists — not counselors. Link supervisors to ES staff
+            under Settings → Advanced connections, or when editing a team member.
           </p>
           <form
             className="space-y-4 rounded-xl border border-neutral-200 bg-white p-4"
@@ -947,13 +859,28 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
             </table>
           </div>
         </section>
-      ) : tab === "Assignments" ? (
-        <section className="mt-6 grid max-w-5xl gap-8 lg:grid-cols-2">
+      ) : (nav.primary === "settings" && nav.settings === "advanced") ||
+        nav.primary === "connections" ? (
+        <section className="mt-6 max-w-5xl space-y-6">
+          {canManage ? (
+            <div>
+              <h2 className="text-lg font-semibold text-brand-black">Advanced connections</h2>
+              <p className="mt-1 text-sm text-brand-black/70">
+                Most day-to-day assignments happen when you add or edit clients and team members.
+                Use this section only when you need to adjust links in bulk.
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-brand-black/70">
+              Staff and client connections in your scope. Contact an admin to make changes.
+            </p>
+          )}
+          <div className="grid gap-8 lg:grid-cols-2">
           {canManage ? (
             <>
               <AssignmentCard
-                title="Counselor ↔ office"
-                description="External counselors linked to offices. They only get view-only access to assigned clients."
+                title="Counselor office access"
+                description="Which offices each counselor can view (read-only access to assigned clients)."
                 busy={busy}
                 onAdd={(counselorId, officeId) =>
                   run(async () => {
@@ -991,8 +918,8 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 }}
               />
               <AssignmentCard
-                title="ES ↔ office"
-                description="Employment specialists can cover multiple offices."
+                title="ES office coverage"
+                description="Offices each employment specialist can work from."
                 busy={busy}
                 onAdd={(userId, officeId) =>
                   run(async () => {
@@ -1029,8 +956,8 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 }}
               />
               <AssignmentCard
-                title="Supervisor ↔ ES"
-                description="Supervisors monitor Employment Specialist caseloads and activity — not counselors."
+                title="Supervisor to ES link"
+                description="Which employment specialists each supervisor oversees."
                 busy={busy}
                 onAdd={(supervisorId, esId) =>
                   run(async () => {
@@ -1070,8 +997,8 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 }}
               />
               <AssignmentCard
-                title="Client ↔ ES"
-                description="Which ES owns each client caseload."
+                title="Client caseload"
+                description="Which employment specialist owns each client's caseload."
                 busy={busy}
                 onAdd={(esId, clientId) =>
                   run(async () => {
@@ -1142,8 +1069,9 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               />
             </div>
           )}
+          </div>
         </section>
-      ) : tab === "Activity logs" ? (
+      ) : isActivityLogsNav(nav) ? (
         <section className="mt-6 max-w-6xl space-y-4">
           <div className="flex flex-wrap gap-3">
             <select
@@ -1267,14 +1195,14 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
             </p>
           ) : null}
         </section>
-      ) : tab === "Message audit" && canManage ? (
+      ) : nav.primary === "reports" && nav.reports === "messages" && canManage ? (
         <AdminMessageAuditPanel
           clients={b.clients}
           isSuperAdmin={config?.role === "super_admin"}
         />
-      ) : tab === "Error log" && mode === "super_admin" ? (
+      ) : nav.primary === "settings" && nav.settings === "errors" && mode === "super_admin" ? (
         <ErrorLogPanel />
-      ) : tab === "Users" && canManage ? (
+      ) : nav.primary === "settings" && (nav.settings ?? "users") === "users" && canManage ? (
         <section className="mt-6 max-w-3xl space-y-6">
           <div>
             <h2 className="text-lg font-semibold text-brand-black">Administrators</h2>
@@ -1371,6 +1299,61 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
             </p>
           )}
         </section>
+      ) : null}
+
+      {b && drawerClient ? (
+        <ClientDetailDrawer
+          open={drawerClient !== null}
+          client={drawerClient}
+          offices={b.offices}
+          esUsers={b.esUsers}
+          counselors={portalCounselors}
+          serviceCatalog={b.serviceCatalog}
+          serviceMilestones={b.serviceMilestones}
+          busy={busy}
+          onClose={() => setDrawerClient(null)}
+          onSave={(payload) =>
+            run(async () => {
+              const res = await fetch("/api/portal/clients", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: drawerClient.id, ...payload }),
+              });
+              const data = (await res.json()) as { error?: string };
+              if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+            })
+          }
+          onDelete={async () => {
+            const label = clientDisplayName(drawerClient);
+            if (
+              !confirm(
+                `Delete client “${label}”? This removes their client record but not their login account.`
+              )
+            ) {
+              return;
+            }
+            await run(async () => {
+              const res = await fetch(`/api/portal/clients?id=${drawerClient.id}`, {
+                method: "DELETE",
+              });
+              const data = (await res.json()) as { error?: string };
+              if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+              setDrawerClient(null);
+            });
+          }}
+          onOpenProfile={() => {
+            setProfileModalClient({
+              id: drawerClient.id,
+              label: clientDisplayName(drawerClient),
+            });
+          }}
+          onOpenSupport={() => {
+            setSupportModalClient({
+              id: drawerClient.id,
+              label: clientDisplayName(drawerClient),
+            });
+          }}
+        />
       ) : null}
 
       <NaturalSupportModal
@@ -2025,320 +2008,6 @@ function SupervisorStaffListItem({
         </span>
       </td>
       <td className="whitespace-nowrap px-3 py-3">
-        <button
-          type="button"
-          disabled={busy}
-          className="mr-3 font-medium text-brand-green hover:underline disabled:opacity-60"
-          onClick={() => setEditing(true)}
-        >
-          Edit
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          className="text-red-700 hover:underline disabled:opacity-60"
-          onClick={() => void onDelete()}
-        >
-          Delete
-        </button>
-      </td>
-    </tr>
-  );
-}
-
-function ClientListItem({
-  client,
-  offices,
-  esUsers,
-  counselors,
-  serviceCatalog,
-  serviceMilestones,
-  busy,
-  officeName,
-  esLabel,
-  onSave,
-  onDelete,
-  onOpenProfile,
-  onOpenSupport,
-}: {
-  client: ClientRow;
-  offices: PortalBootstrap["offices"];
-  esUsers: PortalBootstrap["esUsers"];
-  counselors: CounselorOption[];
-  serviceCatalog: PortalBootstrap["serviceCatalog"];
-  serviceMilestones: PortalBootstrap["serviceMilestones"];
-  busy: boolean;
-  officeName: (id: string | null) => string;
-  esLabel: (id: string | null) => string;
-  onSave: (payload: {
-    name: string;
-    contact_email: string;
-    office_id: string;
-    counselor_id: string;
-    es_user_id: string | null;
-    current_service_id: string;
-    current_stage_id: string;
-  }) => Promise<void>;
-  onDelete: () => Promise<void>;
-  onOpenProfile: () => void;
-  onOpenSupport: () => void;
-}) {
-  const serviceOptions = useMemo(
-    () => servicesForClientEdit(serviceCatalog, client.current_service_id),
-    [serviceCatalog, client.current_service_id]
-  );
-
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(client.full_name ?? "");
-  const [email, setEmail] = useState(client.contact_email ?? "");
-  const [officeId, setOfficeId] = useState(client.office_id ?? offices[0]?.id ?? "");
-  const [counselorId, setCounselorId] = useState(client.counselor_id ?? "");
-  const [esUserId, setEsUserId] = useState(client.es_user_ids[0] ?? "");
-  const [serviceId, setServiceId] = useState(
-    client.current_service_id ?? serviceOptions[0]?.id ?? ""
-  );
-  const [stageId, setStageId] = useState(client.current_stage_id ?? "");
-
-  const stagesForService = useMemo(
-    () =>
-      serviceMilestones
-        .filter((m) => m.service_id === serviceId)
-        .sort((a, b) => a.order_index - b.order_index),
-    [serviceMilestones, serviceId]
-  );
-
-  useEffect(() => {
-    setName(client.full_name ?? "");
-    setEmail(client.contact_email ?? "");
-    setOfficeId(client.office_id ?? offices[0]?.id ?? "");
-    setCounselorId(client.counselor_id ?? "");
-    setEsUserId(client.es_user_ids[0] ?? "");
-    const nextServiceId = client.current_service_id ?? serviceOptions[0]?.id ?? "";
-    setServiceId(nextServiceId);
-    setStageId(client.current_stage_id ?? "");
-  }, [client, offices, serviceOptions]);
-
-  useEffect(() => {
-    if (!editing) return;
-    if (stagesForService.some((m) => m.id === stageId)) return;
-    setStageId(stagesForService[0]?.id ?? "");
-  }, [editing, stagesForService, stageId]);
-
-  const counselorsForOffice = useMemo(
-    () => counselors.filter((c) => c.office_id === officeId),
-    [counselors, officeId]
-  );
-
-  const displayName = clientDisplayName(client);
-
-  function handleServiceChange(nextServiceId: string) {
-    setServiceId(nextServiceId);
-    const nextStages = serviceMilestones
-      .filter((m) => m.service_id === nextServiceId)
-      .sort((a, b) => a.order_index - b.order_index);
-    setStageId(nextStages[0]?.id ?? "");
-  }
-
-  if (editing) {
-    return (
-      <tr className="border-t border-neutral-100 bg-neutral-50/80">
-        <td className="px-3 py-2">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="mb-1 w-full min-w-[120px] rounded border border-neutral-300 px-2 py-1 text-sm"
-            placeholder="Name"
-            disabled={busy}
-          />
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            type="email"
-            className="w-full min-w-[120px] rounded border border-neutral-300 px-2 py-1 text-sm"
-            placeholder="Email"
-            disabled={busy}
-          />
-        </td>
-        <td className="px-3 py-2">
-          <select
-            value={officeId}
-            onChange={(e) => {
-              setOfficeId(e.target.value);
-              setCounselorId("");
-            }}
-            className="w-full min-w-[100px] rounded border border-neutral-300 px-2 py-1 text-sm"
-            disabled={busy}
-          >
-            {offices.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </select>
-        </td>
-        <td className="px-3 py-2">
-          <select
-            value={esUserId}
-            onChange={(e) => setEsUserId(e.target.value)}
-            className="w-full min-w-[100px] rounded border border-neutral-300 px-2 py-1 text-sm"
-            disabled={busy}
-          >
-            <option value="">Unassigned</option>
-            {esUsers.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.display_name}
-              </option>
-            ))}
-          </select>
-        </td>
-        <td className="px-3 py-2">
-          <select
-            value={serviceId}
-            onChange={(e) => handleServiceChange(e.target.value)}
-            className="w-full min-w-[100px] rounded border border-neutral-300 px-2 py-1 text-sm"
-            disabled={busy || serviceOptions.length === 0}
-          >
-            {serviceOptions.length === 0 ? (
-              <option value="">No services</option>
-            ) : (
-              serviceOptions.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))
-            )}
-          </select>
-        </td>
-        <td className="px-3 py-2">
-          <select
-            value={stageId}
-            onChange={(e) => setStageId(e.target.value)}
-            className="w-full min-w-[100px] rounded border border-neutral-300 px-2 py-1 text-sm"
-            disabled={busy || stagesForService.length === 0}
-          >
-            {stagesForService.length === 0 ? (
-              <option value="">No stages</option>
-            ) : (
-              stagesForService.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.title}
-                </option>
-              ))
-            )}
-          </select>
-        </td>
-        <td className="px-3 py-2">
-          <select
-            value={counselorId}
-            onChange={(e) => setCounselorId(e.target.value)}
-            className="w-full min-w-[100px] rounded border border-neutral-300 px-2 py-1 text-sm"
-            disabled={busy}
-          >
-            <option value="">Select counselor</option>
-            {counselorsForOffice.map((c) => (
-              <option key={c.id} value={c.id}>
-                {personDisplayName({ full_name: c.full_name, id: c.id })}
-              </option>
-            ))}
-          </select>
-        </td>
-        <td className="px-3 py-2">
-          <button
-            type="button"
-            disabled={busy}
-            className="font-medium text-brand-green hover:underline disabled:opacity-60"
-            onClick={onOpenProfile}
-          >
-            Profile
-          </button>
-        </td>
-        <td className="px-3 py-2">
-          <button
-            type="button"
-            disabled={busy}
-            className="font-medium text-brand-green hover:underline disabled:opacity-60"
-            onClick={onOpenSupport}
-          >
-            Invite
-          </button>
-        </td>
-        <td className="whitespace-nowrap px-3 py-2">
-          <button
-            type="button"
-            disabled={
-              busy ||
-              !name.trim() ||
-              !officeId ||
-              !counselorId ||
-              !serviceId ||
-              !stageId
-            }
-            className="mr-3 font-medium text-brand-green hover:underline disabled:opacity-60"
-            onClick={() =>
-              void onSave({
-                name: name.trim(),
-                contact_email: email.trim(),
-                office_id: officeId,
-                counselor_id: counselorId,
-                es_user_id: esUserId || null,
-                current_service_id: serviceId,
-                current_stage_id: stageId,
-              }).then(() => setEditing(false))
-            }
-          >
-            Save
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            className="text-brand-black/60 hover:underline disabled:opacity-60"
-            onClick={() => setEditing(false)}
-          >
-            Cancel
-          </button>
-        </td>
-      </tr>
-    );
-  }
-
-  return (
-    <tr className="border-t border-neutral-100">
-      <td className="px-3 py-2">
-        <p className="font-medium text-brand-black">{displayName}</p>
-        {client.contact_email ? (
-          <p className="text-xs text-brand-black/60">{client.contact_email}</p>
-        ) : null}
-      </td>
-      <td className="px-3 py-2">{officeName(client.office_id)}</td>
-      <td className="px-3 py-2">
-        {client.es_user_ids.length > 0
-          ? client.es_user_ids.map((id) => esLabel(id)).join(", ")
-          : "—"}
-      </td>
-      <td className="px-3 py-2">{client.service_name ?? "—"}</td>
-      <td className="px-3 py-2">{client.stage_title ?? "—"}</td>
-      <td className="px-3 py-2">{client.counselor_name ?? "—"}</td>
-      <td className="px-3 py-2">
-        <button
-          type="button"
-          disabled={busy}
-          className="font-medium text-brand-green hover:underline disabled:opacity-60"
-          onClick={onOpenProfile}
-        >
-          Profile
-        </button>
-      </td>
-      <td className="px-3 py-2">
-        <button
-          type="button"
-          disabled={busy}
-          className="font-medium text-brand-green hover:underline disabled:opacity-60"
-          onClick={onOpenSupport}
-        >
-          Invite
-        </button>
-      </td>
-      <td className="whitespace-nowrap px-3 py-2">
         <button
           type="button"
           disabled={busy}

@@ -8,7 +8,7 @@ export default async function AdminPortalPage() {
     <PortalWorkspace
       mode="admin"
       title="Admin"
-      subtitle="Manage offices, clients, Employment Specialists, counselors, supervisors, assignments, view/export activity logs, and audit client messages — contact logs are read-only at this tier."
+      subtitle="Manage clients, team members, offices, and reports. Day-to-day work starts on the Clients tab."
     />
   );
 }

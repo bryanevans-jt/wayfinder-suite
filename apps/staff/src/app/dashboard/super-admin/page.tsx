@@ -8,7 +8,7 @@ export default async function SuperAdminPortalPage() {
     <PortalWorkspace
       mode="super_admin"
       title="Super admin"
-      subtitle="Full control: offices, clients, Employment Specialists, counselors, supervisors, staff assignments, activity logs (including edit/delete contact logs), message audit and retention purge, and admin invitations. Your account is protected from deletion."
+      subtitle="Full organization control. Clients is your home tab; advanced connections and error logs live under Settings."
     />
   );
 }
