@@ -11,6 +11,7 @@ export * from "./client-create";
 export * from "./office-insert";
 export * from "./dashboard-client";
 export * from "./auth-client-row";
+export * from "./client-message-api";
 export * from "./business-hours";
 export * from "./meeting-ics";
 export * from "./natural-support-invite";

@@ -1,59 +1,30 @@
-import { createServerClient, resolveAuthClientId } from "@wayfinder/supabase";
-import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { createServerClient, requireClientMessageApiContext } from "@wayfinder/supabase";
 import {
   respondWithLoggedError,
   resolveErrorActor,
-  USER_FACING_AUTH_REQUIRED,
 } from "@wayfinder/supabase/error-log";
 import { NextResponse } from "next/server";
-
-async function getClientUser(supabase: Awaited<ReturnType<typeof createServerClient>>) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return null;
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (profile?.role !== "client") {
-    return null;
-  }
-
-  const clientId = await resolveAuthClientId(supabase, user.id);
-
-  if (!clientId) {
-    return null;
-  }
-
-  return { user, clientId };
-}
 
 export async function GET() {
   const route = "api/messages/thread";
   try {
     const supabase = await createServerClient();
-    const ctx = await getClientUser(supabase);
-    if (!ctx) {
-      return NextResponse.json({ error: USER_FACING_AUTH_REQUIRED }, { status: 401 });
+    const auth = await requireClientMessageApiContext(supabase);
+    if ("error" in auth) {
+      return auth.error;
     }
 
-    const actor = await resolveErrorActor(supabase, ctx.user.id);
+    const { ctx } = auth;
+    const actor = await resolveErrorActor(supabase, ctx.userId);
 
-    let { data: thread } = await supabase
+    let { data: thread } = await ctx.admin
       .from("client_message_threads")
       .select("id, current_es_user_id")
       .eq("client_id", ctx.clientId)
       .maybeSingle();
 
     if (!thread) {
-      const admin = createServiceRoleClient();
-      const { data: assignment } = await admin
+      const { data: assignment } = await ctx.admin
         .from("es_client_assignments")
         .select("es_user_id")
         .eq("client_id", ctx.clientId)
@@ -61,7 +32,7 @@ export async function GET() {
         .maybeSingle();
 
       if (assignment?.es_user_id) {
-        const { error: upsertErr } = await admin.from("client_message_threads").upsert(
+        const { error: upsertErr } = await ctx.admin.from("client_message_threads").upsert(
           {
             client_id: ctx.clientId,
             current_es_user_id: assignment.es_user_id,
@@ -71,7 +42,7 @@ export async function GET() {
         if (upsertErr) {
           return respondWithLoggedError("client", route, upsertErr, actor);
         }
-        const refetch = await supabase
+        const refetch = await ctx.admin
           .from("client_message_threads")
           .select("id, current_es_user_id")
           .eq("client_id", ctx.clientId)
@@ -86,7 +57,7 @@ export async function GET() {
 
     let esName: string | null = null;
     if (thread.current_es_user_id) {
-      const { data: esProfile } = await supabase
+      const { data: esProfile } = await ctx.admin
         .from("profiles")
         .select("full_name")
         .eq("id", thread.current_es_user_id)
@@ -94,7 +65,7 @@ export async function GET() {
       esName = esProfile?.full_name ?? null;
     }
 
-    const { data: messages, error } = await supabase
+    const { data: messages, error } = await ctx.admin
       .from("client_messages")
       .select("id, body, sender_role, sender_user_id, created_at")
       .eq("thread_id", thread.id)
@@ -106,7 +77,7 @@ export async function GET() {
 
     const senderIds = [...new Set((messages ?? []).map((m) => m.sender_user_id as string))];
     const { data: profiles } = senderIds.length
-      ? await supabase.from("profiles").select("id, full_name").in("id", senderIds)
+      ? await ctx.admin.from("profiles").select("id, full_name").in("id", senderIds)
       : { data: [] as { id: string; full_name: string | null }[] };
 
     const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));

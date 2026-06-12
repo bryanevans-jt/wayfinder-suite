@@ -32,11 +32,11 @@ export function WayfinderTopNav({ badgeLabel, homeHref, homeAriaLabel }: Props) 
           <Image
             src={WAYFINDER_LOGO_PATH}
             alt=""
-            width={160}
-            height={48}
-            className="h-[38px] w-auto max-w-[min(220px,50vw)] object-contain object-left"
+            width={220}
+            height={66}
+            className="h-10 w-auto max-w-[min(240px,70vw)] object-contain object-left sm:h-11 sm:max-w-[260px] lg:h-12 lg:max-w-[280px]"
             priority
-            sizes="(max-width: 640px) 50vw, 220px"
+            sizes="(max-width: 640px) 70vw, 280px"
           />
         </Link>
         <span className="ml-auto rounded-full border border-brand-green/40 bg-brand-green/10 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-brand-green">

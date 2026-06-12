@@ -1,11 +1,7 @@
-import { createServerClient, resolveAuthClientId } from "@wayfinder/supabase";
-import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { createServerClient, requireClientMessageApiContext } from "@wayfinder/supabase";
 import {
   respondWithLoggedError,
   resolveErrorActor,
-  USER_FACING_AUTH_REQUIRED,
-  USER_FACING_FORBIDDEN,
-  USER_FACING_NOT_FOUND,
 } from "@wayfinder/supabase/error-log";
 import { notifyUser } from "@wayfinder/supabase/notify-user";
 import { NextResponse } from "next/server";
@@ -14,31 +10,13 @@ export async function POST(request: Request) {
   const route = "api/messages/send";
   try {
     const supabase = await createServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: USER_FACING_AUTH_REQUIRED }, { status: 401 });
+    const auth = await requireClientMessageApiContext(supabase);
+    if ("error" in auth) {
+      return auth.error;
     }
 
-    const actor = await resolveErrorActor(supabase, user.id);
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (profile?.role !== "client") {
-      return NextResponse.json({ error: USER_FACING_FORBIDDEN }, { status: 403 });
-    }
-
-    const clientId = await resolveAuthClientId(supabase, user.id);
-
-    if (!clientId) {
-      return NextResponse.json({ error: USER_FACING_NOT_FOUND }, { status: 404 });
-    }
+    const { ctx } = auth;
+    const actor = await resolveErrorActor(supabase, ctx.userId);
 
     const payload = (await request.json()) as { body?: string };
     const text = payload.body?.trim();
@@ -46,19 +24,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Message is required" }, { status: 400 });
     }
 
-    let { data: thread } = await supabase
+    let { data: thread } = await ctx.admin
       .from("client_message_threads")
       .select("id, current_es_user_id")
-      .eq("client_id", clientId)
+      .eq("client_id", ctx.clientId)
       .maybeSingle();
 
-    const admin = createServiceRoleClient();
-
     if (!thread) {
-      const { data: assignment } = await admin
+      const { data: assignment } = await ctx.admin
         .from("es_client_assignments")
         .select("es_user_id")
-        .eq("client_id", clientId)
+        .eq("client_id", ctx.clientId)
         .limit(1)
         .maybeSingle();
 
@@ -69,10 +45,10 @@ export async function POST(request: Request) {
         );
       }
 
-      const { data: created, error: threadErr } = await admin
+      const { data: created, error: threadErr } = await ctx.admin
         .from("client_message_threads")
         .upsert(
-          { client_id: clientId, current_es_user_id: assignment.es_user_id },
+          { client_id: ctx.clientId, current_es_user_id: assignment.es_user_id },
           { onConflict: "client_id" }
         )
         .select("id, current_es_user_id")
@@ -91,9 +67,9 @@ export async function POST(request: Request) {
 
     const now = new Date().toISOString();
 
-    const { error: msgErr } = await supabase.from("client_messages").insert({
+    const { error: msgErr } = await ctx.admin.from("client_messages").insert({
       thread_id: thread.id,
-      sender_user_id: user.id,
+      sender_user_id: ctx.userId,
       sender_role: "client",
       body: text,
     });
@@ -102,19 +78,19 @@ export async function POST(request: Request) {
       return respondWithLoggedError("client", route, msgErr, actor);
     }
 
-    await supabase
+    await ctx.admin
       .from("client_message_threads")
       .update({ last_client_message_at: now })
       .eq("id", thread.id);
 
     if (thread.current_es_user_id) {
-      await notifyUser(admin, {
+      await notifyUser(ctx.admin, {
         userId: thread.current_es_user_id,
         kind: "client_message",
         title: "New client message",
         body: text.slice(0, 120),
         link_path: "/dashboard/messages",
-        metadata: { thread_id: thread.id, client_id: clientId },
+        metadata: { thread_id: thread.id, client_id: ctx.clientId },
         app: "staff",
       });
     }

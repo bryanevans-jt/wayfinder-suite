@@ -1,15 +1,46 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-/** Resolve the clients.id row for a signed-in auth user (user_id or legacy profile_id). */
+/** Find clients.id for a signed-in auth user (matches user_id or legacy profile_id). */
+export async function lookupClientIdForAuthUser(
+  db: SupabaseClient,
+  authUserId: string
+): Promise<string | null> {
+  const { data: byUser } = await db
+    .from("clients")
+    .select("id")
+    .eq("user_id", authUserId)
+    .limit(1)
+    .maybeSingle();
+
+  if (byUser?.id) {
+    return byUser.id as string;
+  }
+
+  const { data: byProfile } = await db
+    .from("clients")
+    .select("id")
+    .eq("profile_id", authUserId)
+    .limit(1)
+    .maybeSingle();
+
+  if (byProfile?.id) {
+    return byProfile.id as string;
+  }
+
+  const { data: byLegacyId } = await db
+    .from("clients")
+    .select("id")
+    .eq("id", authUserId)
+    .limit(1)
+    .maybeSingle();
+
+  return (byLegacyId?.id as string | undefined) ?? null;
+}
+
+/** Resolve the clients.id row using the caller's RLS-scoped client. */
 export async function resolveAuthClientId(
   supabase: SupabaseClient,
   authUserId: string
 ): Promise<string | null> {
-  const { data } = await supabase
-    .from("clients")
-    .select("id")
-    .or(`user_id.eq.${authUserId},profile_id.eq.${authUserId}`)
-    .maybeSingle();
-
-  return data?.id ?? null;
+  return lookupClientIdForAuthUser(supabase, authUserId);
 }

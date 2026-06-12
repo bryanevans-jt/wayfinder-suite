@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { lookupClientIdForAuthUser } from "./auth-client-row";
 import { isSupportRole } from "./roles";
 
 const UUID_RE =
@@ -40,14 +41,10 @@ export async function resolveDashboardClient(
     return { clientId: pickId, readOnly: true, userId };
   }
 
-  const { data: clientRow } = await supabase
-    .from("clients")
-    .select("id")
-    .or(`user_id.eq.${userId},profile_id.eq.${userId}`)
-    .maybeSingle();
+  const clientId = await lookupClientIdForAuthUser(supabase, userId);
 
-  if (clientRow?.id) {
-    return { clientId: clientRow.id, readOnly: false, userId };
+  if (clientId) {
+    return { clientId, readOnly: false, userId };
   }
 
   return null;

@@ -1,55 +1,27 @@
-import { createServerClient } from "@wayfinder/supabase";
-import {
-  respondWithLoggedError,
-  resolveErrorActor,
-  USER_FACING_AUTH_REQUIRED,
-  USER_FACING_FORBIDDEN,
-  USER_FACING_NOT_FOUND,
-} from "@wayfinder/supabase/error-log";
+import { createServerClient, requireClientMessageApiContext } from "@wayfinder/supabase";
+import { respondWithLoggedError, resolveErrorActor } from "@wayfinder/supabase/error-log";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
   const route = "api/messages/export";
   try {
     const supabase = await createServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: USER_FACING_AUTH_REQUIRED }, { status: 401 });
+    const auth = await requireClientMessageApiContext(supabase);
+    if ("error" in auth) {
+      return auth.error;
     }
 
-    const actor = await resolveErrorActor(supabase, user.id);
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (profile?.role !== "client") {
-      return NextResponse.json({ error: USER_FACING_FORBIDDEN }, { status: 403 });
-    }
+    const { ctx } = auth;
+    const actor = await resolveErrorActor(supabase, ctx.userId);
 
     const url = new URL(request.url);
     const from = url.searchParams.get("from");
     const to = url.searchParams.get("to");
 
-    const { data: client } = await supabase
-      .from("clients")
-      .select("id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (!client?.id) {
-      return NextResponse.json({ error: USER_FACING_NOT_FOUND }, { status: 404 });
-    }
-
-    const { data: thread } = await supabase
+    const { data: thread } = await ctx.admin
       .from("client_message_threads")
       .select("id")
-      .eq("client_id", client.id)
+      .eq("client_id", ctx.clientId)
       .maybeSingle();
 
     if (!thread?.id) {
@@ -58,7 +30,7 @@ export async function GET(request: Request) {
       });
     }
 
-    let query = supabase
+    let query = ctx.admin
       .from("client_messages")
       .select("created_at, sender_role, body")
       .eq("thread_id", thread.id)
