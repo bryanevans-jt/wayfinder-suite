@@ -12,6 +12,7 @@ import {
   type CounselorOption,
 } from "@/app/dashboard/clients/add-client-modal";
 import { AdminMessageAuditPanel } from "@/components/admin-message-audit-panel";
+import { ClientImportPanel } from "@/components/client-import-panel";
 import { ErrorLogPanel } from "@/components/error-log-panel";
 import { ClientProfileModal } from "@/components/client-profile-modal";
 import { NaturalSupportModal } from "@/components/natural-support-modal";
@@ -359,6 +360,9 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               contact the admin team to update records.
             </p>
           )}
+          {canManage ? (
+            <ClientImportPanel disabled={busy} onComplete={() => void reload()} />
+          ) : null}
           <div className="flex flex-wrap gap-3">
             <input
               value={clientSearch}

@@ -14,14 +14,32 @@ export async function createClientWithInvite(
   admin: SupabaseClient,
   params: CreateClientParams
 ): Promise<{ clientId: string } | { error: string }> {
+  return createClientAccount(admin, { ...params, sendInvite: true });
+}
+
+export type CreateClientAccountParams = CreateClientParams & {
+  /** When false, creates a login without sending email (bulk onboarding). Default true. */
+  sendInvite?: boolean;
+};
+
+export async function createClientAccount(
+  admin: SupabaseClient,
+  params: CreateClientAccountParams
+): Promise<{ clientId: string } | { error: string }> {
   const name = params.name.trim();
   const email = params.email.trim().toLowerCase();
   const serviceId = params.serviceId.trim();
   const officeId = params.officeId.trim();
   const counselorId = params.counselorId.trim();
+  const sendInvite = params.sendInvite !== false;
 
   if (!name || !email || !serviceId || !officeId || !counselorId) {
     return { error: "Missing required fields" };
+  }
+
+  const counselorOk = await counselorBelongsToOffice(admin, counselorId, officeId);
+  if (!counselorOk) {
+    return { error: "Counselor must belong to the selected office" };
   }
 
   const { data: counselor, error: counselorErr } = await admin
@@ -30,8 +48,8 @@ export async function createClientWithInvite(
     .eq("id", counselorId)
     .maybeSingle();
 
-  if (counselorErr || !counselor || counselor.office_id !== officeId) {
-    return { error: "Counselor must belong to the selected office" };
+  if (counselorErr || !counselor) {
+    return { error: "Invalid counselor" };
   }
 
   const { data: service, error: serviceErr } = await admin
@@ -58,26 +76,12 @@ export async function createClientWithInvite(
     };
   }
 
-  const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
-    data: { full_name: name },
-  });
-
-  if (inviteErr || !invited.user) {
-    const msg = inviteErr?.message ?? "Could not invite user";
-    return { error: msg };
+  const authResult = await provisionClientAuthUser(admin, email, name, sendInvite);
+  if ("error" in authResult) {
+    return authResult;
   }
 
-  const newUserId = invited.user.id;
-
-  const { error: profileErr } = await admin
-    .from("profiles")
-    .update({ full_name: name })
-    .eq("id", newUserId);
-
-  if (profileErr) {
-    await admin.auth.admin.deleteUser(newUserId);
-    return { error: profileErr.message ?? "Could not update profile" };
-  }
+  const newUserId = authResult.userId;
 
   const clientResult = await insertClientRecord(admin, {
     authUserId: newUserId,
@@ -90,7 +94,9 @@ export async function createClientWithInvite(
   });
 
   if ("error" in clientResult) {
-    await admin.auth.admin.deleteUser(newUserId);
+    if (authResult.created) {
+      await admin.auth.admin.deleteUser(newUserId);
+    }
     return { error: clientResult.error };
   }
 
@@ -102,10 +108,94 @@ export async function createClientWithInvite(
 
     if (assignErr) {
       await admin.from("clients").delete().eq("id", clientResult.id);
-      await admin.auth.admin.deleteUser(newUserId);
+      if (authResult.created) {
+        await admin.auth.admin.deleteUser(newUserId);
+      }
       return { error: assignErr.message ?? "Could not assign client to ES" };
     }
   }
 
   return { clientId: clientResult.id };
+}
+
+async function provisionClientAuthUser(
+  admin: SupabaseClient,
+  email: string,
+  name: string,
+  sendInvite: boolean
+): Promise<{ userId: string; created: boolean } | { error: string }> {
+  if (sendInvite) {
+    const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
+      data: { full_name: name },
+    });
+
+    if (inviteErr || !invited.user) {
+      const msg = inviteErr?.message ?? "Could not invite user";
+      return { error: msg };
+    }
+
+    const newUserId = invited.user.id;
+    const { error: profileErr } = await admin
+      .from("profiles")
+      .update({ full_name: name })
+      .eq("id", newUserId);
+
+    if (profileErr) {
+      await admin.auth.admin.deleteUser(newUserId);
+      return { error: profileErr.message ?? "Could not update profile" };
+    }
+
+    return { userId: newUserId, created: true };
+  }
+
+  const { data: created, error: createErr } = await admin.auth.admin.createUser({
+    email,
+    email_confirm: true,
+    user_metadata: { full_name: name },
+  });
+
+  if (createErr || !created.user) {
+    const msg = createErr?.message ?? "Could not create user";
+    if (/already|registered|exists/i.test(msg)) {
+      return { error: "Email already registered" };
+    }
+    return { error: msg };
+  }
+
+  const newUserId = created.user.id;
+  const { error: profileErr } = await admin
+    .from("profiles")
+    .update({ full_name: name, role: "client" })
+    .eq("id", newUserId);
+
+  if (profileErr) {
+    await admin.auth.admin.deleteUser(newUserId);
+    return { error: profileErr.message ?? "Could not update profile" };
+  }
+
+  return { userId: newUserId, created: true };
+}
+
+async function counselorBelongsToOffice(
+  admin: SupabaseClient,
+  counselorId: string,
+  officeId: string
+): Promise<boolean> {
+  const { data: counselor } = await admin
+    .from("counselors")
+    .select("id, office_id")
+    .eq("id", counselorId)
+    .maybeSingle();
+
+  if (!counselor) return false;
+  if (counselor.office_id === officeId) return true;
+
+  const { data: link } = await admin
+    .from("counselor_office_assignments")
+    .select("id")
+    .eq("counselor_id", counselorId)
+    .eq("office_id", officeId)
+    .maybeSingle();
+
+  return Boolean(link);
 }

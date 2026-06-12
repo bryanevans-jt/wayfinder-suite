@@ -19,7 +19,9 @@
     "./preview-cookies": "./src/preview-cookies.ts",
     "./preview-middleware": "./src/preview-middleware.ts",
     "./notify-user": "./src/notify-user.ts",
-    "./error-log": "./src/error-log.ts"
+    "./error-log": "./src/error-log.ts",
+    "./client-bulk-import": "./src/client-bulk-import.ts",
+    "./client-import-csv": "./src/client-import-csv.ts"
   },
   "scripts": {
     "lint": "tsc --noEmit"
