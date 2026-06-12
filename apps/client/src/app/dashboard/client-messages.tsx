@@ -123,15 +123,6 @@ export function ClientMessagesPanel() {
         )}
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        <a
-          href="/api/messages/export"
-          className="text-xs font-semibold text-brand-green underline underline-offset-2 hover:text-brand-green/80"
-        >
-          Export message history (CSV)
-        </a>
-      </div>
-
       <div className="mt-4 flex flex-col gap-2 sm:flex-row">
         <textarea
           value={body}
