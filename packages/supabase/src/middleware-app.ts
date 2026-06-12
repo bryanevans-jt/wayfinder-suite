@@ -33,6 +33,53 @@ function redirectPreservingCookies(
   return out;
 }
 
+type AuthProfile = { role: string; is_active: boolean };
+
+async function loadAuthProfile(
+  supabase: ReturnType<typeof createServerClient>,
+  userId: string
+): Promise<{ profile: AuthProfile | null; errorMessage: string | null }> {
+  const { data: rpcRows, error: rpcError } = await supabase.rpc("get_auth_user_profile");
+
+  if (!rpcError && rpcRows) {
+    const row = (Array.isArray(rpcRows) ? rpcRows[0] : rpcRows) as
+      | AuthProfile
+      | undefined;
+    if (row?.role) {
+      return {
+        profile: { role: String(row.role), is_active: row.is_active !== false },
+        errorMessage: null,
+      };
+    }
+  }
+
+  // Skip direct select when RLS recursion would occur; RPC is the supported path.
+  if (rpcError?.message.includes("recursion")) {
+    return { profile: null, errorMessage: rpcError.message };
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role, is_active")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileError) {
+    return { profile: null, errorMessage: profileError.message };
+  }
+  if (!profile?.role) {
+    return { profile: null, errorMessage: rpcError?.message ?? null };
+  }
+
+  return {
+    profile: {
+      role: String(profile.role),
+      is_active: profile.is_active !== false,
+    },
+    errorMessage: null,
+  };
+}
+
 /**
  * Refreshes the session, loads `profiles`, and routes users to the correct app
  * (`NEXT_PUBLIC_CLIENT_APP_URL` vs `NEXT_PUBLIC_STAFF_APP_URL`) by role.
@@ -88,23 +135,19 @@ export async function wayfinderAuthMiddleware(
     return response;
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role, is_active")
-    .eq("id", user.id)
-    .maybeSingle();
+  const { profile, errorMessage } = await loadAuthProfile(supabase, user.id);
 
-  if (profileError || !profile || !isKnownRole(profile.role)) {
+  if (!profile || !isKnownRole(profile.role)) {
     await supabase.auth.signOut();
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("error", "no_profile");
-    if (profileError?.message) {
-      url.searchParams.set("reason", profileError.message);
+    if (errorMessage) {
+      url.searchParams.set("reason", errorMessage);
     } else if (!profile) {
       url.searchParams.set(
         "reason",
-        `No profile row visible for user ${user.id} (check RLS or Supabase project URL in .env.local).`
+        `No profile row visible for user ${user.id} (check RLS or Supabase project URL).`
       );
     } else {
       url.searchParams.set("reason", `Unrecognized role: ${profile.role ?? "(empty)"}`);

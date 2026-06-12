@@ -9,18 +9,18 @@ type Props = {
 export function WayfinderDeveloperBadge({ className = "" }: Props) {
   return (
     <div
-      className={`inline-flex items-center gap-3 ${className}`}
+      className={`inline-flex items-center gap-3 sm:gap-4 ${className}`}
       title={`Developed for ${LEGAL_ENTITY}`}
     >
       <Image
         src={DEVELOPER_BADGE_LOGO_PATH}
         alt=""
-        width={48}
-        height={16}
-        className="h-3 w-auto object-contain opacity-75"
+        width={96}
+        height={32}
+        className="h-5 w-auto object-contain opacity-80 sm:h-6 lg:h-8"
         aria-hidden
       />
-      <span className="text-[8px] font-normal leading-tight text-brand-black/45">
+      <span className="text-[10px] font-normal leading-snug text-brand-black/50 sm:text-xs lg:text-sm">
         Developed for {LEGAL_ENTITY}
       </span>
     </div>

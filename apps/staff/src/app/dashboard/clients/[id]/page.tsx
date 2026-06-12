@@ -8,6 +8,7 @@ import { buildClientActivityFkIds, createServerClient, isEsRole } from "@wayfind
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAppSession, requireEsClientAccess } from "@/lib/app-session";
+import { getEsCaseloadAdmin } from "@/lib/es-caseload-data";
 import { findEmployerMatches } from "@/lib/employer-matching";
 import { supabaseEmbedName } from "@/lib/supabase-embed";
 import { ClientProfileForm, type ClientProfileData } from "@/components/client-profile-form";
@@ -21,7 +22,7 @@ import { NaturalSupportPanel } from "./natural-support-panel";
 type PageProps = { params: Promise<{ id: string }> };
 
 const CLIENT_SELECT =
-  "id, user_id, contact_email, current_service_id, current_stage_id, office_id, counselor_id, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other";
+  "id, user_id, profile_id, contact_email, current_service_id, current_stage_id, office_id, counselor_id, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other";
 
 export default async function EsClientDetailPage({ params }: PageProps) {
   const { id: clientId } = await params;
@@ -39,7 +40,12 @@ export default async function EsClientDetailPage({ params }: PageProps) {
   const supabase = await createServerClient();
   const readOnly = session.isPreviewing;
 
-  const { data: client, error: clientErr } = await supabase
+  const admin = getEsCaseloadAdmin();
+  if (!admin) {
+    notFound();
+  }
+
+  const { data: client, error: clientErr } = await admin
     .from("clients")
     .select(CLIENT_SELECT)
     .eq("id", clientId)
@@ -65,11 +71,10 @@ export default async function EsClientDetailPage({ params }: PageProps) {
     employment_goal_secondary_other: client.employment_goal_secondary_other as string | null,
   };
 
-  const { data: clientProfile } = await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("id", client.user_id)
-    .maybeSingle();
+  const clientProfileId = (client.user_id ?? client.profile_id) as string | null;
+  const { data: clientProfile } = clientProfileId
+    ? await admin.from("profiles").select("full_name").eq("id", clientProfileId).maybeSingle()
+    : { data: null as { full_name: string | null } | null };
 
   const displayName = clientDisplayName({
     full_name: clientProfile?.full_name ?? null,

@@ -1,6 +1,7 @@
 import { createServerClient, isCounselorRole, isEsRole } from "@wayfinder/supabase";
 import { getAppSession, type AppSession } from "@wayfinder/supabase/preview-server";
 import { notFound, redirect } from "next/navigation";
+import { esIsAssignedToClient } from "@/lib/es-caseload-data";
 
 export async function requireAppSession(): Promise<AppSession> {
   const session = await getAppSession();
@@ -44,13 +45,5 @@ export async function requireEsClientAccess(session: AppSession, clientId: strin
     return false;
   }
 
-  const supabase = await createServerClient();
-  const { data: assignment } = await supabase
-    .from("es_client_assignments")
-    .select("client_id")
-    .eq("es_user_id", session.effectiveUserId)
-    .eq("client_id", clientId)
-    .maybeSingle();
-
-  return Boolean(assignment);
+  return esIsAssignedToClient(session.effectiveUserId, clientId);
 }

@@ -14,6 +14,7 @@ import {
   isSupervisorTierRole,
 } from "@wayfinder/supabase/roles";
 import { createServerClient } from "@wayfinder/supabase";
+import { esIsAssignedToClient } from "@/lib/es-caseload-data";
 
 export class ClientProfileAuthError extends Error {
   status: number;
@@ -21,17 +22,6 @@ export class ClientProfileAuthError extends Error {
     super(message);
     this.status = status;
   }
-}
-
-async function esAssignedToClient(esUserId: string, clientId: string): Promise<boolean> {
-  const supabase = await createServerClient();
-  const { data } = await supabase
-    .from("es_client_assignments")
-    .select("client_id")
-    .eq("es_user_id", esUserId)
-    .eq("client_id", clientId)
-    .maybeSingle();
-  return Boolean(data);
 }
 
 async function clientVisibleToSupervisor(clientId: string): Promise<boolean> {
@@ -60,7 +50,7 @@ export async function assertClientProfileAccess(clientId: string, forMutation = 
 
   let allowed = false;
   if (isEsRole(role)) {
-    allowed = await esAssignedToClient(userId, clientId);
+    allowed = await esIsAssignedToClient(userId, clientId);
   } else if (isSupervisorTierRole(role)) {
     allowed = await clientVisibleToSupervisor(clientId);
   } else if (isAdminTierRole(role)) {

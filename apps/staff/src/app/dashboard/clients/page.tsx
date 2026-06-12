@@ -8,16 +8,9 @@ import {
   RESPONSIVE_TABLE_CLASS,
   ResponsiveTableShell,
 } from "@/components/responsive-table-shell";
+import { fetchEsCaseloadClients } from "@/lib/es-caseload-data";
 import { AddClientLauncher } from "./add-client-launcher";
 import { EsNaturalSupportButton } from "./es-natural-support-button";
-
-type ClientRow = {
-  id: string;
-  user_id: string;
-  contact_email: string | null;
-  current_service_id: string | null;
-  current_stage_id: string | null;
-};
 
 export default async function EsClientsPage() {
   const session = await getAppSession();
@@ -42,16 +35,15 @@ export default async function EsClientsPage() {
 
   const supabase = await createServerClient();
 
-  const [{ data: links }, servicesQuery, { data: offices }, { data: counselorsRaw }] =
-    await Promise.all([
-      supabase.from("es_client_assignments").select("client_id").eq("es_user_id", effectiveUserId),
-      supabase.from("services").select("id, name, state").order("name", { ascending: true }),
-      supabase.from("offices").select("id, name").order("name", { ascending: true }),
-      supabase
-        .from("counselors")
-        .select("id, full_name, office_id, offices(name)")
-        .order("full_name", { ascending: true }),
-    ]);
+  const [caseload, servicesQuery, { data: offices }, { data: counselorsRaw }] = await Promise.all([
+    fetchEsCaseloadClients(effectiveUserId),
+    supabase.from("services").select("id, name, state").order("name", { ascending: true }),
+    supabase.from("offices").select("id, name").order("name", { ascending: true }),
+    supabase
+      .from("counselors")
+      .select("id, full_name, office_id, offices(name)")
+      .order("full_name", { ascending: true }),
+  ]);
 
   let servicesRaw: Array<{ id: string; name: string; state?: string | null }> =
     (servicesQuery.data ?? []) as Array<{ id: string; name: string; state?: string | null }>;
@@ -68,30 +60,23 @@ export default async function EsClientsPage() {
 
   const services = dedupeServicesForSelect(servicesRaw);
 
-  const clientIds = (links ?? []).map((l) => l.client_id).filter(Boolean) as string[];
-
-  let clients: ClientRow[] = [];
-  if (clientIds.length > 0) {
-    const { data: clientRows, error: clientsErr } = await supabase
-      .from("clients")
-      .select("id, user_id, contact_email, current_service_id, current_stage_id")
-      .in("id", clientIds);
-
-    if (clientsErr) {
-      return (
-        <main className="px-4 py-8 sm:px-6 sm:py-10">
-          <h1 className="text-2xl font-semibold text-brand-black">Clients</h1>
-          <p className="mt-2 text-sm text-red-700">{USER_FACING_SYSTEM_ERROR}</p>
-        </main>
-      );
-    }
-    clients = (clientRows ?? []) as ClientRow[];
+  if (caseload.error) {
+    return (
+      <main className="px-4 py-8 sm:px-6 sm:py-10">
+        <h1 className="text-2xl font-semibold text-brand-black">Clients</h1>
+        <p className="mt-2 text-sm text-red-700">{USER_FACING_SYSTEM_ERROR}</p>
+      </main>
+    );
   }
 
-  const userIds = [...new Set(clients.map((c) => c.user_id))];
+  const clients = caseload.clients;
+
+  const profileIds = [
+    ...new Set(clients.map((c) => c.user_id ?? c.profile_id).filter(Boolean)),
+  ] as string[];
   const { data: profiles } =
-    userIds.length > 0
-      ? await supabase.from("profiles").select("id, full_name").in("id", userIds)
+    profileIds.length > 0
+      ? await supabase.from("profiles").select("id, full_name").in("id", profileIds)
       : { data: [] as { id: string; full_name: string | null }[] };
 
   const profileName = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));
@@ -200,8 +185,9 @@ export default async function EsClientsPage() {
               </tr>
             ) : (
               clients.map((c) => {
+                const profileId = c.user_id ?? c.profile_id;
                 const name = clientDisplayName({
-                  full_name: profileName.get(c.user_id) ?? null,
+                  full_name: (profileId ? profileName.get(profileId) : null) ?? null,
                   contact_email: c.contact_email,
                   id: c.id,
                 });

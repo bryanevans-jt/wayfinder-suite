@@ -5,7 +5,7 @@ import {
 } from "@wayfinder/branding";
 import { createServerClient, isClientRole } from "@wayfinder/supabase";
 
-type SearchParams = Promise<{ error?: string }>;
+type SearchParams = Promise<{ error?: string; reason?: string }>;
 
 const clientAppUrl =
   process.env.NEXT_PUBLIC_CLIENT_APP_URL ?? "http://localhost:3001";
@@ -15,7 +15,7 @@ export default async function StaffLoginPage({
 }: {
   searchParams: SearchParams;
 }) {
-  const { error } = await searchParams;
+  const { error, reason } = await searchParams;
 
   const supabase = await createServerClient();
   const {
@@ -56,10 +56,15 @@ export default async function StaffLoginPage({
         </div>
       ) : null}
       {error === "no_profile" ? (
-        <p className="mb-6 max-w-md rounded-lg border border-brand-black/15 bg-brand-white px-4 py-3 text-center text-sm text-brand-black">
-          No {STAFF_APP_PRODUCT_NAME} profile is linked to this account. Ask an administrator to
-          assign a role, then try again.
-        </p>
+        <div className="mb-6 max-w-md space-y-2 rounded-lg border border-brand-black/15 bg-brand-white px-4 py-3 text-center text-sm text-brand-black">
+          <p>
+            No {STAFF_APP_PRODUCT_NAME} profile is linked to this account. Ask an administrator to
+            assign a role, then try again.
+          </p>
+          {reason ? (
+            <p className="text-left text-xs text-brand-black/60">Detail: {reason}</p>
+          ) : null}
+        </div>
       ) : null}
       {error === "auth" ? (
         <p className="mb-6 max-w-md rounded-lg border border-brand-gold/40 bg-brand-white px-4 py-3 text-center text-sm text-brand-black">
