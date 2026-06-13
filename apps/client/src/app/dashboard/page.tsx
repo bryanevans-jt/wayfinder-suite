@@ -1,4 +1,6 @@
 import { createServerClient, isSupportRole } from "@wayfinder/supabase";
+import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { ensureClientAuthProfile } from "@wayfinder/supabase";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { redirect } from "next/navigation";
 import { ClientActivity } from "./client-activity";
@@ -24,6 +26,16 @@ export default async function ClientDashboardPage({
   const supabase = await createServerClient();
   const { data: authUser } = await supabase.auth.getUser();
   const support = isSupportRole(session.effectiveRole);
+
+  if (authUser.user && !support) {
+    try {
+      const admin = createServiceRoleClient();
+      await ensureClientAuthProfile(admin, authUser.user.id, authUser.user.email);
+    } catch {
+      // Service role may be unset in local dev; email-based lookup still applies after migration.
+    }
+  }
+
   const displayEmail = authUser.user?.email ?? session.effectiveUserId;
 
   return (

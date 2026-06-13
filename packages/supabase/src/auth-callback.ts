@@ -48,7 +48,13 @@ async function verifyOtpWithFallback(
  * is required for admin `generate_link` links pasted without a browser OTP flow.
  */
 export async function handleWayfinderAuthCallback(
-  request: NextRequest
+  request: NextRequest,
+  options?: {
+    onAuthenticated?: (ctx: {
+      userId: string;
+      email: string | null;
+    }) => Promise<void>;
+  }
 ): Promise<NextResponse> {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
@@ -89,6 +95,18 @@ export async function handleWayfinderAuthCallback(
 
   if (error) {
     return redirectToLogin(url.origin);
+  }
+
+  if (options?.onAuthenticated) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      await options.onAuthenticated({
+        userId: user.id,
+        email: user.email ?? null,
+      });
+    }
   }
 
   return response;

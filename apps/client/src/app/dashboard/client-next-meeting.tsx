@@ -22,7 +22,15 @@ export async function ClientNextMeeting({ selectedClientId }: Props) {
   );
 
   if (!ctx) {
-    return null;
+    return (
+      <section className="rounded-2xl border-2 border-brand-green/30 bg-gradient-to-br from-brand-white to-brand-green/5 p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-brand-green">Next meeting</h2>
+        <p className="mt-2 text-sm text-brand-black/70">
+          No upcoming meetings yet. Your Employment Specialist will send an invite when it&apos;s
+          time to meet.
+        </p>
+      </section>
+    );
   }
 
   const now = new Date().toISOString();

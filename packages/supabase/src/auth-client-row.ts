@@ -1,10 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-/** Find clients.id for a signed-in auth user (matches user_id or legacy profile_id). */
+/** Find clients.id for a signed-in auth user (matches user_id, profile_id, or contact email). */
 export async function lookupClientIdForAuthUser(
   db: SupabaseClient,
   authUserId: string
 ): Promise<string | null> {
+  const { data: rpcId, error: rpcError } = await db.rpc("get_client_id_for_auth_user");
+  if (!rpcError && rpcId) {
+    return rpcId as string;
+  }
+
   const { data: byUser } = await db
     .from("clients")
     .select("id")

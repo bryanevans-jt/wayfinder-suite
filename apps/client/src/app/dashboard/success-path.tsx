@@ -35,7 +35,7 @@ export async function SuccessPath({ selectedClientId }: SuccessPathProps) {
         <p className="mt-2 text-sm text-brand-black/75">
           {readOnly
             ? "No client assignments are linked to your support account yet."
-            : "Your client profile is not set up yet. Once your advisor connects your account to a service path, milestones will show here."}
+            : "Your client profile is not set up yet. Once your Employment Specialist connects your account to a service path, milestones will show here."}
         </p>
       </section>
     );

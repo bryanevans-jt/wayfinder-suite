@@ -277,7 +277,7 @@ export function ClientDetailDrawer({
                   es_user_id: esUserId || null,
                   current_service_id: serviceId,
                   current_stage_id: stageId,
-                }).then(onClose)
+                })
               }
               className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
             >

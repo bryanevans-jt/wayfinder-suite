@@ -89,7 +89,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
 
   const reload = useCallback(async () => {
     setError(null);
-    const res = await fetch(`/api/portal/config?tier=${mode}`);
+    const res = await fetch(`/api/portal/config?tier=${mode}`, { cache: "no-store" });
     const data = (await res.json()) as ConfigResponse & { error?: string };
     if (!res.ok) {
       setError(data.error ?? USER_FACING_SYSTEM_ERROR);
@@ -183,6 +183,13 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
       return hay.includes(q);
     });
   }, [b, clientFilterOffice, clientFilterEs, clientSearch]);
+
+  useEffect(() => {
+    setDrawerClient((current) => {
+      if (!current || !b) return current;
+      return b.clients.find((c) => c.id === current.id) ?? current;
+    });
+  }, [b]);
 
   async function run(action: () => Promise<void>) {
     setBusy(true);

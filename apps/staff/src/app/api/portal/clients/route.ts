@@ -1,6 +1,13 @@
 import { assertPortalSession, jsonPortalError } from "@/lib/portal-auth";
-import { createClientWithInvite, updateClientRecord } from "@wayfinder/supabase";
+import {
+  createClientWithInvite,
+  linkClientAuthUserByEmail,
+  resolveAuthUserIdByEmail,
+  updateClientRecord,
+} from "@wayfinder/supabase";
 import { NextRequest } from "next/server";
+
+export const dynamic = "force-dynamic";
 
 async function counselorBelongsToOffice(
   admin: Awaited<ReturnType<typeof assertPortalSession>>["admin"],
@@ -82,7 +89,7 @@ export async function PATCH(request: NextRequest) {
 
     const { data: existing, error: loadErr } = await admin
       .from("clients")
-      .select("id, user_id, profile_id, office_id, counselor_id, current_service_id, current_stage_id")
+      .select("id, user_id, profile_id, contact_email, office_id, counselor_id, current_service_id, current_stage_id")
       .eq("id", id)
       .maybeSingle();
 
@@ -219,7 +226,20 @@ export async function PATCH(request: NextRequest) {
       if ("error" in result) throw new Error(result.error);
     }
 
-    if (body.name !== undefined && authUserId) {
+    let linkedAuthUserId = authUserId;
+    if (!linkedAuthUserId) {
+      const emailForLink =
+        patch.contact_email ?? (existing.contact_email as string | null);
+      if (emailForLink) {
+        const resolvedUserId = await resolveAuthUserIdByEmail(admin, emailForLink);
+        if (resolvedUserId) {
+          await linkClientAuthUserByEmail(admin, resolvedUserId, emailForLink);
+          linkedAuthUserId = resolvedUserId;
+        }
+      }
+    }
+
+    if (body.name !== undefined && linkedAuthUserId) {
       const name = body.name.trim();
       if (!name) {
         return Response.json({ error: "Name cannot be empty" }, { status: 400 });
@@ -227,7 +247,7 @@ export async function PATCH(request: NextRequest) {
       const { error: profileErr } = await admin
         .from("profiles")
         .update({ full_name: name })
-        .eq("id", authUserId);
+        .eq("id", linkedAuthUserId);
       if (profileErr) throw new Error(profileErr.message);
     }
 
