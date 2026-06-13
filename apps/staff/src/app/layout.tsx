@@ -1,5 +1,6 @@
 import {
   STAFF_APP_PRODUCT_NAME,
+  WAYFINDER_FAVICON_PATH,
   WayfinderFooter,
   WayfinderTopNav,
 } from "@wayfinder/branding";
@@ -23,6 +24,10 @@ export const metadata: Metadata = {
   title: STAFF_APP_PRODUCT_NAME,
   description: "Joshua Tree Wayfinder Pro — staff workspace for employment specialists and administrators",
   robots: { index: false, follow: false },
+  icons: {
+    icon: [{ url: WAYFINDER_FAVICON_PATH, type: "image/png" }],
+    apple: [{ url: WAYFINDER_FAVICON_PATH, type: "image/png" }],
+  },
 };
 
 export default async function RootLayout({

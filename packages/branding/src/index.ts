@@ -8,6 +8,7 @@ export {
   STAFF_APP_PRODUCT_NAME,
   WAYFINDER_LOGO_ALT,
   STAFF_APP_URL_SLUG,
+  WAYFINDER_FAVICON_PATH,
   WAYFINDER_LOGO_PATH,
 } from "./constants";
 export { ClientActivityTimeline, type ClientActivityFeedItem } from "./client-activity-timeline";

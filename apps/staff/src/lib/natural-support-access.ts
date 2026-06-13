@@ -1,10 +1,7 @@
 import { createServerClient } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
-import {
-  isAdminTierRole,
-  isEsRole,
-  isSupervisorRole,
-} from "@wayfinder/supabase/roles";
+import { isAdminTierRole, isEsRole, isSupervisorRole } from "@wayfinder/supabase/roles";
+import { esIsAssignedToClient } from "@/lib/es-caseload-data";
 
 export class NaturalSupportAccessError extends Error {
   status: number;
@@ -42,14 +39,8 @@ export async function assertNaturalSupportClientAccess(clientId: string) {
   }
 
   if (isEsRole(role)) {
-    const { data: assignment } = await supabase
-      .from("es_client_assignments")
-      .select("client_id")
-      .eq("es_user_id", user.id)
-      .eq("client_id", clientId)
-      .maybeSingle();
-
-    if (!assignment) {
+    const assigned = await esIsAssignedToClient(user.id, clientId);
+    if (!assigned) {
       throw new NaturalSupportAccessError("Client not assigned to you", 403);
     }
     return { supabase, user, role };

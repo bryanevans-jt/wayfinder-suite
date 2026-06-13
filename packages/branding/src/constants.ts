@@ -16,6 +16,9 @@ export const STAFF_APP_URL_SLUG = "wayfinder-pro";
 /** Primary product mark (add `wayfinder-logo.png` to each app's `public/` folder). */
 export const WAYFINDER_LOGO_PATH = "/wayfinder-logo.png";
 
+/** Browser tab / PWA favicon — RGBA PNG with transparent background (`public/favicon.png`). */
+export const WAYFINDER_FAVICON_PATH = "/favicon.png";
+
 /** Joshua Tree mark — developer badge only (typically existing `logo.png`). */
 export const DEVELOPER_BADGE_LOGO_PATH = "/logo.png";
 

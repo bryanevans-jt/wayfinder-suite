@@ -11,8 +11,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: "/wayfinder-icon.svg",
-      badge: "/wayfinder-icon.svg",
+      icon: "/favicon.png",
+      badge: "/favicon.png",
       data: { url: data.url },
     })
   );

@@ -1,5 +1,6 @@
 import {
   CLIENT_APP_PRODUCT_NAME,
+  WAYFINDER_FAVICON_PATH,
   WayfinderFooter,
   WayfinderTopNav,
 } from "@wayfinder/branding";
@@ -22,6 +23,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: CLIENT_APP_PRODUCT_NAME,
   description: "Joshua Tree Wayfinder — your employment success path",
+  icons: {
+    icon: [{ url: WAYFINDER_FAVICON_PATH, type: "image/png" }],
+    apple: [{ url: WAYFINDER_FAVICON_PATH, type: "image/png" }],
+  },
 };
 
 export default async function RootLayout({

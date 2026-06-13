@@ -18,6 +18,7 @@ export function ClientMeetingForm({ clientId, serviceId, serviceName }: Props) {
   const [time, setTime] = useState("");
   const [timezone, setTimezone] = useState("America/New_York");
   const [location, setLocation] = useState("");
+  const [address, setAddress] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -32,10 +33,12 @@ export function ClientMeetingForm({ clientId, serviceId, serviceName }: Props) {
           time,
           timezone,
           location,
+          address: address.trim() || undefined,
         });
         setDate("");
         setTime("");
         setLocation("");
+        setAddress("");
         router.refresh();
       } catch (e) {
         setError(friendlyClientError(e));
@@ -94,7 +97,18 @@ export function ClientMeetingForm({ clientId, serviceId, serviceName }: Props) {
             type="text"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
-            placeholder="Office address or video link"
+            placeholder="Location"
+            className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+            disabled={pending}
+          />
+        </label>
+        <label className="block text-sm font-medium text-brand-black sm:col-span-2">
+          Address <span className="font-normal text-brand-black/50">(optional)</span>
+          <input
+            type="text"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Street address, suite, or video link details"
             className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
             disabled={pending}
           />

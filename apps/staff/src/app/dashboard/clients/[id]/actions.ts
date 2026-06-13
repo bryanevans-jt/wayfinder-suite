@@ -2,36 +2,13 @@
 
 import { isApplicationStatus } from "@wayfinder/branding";
 import {
-  createServerClient,
   insertApplicationForClient,
   insertContactLogForClient,
-  isEsRole,
   loadClientActivityFkContext,
 } from "@wayfinder/supabase";
-import { assertNotPreviewMutation, getAppSession } from "@wayfinder/supabase/preview-server";
+import { assertNotPreviewMutation } from "@wayfinder/supabase/preview-server";
 import { revalidatePath } from "next/cache";
-
-async function assertEsAssignedToClient(clientId: string) {
-  await assertNotPreviewMutation();
-  const session = await getAppSession();
-  if (!session || !isEsRole(session.effectiveRole)) {
-    throw new Error("Forbidden");
-  }
-
-  const supabase = await createServerClient();
-  const { data: assignment } = await supabase
-    .from("es_client_assignments")
-    .select("client_id")
-    .eq("es_user_id", session.effectiveUserId)
-    .eq("client_id", clientId)
-    .maybeSingle();
-
-  if (!assignment) {
-    throw new Error("Client not assigned to you");
-  }
-
-  return { supabase, user: { id: session.effectiveUserId } };
-}
+import { assertEsAssignedToClient } from "@/lib/es-client-access";
 
 function revalidateClientPaths(clientId: string) {
   revalidatePath("/dashboard/clients");
@@ -88,7 +65,7 @@ export async function addClientContactLog(
     throw new Error("Public outcome is required");
   }
 
-  const { supabase, user } = await assertEsAssignedToClient(clientId);
+  const { supabase, userId } = await assertEsAssignedToClient(clientId);
 
   const fkContext = await loadClientActivityFkContext(supabase, clientId);
   if (!fkContext) {
@@ -96,7 +73,7 @@ export async function addClientContactLog(
   }
 
   await insertContactLogForClient(supabase, {
-    loggedBy: user.id,
+    loggedBy: userId,
     fkIds: fkContext.fkIds,
     outcome,
     notes: notes.trim() || null,
@@ -149,7 +126,7 @@ export async function addClientApplication(
     throw new Error("Company name is required");
   }
 
-  await insertApplicationForClient(supabase, fkContext.fkIds, {
+  await insertApplicationForClient(supabase, [fkContext.clientId], {
     status: normalized,
     company_name: resolvedCompany,
     notes: notes.trim() || null,
