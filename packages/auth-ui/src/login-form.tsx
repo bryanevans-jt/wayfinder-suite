@@ -158,7 +158,7 @@ export function RegisterPasskeyButton() {
     const { error } = await supabase.auth.registerPasskey();
     setLoading(false);
     if (error) {
-      setStatus(error.message);
+      setStatus(friendlyAuthError(error.message));
       return;
     }
     setStatus("Passkey registered for this device.");

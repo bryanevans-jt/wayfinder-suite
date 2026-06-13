@@ -1,5 +1,10 @@
 import { WAYFINDER_LOGO_PATH } from "@wayfinder/branding";
-import { createServerClient, isSupportRole, resolveDashboardClient } from "@wayfinder/supabase";
+import {
+  createServerClient,
+  isSupportRole,
+  loadClientSuccessPath,
+  resolveDashboardClient,
+} from "@wayfinder/supabase";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import Image from "next/image";
 import { DesertTrail } from "./desert-trail";
@@ -46,7 +51,7 @@ export async function SuccessPath({ selectedClientId }: SuccessPathProps) {
     return null;
   }
 
-  if (!clientRow.current_service_id) {
+  if (!clientRow.current_service_id && !clientRow.current_stage_id) {
     return (
       <section className="rounded-2xl border border-brand-black/15 bg-brand-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-brand-green">Current Services</h2>
@@ -55,22 +60,19 @@ export async function SuccessPath({ selectedClientId }: SuccessPathProps) {
     );
   }
 
-  const [{ data: service }, { data: milestones }] = await Promise.all([
-    supabase.from("services").select("name").eq("id", clientRow.current_service_id).maybeSingle(),
-    supabase
-      .from("service_milestones")
-      .select("id, order_index, title, description")
-      .eq("service_id", clientRow.current_service_id)
-      .order("order_index", { ascending: true }),
-  ]);
+  const path = await loadClientSuccessPath(supabase, {
+    current_service_id: clientRow.current_service_id,
+    current_stage_id: clientRow.current_stage_id,
+  });
 
-  const currentStage = (milestones ?? []).find((m) => m.id === clientRow.current_stage_id);
-
-  if (!milestones?.length) {
+  if (!path || path.milestones.length === 0) {
     return (
       <section className="rounded-2xl border border-brand-black/15 bg-brand-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-brand-green">Current Services</h2>
-        <p className="mt-2 text-sm text-brand-black/75">This service does not have milestones configured yet.</p>
+        <p className="mt-2 text-sm text-brand-black/75">
+          Your service path is being set up. If this message persists, ask your Employment
+          Specialist to confirm your service and stage are assigned.
+        </p>
       </section>
     );
   }
@@ -92,12 +94,10 @@ export async function SuccessPath({ selectedClientId }: SuccessPathProps) {
       <div className="mt-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-brand-green">Current Services</h2>
-          <p className="mt-1 text-sm text-brand-black/70">
-            {service?.name ?? "Your Wayfinder service"}
-          </p>
+          <p className="mt-1 text-sm text-brand-black/70">{path.serviceName}</p>
           <p className="mt-3 text-base font-semibold text-brand-black">
             Current stage:{" "}
-            <span className="text-brand-green">{currentStage?.title ?? "Not set"}</span>
+            <span className="text-brand-green">{path.currentStageTitle ?? "Not set"}</span>
           </p>
         </div>
         {readOnly ? (
@@ -109,8 +109,8 @@ export async function SuccessPath({ selectedClientId }: SuccessPathProps) {
 
       <div className="mt-6 bg-white pt-2">
         <DesertTrail
-          milestones={milestones}
-          currentStageId={clientRow.current_stage_id}
+          milestones={path.milestones}
+          currentStageId={path.currentStageId}
           readOnly={readOnly}
         />
       </div>

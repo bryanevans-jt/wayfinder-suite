@@ -200,6 +200,13 @@ export function friendlyAuthError(message: string, redirectHint?: string): strin
       ? `Sign-in redirect is not configured. Add this URL in Supabase → Authentication → Redirect URLs: ${redirectHint}`
       : "Sign-in redirect is not configured. Check Supabase Authentication URL settings.";
   }
+  if (/rp id|relying party|webauthn/i.test(message)) {
+    return (
+      "Passkeys are not configured for this site domain. In Supabase → Authentication → Passkeys, " +
+      "set Relying Party ID to your shared domain (e.g. thejoshuatree.org) and add every app URL " +
+      "(Wayfinder and Wayfinder Pro) under Relying Party Origins. Until then, use a magic link to sign in."
+    );
+  }
   if (looksTechnical(message)) {
     return USER_FACING_AUTH_ERROR;
   }

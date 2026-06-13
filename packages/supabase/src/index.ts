@@ -11,6 +11,7 @@ export * from "./client-create";
 export * from "./client-bulk-import";
 export * from "./office-insert";
 export * from "./dashboard-client";
+export * from "./client-success-path";
 export * from "./auth-client-row";
 export * from "./client-message-api";
 export * from "./business-hours";
