@@ -1,5 +1,5 @@
 import { formatPortalDateTime } from "@wayfinder/branding";
-import { createServerClient, resolveDashboardClient } from "@wayfinder/supabase";
+import { createServerClient, resolveClientPortalDataAccess } from "@wayfinder/supabase";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { MeetingActions } from "./meeting-actions";
 
@@ -14,14 +14,14 @@ export async function ClientNextMeeting({ selectedClientId }: Props) {
   }
 
   const supabase = await createServerClient();
-  const ctx = await resolveDashboardClient(
+  const access = await resolveClientPortalDataAccess(
     supabase,
     session.effectiveUserId,
     session.effectiveRole,
     selectedClientId
   );
 
-  if (!ctx) {
+  if (!access) {
     return (
       <section className="rounded-2xl border-2 border-brand-green/30 bg-gradient-to-br from-brand-white to-brand-green/5 p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-brand-green">Next meeting</h2>
@@ -33,9 +33,10 @@ export async function ClientNextMeeting({ selectedClientId }: Props) {
     );
   }
 
+  const { ctx, admin } = access;
   const now = new Date().toISOString();
 
-  const { data: meetings } = await supabase
+  const { data: meetings } = await admin
     .from("client_meeting_requests")
     .select("id, status, starts_at, timezone, location, service_id, es_user_id")
     .eq("client_id", ctx.clientId)
@@ -53,7 +54,7 @@ export async function ClientNextMeeting({ selectedClientId }: Props) {
 
   if (meeting) {
     if (meeting.service_id) {
-      const { data: svc } = await supabase
+      const { data: svc } = await admin
         .from("services")
         .select("name")
         .eq("id", meeting.service_id as string)
@@ -61,7 +62,7 @@ export async function ClientNextMeeting({ selectedClientId }: Props) {
       serviceName = svc?.name ?? null;
     }
     if (meeting.es_user_id) {
-      const { data: esProfile } = await supabase
+      const { data: esProfile } = await admin
         .from("profiles")
         .select("full_name")
         .eq("id", meeting.es_user_id as string)

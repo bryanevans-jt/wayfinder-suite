@@ -2,7 +2,7 @@ import {
   applicationStatusLabel,
   isGoldApplicationStatus,
 } from "@wayfinder/branding";
-import { buildClientActivityFkIds, createServerClient, resolveDashboardClient } from "@wayfinder/supabase";
+import { buildClientActivityFkIds, createServerClient, resolveClientPortalDataAccess } from "@wayfinder/supabase";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 
 type Props = {
@@ -16,18 +16,20 @@ export async function ClientApplicationsCard({ selectedClientId }: Props) {
   }
 
   const supabase = await createServerClient();
-  const ctx = await resolveDashboardClient(
+  const access = await resolveClientPortalDataAccess(
     supabase,
     session.effectiveUserId,
     session.effectiveRole,
     selectedClientId
   );
 
-  if (!ctx) {
+  if (!access) {
     return null;
   }
 
-  const { data: clientForFk } = await supabase
+  const { ctx, admin } = access;
+
+  const { data: clientForFk } = await admin
     .from("clients")
     .select("id, user_id, profile_id")
     .eq("id", ctx.clientId)
@@ -35,7 +37,7 @@ export async function ClientApplicationsCard({ selectedClientId }: Props) {
 
   const fkIds = clientForFk ? buildClientActivityFkIds(clientForFk) : [ctx.clientId];
 
-  const { data: applications } = await supabase
+  const { data: applications } = await admin
     .from("applications")
     .select("id, company_name, status, status_other_reason, updated_at, created_at")
     .in("client_id", fkIds)

@@ -2,7 +2,7 @@ import { buildClientActivityFeed, ClientActivityTimeline } from "@wayfinder/bran
 import {
   buildClientActivityFkIds,
   createServerClient,
-  resolveDashboardClient,
+  resolveClientPortalDataAccess,
 } from "@wayfinder/supabase";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 
@@ -17,62 +17,61 @@ export async function ClientActivity({ selectedClientId }: Props) {
   }
 
   const supabase = await createServerClient();
-  const ctx = await resolveDashboardClient(
+  const access = await resolveClientPortalDataAccess(
     supabase,
     session.effectiveUserId,
     session.effectiveRole,
     selectedClientId
   );
 
-  if (!ctx) {
+  if (!access) {
     return null;
   }
 
+  const { ctx, admin } = access;
   const clientId = ctx.clientId;
 
-  const { data: clientForFk } = await supabase
+  const { data: clientForFk } = await admin
     .from("clients")
     .select("id, user_id, profile_id")
     .eq("id", clientId)
     .maybeSingle();
 
-  const activityFkIds = clientForFk
-    ? buildClientActivityFkIds(clientForFk)
-    : [clientId];
+  const activityFkIds = clientForFk ? buildClientActivityFkIds(clientForFk) : [clientId];
 
   const [{ data: logs }, { data: stageEvents }, { data: applications }, { data: meetings }] =
     await Promise.all([
-    supabase
-      .from("contact_logs")
-      .select("id, created_at, public_outcome, notes")
-      .in("client_id", activityFkIds)
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("client_stage_events")
-      .select("id, created_at, milestone_id, service_milestones(title)")
-      .in("client_id", activityFkIds)
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("applications")
-      .select("id, status, status_other_reason, company_name, notes, created_at")
-      .in("client_id", activityFkIds)
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("client_meeting_requests")
-      .select("id, status, starts_at, timezone, location, created_at, service_id, es_user_id")
-      .eq("client_id", clientId)
-      .order("created_at", { ascending: true }),
-  ]);
+      admin
+        .from("contact_logs")
+        .select("id, created_at, public_outcome, notes")
+        .in("client_id", activityFkIds)
+        .order("created_at", { ascending: true }),
+      admin
+        .from("client_stage_events")
+        .select("id, created_at, milestone_id, service_milestones(title)")
+        .in("client_id", activityFkIds)
+        .order("created_at", { ascending: true }),
+      admin
+        .from("applications")
+        .select("id, status, status_other_reason, company_name, notes, created_at")
+        .in("client_id", activityFkIds)
+        .order("created_at", { ascending: true }),
+      admin
+        .from("client_meeting_requests")
+        .select("id, status, starts_at, timezone, location, created_at, service_id, es_user_id")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: true }),
+    ]);
 
   const serviceIds = [...new Set((meetings ?? []).map((m) => m.service_id).filter(Boolean))] as string[];
   const esIds = [...new Set((meetings ?? []).map((m) => m.es_user_id).filter(Boolean))] as string[];
 
   const [{ data: services }, { data: esProfiles }] = await Promise.all([
     serviceIds.length
-      ? supabase.from("services").select("id, name").in("id", serviceIds)
+      ? admin.from("services").select("id, name").in("id", serviceIds)
       : Promise.resolve({ data: [] as { id: string; name: string }[] }),
     esIds.length
-      ? supabase.from("profiles").select("id, full_name").in("id", esIds)
+      ? admin.from("profiles").select("id, full_name").in("id", esIds)
       : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
   ]);
 

@@ -1,10 +1,12 @@
 import { createServerClient, isEsRole, isSupervisorTierRole } from "@wayfinder/supabase";
+import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
   respondWithLoggedError,
   resolveErrorActor,
   USER_FACING_AUTH_REQUIRED,
   USER_FACING_FORBIDDEN,
   USER_FACING_NOT_FOUND,
+  USER_FACING_SYSTEM_ERROR,
 } from "@wayfinder/supabase/error-log";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { NextResponse } from "next/server";
@@ -28,7 +30,14 @@ export async function GET(request: Request) {
     const supabase = await createServerClient();
     const actor = await resolveErrorActor(supabase, session.actorUserId);
 
-    const { data: thread } = await supabase
+    let admin;
+    try {
+      admin = createServiceRoleClient();
+    } catch {
+      return NextResponse.json({ error: USER_FACING_SYSTEM_ERROR }, { status: 503 });
+    }
+
+    const { data: thread } = await admin
       .from("client_message_threads")
       .select("id, current_es_user_id")
       .eq("id", threadId)
@@ -41,7 +50,7 @@ export async function GET(request: Request) {
     const isEs = isEsRole(role) && thread.current_es_user_id === effectiveUserId;
     let isSupervisor = false;
     if (isSupervisorTierRole(role) && role === "supervisor") {
-      const { data: link } = await supabase
+      const { data: link } = await admin
         .from("supervisor_es_assignments")
         .select("es_user_id")
         .eq("supervisor_user_id", effectiveUserId)
@@ -54,7 +63,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: USER_FACING_FORBIDDEN }, { status: 403 });
     }
 
-    const { data: messages, error } = await supabase
+    const { data: messages, error } = await admin
       .from("client_messages")
       .select("id, body, sender_role, sender_user_id, created_at")
       .eq("thread_id", threadId)
@@ -66,7 +75,7 @@ export async function GET(request: Request) {
 
     const senderIds = [...new Set((messages ?? []).map((m) => m.sender_user_id as string))];
     const { data: profiles } = senderIds.length
-      ? await supabase.from("profiles").select("id, full_name").in("id", senderIds)
+      ? await admin.from("profiles").select("id, full_name").in("id", senderIds)
       : { data: [] as { id: string; full_name: string | null }[] };
 
     const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));

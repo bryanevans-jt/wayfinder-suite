@@ -1,9 +1,11 @@
-import { createServerClient, isEsReplyOverdue, isEsRole, isSupervisorTierRole } from "@wayfinder/supabase";
+import { createServerClient, isEsRole, isEsReplyOverdue, isSupervisorTierRole } from "@wayfinder/supabase";
+import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
   respondWithLoggedError,
   resolveErrorActor,
   USER_FACING_AUTH_REQUIRED,
   USER_FACING_FORBIDDEN,
+  USER_FACING_SYSTEM_ERROR,
 } from "@wayfinder/supabase/error-log";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { NextResponse } from "next/server";
@@ -28,14 +30,21 @@ export async function GET() {
     const effectiveUserId = session.effectiveUserId;
     const actor = await resolveErrorActor(supabase, session.actorUserId);
 
-    let threadsQuery = supabase
+    let admin;
+    try {
+      admin = createServiceRoleClient();
+    } catch {
+      return NextResponse.json({ error: USER_FACING_SYSTEM_ERROR }, { status: 503 });
+    }
+
+    let threadsQuery = admin
       .from("client_message_threads")
       .select("id, client_id, client_label, current_es_user_id, last_client_message_at, last_es_message_at");
 
     if (isEs) {
       threadsQuery = threadsQuery.eq("current_es_user_id", effectiveUserId);
     } else if (role === "supervisor") {
-      const { data: links } = await supabase
+      const { data: links } = await admin
         .from("supervisor_es_assignments")
         .select("es_user_id")
         .eq("supervisor_user_id", effectiveUserId);
@@ -57,7 +66,7 @@ export async function GET() {
 
     const threadIds = (threads ?? []).map((t) => t.id as string);
     const { data: dismissals } = threadIds.length
-      ? await supabase
+      ? await admin
           .from("message_sla_dismissals")
           .select("thread_id")
           .in("thread_id", threadIds)
@@ -72,7 +81,7 @@ export async function GET() {
           isEsReplyOverdue(t.last_client_message_at as string, t.last_es_message_at as string) &&
           !dismissed.has(t.id as string);
 
-        const { data: lastMsg } = await supabase
+        const { data: lastMsg } = await admin
           .from("client_messages")
           .select("body")
           .eq("thread_id", t.id)
@@ -82,7 +91,7 @@ export async function GET() {
 
         let esName: string | null = null;
         if (t.current_es_user_id) {
-          const { data: esProfile } = await supabase
+          const { data: esProfile } = await admin
             .from("profiles")
             .select("full_name")
             .eq("id", t.current_es_user_id)
@@ -90,10 +99,20 @@ export async function GET() {
           esName = esProfile?.full_name ?? null;
         }
 
+        let clientLabel = t.client_label as string | null;
+        if (!clientLabel && t.client_id) {
+          const { data: clientRow } = await admin
+            .from("clients")
+            .select("contact_email")
+            .eq("id", t.client_id)
+            .maybeSingle();
+          clientLabel = (clientRow?.contact_email as string | null) ?? null;
+        }
+
         return {
           threadId: t.id,
           clientId: t.client_id,
-          clientLabel: t.client_label,
+          clientLabel,
           esName,
           overdue,
           lastPreview: (lastMsg?.body as string | undefined)?.slice(0, 80) ?? null,
