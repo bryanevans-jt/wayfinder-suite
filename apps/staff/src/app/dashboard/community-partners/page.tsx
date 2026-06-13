@@ -3,7 +3,7 @@ import {
   type EmployerRow,
 } from "@/components/community-partners-workspace";
 import { COMMUNITY_PARTNERS_NETWORK_NAME } from "@/lib/employer-constants";
-import { isCommunityPartnersRole } from "@/lib/community-partners-auth";
+import { canEditCommunityPartners, isCommunityPartnersRole } from "@/lib/community-partners-auth";
 import { isAdminTierRole } from "@wayfinder/supabase/roles";
 import { createServerClient } from "@wayfinder/supabase";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
@@ -20,8 +20,9 @@ export default async function CommunityPartnersPage() {
       <main className="px-4 py-8 sm:px-6 sm:py-10">
         <h1 className="text-2xl font-semibold text-brand-black">{COMMUNITY_PARTNERS_NETWORK_NAME}</h1>
         <p className="mt-2 max-w-xl text-brand-black/80">
-          The employer directory is available to Employment Specialists and administrators. Your
-          current role does not include this workspace.
+          The employer directory is available to JTSG staff (Employment Specialists,
+          supervisors, accounting, and administrators). Your current role does not include this
+          workspace.
         </p>
       </main>
     );
@@ -29,6 +30,9 @@ export default async function CommunityPartnersPage() {
 
   const supabase = await createServerClient();
   const isAdminTier = isAdminTierRole(session.effectiveRole);
+
+  const canEdit = canEditCommunityPartners(session.effectiveRole);
+  const readOnly = session.isPreviewing || !canEdit;
 
   const [employersQuery, officesQuery] = await Promise.all([
     supabase
@@ -51,7 +55,8 @@ export default async function CommunityPartnersPage() {
         <h1 className="text-2xl font-semibold text-brand-black">{COMMUNITY_PARTNERS_NETWORK_NAME}</h1>
         <p className="mt-2 text-sm text-brand-black/75">
           Maintain hiring partners your team works with — contacts, locations, and relationship
-          status. Link applications to these employers from client records as you build out
+          status. Use list view for details or map view to see partners across Georgia and
+          Tennessee. Link applications to these employers from client records as you build out
           placements.
         </p>
         {isAdminTier ? (
@@ -73,7 +78,8 @@ export default async function CommunityPartnersPage() {
 
       <CommunityPartnersWorkspace
         offices={(officesQuery.data ?? []) as { id: string; name: string }[]}
-        readOnly={session.isPreviewing}
+        readOnly={readOnly}
+        readOnlyReason={session.isPreviewing ? "preview" : "role"}
         isAdminTier={isAdminTier}
         initialEmployers={initialEmployers}
       />

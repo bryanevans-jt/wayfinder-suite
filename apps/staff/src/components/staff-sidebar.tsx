@@ -109,7 +109,24 @@ function navItemsForRole(staffRole: string | null, showAuditLink = false): NavIt
         label: "Messages",
         match: (p) => p === "/dashboard/messages",
       },
+      communityPartnersNav,
       analyticsNav,
+      {
+        href: "/dashboard/exports",
+        label: "Exports",
+        match: (p) => p === "/dashboard/exports" || p === "/dashboard/reporting",
+      },
+    ];
+  }
+
+  if (staffRole === "accountant") {
+    return [
+      {
+        href: "/dashboard/clients",
+        label: "Clients",
+        match: (p) => p.startsWith("/dashboard/clients"),
+      },
+      communityPartnersNav,
       {
         href: "/dashboard/exports",
         label: "Exports",

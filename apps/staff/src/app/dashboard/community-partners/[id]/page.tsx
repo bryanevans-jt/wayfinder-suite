@@ -9,7 +9,7 @@ import {
   EmployerStatusLogPanel,
   type EmployerStatusLogEntry,
 } from "@/components/employer-status-log-panel";
-import { isCommunityPartnersRole } from "@/lib/community-partners-auth";
+import { canEditCommunityPartners, isCommunityPartnersRole } from "@/lib/community-partners-auth";
 import { COMMUNITY_PARTNERS_NETWORK_NAME } from "@/lib/employer-constants";
 import {
   employerMatchEligibility,
@@ -43,6 +43,8 @@ export default async function CommunityPartnerDetailPage({ params }: PageProps) 
   const supabase = await createServerClient();
   const isAdminTier = isAdminTierRole(session.effectiveRole);
   const effectiveUserId = session.effectiveUserId;
+  const canEdit = canEditCommunityPartners(session.effectiveRole);
+  const readOnly = session.isPreviewing || !canEdit;
   const canDelete = isAdminTier && !session.isPreviewing;
 
   const { data: employer, error } = await supabase
@@ -186,9 +188,11 @@ export default async function CommunityPartnerDetailPage({ params }: PageProps) 
         ) : null}
       </header>
 
-      {session.isPreviewing ? (
+      {readOnly ? (
         <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          Read-only preview — exit preview to edit this employer.
+          {session.isPreviewing
+            ? "Read-only preview — exit preview to edit this employer."
+            : "View-only access — contact an Employment Specialist or administrator to edit this partner."}
         </p>
       ) : null}
 
@@ -215,7 +219,7 @@ export default async function CommunityPartnerDetailPage({ params }: PageProps) 
             } as EmployerRow
           }
           offices={(offices ?? []) as { id: string; name: string }[]}
-          readOnly={session.isPreviewing}
+          readOnly={readOnly}
           canDelete={canDelete}
         />
       </div>

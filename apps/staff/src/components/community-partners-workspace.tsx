@@ -14,9 +14,27 @@ import {
 import { supabaseEmbedName } from "@/lib/supabase-embed";
 import { EMPLOYMENT_CATEGORIES, EMPLOYMENT_CATEGORY_LABELS, type EmploymentCategory } from "@wayfinder/branding";
 import { friendlyClientError, USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+
+const CommunityPartnersMap = dynamic(
+  () =>
+    import("@/components/community-partners-map").then((m) => ({
+      default: m.CommunityPartnersMap,
+    })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-[min(70vh,560px)] items-center justify-center rounded-xl border border-neutral-200 bg-neutral-50 text-sm text-brand-black/60">
+        Loading map…
+      </div>
+    ),
+  }
+);
+
+type ViewMode = "list" | "map";
 
 export type OfficeOption = { id: string; name: string };
 
@@ -41,12 +59,15 @@ export type EmployerRow = {
   position_need_secondary?: string | null;
   position_need_secondary_other?: string | null;
   submission_source?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   offices?: { name: string } | { name: string }[] | null;
 };
 
 type Props = {
   offices: OfficeOption[];
   readOnly?: boolean;
+  readOnlyReason?: "preview" | "role";
   isAdminTier?: boolean;
   initialEmployers?: EmployerRow[];
 };
@@ -54,10 +75,12 @@ type Props = {
 export function CommunityPartnersWorkspace({
   offices,
   readOnly = false,
+  readOnlyReason = "preview",
   isAdminTier = false,
   initialEmployers = [],
 }: Props) {
   const router = useRouter();
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [employers, setEmployers] = useState<EmployerRow[]>(initialEmployers);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -168,11 +191,37 @@ export function CommunityPartnersWorkspace({
     <div className="mt-8 space-y-6">
       {readOnly ? (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          Read-only preview — exit preview to add or edit community partners.
+          {readOnlyReason === "preview"
+            ? "Read-only preview — exit preview to add or edit community partners."
+            : "View-only access — contact an Employment Specialist or administrator to add or edit partners."}
         </p>
       ) : null}
 
       <div className="flex flex-wrap items-end gap-3">
+        <div className="flex shrink-0 gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-1">
+          <button
+            type="button"
+            onClick={() => setViewMode("list")}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+              viewMode === "list"
+                ? "bg-white text-brand-black shadow-sm"
+                : "text-brand-black/65 hover:text-brand-black"
+            }`}
+          >
+            List view
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("map")}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+              viewMode === "map"
+                ? "bg-white text-brand-black shadow-sm"
+                : "text-brand-black/65 hover:text-brand-black"
+            }`}
+          >
+            Map view
+          </button>
+        </div>
         <label className="flex min-w-[180px] flex-1 flex-col gap-1 text-sm">
           <span className="font-medium text-brand-black/70">Search</span>
           <input
@@ -407,6 +456,15 @@ export function CommunityPartnersWorkspace({
 
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
 
+      {viewMode === "map" ? (
+        loading ? (
+          <div className="flex h-[min(70vh,560px)] items-center justify-center rounded-xl border border-neutral-200 bg-neutral-50 text-sm text-brand-black/60">
+            Loading employers…
+          </div>
+        ) : (
+          <CommunityPartnersMap employers={employers} />
+        )
+      ) : (
       <ResponsiveTableShell>
         <table className={RESPONSIVE_TABLE_CLASS}>
           <thead>
@@ -476,6 +534,7 @@ export function CommunityPartnersWorkspace({
           </tbody>
         </table>
       </ResponsiveTableShell>
+      )}
     </div>
   );
 }
