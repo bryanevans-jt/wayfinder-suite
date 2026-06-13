@@ -1,11 +1,14 @@
 import { buildMeetingIcs } from "@wayfinder/supabase/meeting-ics";
 import { createServerClient } from "@wayfinder/supabase";
+import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { lookupClientIdForAuthUser } from "@wayfinder/supabase";
 import {
   respondWithLoggedError,
   resolveErrorActor,
   USER_FACING_AUTH_REQUIRED,
   USER_FACING_FORBIDDEN,
   USER_FACING_NOT_FOUND,
+  USER_FACING_SYSTEM_ERROR,
 } from "@wayfinder/supabase/error-log";
 import { NextResponse } from "next/server";
 
@@ -28,7 +31,19 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Meeting not specified." }, { status: 400 });
     }
 
-    const { data: meeting, error: meetingErr } = await supabase
+    let admin;
+    try {
+      admin = createServiceRoleClient();
+    } catch {
+      return NextResponse.json({ error: USER_FACING_SYSTEM_ERROR }, { status: 503 });
+    }
+
+    const clientId = await lookupClientIdForAuthUser(admin, user.id);
+    if (!clientId) {
+      return NextResponse.json({ error: USER_FACING_FORBIDDEN }, { status: 403 });
+    }
+
+    const { data: meeting, error: meetingErr } = await admin
       .from("client_meeting_requests")
       .select("id, starts_at, location, status, service_id, es_user_id, client_id")
       .eq("id", id)
@@ -38,24 +53,18 @@ export async function GET(request: Request) {
       return respondWithLoggedError("client", route, meetingErr, actor);
     }
 
-    if (!meeting || meeting.status === "declined" || meeting.status === "cancelled") {
+    if (
+      !meeting ||
+      meeting.status === "declined" ||
+      meeting.status === "cancelled" ||
+      meeting.client_id !== clientId
+    ) {
       return NextResponse.json({ error: USER_FACING_NOT_FOUND }, { status: 404 });
-    }
-
-    const { data: client } = await supabase
-      .from("clients")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("id", meeting.client_id)
-      .maybeSingle();
-
-    if (!client) {
-      return NextResponse.json({ error: USER_FACING_FORBIDDEN }, { status: 403 });
     }
 
     let serviceName = "Wayfinder service";
     if (meeting.service_id) {
-      const { data: svc } = await supabase
+      const { data: svc } = await admin
         .from("services")
         .select("name")
         .eq("id", meeting.service_id)
@@ -67,7 +76,7 @@ export async function GET(request: Request) {
 
     let esName = "Employment Specialist";
     if (meeting.es_user_id) {
-      const { data: es } = await supabase
+      const { data: es } = await admin
         .from("profiles")
         .select("full_name")
         .eq("id", meeting.es_user_id)

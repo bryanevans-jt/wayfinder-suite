@@ -1,10 +1,11 @@
-import { createServerClient, createClientWithInvite, isEsRole } from "@wayfinder/supabase";
+import { createClientWithInvite, isEsRole } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
   USER_FACING_AUTH_REQUIRED,
   USER_FACING_FORBIDDEN,
   USER_FACING_SYSTEM_ERROR,
 } from "@wayfinder/supabase/error-log";
+import { assertNotPreviewMutation, getAppSession } from "@wayfinder/supabase/preview-server";
 import { NextResponse } from "next/server";
 
 type Body = {
@@ -16,22 +17,14 @@ type Body = {
 };
 
 export async function POST(request: Request) {
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  await assertNotPreviewMutation();
 
-  if (!user) {
+  const session = await getAppSession();
+  if (!session) {
     return NextResponse.json({ error: USER_FACING_AUTH_REQUIRED }, { status: 401 });
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (!isEsRole(profile?.role)) {
+  if (!isEsRole(session.effectiveRole)) {
     return NextResponse.json({ error: USER_FACING_FORBIDDEN }, { status: 403 });
   }
 
@@ -55,7 +48,7 @@ export async function POST(request: Request) {
     serviceId: body.serviceId ?? "",
     officeId: body.officeId ?? "",
     counselorId: body.counselorId ?? "",
-    esUserId: user.id,
+    esUserId: session.effectiveUserId,
   });
 
   if ("error" in result) {

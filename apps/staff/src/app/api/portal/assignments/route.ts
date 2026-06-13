@@ -1,4 +1,4 @@
-import { assertPortalSession, jsonPortalError } from "@/lib/portal-auth";
+import { assertPortalMutation, jsonPortalError } from "@/lib/portal-auth";
 import { NextRequest } from "next/server";
 
 type AssignmentBody = {
@@ -14,7 +14,7 @@ type AssignmentBody = {
 
 export async function POST(request: NextRequest) {
   try {
-    const { admin } = await assertPortalSession("admin");
+    const { admin } = await assertPortalMutation("admin");
     const body = (await request.json()) as AssignmentBody;
     const type = body.type?.trim();
 
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { admin } = await assertPortalSession("admin");
+    const { admin } = await assertPortalMutation("admin");
     const type = request.nextUrl.searchParams.get("type")?.trim();
     const id = request.nextUrl.searchParams.get("id")?.trim();
     if (!type || !id) {

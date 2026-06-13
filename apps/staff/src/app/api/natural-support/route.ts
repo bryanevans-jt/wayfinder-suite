@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing clientId" }, { status: 400 });
     }
 
-    await assertNaturalSupportClientAccess(body.clientId);
+    await assertNaturalSupportClientAccess(body.clientId, true);
     const admin = requireServiceRoleAdmin();
 
     await inviteNaturalSupportForClient(admin, {

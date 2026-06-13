@@ -1,4 +1,5 @@
 import { isSupervisorTierRole } from "@wayfinder/supabase";
+import { assertNotPreviewMutation } from "@wayfinder/supabase/preview-server";
 import { createServerClient } from "@wayfinder/supabase";
 import {
   respondWithLoggedError,
@@ -11,6 +12,8 @@ import { NextResponse } from "next/server";
 export async function POST(request: Request) {
   const route = "api/messages/dismiss-sla";
   try {
+    await assertNotPreviewMutation();
+
     const supabase = await createServerClient();
     const {
       data: { user },

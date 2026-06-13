@@ -1,4 +1,4 @@
-import { assertPortalSession, jsonPortalError } from "@/lib/portal-auth";
+import { assertPortalMutation, assertPortalSession, jsonPortalError } from "@/lib/portal-auth";
 import {
   createClientWithInvite,
   linkClientAuthUserByEmail,
@@ -55,7 +55,7 @@ type PatchBody = {
 
 export async function POST(request: NextRequest) {
   try {
-    const { admin } = await assertPortalSession("admin");
+    const { admin } = await assertPortalMutation("admin");
     const body = (await request.json()) as CreateBody;
 
     const result = await createClientWithInvite(admin, {
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { admin } = await assertPortalSession("admin");
+    const { admin } = await assertPortalMutation("admin");
     const body = (await request.json()) as PatchBody;
     const id = body.id?.trim();
     if (!id) {
@@ -276,7 +276,7 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { admin } = await assertPortalSession("admin");
+    const { admin } = await assertPortalMutation("admin");
     const id = request.nextUrl.searchParams.get("id")?.trim();
     if (!id) {
       return Response.json({ error: "id is required" }, { status: 400 });

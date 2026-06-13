@@ -1,11 +1,13 @@
 import { createServerClient } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { lookupClientIdForAuthUser } from "@wayfinder/supabase";
 import {
   respondWithLoggedError,
   resolveErrorActor,
   USER_FACING_AUTH_REQUIRED,
   USER_FACING_FORBIDDEN,
   USER_FACING_NOT_FOUND,
+  USER_FACING_SYSTEM_ERROR,
 } from "@wayfinder/supabase/error-log";
 import { notifyUser } from "@wayfinder/supabase/notify-user";
 import { NextResponse } from "next/server";
@@ -45,34 +47,35 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: meeting } = await supabase
+    let admin;
+    try {
+      admin = createServiceRoleClient();
+    } catch {
+      return NextResponse.json({ error: USER_FACING_SYSTEM_ERROR }, { status: 503 });
+    }
+
+    const clientId = await lookupClientIdForAuthUser(admin, user.id);
+    if (!clientId) {
+      return NextResponse.json({ error: USER_FACING_FORBIDDEN }, { status: 403 });
+    }
+
+    const { data: meeting } = await admin
       .from("client_meeting_requests")
       .select("id, client_id, es_user_id, status, starts_at, location, service_id")
       .eq("id", meetingId)
       .maybeSingle();
 
-    if (!meeting || meeting.status !== "pending") {
+    if (!meeting || meeting.status !== "pending" || meeting.client_id !== clientId) {
       return NextResponse.json(
         { error: "This meeting request is no longer available." },
         { status: 404 }
       );
     }
 
-    const { data: client } = await supabase
-      .from("clients")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("id", meeting.client_id)
-      .maybeSingle();
-
-    if (!client) {
-      return NextResponse.json({ error: USER_FACING_FORBIDDEN }, { status: 403 });
-    }
-
     const status = action === "accept" ? "accepted" : "declined";
     const now = new Date().toISOString();
 
-    const { error: updErr } = await supabase
+    const { error: updErr } = await admin
       .from("client_meeting_requests")
       .update({ status, responded_at: now })
       .eq("id", meetingId);
@@ -81,7 +84,6 @@ export async function POST(request: Request) {
       return respondWithLoggedError("client", route, updErr, actor);
     }
 
-    const admin = createServiceRoleClient();
     if (meeting.es_user_id) {
       await notifyUser(admin, {
         userId: meeting.es_user_id,

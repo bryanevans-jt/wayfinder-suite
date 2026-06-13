@@ -1,5 +1,6 @@
 import { createServerClient } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { assertNotPreviewMutation } from "@wayfinder/supabase/preview-server";
 import { isAdminTierRole, isEsRole, isSupervisorRole } from "@wayfinder/supabase/roles";
 import { esIsAssignedToClient } from "@/lib/es-caseload-data";
 
@@ -12,7 +13,13 @@ export class NaturalSupportAccessError extends Error {
 }
 
 /** ES, supervisor (scoped), admin, and super_admin may invite Natural Support for a client. */
-export async function assertNaturalSupportClientAccess(clientId: string) {
+export async function assertNaturalSupportClientAccess(
+  clientId: string,
+  forMutation = false
+) {
+  if (forMutation) {
+    await assertNotPreviewMutation();
+  }
   const supabase = await createServerClient();
   const {
     data: { user },

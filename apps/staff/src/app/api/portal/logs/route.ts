@@ -1,4 +1,4 @@
-import { assertPortalSession, jsonPortalError } from "@/lib/portal-auth";
+import { assertPortalMutation, assertPortalSession, jsonPortalError } from "@/lib/portal-auth";
 import { activityLogsToCsv, loadActivityLogs } from "@/lib/portal-data";
 import { isAdminTierRole } from "@wayfinder/supabase/roles";
 import { NextRequest } from "next/server";
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { admin } = await assertPortalSession("super_admin");
+    const { admin } = await assertPortalMutation("super_admin");
     const body = (await request.json()) as {
       id?: string;
       public_outcome?: string;
@@ -78,7 +78,7 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { admin } = await assertPortalSession("super_admin");
+    const { admin } = await assertPortalMutation("super_admin");
     const id = request.nextUrl.searchParams.get("id")?.trim();
     if (!id) {
       return Response.json({ error: "id required" }, { status: 400 });

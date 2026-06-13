@@ -1,6 +1,6 @@
 "use server";
 
-import { createServerClient, isEsRole } from "@wayfinder/supabase";
+import { isEsRole } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
   USER_FACING_AUTH_REQUIRED,
@@ -8,7 +8,7 @@ import {
   USER_FACING_SYSTEM_ERROR,
 } from "@wayfinder/supabase/error-log";
 import { notifyUser } from "@wayfinder/supabase/notify-user";
-import { getAppSession } from "@wayfinder/supabase/preview-server";
+import { assertNotPreviewMutation, getAppSession } from "@wayfinder/supabase/preview-server";
 import { revalidatePath } from "next/cache";
 import { esIsAssignedToClient } from "@/lib/es-caseload-data";
 
@@ -32,6 +32,7 @@ function formatMeetingLocation(place: string, address?: string): string {
 }
 
 export async function createMeetingRequest(input: Input) {
+  await assertNotPreviewMutation();
   const session = await getAppSession();
   if (!session) {
     throw new Error(USER_FACING_AUTH_REQUIRED);
@@ -39,6 +40,13 @@ export async function createMeetingRequest(input: Input) {
 
   if (!isEsRole(session.effectiveRole)) {
     throw new Error(USER_FACING_FORBIDDEN);
+  }
+
+  let admin;
+  try {
+    admin = createServiceRoleClient();
+  } catch {
+    throw new Error("Server configuration error");
   }
 
   const assigned = await esIsAssignedToClient(session.effectiveUserId, input.clientId);
@@ -51,10 +59,9 @@ export async function createMeetingRequest(input: Input) {
     throw new Error("Date, time, and place are required");
   }
 
-  const supabase = await createServerClient();
   const startsAt = new Date(`${input.date}T${input.time}:00`);
 
-  const { data: meeting, error } = await supabase
+  const { data: meeting, error } = await admin
     .from("client_meeting_requests")
     .insert({
       client_id: input.clientId,
@@ -73,7 +80,7 @@ export async function createMeetingRequest(input: Input) {
     throw new Error(USER_FACING_SYSTEM_ERROR);
   }
 
-  const { data: client } = await supabase
+  const { data: client } = await admin
     .from("clients")
     .select("user_id, profile_id")
     .eq("id", input.clientId)
@@ -84,7 +91,6 @@ export async function createMeetingRequest(input: Input) {
 
   if (notifyUserId) {
     try {
-      const admin = createServiceRoleClient();
       await notifyUser(admin, {
         userId: notifyUserId,
         kind: "meeting_request",

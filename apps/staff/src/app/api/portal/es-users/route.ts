@@ -1,4 +1,4 @@
-import { assertPortalSession, jsonPortalError } from "@/lib/portal-auth";
+import { assertPortalMutation, jsonPortalError } from "@/lib/portal-auth";
 import {
   assertStaffUserEditable,
   findAuthUserIdByEmail,
@@ -23,7 +23,7 @@ type PatchBody = {
 
 export async function POST(request: NextRequest) {
   try {
-    const { admin } = await assertPortalSession("admin");
+    const { admin } = await assertPortalMutation("admin");
     const body = (await request.json()) as CreateBody;
 
     const email = (body.email ?? "").trim().toLowerCase();
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { admin } = await assertPortalSession("admin");
+    const { admin } = await assertPortalMutation("admin");
     const body = (await request.json()) as PatchBody;
     const userId = body.user_id?.trim();
 
@@ -128,7 +128,7 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { admin } = await assertPortalSession("admin");
+    const { admin } = await assertPortalMutation("admin");
     const userId = request.nextUrl.searchParams.get("user_id")?.trim();
 
     if (!userId) {

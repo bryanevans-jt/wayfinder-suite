@@ -7,7 +7,7 @@ import {
   USER_FACING_FORBIDDEN,
   USER_FACING_SYSTEM_ERROR,
 } from "@wayfinder/supabase/error-log";
-import { getAppSession } from "@wayfinder/supabase/preview-server";
+import { getAppSession, assertNotPreviewMutation } from "@wayfinder/supabase/preview-server";
 import {
   isAdminTierRole,
   isSuperAdminRole,
@@ -71,6 +71,12 @@ export async function assertPortalSession(minTier: PortalTier) {
     isSuperAdmin: isSuperAdminRole(profile.role),
     canEditLogs: isSuperAdminRole(profile.role) && !session.isPreviewing,
   };
+}
+
+/** Portal write operations — blocks super_admin preview impersonation. */
+export async function assertPortalMutation(minTier: PortalTier) {
+  await assertNotPreviewMutation();
+  return assertPortalSession(minTier);
 }
 
 function portalAuthUserMessage(error: PortalAuthError): string {

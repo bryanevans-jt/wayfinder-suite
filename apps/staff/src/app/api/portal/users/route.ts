@@ -1,4 +1,4 @@
-import { assertPortalSession, jsonPortalError } from "@/lib/portal-auth";
+import { assertPortalMutation, jsonPortalError } from "@/lib/portal-auth";
 import {
   findAuthUserIdByEmail,
   inviteStaffAuthUser,
@@ -8,7 +8,7 @@ import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const { admin, isSuperAdmin } = await assertPortalSession("super_admin");
+    const { admin, isSuperAdmin } = await assertPortalMutation("super_admin");
     if (!isSuperAdmin) {
       return Response.json({ error: "Only super admin can assign admins" }, { status: 403 });
     }

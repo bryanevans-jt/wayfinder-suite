@@ -1,4 +1,4 @@
-import { assertPortalSession, jsonPortalError } from "@/lib/portal-auth";
+import { assertPortalMutation, assertPortalSession, jsonPortalError } from "@/lib/portal-auth";
 import {
   buildClientImportReference,
   buildClientImportTemplateCsv,
@@ -30,7 +30,7 @@ type ImportBody = {
 
 export async function POST(request: NextRequest) {
   try {
-    const { admin } = await assertPortalSession("admin");
+    const { admin } = await assertPortalMutation("admin");
     const body = (await request.json()) as ImportBody;
     const rows = body.rows ?? [];
 

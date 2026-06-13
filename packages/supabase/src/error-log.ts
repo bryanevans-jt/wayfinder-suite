@@ -224,6 +224,7 @@ function looksTechnical(message: string): boolean {
     lower.includes("network") ||
     lower.includes("econnrefused") ||
     lower.includes("digest:") ||
+    lower.includes("server components render") ||
     lower.includes("service_role") ||
     /^[a-z_]+:\s/.test(lower)
   );

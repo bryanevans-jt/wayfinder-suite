@@ -1,4 +1,4 @@
-import { assertPortalSession, jsonPortalError } from "@/lib/portal-auth";
+import { assertPortalMutation, assertPortalSession, jsonPortalError } from "@/lib/portal-auth";
 import {
   assertStaffUserEditable,
   countClientsForCounselor,
@@ -70,7 +70,7 @@ async function linkCounselorLogin(
 
 export async function POST(request: NextRequest) {
   try {
-    const { admin } = await assertPortalSession("admin");
+    const { admin } = await assertPortalMutation("admin");
     const body = (await request.json()) as CreateBody;
 
     const fullName = (body.full_name ?? "").trim();
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { admin } = await assertPortalSession("admin");
+    const { admin } = await assertPortalMutation("admin");
     const body = (await request.json()) as PatchBody;
     const id = body.id?.trim();
 
@@ -184,7 +184,7 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { admin } = await assertPortalSession("admin");
+    const { admin } = await assertPortalMutation("admin");
     const id = request.nextUrl.searchParams.get("id")?.trim();
 
     if (!id) {
