@@ -2,6 +2,7 @@ import { assertPortalSession, jsonPortalError } from "@/lib/portal-auth";
 import {
   assertStaffUserEditable,
   findAuthUserIdByEmail,
+  inviteStaffAuthUser,
   replaceStaffOfficeAssignments,
   upsertStaffProfile,
 } from "@/lib/portal-staff-users";
@@ -36,15 +37,7 @@ export async function POST(request: NextRequest) {
     let userId = await findAuthUserIdByEmail(admin, email);
 
     if (!userId) {
-      const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
-        data: { full_name: fullName },
-      });
-      if (inviteErr || !invited.user) {
-        const msg = inviteErr?.message ?? "Could not invite user";
-        const status = msg.toLowerCase().includes("already") ? 409 : 400;
-        return Response.json({ error: msg }, { status });
-      }
-      userId = invited.user.id;
+      userId = await inviteStaffAuthUser(admin, email, { full_name: fullName });
     } else {
       const blocked = await assertStaffUserEditable(admin, userId);
       if (blocked) {

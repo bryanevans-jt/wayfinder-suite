@@ -3,6 +3,7 @@ import {
   assertStaffUserEditable,
   countClientsForCounselor,
   findAuthUserIdByEmail,
+  inviteStaffAuthUser,
   replaceCounselorOfficeAssignments,
   upsertStaffProfile,
 } from "@/lib/portal-staff-users";
@@ -31,13 +32,7 @@ async function linkCounselorLogin(
   let userId = await findAuthUserIdByEmail(admin, email);
 
   if (!userId) {
-    const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
-      data: { full_name: fullName },
-    });
-    if (inviteErr || !invited.user) {
-      throw new Error(inviteErr?.message ?? "Could not invite user");
-    }
-    userId = invited.user.id;
+    userId = await inviteStaffAuthUser(admin, email, { full_name: fullName });
   } else {
     const blocked = await assertStaffUserEditable(admin, userId);
     if (blocked) {

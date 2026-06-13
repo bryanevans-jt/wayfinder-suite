@@ -19,6 +19,8 @@ async function verifyOtpWithFallback(
   const typesToTry = [
     type,
     type === "magiclink" ? "email" : null,
+    "invite",
+    "signup",
     "email",
     "magiclink",
   ].filter(Boolean) as EmailOtpType[];

@@ -26,6 +26,26 @@ export async function findAuthUserIdByEmail(
   return listed.users?.find((u) => (u.email ?? "").toLowerCase() === email)?.id ?? null;
 }
 
+export function staffInviteRedirectUrl(): string {
+  const raw = process.env.NEXT_PUBLIC_STAFF_APP_URL ?? "http://localhost:3000";
+  return `${raw.replace(/\/$/, "")}/auth/callback`;
+}
+
+export async function inviteStaffAuthUser(
+  admin: AdminClient,
+  email: string,
+  metadata?: { full_name?: string }
+): Promise<string> {
+  const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
+    redirectTo: staffInviteRedirectUrl(),
+    data: metadata,
+  });
+  if (inviteErr || !invited.user) {
+    throw new Error(inviteErr?.message ?? "Could not invite user");
+  }
+  return invited.user.id;
+}
+
 export async function upsertStaffProfile(
   admin: AdminClient,
   userId: string,
@@ -35,20 +55,37 @@ export async function upsertStaffProfile(
     is_active?: boolean;
   }
 ): Promise<void> {
-  const patch: Record<string, unknown> = { role: fields.role };
-  if (fields.full_name !== undefined) patch.full_name = fields.full_name;
-  if (fields.is_active !== undefined) patch.is_active = fields.is_active;
+  const row: Record<string, unknown> = {
+    id: userId,
+    role: fields.role,
+    is_active: fields.is_active ?? true,
+  };
+  if (fields.full_name !== undefined) {
+    row.full_name = fields.full_name;
+  }
 
-  const { error: updateErr } = await admin.from("profiles").update(patch).eq("id", userId);
+  const { error: upsertErr } = await admin.from("profiles").upsert(row, { onConflict: "id" });
 
-  if (updateErr) {
-    const { error: insertErr } = await admin.from("profiles").insert({
-      id: userId,
-      role: fields.role,
-      full_name: fields.full_name ?? null,
-      is_active: fields.is_active ?? true,
-    });
-    if (insertErr) throw new Error(insertErr.message);
+  if (upsertErr) {
+    const patch = { ...row };
+    delete patch.id;
+    const { data: updated, error: updateErr } = await admin
+      .from("profiles")
+      .update(patch)
+      .eq("id", userId)
+      .select("id")
+      .maybeSingle();
+
+    if (updateErr) {
+      throw new Error(updateErr.message);
+    }
+
+    if (!updated) {
+      const { error: insertErr } = await admin.from("profiles").insert(row);
+      if (insertErr) {
+        throw new Error(insertErr.message);
+      }
+    }
   }
 
   if (fields.full_name !== undefined) {
