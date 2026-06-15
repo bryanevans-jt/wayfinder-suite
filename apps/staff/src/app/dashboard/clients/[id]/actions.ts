@@ -142,8 +142,7 @@ export async function addClientApplication(
   companyName: string,
   notes: string,
   statusOtherReason: string | null = null,
-  employerId: string | null = null,
-  time?: TimeInput
+  employerId: string | null = null
 ) {
   await assertNotPreviewMutation();
   const normalized = status.trim();
@@ -158,7 +157,7 @@ export async function addClientApplication(
     throw new Error("Company or employer is required");
   }
 
-  const { admin, userId } = await assertEsAssignedToClient(clientId);
+  const { admin } = await assertEsAssignedToClient(clientId);
 
   let resolvedCompany = company;
   if (employerId) {
@@ -176,30 +175,13 @@ export async function addClientApplication(
     throw new Error("Company name is required");
   }
 
-  const applicationId = await insertApplicationForClient(admin, [clientId], {
+  await insertApplicationForClient(admin, [clientId], {
     status: normalized,
     company_name: resolvedCompany,
     notes: notes.trim() || null,
     status_other_reason: normalized === "Other" ? statusOtherReason?.trim() ?? null : null,
     employer_id: employerId,
   });
-
-  if (time?.activityTypeId && time.durationMinutes > 0) {
-    const narrative =
-      time.narrative?.trim() ||
-      `Application: ${resolvedCompany} (${normalized})${notes.trim() ? ` — ${notes.trim()}` : ""}`;
-
-    await insertEsTimeEntry(admin, {
-      esUserId: userId,
-      clientId,
-      activityTypeId: time.activityTypeId,
-      serviceDate: time.serviceDate ?? todayLocalDate(),
-      durationMinutes: time.durationMinutes,
-      narrative,
-      linkedSourceType: "application",
-      linkedSourceId: applicationId,
-    });
-  }
 
   revalidateClientPaths(clientId);
 }

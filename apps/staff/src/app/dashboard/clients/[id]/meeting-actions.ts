@@ -3,10 +3,6 @@
 import { isEsRole } from "@wayfinder/supabase/roles";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
-  insertEsTimeEntry,
-  todayLocalDate,
-} from "@wayfinder/supabase/es-time-tracking";
-import {
   USER_FACING_AUTH_REQUIRED,
   USER_FACING_FORBIDDEN,
   USER_FACING_SYSTEM_ERROR,
@@ -24,9 +20,6 @@ type Input = {
   timezone: string;
   location: string;
   address?: string;
-  activityTypeId?: string;
-  durationMinutes?: number;
-  narrative?: string;
 };
 
 function formatMeetingLocation(place: string, address?: string): string {
@@ -113,24 +106,4 @@ export async function createMeetingRequest(input: Input) {
   }
 
   revalidatePath(`/dashboard/clients/${input.clientId}`);
-
-  if (input.activityTypeId && input.durationMinutes && input.durationMinutes > 0) {
-    try {
-      await insertEsTimeEntry(admin, {
-        esUserId: session.effectiveUserId,
-        clientId: input.clientId,
-        activityTypeId: input.activityTypeId,
-        serviceDate: input.date || todayLocalDate(),
-        durationMinutes: input.durationMinutes,
-        narrative:
-          input.narrative?.trim() ||
-          `Scheduled meeting at ${location} on ${input.date} ${input.time}`,
-        linkedSourceType: "meeting",
-        linkedSourceId: meeting.id as string,
-      });
-      revalidatePath("/dashboard/timesheet");
-    } catch (timeErr) {
-      console.error("createMeetingRequest time entry failed:", timeErr);
-    }
-  }
 }

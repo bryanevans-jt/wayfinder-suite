@@ -304,7 +304,6 @@ export default async function EsClientDetailPage({ params }: PageProps) {
         {!readOnly ? (
           <ClientApplicationForm
             clientId={client.id}
-            activities={activities}
             employers={employerOptions}
             existing={(applications ?? []).map((a) => ({
               id: a.id as string,
@@ -324,7 +323,6 @@ export default async function EsClientDetailPage({ params }: PageProps) {
             clientId={client.id}
             serviceId={client.current_service_id}
             serviceName={service?.name ?? null}
-            activities={activities}
           />
         ) : null}
         {!readOnly ? (
