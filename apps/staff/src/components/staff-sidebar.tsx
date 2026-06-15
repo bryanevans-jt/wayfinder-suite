@@ -105,6 +105,11 @@ function navItemsForRole(staffRole: string | null, showAuditLink = false): NavIt
         match: (p) => p.startsWith("/dashboard/supervisor"),
       },
       {
+        href: "/dashboard/timesheet",
+        label: "Timesheet",
+        match: (p) => p.startsWith("/dashboard/timesheet"),
+      },
+      {
         href: "/dashboard/messages",
         label: "Messages",
         match: (p) => p === "/dashboard/messages",
@@ -126,6 +131,11 @@ function navItemsForRole(staffRole: string | null, showAuditLink = false): NavIt
         label: "Clients",
         match: (p) => p.startsWith("/dashboard/clients"),
       },
+      {
+        href: "/dashboard/timesheet",
+        label: "Timesheet",
+        match: (p) => p.startsWith("/dashboard/timesheet"),
+      },
       communityPartnersNav,
       {
         href: "/dashboard/exports",
@@ -141,6 +151,11 @@ function navItemsForRole(staffRole: string | null, showAuditLink = false): NavIt
         href: "/dashboard/clients",
         label: "Clients",
         match: (p) => p.startsWith("/dashboard/clients"),
+      },
+      {
+        href: "/dashboard/timesheet",
+        label: "Timesheet",
+        match: (p) => p.startsWith("/dashboard/timesheet"),
       },
       communityPartnersNav,
       {

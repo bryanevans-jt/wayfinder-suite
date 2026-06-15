@@ -1,10 +1,6 @@
-import {
-  buildClientActivityFeed,
-  ClientActivityTimeline,
-  clientDisplayName,
-  normalizeEmploymentGoal,
-} from "@wayfinder/branding";
+import { buildClientActivityFeed, ClientActivityTimeline, clientDisplayName, normalizeEmploymentGoal } from "@wayfinder/branding";
 import { buildClientActivityFkIds, createServerClient, isEsRole } from "@wayfinder/supabase";
+import { formatLocalDate, loadActiveActivityTypes } from "@wayfinder/supabase/es-time-tracking";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAppSession, requireEsClientAccess } from "@/lib/app-session";
@@ -15,9 +11,11 @@ import { ClientProfileForm, type ClientProfileData } from "@/components/client-p
 import { EmployerMatchPanel } from "@/components/employer-match-panel";
 import { ClientApplicationForm } from "./client-application-form";
 import { ClientContactLogForm } from "./client-contact-log-form";
+import { ClientManualTimeForm } from "./client-manual-time-form";
 import { ClientMeetingForm } from "./client-meeting-form";
 import { ClientStageForm } from "./client-stage-form";
 import { NaturalSupportPanel } from "./natural-support-panel";
+import { ClientActivityReportPanel } from "@/components/client-activity-report-panel";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -44,6 +42,12 @@ export default async function EsClientDetailPage({ params }: PageProps) {
   if (!admin) {
     notFound();
   }
+
+  let activities = await loadActiveActivityTypes(admin).catch(() => []);
+
+  const now = new Date();
+  const reportDefaultFrom = formatLocalDate(new Date(now.getFullYear(), now.getMonth(), 1));
+  const reportDefaultTo = formatLocalDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
 
   const { data: client, error: clientErr } = await admin
     .from("clients")
@@ -266,6 +270,14 @@ export default async function EsClientDetailPage({ params }: PageProps) {
         </p>
       ) : null}
 
+      {!readOnly && activities.length === 0 ? (
+        <p className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          Time tracking is not available yet — run the{" "}
+          <code className="text-xs">20260612190000_es_time_tracking.sql</code> migration in Supabase,
+          then refresh this page.
+        </p>
+      ) : null}
+
       <section className="mt-8 max-w-2xl space-y-6">
         <ClientProfileForm clientId={client.id} initial={profileData} readOnly={readOnly} />
 
@@ -280,6 +292,7 @@ export default async function EsClientDetailPage({ params }: PageProps) {
             clientId={client.id}
             milestones={milestoneOptions}
             currentStageId={client.current_stage_id}
+            activities={activities}
           />
         ) : !readOnly ? (
           <p className="text-sm text-brand-black/75">
@@ -287,10 +300,11 @@ export default async function EsClientDetailPage({ params }: PageProps) {
           </p>
         ) : null}
 
-        {!readOnly ? <ClientContactLogForm clientId={client.id} /> : null}
+        {!readOnly ? <ClientContactLogForm clientId={client.id} activities={activities} /> : null}
         {!readOnly ? (
           <ClientApplicationForm
             clientId={client.id}
+            activities={activities}
             employers={employerOptions}
             existing={(applications ?? []).map((a) => ({
               id: a.id as string,
@@ -310,6 +324,18 @@ export default async function EsClientDetailPage({ params }: PageProps) {
             clientId={client.id}
             serviceId={client.current_service_id}
             serviceName={service?.name ?? null}
+            activities={activities}
+          />
+        ) : null}
+        {!readOnly ? (
+          <ClientManualTimeForm clientId={client.id} activities={activities} readOnly={readOnly} />
+        ) : null}
+        {!readOnly ? (
+          <ClientActivityReportPanel
+            clientId={client.id}
+            clientName={displayName}
+            defaultFrom={reportDefaultFrom}
+            defaultTo={reportDefaultTo}
           />
         ) : null}
         {!readOnly ? <NaturalSupportPanel clientId={client.id} /> : null}

@@ -1,0 +1,89 @@
+import { weekEndSaturday, weekStartSunday } from "@wayfinder/supabase/es-time-tracking";
+import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import {
+  isAdminTierRole,
+  isEsRole,
+  isSupervisorRole,
+} from "@wayfinder/supabase/roles";
+import { getAppSession } from "@wayfinder/supabase/preview-server";
+import { redirect } from "next/navigation";
+import { TimesheetWorkspace } from "@/components/timesheet-workspace";
+import {
+  loadEsTimeEntriesForWeek,
+  loadPendingWeekSubmissionsForSupervisor,
+  loadWeekSubmission,
+} from "@/lib/es-time-data";
+
+type PageProps = {
+  searchParams: Promise<{ week?: string; es?: string }>;
+};
+
+export default async function TimesheetPage({ searchParams }: PageProps) {
+  const session = await getAppSession();
+  if (!session) {
+    redirect("/login");
+  }
+
+  const role = session.effectiveRole;
+  const canAccess =
+    isEsRole(role) ||
+    isSupervisorRole(role) ||
+    role === "accountant" ||
+    isAdminTierRole(role);
+
+  if (!canAccess) {
+    redirect("/dashboard");
+  }
+
+  const params = await searchParams;
+  const weekStart = weekStartSunday(params.week ?? new Date());
+  const weekEnd = weekEndSaturday(weekStart);
+
+  let esUserId = session.effectiveUserId;
+  if ((isSupervisorRole(role) || isAdminTierRole(role) || role === "accountant") && params.es) {
+    esUserId = params.es;
+  }
+
+  let admin;
+  try {
+    admin = createServiceRoleClient();
+  } catch {
+    redirect("/dashboard");
+  }
+
+  const [{ data: esProfile }, entries, weekSubmission, pendingApprovals] = await Promise.all([
+    admin.from("profiles").select("full_name, email").eq("id", esUserId).maybeSingle(),
+    loadEsTimeEntriesForWeek(admin, esUserId, weekStart),
+    loadWeekSubmission(admin, esUserId, weekStart),
+    isSupervisorRole(role) || isAdminTierRole(role)
+      ? loadPendingWeekSubmissionsForSupervisor(admin, session.effectiveUserId)
+      : Promise.resolve([]),
+  ]);
+
+  const esName =
+    (esProfile?.full_name as string | null)?.trim() ||
+    (esProfile?.email as string | null) ||
+    "Employment Specialist";
+
+  return (
+    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <h1 className="text-2xl font-bold text-brand-green">Timesheet</h1>
+      <p className="mt-2 max-w-2xl text-sm text-brand-black/75">
+        Track billable hours tied to client work. Time is captured when you log contacts,
+        applications, meetings, and stage updates. Submit each pay week (Sunday–Saturday) for
+        supervisor approval.
+      </p>
+      <TimesheetWorkspace
+        role={role ?? ""}
+        esUserId={esUserId}
+        esName={esName}
+        weekStart={weekStart}
+        weekEnd={weekEnd}
+        entries={entries}
+        weekSubmission={weekSubmission}
+        pendingApprovals={pendingApprovals}
+        readOnly={session.isPreviewing}
+      />
+    </main>
+  );
+}

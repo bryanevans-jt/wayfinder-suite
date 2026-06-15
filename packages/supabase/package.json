@@ -21,7 +21,8 @@
     "./notify-user": "./src/notify-user.ts",
     "./error-log": "./src/error-log.ts",
     "./client-bulk-import": "./src/client-bulk-import.ts",
-    "./client-import-csv": "./src/client-import-csv.ts"
+    "./client-import-csv": "./src/client-import-csv.ts",
+    "./es-time-tracking": "./src/es-time-tracking.ts"
   },
   "scripts": {
     "lint": "tsc --noEmit"

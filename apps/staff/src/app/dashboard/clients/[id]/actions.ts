@@ -1,7 +1,13 @@
 "use server";
 
 import { isApplicationStatus } from "@wayfinder/branding";
-import { insertApplicationForClient, insertContactLogForClient } from "@wayfinder/supabase";
+import {
+  DEFAULT_ACTIVITY_CODES,
+  insertApplicationForClient,
+  insertContactLogForClient,
+  insertEsTimeEntry,
+  todayLocalDate,
+} from "@wayfinder/supabase";
 import { assertNotPreviewMutation } from "@wayfinder/supabase/preview-server";
 import { revalidatePath } from "next/cache";
 import { assertEsAssignedToClient } from "@/lib/es-client-access";
@@ -11,11 +17,23 @@ function revalidateClientPaths(clientId: string) {
   revalidatePath(`/dashboard/clients/${clientId}`);
   revalidatePath("/dashboard/counselor");
   revalidatePath(`/dashboard/counselor/clients/${clientId}`);
+  revalidatePath("/dashboard/timesheet");
 }
 
-export async function updateClientCurrentStage(clientId: string, milestoneId: string) {
+type TimeInput = {
+  activityTypeId: string;
+  durationMinutes: number;
+  serviceDate?: string;
+  narrative?: string | null;
+};
+
+export async function updateClientCurrentStage(
+  clientId: string,
+  milestoneId: string,
+  time?: TimeInput
+) {
   await assertNotPreviewMutation();
-  const { admin } = await assertEsAssignedToClient(clientId);
+  const { admin, userId } = await assertEsAssignedToClient(clientId);
 
   const { data: client, error: clientErr } = await admin
     .from("clients")
@@ -29,7 +47,7 @@ export async function updateClientCurrentStage(clientId: string, milestoneId: st
 
   const { data: milestone, error: msErr } = await admin
     .from("service_milestones")
-    .select("id")
+    .select("id, title")
     .eq("id", milestoneId)
     .eq("service_id", client.current_service_id)
     .maybeSingle();
@@ -47,13 +65,40 @@ export async function updateClientCurrentStage(clientId: string, milestoneId: st
     throw new Error(updErr.message ?? "Update failed");
   }
 
+  if (time?.activityTypeId && time.durationMinutes > 0) {
+    const fkIds = [clientId];
+    const { data: stageEvent } = await admin
+      .from("client_stage_events")
+      .select("id")
+      .in("client_id", fkIds)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const narrative =
+      time.narrative?.trim() ||
+      `Stage updated to ${(milestone.title as string) ?? "milestone"}`;
+
+    await insertEsTimeEntry(admin, {
+      esUserId: userId,
+      clientId,
+      activityTypeId: time.activityTypeId,
+      serviceDate: time.serviceDate ?? todayLocalDate(),
+      durationMinutes: time.durationMinutes,
+      narrative,
+      linkedSourceType: "stage_event",
+      linkedSourceId: (stageEvent?.id as string | undefined) ?? null,
+    });
+  }
+
   revalidateClientPaths(clientId);
 }
 
 export async function addClientContactLog(
   clientId: string,
   publicOutcome: string,
-  notes: string
+  notes: string,
+  time?: TimeInput
 ) {
   await assertNotPreviewMutation();
   const outcome = publicOutcome.trim();
@@ -63,12 +108,30 @@ export async function addClientContactLog(
 
   const { admin, userId } = await assertEsAssignedToClient(clientId);
 
-  await insertContactLogForClient(admin, {
+  const contactLogId = await insertContactLogForClient(admin, {
     loggedBy: userId,
     fkIds: [clientId],
     outcome,
     notes: notes.trim() || null,
   });
+
+  if (time?.activityTypeId && time.durationMinutes > 0) {
+    const narrative =
+      time.narrative?.trim() ||
+      [outcome, notes.trim()].filter(Boolean).join(" — ") ||
+      outcome;
+
+    await insertEsTimeEntry(admin, {
+      esUserId: userId,
+      clientId,
+      activityTypeId: time.activityTypeId,
+      serviceDate: time.serviceDate ?? todayLocalDate(),
+      durationMinutes: time.durationMinutes,
+      narrative,
+      linkedSourceType: "contact_log",
+      linkedSourceId: contactLogId,
+    });
+  }
 
   revalidateClientPaths(clientId);
 }
@@ -79,7 +142,8 @@ export async function addClientApplication(
   companyName: string,
   notes: string,
   statusOtherReason: string | null = null,
-  employerId: string | null = null
+  employerId: string | null = null,
+  time?: TimeInput
 ) {
   await assertNotPreviewMutation();
   const normalized = status.trim();
@@ -94,7 +158,7 @@ export async function addClientApplication(
     throw new Error("Company or employer is required");
   }
 
-  const { admin } = await assertEsAssignedToClient(clientId);
+  const { admin, userId } = await assertEsAssignedToClient(clientId);
 
   let resolvedCompany = company;
   if (employerId) {
@@ -112,13 +176,30 @@ export async function addClientApplication(
     throw new Error("Company name is required");
   }
 
-  await insertApplicationForClient(admin, [clientId], {
+  const applicationId = await insertApplicationForClient(admin, [clientId], {
     status: normalized,
     company_name: resolvedCompany,
     notes: notes.trim() || null,
     status_other_reason: normalized === "Other" ? statusOtherReason?.trim() ?? null : null,
     employer_id: employerId,
   });
+
+  if (time?.activityTypeId && time.durationMinutes > 0) {
+    const narrative =
+      time.narrative?.trim() ||
+      `Application: ${resolvedCompany} (${normalized})${notes.trim() ? ` — ${notes.trim()}` : ""}`;
+
+    await insertEsTimeEntry(admin, {
+      esUserId: userId,
+      clientId,
+      activityTypeId: time.activityTypeId,
+      serviceDate: time.serviceDate ?? todayLocalDate(),
+      durationMinutes: time.durationMinutes,
+      narrative,
+      linkedSourceType: "application",
+      linkedSourceId: applicationId,
+    });
+  }
 
   revalidateClientPaths(clientId);
 }
@@ -155,3 +236,30 @@ export async function updateClientApplication(
 
   revalidateClientPaths(clientId);
 }
+
+export async function addManualClientTime(
+  clientId: string,
+  activityTypeId: string,
+  durationMinutes: number,
+  serviceDate: string,
+  narrative: string
+) {
+  await assertNotPreviewMutation();
+  const { admin, userId } = await assertEsAssignedToClient(clientId);
+
+  await insertEsTimeEntry(admin, {
+    esUserId: userId,
+    clientId,
+    activityTypeId,
+    serviceDate,
+    durationMinutes,
+    narrative,
+    linkedSourceType: "manual",
+    linkedSourceId: null,
+  });
+
+  revalidateClientPaths(clientId);
+  revalidatePath("/dashboard/timesheet");
+}
+
+export { DEFAULT_ACTIVITY_CODES };

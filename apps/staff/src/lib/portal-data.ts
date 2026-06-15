@@ -574,7 +574,7 @@ export async function loadPortalBootstrap(
 
 export type ActivityLogRow = {
   id: string;
-  kind: "contact" | "application" | "stage";
+  kind: "contact" | "application" | "stage" | "meeting";
   created_at: string;
   client_id: string;
   client_name: string | null;
@@ -585,12 +585,22 @@ export type ActivityLogRow = {
   detail: string | null;
 };
 
+function inDateRange(iso: string, from?: string, to?: string): boolean {
+  if (!from && !to) return true;
+  const day = iso.slice(0, 10);
+  if (from && day < from) return false;
+  if (to && day > to) return false;
+  return true;
+}
+
 export async function loadActivityLogs(
   admin: ReturnType<typeof createServiceRoleClient>,
   filters: {
     esUserId?: string;
     clientId?: string;
     officeId?: string;
+    dateFrom?: string;
+    dateTo?: string;
     limit?: number;
   },
   scope?: { officeIds?: string[]; esUserIds?: string[] }
@@ -604,7 +614,7 @@ export async function loadActivityLogs(
     clientsQuery = await admin.from("clients").select("id, contact_email, office_id");
   }
 
-  const [{ data: esLinks }, { data: contacts }, { data: apps }, { data: stages }] =
+  const [{ data: esLinks }, { data: contacts }, { data: apps }, { data: stages }, { data: meetings }] =
     await Promise.all([
       admin.from("es_client_assignments").select("client_id, es_user_id"),
       admin
@@ -620,6 +630,11 @@ export async function loadActivityLogs(
       admin
         .from("client_stage_events")
         .select("id, client_id, created_at, service_milestones(title)")
+        .order("created_at", { ascending: false })
+        .limit(limit),
+      admin
+        .from("client_meeting_requests")
+        .select("id, client_id, created_at, starts_at, location, status")
         .order("created_at", { ascending: false })
         .limit(limit),
     ]);
@@ -705,6 +720,8 @@ export async function loadActivityLogs(
   for (const log of contacts ?? []) {
     const clientId = log.client_id as string;
     if (!inScope(clientId)) continue;
+    const createdAt = log.created_at as string;
+    if (!inDateRange(createdAt, filters.dateFrom, filters.dateTo)) continue;
     const client = clientMap.get(clientId);
     const outcome =
       (log.public_outcome as string | null) ??
@@ -727,6 +744,8 @@ export async function loadActivityLogs(
   for (const app of apps ?? []) {
     const clientId = app.client_id as string;
     if (!inScope(clientId)) continue;
+    const createdAt = app.created_at as string;
+    if (!inDateRange(createdAt, filters.dateFrom, filters.dateTo)) continue;
     const client = clientMap.get(clientId);
     rows.push({
       id: app.id as string,
@@ -745,6 +764,8 @@ export async function loadActivityLogs(
   for (const ev of stages ?? []) {
     const clientId = ev.client_id as string;
     if (!inScope(clientId)) continue;
+    const createdAt = ev.created_at as string;
+    if (!inDateRange(createdAt, filters.dateFrom, filters.dateTo)) continue;
     const client = clientMap.get(clientId);
     const embed = ev.service_milestones as { title?: string } | { title?: string }[] | null;
     const title = Array.isArray(embed) ? embed[0]?.title : embed?.title;
@@ -759,6 +780,28 @@ export async function loadActivityLogs(
       office_id: client?.office_id ?? null,
       summary: `Stage · ${title ?? "Milestone"}`,
       detail: null,
+    });
+  }
+
+  for (const mtg of meetings ?? []) {
+    const clientId = mtg.client_id as string;
+    if (!inScope(clientId)) continue;
+    const createdAt = mtg.created_at as string;
+    if (!inDateRange(createdAt, filters.dateFrom, filters.dateTo)) continue;
+    const client = clientMap.get(clientId);
+    const startsAt = mtg.starts_at as string | null;
+    const when = startsAt ? new Date(startsAt).toLocaleString("en-US") : "";
+    rows.push({
+      id: mtg.id as string,
+      kind: "meeting",
+      created_at: createdAt,
+      client_id: clientId,
+      client_name: client?.name ?? null,
+      client_email: client?.email ?? null,
+      es_user_ids: esByClient.get(clientId) ?? [],
+      office_id: client?.office_id ?? null,
+      summary: `Meeting ${mtg.status ?? "pending"}${when ? ` · ${when}` : ""}`,
+      detail: (mtg.location as string | null) ?? null,
     });
   }
 

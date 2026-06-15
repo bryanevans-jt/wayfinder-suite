@@ -35,9 +35,17 @@ const EXPORT_CARDS: ExportCard[] = [
   {
     title: "My client activity",
     description:
-      "Contact logs, job applications, and stage changes for your assigned clients (most recent first).",
+      "Contact logs, job applications, and stage changes for your assigned clients (most recent first). For date-filtered monthly reports, use the report panel on each client profile.",
     href: "/api/exports/activity",
     filename: "wayfinder-client-activity.csv",
+    roles: ["es"],
+  },
+  {
+    title: "My timesheet",
+    description:
+      "Review billable hours by pay week, submit for supervisor approval, and download CSV from the Timesheet page.",
+    href: "/dashboard/timesheet",
+    filename: "wayfinder-timesheet.csv",
     roles: ["es"],
   },
 ];
@@ -110,10 +118,10 @@ export function ExportsWorkspace({ role, readOnly = false }: Props) {
               <h3 className="font-semibold text-brand-black">{item.title}</h3>
               <p className="mt-2 flex-1 text-sm text-brand-black/70">{item.description}</p>
               <a
-                href={item.href}
+                href={item.href.startsWith("/dashboard") ? item.href : item.href}
                 className="mt-4 inline-flex w-fit rounded-lg bg-brand-gold px-4 py-2 text-sm font-semibold text-white"
               >
-                Download CSV
+                {item.href.startsWith("/dashboard") ? "Open" : "Download CSV"}
               </a>
               <p className="mt-2 text-xs text-brand-black/45">{item.filename}</p>
             </article>

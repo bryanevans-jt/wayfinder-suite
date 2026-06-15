@@ -75,7 +75,7 @@ export async function insertContactLogForClient(
     outcome: string;
     notes: string | null;
   }
-): Promise<void> {
+): Promise<string> {
   const trimmedNotes = opts.notes?.trim() || null;
   const shapes: Record<string, unknown>[] = [
     { logged_by: opts.loggedBy, public_outcome: opts.outcome, notes: trimmedNotes },
@@ -89,12 +89,19 @@ export async function insertContactLogForClient(
 
   for (const fkId of opts.fkIds) {
     for (const shape of shapes) {
-      const { error } = await supabase.from("contact_logs").insert({
-        client_id: fkId,
-        ...shape,
-      });
+      const { data, error } = await supabase
+        .from("contact_logs")
+        .insert({
+          client_id: fkId,
+          ...shape,
+        })
+        .select("id")
+        .maybeSingle();
+      if (!error && data?.id) {
+        return data.id as string;
+      }
       if (!error) {
-        return;
+        return fkId;
       }
       lastMessage = error.message;
       if (isMissingColumnError(error.message)) {
@@ -120,16 +127,23 @@ export async function insertApplicationForClient(
     status_other_reason?: string | null;
     employer_id?: string | null;
   }
-): Promise<void> {
+): Promise<string> {
   let lastMessage: string | undefined;
 
   for (const fkId of fkIds) {
-    const { error } = await supabase.from("applications").insert({
-      client_id: fkId,
-      ...row,
-    });
+    const { data, error } = await supabase
+      .from("applications")
+      .insert({
+        client_id: fkId,
+        ...row,
+      })
+      .select("id")
+      .maybeSingle();
+    if (!error && data?.id) {
+      return data.id as string;
+    }
     if (!error) {
-      return;
+      return fkId;
     }
     lastMessage = error.message;
     if (!isForeignKeyError(error.message)) {

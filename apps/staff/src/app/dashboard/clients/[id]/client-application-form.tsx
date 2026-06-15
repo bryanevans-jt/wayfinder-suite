@@ -1,9 +1,12 @@
 "use client";
 
 import { APPLICATION_STATUSES } from "@wayfinder/branding";
+import { DEFAULT_ACTIVITY_CODES } from "@wayfinder/supabase/es-time-tracking";
+import type { ServiceActivityType } from "@wayfinder/supabase/es-time-tracking";
 import { friendlyClientError } from "@wayfinder/supabase/error-log";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
+import { TimeActivityFields, useTimeActivityDefaults } from "@/components/time-activity-fields";
 import { addClientApplication, updateClientApplication } from "./actions";
 
 type EmployerOption = { id: string; name: string };
@@ -20,21 +23,26 @@ type ExistingApp = {
 
 type Props = {
   clientId: string;
+  activities: ServiceActivityType[];
   employers?: EmployerOption[];
   existing?: ExistingApp[];
 };
 
 export function ClientApplicationForm({
   clientId,
+  activities,
   employers = [],
   existing = [],
 }: Props) {
   const router = useRouter();
+  const defaults = useTimeActivityDefaults(activities, DEFAULT_ACTIVITY_CODES.application);
   const [employerId, setEmployerId] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [status, setStatus] = useState<string>(APPLICATION_STATUSES[0]);
   const [otherReason, setOtherReason] = useState("");
   const [notes, setNotes] = useState("");
+  const [activityTypeId, setActivityTypeId] = useState(defaults.activityTypeId);
+  const [durationMinutes, setDurationMinutes] = useState(defaults.durationMinutes);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -65,7 +73,8 @@ export function ClientApplicationForm({
           company,
           notes,
           status === "Other" ? otherReason : null,
-          employerId || null
+          employerId || null,
+          { activityTypeId, durationMinutes }
         );
         setEmployerId("");
         setCompanyName("");
@@ -88,6 +97,15 @@ export function ClientApplicationForm({
           Link to an employer in your network when possible. Visible on activity timelines.
         </p>
         <div className="mt-3 space-y-3">
+          <TimeActivityFields
+            activities={activities.filter((a) => a.requires_client)}
+            defaultCode={DEFAULT_ACTIVITY_CODES.application}
+            activityTypeId={activityTypeId}
+            onActivityTypeIdChange={setActivityTypeId}
+            durationMinutes={durationMinutes}
+            onDurationMinutesChange={setDurationMinutes}
+            disabled={pending}
+          />
           {employers.length > 0 ? (
             <label className="block text-sm font-medium text-brand-black">
               Employer (from network)
