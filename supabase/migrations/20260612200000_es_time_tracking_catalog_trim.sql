@@ -12,13 +12,8 @@ where code in (
 
 update public.service_activity_types
 set
-  name = 'Initial Intake Meeting',
   default_minutes = least(default_minutes, 30),
   min_minutes = 5
-where active = true;
-
-update public.service_activity_types
-set default_minutes = least(default_minutes, 30)
 where active = true;
 
 update public.service_activity_types

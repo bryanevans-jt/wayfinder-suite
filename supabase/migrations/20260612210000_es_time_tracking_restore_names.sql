@@ -1,0 +1,45 @@
+-- Restore activity display names after catalog_trim accidentally renamed all active rows.
+
+update public.service_activity_types as t
+set name = v.name
+from (values
+  ('JT-INT-001', 'Initial Intake Meeting'),
+  ('JT-INT-002', 'Individualized service plan development'),
+  ('JT-INT-003', 'Referral and eligibility review'),
+  ('JT-CON-010', 'Client phone contact'),
+  ('JT-CON-011', 'Client in-person contact'),
+  ('JT-CON-012', 'Client video / telehealth contact'),
+  ('JT-CON-013', 'Client secure messaging'),
+  ('JT-CON-014', 'Scheduled client meeting'),
+  ('JT-CON-015', 'Home or community-based visit'),
+  ('JT-EMP-020', 'Job search planning session'),
+  ('JT-EMP-021', 'Résumé and cover letter development'),
+  ('JT-EMP-022', 'Application completion assistance'),
+  ('JT-EMP-023', 'Interview preparation'),
+  ('JT-EMP-024', 'Mock interview / practice session'),
+  ('JT-EMP-025', 'Job search coaching'),
+  ('JT-EMP-026', 'Job canvassing / labor market survey'),
+  ('JT-EMP-027', 'Employability / skills assessment'),
+  ('JT-JOB-030', 'Employer job development call'),
+  ('JT-JOB-031', 'Employer site visit or meeting'),
+  ('JT-JOB-032', 'Employer relationship maintenance'),
+  ('JT-JOB-033', 'Job lead review with client'),
+  ('JT-JOB-034', 'Interview scheduling coordination'),
+  ('JT-PLC-040', 'Job placement documentation'),
+  ('JT-PLC-041', 'On-the-job check-in (client)'),
+  ('JT-PLC-042', 'Employer follow-up — job performance'),
+  ('JT-PLC-043', 'Retention follow-up (30/60/90 day)'),
+  ('JT-PLC-044', 'Workplace accommodation support'),
+  ('JT-PLC-045', 'Job separation / offboarding support'),
+  ('JT-CSE-050', 'Milestone / stage update'),
+  ('JT-CSE-051', 'Case file review / documentation'),
+  ('JT-CSE-052', 'Benefits and work-incentive counseling'),
+  ('JT-CSE-053', 'Inter-agency coordination'),
+  ('JT-CSE-054', 'Natural support coordination'),
+  ('JT-CSE-055', 'Crisis / urgent client intervention'),
+  ('JT-TRV-060', 'Client-related travel time'),
+  ('JT-ADM-070', 'Team meeting / staff supervision'),
+  ('JT-ADM-071', 'Training / professional development'),
+  ('JT-ADM-072', 'Administrative / overhead')
+) as v(code, name)
+where t.code = v.code;
