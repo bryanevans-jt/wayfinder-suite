@@ -62,7 +62,7 @@ export async function POST(request: Request) {
 
     const { data: meeting } = await admin
       .from("client_meeting_requests")
-      .select("id, client_id, es_user_id, status, starts_at, location, service_id")
+      .select("id, client_id, es_user_id, status, starts_at, timezone, location, service_id")
       .eq("id", meetingId)
       .maybeSingle();
 
