@@ -132,3 +132,27 @@ export async function notifyUser(
     console.error("notifyUser web push failed:", err);
   }
 }
+
+/** Notify each supervisor assigned to the given employment specialist. */
+export async function notifySupervisorsForEs(
+  admin: ReturnType<typeof createServiceRoleClient>,
+  esUserId: string,
+  input: Omit<NotifyUserInput, "userId">
+): Promise<void> {
+  const { data: links, error } = await admin
+    .from("supervisor_es_assignments")
+    .select("supervisor_user_id")
+    .eq("es_user_id", esUserId);
+
+  if (error) {
+    console.error("notifySupervisorsForEs lookup failed:", error.message);
+    return;
+  }
+
+  for (const link of links ?? []) {
+    await notifyUser(admin, {
+      ...input,
+      userId: link.supervisor_user_id as string,
+    });
+  }
+}

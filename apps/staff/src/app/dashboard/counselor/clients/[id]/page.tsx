@@ -79,7 +79,10 @@ export default async function CounselorClientActivityPage({ params }: PageProps)
         .maybeSingle()
     : { data: null as { title: string } | null };
 
-  const [{ data: logs }, { data: stageEvents }, { data: applications }] = await Promise.all([
+  const now = new Date().toISOString();
+
+  const [{ data: logs }, { data: stageEvents }, { data: applications }, { data: meetings }] =
+    await Promise.all([
     dataClient
       .from("contact_logs")
       .select("id, created_at, public_outcome, notes")
@@ -95,7 +98,33 @@ export default async function CounselorClientActivityPage({ params }: PageProps)
       .select("id, status, company_name, notes, created_at")
       .in("client_id", activityFkIds)
       .order("created_at", { ascending: true }),
+    dataClient
+      .from("client_meeting_requests")
+      .select("id, status, starts_at, timezone, location, created_at, service_id, es_user_id")
+      .in("client_id", activityFkIds)
+      .eq("status", "accepted")
+      .gte("starts_at", now)
+      .order("starts_at", { ascending: true }),
   ]);
+
+  const meetingServiceIds = [
+    ...new Set((meetings ?? []).map((m) => m.service_id).filter(Boolean)),
+  ] as string[];
+  const meetingEsIds = [
+    ...new Set((meetings ?? []).map((m) => m.es_user_id).filter(Boolean)),
+  ] as string[];
+
+  const [{ data: meetingServices }, { data: meetingEsProfiles }] = await Promise.all([
+    meetingServiceIds.length
+      ? dataClient.from("services").select("id, name").in("id", meetingServiceIds)
+      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    meetingEsIds.length
+      ? dataClient.from("profiles").select("id, full_name").in("id", meetingEsIds)
+      : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
+  ]);
+
+  const meetingServiceNameById = new Map((meetingServices ?? []).map((s) => [s.id, s.name]));
+  const meetingEsNameById = new Map((meetingEsProfiles ?? []).map((p) => [p.id, p.full_name]));
 
   const feed = buildClientActivityFeed({
     logs: (logs ?? []) as Parameters<typeof buildClientActivityFeed>[0]["logs"],
@@ -105,6 +134,18 @@ export default async function CounselorClientActivityPage({ params }: PageProps)
     applications: (applications ?? []) as Parameters<
       typeof buildClientActivityFeed
     >[0]["applications"],
+    meetings: (meetings ?? []).map((m) => ({
+      id: m.id as string,
+      created_at: m.created_at as string,
+      status: m.status as string,
+      starts_at: m.starts_at as string,
+      location: m.location as string,
+      timezone: m.timezone as string,
+      service_name: m.service_id
+        ? (meetingServiceNameById.get(m.service_id as string) ?? null)
+        : null,
+      es_name: m.es_user_id ? (meetingEsNameById.get(m.es_user_id as string) ?? null) : null,
+    })),
   });
 
   const latestApp = [...(applications ?? [])].sort(
@@ -142,12 +183,12 @@ export default async function CounselorClientActivityPage({ params }: PageProps)
       <section className="mx-auto max-w-3xl py-10">
         <h2 className="text-lg font-semibold text-brand-green">Activity timeline</h2>
         <p className="mt-1 text-sm text-brand-black/70">
-          Contact notes, job applications, and milestone updates, oldest first. This view is
-          read-only.
+          Contact notes, job applications, milestone updates, and confirmed upcoming meetings,
+          oldest first. This view is read-only.
         </p>
         <ClientActivityTimeline
           feed={feed}
-          emptyMessage="No contact logs, applications, or milestone events yet for this client."
+          emptyMessage="No contact logs, applications, milestone events, or upcoming meetings yet for this client."
         />
       </section>
 

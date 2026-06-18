@@ -8,6 +8,7 @@ import {
   USER_FACING_SYSTEM_ERROR,
 } from "@wayfinder/supabase/error-log";
 import { notifyUser } from "@wayfinder/supabase/notify-user";
+import { formatMeetingWhen } from "@wayfinder/supabase/meeting-notify";
 import { assertNotPreviewMutation, getAppSession } from "@wayfinder/supabase/preview-server";
 import { revalidatePath } from "next/cache";
 import { esIsAssignedToClient } from "@/lib/es-caseload-data";
@@ -91,11 +92,15 @@ export async function createMeetingRequest(input: Input) {
 
   if (notifyUserId) {
     try {
+      const when = formatMeetingWhen(
+        startsAt.toISOString(),
+        input.timezone || "America/New_York"
+      );
       await notifyUser(admin, {
         userId: notifyUserId,
         kind: "meeting_request",
         title: "New meeting request",
-        body: `Your employment specialist invited you to meet on ${input.date}.`,
+        body: `Your employment specialist invited you to meet on ${when} at ${location}.`,
         link_path: "/dashboard",
         metadata: { meeting_id: meeting.id },
         app: "client",

@@ -96,7 +96,7 @@ export function ClientActivityTimeline({
                 {formatPortalDateTime(item.starts_at)} · {item.location}
               </p>
               <p className="mt-1 text-xs uppercase tracking-wide text-brand-black/55">
-                {item.status}
+                {item.status === "accepted" ? "Confirmed" : item.status}
               </p>
             </div>
           ) : (

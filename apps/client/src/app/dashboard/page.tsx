@@ -1,3 +1,4 @@
+import { PushNotificationPrompt } from "@wayfinder/auth-ui";
 import { createServerClient, isSupportRole } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { ensureClientAuthProfile } from "@wayfinder/supabase";
@@ -50,6 +51,7 @@ export default async function ClientDashboardPage({
           <span className="font-medium text-brand-green">{displayEmail}</span>
         </p>
       </header>
+      <PushNotificationPrompt />
       <SuccessPath selectedClientId={sp.client} />
       <ClientNextMeeting selectedClientId={sp.client} />
       <ClientApplicationsCard selectedClientId={sp.client} />

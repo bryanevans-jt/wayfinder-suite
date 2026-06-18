@@ -78,7 +78,7 @@ export function buildClientActivityFeed(input: {
     feed.push({
       kind: "meeting",
       id: row.id,
-      at: row.created_at,
+      at: row.starts_at,
       status: row.status,
       starts_at: row.starts_at,
       location: row.location,

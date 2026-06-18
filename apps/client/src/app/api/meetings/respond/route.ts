@@ -10,6 +10,7 @@ import {
   USER_FACING_SYSTEM_ERROR,
 } from "@wayfinder/supabase/error-log";
 import { notifyUser } from "@wayfinder/supabase/notify-user";
+import { formatMeetingWhen, notifyMeetingConfirmed } from "@wayfinder/supabase/meeting-notify";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -89,11 +90,30 @@ export async function POST(request: Request) {
         userId: meeting.es_user_id,
         kind: action === "accept" ? "meeting_accepted" : "meeting_declined",
         title: action === "accept" ? "Meeting accepted" : "Meeting declined",
-        body: `Client ${action === "accept" ? "accepted" : "declined"} your meeting request.`,
+        body:
+          action === "accept"
+            ? `Client accepted your meeting on ${formatMeetingWhen(meeting.starts_at as string, meeting.timezone as string)}.`
+            : "Client declined your meeting request.",
         link_path: `/dashboard/clients/${meeting.client_id}`,
         metadata: { meeting_id: meetingId },
         app: "staff",
       });
+    }
+
+    if (action === "accept") {
+      try {
+        await notifyMeetingConfirmed(admin, {
+          id: meetingId,
+          client_id: meeting.client_id as string | null,
+          starts_at: meeting.starts_at as string,
+          timezone: meeting.timezone as string,
+          location: meeting.location as string,
+          service_id: meeting.service_id as string | null,
+          es_user_id: meeting.es_user_id as string | null,
+        });
+      } catch (notifyErr) {
+        console.error("notifyMeetingConfirmed failed:", notifyErr);
+      }
     }
 
     return NextResponse.json({ ok: true, status });

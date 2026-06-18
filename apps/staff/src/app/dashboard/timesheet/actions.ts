@@ -10,11 +10,29 @@ import {
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { notifySupervisorsForEs, notifyUser } from "@wayfinder/supabase/notify-user";
 import { assertNotPreviewMutation, getAppSession } from "@wayfinder/supabase/preview-server";
 import { revalidatePath } from "next/cache";
 
 function requireAdmin() {
   return createServiceRoleClient();
+}
+
+function formatWeekLabel(weekStart: string): string {
+  const start = new Date(`${weekStart}T12:00:00`);
+  return start.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+async function esDisplayName(
+  admin: ReturnType<typeof createServiceRoleClient>,
+  esUserId: string
+): Promise<string> {
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("full_name")
+    .eq("id", esUserId)
+    .maybeSingle();
+  return (profile?.full_name as string | null)?.trim() || "An employment specialist";
 }
 
 async function assertTimeAccess() {
@@ -114,6 +132,20 @@ export async function submitEsWeek(weekStartInput?: string) {
     throw new Error(updErr.message);
   }
 
+  try {
+    const name = await esDisplayName(admin, esUserId);
+    await notifySupervisorsForEs(admin, esUserId, {
+      kind: "timesheet_submitted",
+      title: "Timesheet submitted for review",
+      body: `${name} submitted their timesheet for the week of ${formatWeekLabel(weekStart)}.`,
+      link_path: "/dashboard/timesheet",
+      metadata: { week_submission_id: weekRow.id, es_user_id: esUserId, week_start: weekStart },
+      app: "staff",
+    });
+  } catch (notifyErr) {
+    console.error("submitEsWeek notify failed:", notifyErr);
+  }
+
   revalidatePath("/dashboard/timesheet");
 }
 
@@ -132,7 +164,7 @@ export async function approveEsWeek(weekSubmissionId: string, notes?: string) {
 
   const { data: week, error: weekLoadErr } = await admin
     .from("es_time_week_submissions")
-    .select("id, es_user_id, status")
+    .select("id, es_user_id, week_start, status")
     .eq("id", weekSubmissionId)
     .maybeSingle();
 
@@ -180,6 +212,20 @@ export async function approveEsWeek(weekSubmissionId: string, notes?: string) {
     throw new Error(entryErr.message);
   }
 
+  try {
+    await notifyUser(admin, {
+      userId: week.es_user_id as string,
+      kind: "timesheet_approved",
+      title: "Timesheet approved",
+      body: `Your timesheet for the week of ${formatWeekLabel(week.week_start as string)} was approved.`,
+      link_path: "/dashboard/timesheet",
+      metadata: { week_submission_id: weekSubmissionId },
+      app: "staff",
+    });
+  } catch (notifyErr) {
+    console.error("approveEsWeek notify failed:", notifyErr);
+  }
+
   revalidatePath("/dashboard/timesheet");
 }
 
@@ -200,6 +246,16 @@ export async function returnEsWeek(weekSubmissionId: string, notes: string) {
 
   const admin = requireAdmin();
   const now = new Date().toISOString();
+
+  const { data: week, error: weekLoadErr } = await admin
+    .from("es_time_week_submissions")
+    .select("id, es_user_id, week_start")
+    .eq("id", weekSubmissionId)
+    .maybeSingle();
+
+  if (weekLoadErr || !week) {
+    throw new Error("Week submission not found");
+  }
 
   const { error: weekErr } = await admin
     .from("es_time_week_submissions")
@@ -226,6 +282,20 @@ export async function returnEsWeek(weekSubmissionId: string, notes: string) {
 
   if (entryErr) {
     throw new Error(entryErr.message);
+  }
+
+  try {
+    await notifyUser(admin, {
+      userId: week.es_user_id as string,
+      kind: "timesheet_returned",
+      title: "Timesheet returned",
+      body: `Your supervisor returned your timesheet for the week of ${formatWeekLabel(week.week_start as string)}. ${trimmed}`,
+      link_path: "/dashboard/timesheet",
+      metadata: { week_submission_id: weekSubmissionId },
+      app: "staff",
+    });
+  } catch (notifyErr) {
+    console.error("returnEsWeek notify failed:", notifyErr);
   }
 
   revalidatePath("/dashboard/timesheet");
