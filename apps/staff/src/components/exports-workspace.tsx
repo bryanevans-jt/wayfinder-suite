@@ -1,6 +1,8 @@
 "use client";
 
+import { canAccessFormalReporting } from "@/lib/staff-nav";
 import { isEsRole, isSupervisorRole } from "@wayfinder/supabase/roles";
+import { ReportingVsExportsGuide } from "./reporting-vs-exports-guide";
 
 type Props = {
   role: string | null;
@@ -35,7 +37,7 @@ const EXPORT_CARDS: ExportCard[] = [
   {
     title: "My client activity",
     description:
-      "Contact logs, job applications, and stage changes for your assigned clients (most recent first). For date-filtered monthly reports, use the report panel on each client profile.",
+      "Contact logs, job applications, and stage changes for your assigned clients (most recent first). For monthly narrative text, use the report panel on each client profile.",
     href: "/api/exports/activity",
     filename: "wayfinder-client-activity.csv",
     roles: ["es"],
@@ -67,6 +69,7 @@ function hasAnyExport(role: string | null): boolean {
 export function ExportsWorkspace({ role, readOnly = false }: Props) {
   const visibleExports = EXPORT_CARDS.filter((card) => canUseExport(role, card));
   const canDownload = hasAnyExport(role);
+  const showReportingLink = canAccessFormalReporting(role);
 
   return (
     <div className="mt-8 max-w-3xl space-y-8">
@@ -75,38 +78,25 @@ export function ExportsWorkspace({ role, readOnly = false }: Props) {
           Read-only preview — CSV downloads still reflect this user&apos;s scope.
         </p>
       ) : null}
-      <section className="rounded-xl border border-brand-green/25 bg-brand-green/5 p-5">
-        <h2 className="text-base font-semibold text-brand-black">What Exports is for</h2>
-        <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-brand-black/80">
-          <li>
-            <strong>On-demand CSV downloads</strong> for internal use — caseload snapshots,
-            application lists, activity timelines, and similar operational data you want in a
-            spreadsheet.
-          </li>
-          <li>
-            <strong>Your working data in Wayfinder</strong>, pulled when you need it for
-            supervision prep, team meetings, or local record-keeping.
-          </li>
-        </ul>
-      </section>
 
-      <section className="rounded-xl border border-neutral-200 bg-neutral-50 p-5">
-        <h2 className="text-base font-semibold text-brand-black">What Exports is not</h2>
-        <p className="mt-2 text-sm text-brand-black/80">
-          This is <strong>not</strong> formal <strong>Reporting</strong> — the separate
-          compliance and funder submission process your organization runs outside Wayfinder.
-          Nothing here replaces that workflow or submits data on your behalf.
-        </p>
-      </section>
+      <ReportingVsExportsGuide context="exports" showReportingLink={showReportingLink} />
 
       <section className="space-y-3">
-        <h2 className="text-base font-semibold text-brand-black">Available downloads</h2>
+        <h2 className="text-base font-semibold text-brand-black">CSV downloads</h2>
+        <p className="text-sm text-brand-black/70">
+          Pull operational data into a spreadsheet. These files are for analysis and internal use —
+          not for funder PDF submission.
+        </p>
         {!canDownload ? (
           <p className="text-sm text-brand-black/70">
-            Downloads are available to <strong>Employment Specialists</strong> and{" "}
-            <strong>supervisors</strong> (applications). Administrators can export org-wide
-            activity from the <strong>Activity logs</strong> tab in the admin or supervisor
-            portal, and review messages under <strong>Message audit</strong> (admin tier).
+            CSV downloads are available to <strong>employment specialists</strong> and{" "}
+            <strong>supervisors</strong> (applications). Administrators can export org-wide activity
+            from the <strong>Activity logs</strong> tab in the admin or supervisor portal, and review
+            messages under <strong>Message audit</strong> (admin tier). For org metrics, use{" "}
+            <a href="/dashboard/analytics" className="font-medium text-brand-green hover:underline">
+              Analytics
+            </a>
+            .
           </p>
         ) : null}
         <div className="grid gap-4 sm:grid-cols-2">
@@ -129,8 +119,7 @@ export function ExportsWorkspace({ role, readOnly = false }: Props) {
         </div>
         {isSupervisorRole(role) ? (
           <p className="text-xs text-brand-black/60">
-            As a supervisor, applications include every client assigned to ES staff in your
-            scope.
+            As a supervisor, applications include every client assigned to ES staff in your scope.
           </p>
         ) : null}
       </section>
@@ -141,8 +130,15 @@ export function ExportsWorkspace({ role, readOnly = false }: Props) {
           <li>Downloads reflect data at the moment you click — they are not live links.</li>
           <li>Treat exported files like any other client information: store and share appropriately.</li>
           <li>
-            Need a broader extract (all offices, message history, purge audit)? Use the admin or
-            super admin portal.
+            Need a broader extract (all offices, message history, purge audit)? Use the admin or super
+            admin portal.
+          </li>
+          <li>
+            Need official PDF submissions? Use{" "}
+            <a href="/dashboard/reporting" className="font-medium text-brand-green hover:underline">
+              Reporting
+            </a>
+            , not this page.
           </li>
         </ul>
       </section>

@@ -39,6 +39,19 @@ type NavItem = {
   href: string;
   label: string;
   match: (pathname: string) => boolean;
+  external?: boolean;
+};
+
+const reportingNav: NavItem = {
+  href: "/dashboard/reporting",
+  label: "Reporting",
+  match: (p) => p === "/dashboard/reporting",
+};
+
+const dataExportsNav: NavItem = {
+  href: "/dashboard/exports",
+  label: "Data exports",
+  match: (p) => p === "/dashboard/exports",
 };
 
 const communityPartnersNav: NavItem = {
@@ -73,6 +86,7 @@ function navItemsForRole(staffRole: string | null, showAuditLink = false): NavIt
         match: (p) => p.startsWith("/dashboard/super-admin"),
       },
       analyticsNav,
+      reportingNav,
       communityPartnersNav,
     ];
     if (showAuditLink) {
@@ -93,6 +107,7 @@ function navItemsForRole(staffRole: string | null, showAuditLink = false): NavIt
         match: (p) => p.startsWith("/dashboard/admin"),
       },
       analyticsNav,
+      reportingNav,
       communityPartnersNav,
     ];
   }
@@ -116,11 +131,8 @@ function navItemsForRole(staffRole: string | null, showAuditLink = false): NavIt
       },
       communityPartnersNav,
       analyticsNav,
-      {
-        href: "/dashboard/exports",
-        label: "Exports",
-        match: (p) => p === "/dashboard/exports" || p === "/dashboard/reporting",
-      },
+      dataExportsNav,
+      reportingNav,
     ];
   }
 
@@ -137,11 +149,7 @@ function navItemsForRole(staffRole: string | null, showAuditLink = false): NavIt
         match: (p) => p.startsWith("/dashboard/timesheet"),
       },
       communityPartnersNav,
-      {
-        href: "/dashboard/exports",
-        label: "Exports",
-        match: (p) => p === "/dashboard/exports" || p === "/dashboard/reporting",
-      },
+      dataExportsNav,
     ];
   }
 
@@ -164,11 +172,8 @@ function navItemsForRole(staffRole: string | null, showAuditLink = false): NavIt
         match: (p) => p === "/dashboard/messages",
       },
       analyticsNav,
-      {
-        href: "/dashboard/exports",
-        label: "Exports",
-        match: (p) => p === "/dashboard/exports" || p === "/dashboard/reporting",
-      },
+      dataExportsNav,
+      reportingNav,
     ];
   }
 
@@ -183,11 +188,7 @@ function navItemsForRole(staffRole: string | null, showAuditLink = false): NavIt
       label: "Messages",
       match: (p) => p === "/dashboard/messages",
     },
-    {
-      href: "/dashboard/exports",
-      label: "Exports",
-      match: (p) => p === "/dashboard/exports" || p === "/dashboard/reporting",
-    },
+    dataExportsNav,
   ];
 }
 

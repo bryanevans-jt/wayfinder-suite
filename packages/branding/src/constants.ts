@@ -13,6 +13,9 @@ export const CLIENT_APP_URL_SLUG = "wayfinder";
 /** Suggested production URL slug for the staff app (e.g. wayfinder-pro.thejoshuatree.org). */
 export const STAFF_APP_URL_SLUG = "wayfinder-pro";
 
+/** Joshua Tree Reports — formal PDF/Drive submission (ES + supervisors only; separate app). */
+export const JT_VOCATIONAL_REPORTS_URL = "https://www.thejoshuatree.org/vocationalreports";
+
 /** Primary product mark (add `wayfinder-logo.png` to each app's `public/` folder). */
 export const WAYFINDER_LOGO_PATH = "/wayfinder-logo.png";
 
