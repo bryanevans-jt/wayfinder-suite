@@ -26,12 +26,19 @@ export type EsTimeLinkedSource =
 export type EsTimeEntryStatus = "draft" | "submitted" | "approved" | "rejected";
 
 export const DEFAULT_ACTIVITY_CODES = {
-  contact: "JT-CON-010",
-  application: "JT-EMP-022",
-  stage: "JT-CSE-050",
-  meeting: "JT-CON-014",
-  manual: "JT-CSE-051",
+  contact: "JT-ACT-010",
+  application: "JT-ACT-020",
+  stage: "JT-ACT-040",
+  meeting: "JT-ACT-011",
+  manual: "JT-ACT-040",
 } as const;
+
+/** Activity types shown when logging client contact (excludes staff-only types). */
+export function filterClientContactActivityTypes(
+  types: ServiceActivityType[]
+): ServiceActivityType[] {
+  return types.filter((t) => t.requires_client);
+}
 
 /** Pay week starts Sunday (local calendar date string YYYY-MM-DD). */
 export function weekStartSunday(input: Date | string): string {

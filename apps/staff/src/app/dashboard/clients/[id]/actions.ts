@@ -1,6 +1,6 @@
 "use server";
 
-import { isApplicationStatus } from "@wayfinder/branding";
+import { isApplicationStatus, CONTACT_LOG_NOTES_LABEL } from "@wayfinder/branding";
 import {
   buildClientActivityInsertFkIds,
   DEFAULT_ACTIVITY_CODES,
@@ -124,19 +124,19 @@ export async function updateClientCurrentStage(
 
 export async function addClientContactLog(
   clientId: string,
-  publicOutcome: string,
-  notes: string,
+  contactNotes: string,
+  internalNotes: string,
   time?: TimeInput
 ): Promise<ActionResult> {
-  await assertNotPreviewMutation();
-  const outcome = publicOutcome.trim();
-  if (!outcome) {
-    return { ok: false, error: "Public outcome is required." };
-  }
-
   let actorUserId: string | undefined;
 
   try {
+    await assertNotPreviewMutation();
+    const outcome = contactNotes.trim();
+    if (!outcome) {
+      return { ok: false, error: `${CONTACT_LOG_NOTES_LABEL} are required.` };
+    }
+
     const { admin, userId } = await assertEsAssignedToClient(clientId);
     actorUserId = userId;
     const fkIds = await clientFkIds(admin, clientId);
@@ -145,14 +145,14 @@ export async function addClientContactLog(
       loggedBy: userId,
       fkIds,
       outcome,
-      notes: notes.trim() || null,
+      notes: internalNotes.trim() || null,
     });
 
     let warning: string | undefined;
 
     if (time?.activityTypeId && time.durationMinutes > 0) {
       try {
-        const narrative = narrativeForContactTime(outcome, notes);
+        const narrative = narrativeForContactTime(outcome, internalNotes);
         await insertEsTimeEntry(admin, {
           esUserId: userId,
           clientId,
@@ -177,7 +177,7 @@ export async function addClientContactLog(
     revalidateClientPaths(clientId);
     return warning ? { ok: true, warning } : { ok: true };
   } catch (err) {
-    return finishActionFailure(
+    return await finishActionFailure(
       "staff",
       "actions/addClientContactLog",
       err,
@@ -195,22 +195,22 @@ export async function addClientApplication(
   statusOtherReason: string | null = null,
   employerId: string | null = null
 ): Promise<ActionResult> {
-  await assertNotPreviewMutation();
-  const normalized = status.trim();
-  const company = companyName.trim();
-  if (!normalized || !isApplicationStatus(normalized)) {
-    return { ok: false, error: "Application status is required." };
-  }
-  if (normalized === "Other" && !statusOtherReason?.trim()) {
-    return { ok: false, error: "Reason is required when status is Other." };
-  }
-  if (!company && !employerId) {
-    return { ok: false, error: "Select an employer from the network or enter a company name." };
-  }
-
   let actorUserId: string | undefined;
 
   try {
+    await assertNotPreviewMutation();
+    const normalized = status.trim();
+    const company = companyName.trim();
+    if (!normalized || !isApplicationStatus(normalized)) {
+      return { ok: false, error: "Application status is required." };
+    }
+    if (normalized === "Other" && !statusOtherReason?.trim()) {
+      return { ok: false, error: "Reason is required when status is Other." };
+    }
+    if (!company && !employerId) {
+      return { ok: false, error: "Select an employer from the network or enter a company name." };
+    }
+
     const { admin, userId } = await assertEsAssignedToClient(clientId);
     actorUserId = userId;
 
@@ -248,7 +248,7 @@ export async function addClientApplication(
       err instanceof Error
         ? friendlyApplicationSaveError(err.message)
         : "We could not save this application.";
-    return finishActionFailure(
+    return await finishActionFailure(
       "staff",
       "actions/addClientApplication",
       err,

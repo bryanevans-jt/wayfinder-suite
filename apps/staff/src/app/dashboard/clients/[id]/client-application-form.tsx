@@ -1,6 +1,7 @@
 "use client";
 
 import { APPLICATION_STATUSES } from "@wayfinder/branding";
+import { reportClientActionError } from "@wayfinder/auth-ui";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { addClientApplication, updateClientApplication } from "./actions";
@@ -57,23 +58,32 @@ export function ClientApplicationForm({
       return;
     }
     startTransition(async () => {
-      const result = await addClientApplication(
-        clientId,
-        status,
-        company,
-        notes,
-        status === "Other" ? otherReason : null,
-        employerId || null
-      );
-      if (!result.ok) {
-        setError(result.error);
-        return;
+      try {
+        const result = await addClientApplication(
+          clientId,
+          status,
+          company,
+          notes,
+          status === "Other" ? otherReason : null,
+          employerId || null
+        );
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        setEmployerId("");
+        setCompanyName("");
+        setNotes("");
+        setOtherReason("");
+        router.refresh();
+      } catch (err) {
+        const reported = await reportClientActionError(
+          "staff",
+          "actions/addClientApplication",
+          err
+        );
+        setError(reported.message);
       }
-      setEmployerId("");
-      setCompanyName("");
-      setNotes("");
-      setOtherReason("");
-      router.refresh();
     });
   }
 

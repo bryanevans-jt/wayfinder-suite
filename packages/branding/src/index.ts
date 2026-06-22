@@ -14,6 +14,8 @@ export {
   SUPPORT_CONTACT_NAME,
   WAYFINDER_FAVICON_PATH,
   WAYFINDER_LOGO_PATH,
+  CONTACT_LOG_INTERNAL_NOTES_LABEL,
+  CONTACT_LOG_NOTES_LABEL,
 } from "./constants";
 export { buildJtReportsPrefillUrl, type JtReportPrefillType } from "./jt-reports-prefill";
 export { ClientActivityTimeline, type ClientActivityFeedItem } from "./client-activity-timeline";

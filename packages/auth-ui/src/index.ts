@@ -4,3 +4,4 @@ export { LoginFormShell } from "./login-form-shell";
 export { PushNotificationsToggle } from "./push-notifications-toggle";
 export { PushNotificationPrompt } from "./push-notification-prompt";
 export { AppErrorScreen } from "./app-error-screen";
+export { reportClientActionError } from "./report-client-action-error";

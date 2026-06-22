@@ -80,9 +80,9 @@ function sectionsForRole(role: string | null): Section[] {
         title: "Working with your clients",
         body: "Clients in the sidebar is your home base. Open a client to log contacts, applications, meetings, and time.",
         steps: [
-          "Log every contact and job application on the client profile — counselors see this activity.",
+          "Log every contact and job application on the client profile — counselors see your contact notes.",
           "Use Messages to reply to clients. Aim to respond within 48 business hours.",
-          "Timesheet: enter your work hours and activity types.",
+          "Timesheet: review billable time captured from contacts, applications, and manual entries.",
           "On each client profile, Monthly activity report builds text you can copy into official reports.",
           "Reporting in the sidebar opens Joshua Tree Reports with the client name filled in — you can change any field before signing.",
         ],

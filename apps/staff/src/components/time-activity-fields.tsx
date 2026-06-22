@@ -14,6 +14,7 @@ type Props = {
   serviceDate?: string;
   onServiceDateChange?: (date: string) => void;
   showServiceDate?: boolean;
+  activityTypeLabel?: string;
   disabled?: boolean;
 };
 
@@ -27,6 +28,7 @@ export function TimeActivityFields({
   serviceDate,
   onServiceDateChange,
   showServiceDate = false,
+  activityTypeLabel = "Activity type",
   disabled = false,
 }: Props) {
   const grouped = useMemo(() => groupActivityTypesByCategory(activities), [activities]);
@@ -64,7 +66,7 @@ export function TimeActivityFields({
         Billable time
       </p>
       <label className="block text-sm font-medium text-brand-black">
-        Activity type
+        {activityTypeLabel}
         <select
           value={activityTypeId}
           onChange={(e) => onActivityChange(e.target.value)}

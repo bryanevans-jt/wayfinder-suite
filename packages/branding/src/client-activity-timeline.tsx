@@ -1,3 +1,4 @@
+import { CONTACT_LOG_INTERNAL_NOTES_LABEL } from "./constants";
 import { formatPortalDateTime } from "./portal-datetime";
 
 export type ClientActivityFeedItem =
@@ -33,11 +34,14 @@ export type ClientActivityFeedItem =
 type Props = {
   feed: ClientActivityFeedItem[];
   emptyMessage?: string;
+  /** When false, internal ES notes are hidden (counselor and client views). */
+  showInternalNotes?: boolean;
 };
 
 export function ClientActivityTimeline({
   feed,
   emptyMessage = "No activity yet for this client.",
+  showInternalNotes = false,
 }: Props) {
   if (feed.length === 0) {
     return <p className="mt-6 text-sm text-brand-black/60">{emptyMessage}</p>;
@@ -104,14 +108,14 @@ export function ClientActivityTimeline({
               <p className="text-xs font-semibold uppercase tracking-wide text-brand-green">
                 Contact log
               </p>
-              <p className="mt-2 text-base font-semibold leading-snug text-brand-black">
-                Outcome:{" "}
-                <span className="font-bold">
-                  {item.public_outcome?.trim() ? item.public_outcome : "—"}
-                </span>
+              <p className="mt-2 text-base leading-snug text-brand-black">
+                {item.public_outcome?.trim() ? item.public_outcome : "—"}
               </p>
-              {item.notes?.trim() ? (
+              {showInternalNotes && item.notes?.trim() ? (
                 <p className="mt-3 border-t border-neutral-100 pt-3 text-sm text-brand-black/75">
+                  <span className="font-medium text-brand-black/55">
+                    {CONTACT_LOG_INTERNAL_NOTES_LABEL}:{" "}
+                  </span>
                   {item.notes}
                 </p>
               ) : null}

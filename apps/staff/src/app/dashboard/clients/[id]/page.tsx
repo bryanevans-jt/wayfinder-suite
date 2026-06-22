@@ -1,6 +1,6 @@
 import { buildClientActivityFeed, ClientActivityTimeline, clientDisplayName, normalizeEmploymentGoal } from "@wayfinder/branding";
 import { buildClientActivityFkIds, createServerClient, isEsRole } from "@wayfinder/supabase";
-import { formatLocalDate, loadActiveActivityTypes } from "@wayfinder/supabase/es-time-tracking";
+import { formatLocalDate, loadActiveActivityTypes, filterClientContactActivityTypes } from "@wayfinder/supabase/es-time-tracking";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAppSession, requireEsClientAccess } from "@/lib/app-session";
@@ -307,7 +307,12 @@ export default async function EsClientDetailPage({ params }: PageProps) {
           </p>
         ) : null}
 
-        {!readOnly ? <ClientContactLogForm clientId={client.id} activities={activities} /> : null}
+        {!readOnly ? (
+          <ClientContactLogForm
+            clientId={client.id}
+            activities={filterClientContactActivityTypes(activities)}
+          />
+        ) : null}
         {!readOnly ? (
           <ClientApplicationForm
             clientId={client.id}
@@ -350,9 +355,9 @@ export default async function EsClientDetailPage({ params }: PageProps) {
       <section className="mt-10 max-w-2xl">
         <h2 className="text-lg font-semibold text-brand-green">Activity timeline</h2>
         <p className="mt-1 text-sm text-brand-black/70">
-          Contact logs, applications, and milestone updates — shared with the counselor portal.
+          Contact notes, applications, and milestone updates — shared with the counselor portal.
         </p>
-        <ClientActivityTimeline feed={feed} />
+        <ClientActivityTimeline feed={feed} showInternalNotes />
       </section>
     </main>
   );

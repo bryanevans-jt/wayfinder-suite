@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  CONTACT_LOG_INTERNAL_NOTES_LABEL,
+  CONTACT_LOG_NOTES_LABEL,
+} from "@wayfinder/branding";
+import { reportClientActionError } from "@wayfinder/auth-ui";
 import { DEFAULT_ACTIVITY_CODES } from "@wayfinder/supabase/es-time-tracking";
 import type { ServiceActivityType } from "@wayfinder/supabase/es-time-tracking";
 import { useRouter } from "next/navigation";
@@ -15,8 +20,8 @@ type Props = {
 export function ClientContactLogForm({ clientId, activities }: Props) {
   const router = useRouter();
   const defaults = useTimeActivityDefaults(activities, DEFAULT_ACTIVITY_CODES.contact);
-  const [publicOutcome, setPublicOutcome] = useState("");
-  const [notes, setNotes] = useState("");
+  const [contactNotes, setContactNotes] = useState("");
+  const [internalNotes, setInternalNotes] = useState("");
   const [activityTypeId, setActivityTypeId] = useState(defaults.activityTypeId);
   const [durationMinutes, setDurationMinutes] = useState(defaults.durationMinutes);
   const [error, setError] = useState<string | null>(null);
@@ -27,24 +32,33 @@ export function ClientContactLogForm({ clientId, activities }: Props) {
     setError(null);
     setNotice(null);
     startTransition(async () => {
-      const result = await addClientContactLog(
-        clientId,
-        publicOutcome,
-        notes,
-        activityTypeId && durationMinutes > 0
-          ? { activityTypeId, durationMinutes }
-          : undefined
-      );
-      if (!result.ok) {
-        setError(result.error);
-        return;
+      try {
+        const result = await addClientContactLog(
+          clientId,
+          contactNotes,
+          internalNotes,
+          activityTypeId && durationMinutes > 0
+            ? { activityTypeId, durationMinutes }
+            : undefined
+        );
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        if (result.warning) {
+          setNotice(result.warning);
+        }
+        setContactNotes("");
+        setInternalNotes("");
+        router.refresh();
+      } catch (err) {
+        const reported = await reportClientActionError(
+          "staff",
+          "actions/addClientContactLog",
+          err
+        );
+        setError(reported.message);
       }
-      if (result.warning) {
-        setNotice(result.warning);
-      }
-      setPublicOutcome("");
-      setNotes("");
-      router.refresh();
     });
   }
 
@@ -54,10 +68,33 @@ export function ClientContactLogForm({ clientId, activities }: Props) {
         Log contact
       </h2>
       <p className="mt-1 text-xs text-brand-black/60">
-        Counselors see the public outcome and notes on the client timeline. Billable time is optional
-        — leave activity blank to skip time entry.
+        Choose an activity type and describe what happened in {CONTACT_LOG_NOTES_LABEL.toLowerCase()}.
+        Counselors see those notes on the timeline. Billable time is optional — clear the activity
+        field to skip time entry.
       </p>
       <div className="mt-3 space-y-3">
+        <label className="block text-sm font-medium text-brand-black">
+          {CONTACT_LOG_NOTES_LABEL}
+          <textarea
+            value={contactNotes}
+            onChange={(e) => setContactNotes(e.target.value)}
+            rows={3}
+            placeholder="What happened? Include follow-up plans, who you spoke with, and next steps."
+            className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-brand-black outline-none ring-brand-green focus:ring-2"
+            disabled={pending}
+          />
+        </label>
+        <label className="block text-sm font-medium text-brand-black">
+          {CONTACT_LOG_INTERNAL_NOTES_LABEL}
+          <textarea
+            value={internalNotes}
+            onChange={(e) => setInternalNotes(e.target.value)}
+            rows={2}
+            placeholder="Staff-only context (not shown to counselors or clients)"
+            className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-brand-black outline-none ring-brand-green focus:ring-2"
+            disabled={pending}
+          />
+        </label>
         <TimeActivityFields
           activities={activities}
           defaultCode={DEFAULT_ACTIVITY_CODES.contact}
@@ -65,30 +102,9 @@ export function ClientContactLogForm({ clientId, activities }: Props) {
           onActivityTypeIdChange={setActivityTypeId}
           durationMinutes={durationMinutes}
           onDurationMinutesChange={setDurationMinutes}
+          activityTypeLabel="Activity type"
           disabled={pending}
         />
-        <label className="block text-sm font-medium text-brand-black">
-          Public outcome
-          <input
-            type="text"
-            value={publicOutcome}
-            onChange={(e) => setPublicOutcome(e.target.value)}
-            placeholder="e.g. Left voicemail, scheduled follow-up"
-            className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-brand-black outline-none ring-brand-green focus:ring-2"
-            disabled={pending}
-          />
-        </label>
-        <label className="block text-sm font-medium text-brand-black">
-          Notes (optional)
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-            placeholder="Internal detail for the counselor timeline"
-            className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-brand-black outline-none ring-brand-green focus:ring-2"
-            disabled={pending}
-          />
-        </label>
         <button
           type="button"
           onClick={save}

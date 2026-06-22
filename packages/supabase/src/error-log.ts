@@ -331,7 +331,7 @@ export function friendlyApplicationSaveError(message: string): string {
     return "Company name is required.";
   }
   if (/null value in column/i.test(message) && /outcome/i.test(message)) {
-    return "Please enter what happened in the public outcome field.";
+    return "Please enter contact notes.";
   }
   if (/Could not save contact log/i.test(message)) {
     return "We could not save this contact log for this client. Refresh the page and try again.";

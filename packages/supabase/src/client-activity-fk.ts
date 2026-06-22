@@ -72,7 +72,7 @@ export async function loadClientActivityFkContext(
 }
 
 function isMissingColumnError(message: string): boolean {
-  return /Could not find the '([^']+)' column/.test(message);
+  return /Could not find the '([^']+)' column|schema cache/i.test(message);
 }
 
 function isForeignKeyError(message: string): boolean {
@@ -103,13 +103,14 @@ export async function insertContactLogForClient(
   const trimmedNotes = opts.notes?.trim() || null;
   const text = opts.outcome;
   const shapes: Record<string, unknown>[] = [
-    { logged_by: opts.loggedBy, public_outcome: text, outcome: text, notes: trimmedNotes },
-    { public_outcome: text, outcome: text, notes: trimmedNotes },
     { logged_by: opts.loggedBy, public_outcome: text, notes: trimmedNotes },
     { public_outcome: text, notes: trimmedNotes },
+    { logged_by: opts.loggedBy, public_outcome: text },
+    { public_outcome: text },
+    { logged_by: opts.loggedBy, public_outcome: text, outcome: text, notes: trimmedNotes },
+    { public_outcome: text, outcome: text, notes: trimmedNotes },
     { outcome: text, notes: trimmedNotes },
     { public_outcome: text, outcome: text },
-    { public_outcome: text },
     { outcome: text },
   ];
 
@@ -129,7 +130,8 @@ export async function insertContactLogForClient(
         return data.id as string;
       }
       if (!error) {
-        return fkId;
+        lastMessage = "Insert succeeded but no contact log id was returned";
+        continue;
       }
       lastMessage = error.message;
       if (isRetryableInsertError(error.message)) {

@@ -43,3 +43,9 @@ export const LEGAL_ENTITY = "Joshua Tree Service Group";
 
 export const CONFIDENTIALITY_NOTICE =
   "The information in this application is confidential and may not be shared, copied, or disclosed without the prior written express consent of Joshua Tree Service Group.";
+
+/** Counselor-visible contact log field (stored in `contact_logs.public_outcome`). */
+export const CONTACT_LOG_NOTES_LABEL = "Notes";
+
+/** ES-only contact log field (stored in `contact_logs.notes`). */
+export const CONTACT_LOG_INTERNAL_NOTES_LABEL = "Internal Notes (Optional)";
