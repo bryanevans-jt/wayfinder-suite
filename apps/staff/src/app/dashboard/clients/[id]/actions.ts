@@ -3,7 +3,6 @@
 import { isApplicationStatus } from "@wayfinder/branding";
 import {
   buildClientActivityInsertFkIds,
-  DEFAULT_ACTIVITY_CODES,
   insertApplicationForClient,
   insertEsTimeEntry,
   todayLocalDate,
@@ -277,5 +276,3 @@ export async function addManualClientTime(
   revalidateClientPaths(clientId);
   revalidatePath("/dashboard/timesheet");
 }
-
-export { DEFAULT_ACTIVITY_CODES };
