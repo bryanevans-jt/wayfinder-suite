@@ -325,10 +325,16 @@ export function friendlyApplicationSaveError(message: string): string {
     return "We could not link that employer. Enter the company name only, or pick a different employer from the network.";
   }
   if (/foreign key constraint/i.test(message)) {
-    return "We could not save this application for this client. Refresh the page and try again.";
+    return "We could not save this record for this client. Refresh the page and try again.";
   }
   if (/null value in column "company_name"/i.test(message)) {
     return "Company name is required.";
+  }
+  if (/null value in column/i.test(message) && /outcome/i.test(message)) {
+    return "Please enter what happened in the public outcome field.";
+  }
+  if (/Could not save contact log/i.test(message)) {
+    return "We could not save this contact log for this client. Refresh the page and try again.";
   }
   if (looksTechnical(message)) {
     return "We could not save this record. Please try again.";

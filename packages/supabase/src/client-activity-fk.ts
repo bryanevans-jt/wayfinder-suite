@@ -18,6 +18,18 @@ export function buildClientActivityFkIds(row: {
   return [...new Set(ids)];
 }
 
+/** Prefer clients.id first when inserting rows that FK to clients(id). */
+export function buildClientActivityInsertFkIds(row: {
+  id?: string | null;
+  user_id?: string | null;
+  profile_id?: string | null;
+}): string[] {
+  const ids = [row.id, row.user_id, row.profile_id].filter(
+    (v): v is string => typeof v === "string" && v.length > 0
+  );
+  return [...new Set(ids)];
+}
+
 export type ClientActivityFkContext = {
   clientId: string;
   fkIds: string[];
@@ -67,6 +79,18 @@ function isForeignKeyError(message: string): boolean {
   return /foreign key constraint|violates foreign key/i.test(message);
 }
 
+function isRetryableInsertError(message: string): boolean {
+  return (
+    isMissingColumnError(message) ||
+    /null value in column/i.test(message) ||
+    (isForeignKeyError(message) && /logged_by/i.test(message))
+  );
+}
+
+function isClientIdForeignKeyError(message: string): boolean {
+  return isForeignKeyError(message) && !/logged_by/i.test(message);
+}
+
 export async function insertContactLogForClient(
   supabase: SupabaseClient,
   opts: {
@@ -77,12 +101,16 @@ export async function insertContactLogForClient(
   }
 ): Promise<string> {
   const trimmedNotes = opts.notes?.trim() || null;
+  const text = opts.outcome;
   const shapes: Record<string, unknown>[] = [
-    { logged_by: opts.loggedBy, public_outcome: opts.outcome, notes: trimmedNotes },
-    { public_outcome: opts.outcome, notes: trimmedNotes },
-    { outcome: opts.outcome, notes: trimmedNotes },
-    { public_outcome: opts.outcome },
-    { outcome: opts.outcome },
+    { logged_by: opts.loggedBy, public_outcome: text, outcome: text, notes: trimmedNotes },
+    { public_outcome: text, outcome: text, notes: trimmedNotes },
+    { logged_by: opts.loggedBy, public_outcome: text, notes: trimmedNotes },
+    { public_outcome: text, notes: trimmedNotes },
+    { outcome: text, notes: trimmedNotes },
+    { public_outcome: text, outcome: text },
+    { public_outcome: text },
+    { outcome: text },
   ];
 
   let lastMessage: string | undefined;
@@ -104,10 +132,10 @@ export async function insertContactLogForClient(
         return fkId;
       }
       lastMessage = error.message;
-      if (isMissingColumnError(error.message)) {
+      if (isRetryableInsertError(error.message)) {
         continue;
       }
-      if (isForeignKeyError(error.message)) {
+      if (isClientIdForeignKeyError(error.message)) {
         break;
       }
       throw new Error(error.message);
@@ -159,6 +187,9 @@ export async function insertApplicationForClient(
       return fkId;
     }
     lastMessage = error.message;
+    if (isClientIdForeignKeyError(error.message)) {
+      continue;
+    }
     if (!isForeignKeyError(error.message)) {
       throw new Error(error.message);
     }

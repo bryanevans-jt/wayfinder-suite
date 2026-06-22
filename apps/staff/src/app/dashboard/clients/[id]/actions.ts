@@ -2,7 +2,7 @@
 
 import { isApplicationStatus } from "@wayfinder/branding";
 import {
-  buildClientActivityFkIds,
+  buildClientActivityInsertFkIds,
   DEFAULT_ACTIVITY_CODES,
   insertApplicationForClient,
   insertContactLogForClient,
@@ -35,7 +35,7 @@ async function clientFkIds(
     .select("id, user_id, profile_id")
     .eq("id", clientId)
     .maybeSingle();
-  return clientRow ? buildClientActivityFkIds(clientRow) : [clientId];
+  return clientRow ? buildClientActivityInsertFkIds(clientRow) : [clientId];
 }
 
 function narrativeForContactTime(outcome: string, notes: string): string {
