@@ -9,14 +9,63 @@ import { roleDisplayName } from "./roles";
 export const USER_FACING_SUPPORT_LINE = `Email ${SUPPORT_CONTACT_NAME} at ${SUPPORT_CONTACT_EMAIL}.`;
 
 export const USER_FACING_SYSTEM_ERROR =
-  "Something didn't work quite right on our end, but don't worry — our team is already looking into it. Please try again in a moment. If this keeps happening, share the reference code below with us.";
+  "Something didn't work quite right on our end, but don't worry — our team is already looking into it. Please try again in a moment.";
 
 /** User-facing message with an optional WF reference code. */
 export function userFacingSystemErrorWithCode(errorCode?: string | null): string {
   if (!errorCode?.trim()) {
-    return `${USER_FACING_SYSTEM_ERROR.replace(" share the reference code below with us.", ".")} ${USER_FACING_SUPPORT_LINE}`;
+    return `${USER_FACING_SYSTEM_ERROR} If this keeps happening, ${USER_FACING_SUPPORT_LINE.charAt(0).toLowerCase()}${USER_FACING_SUPPORT_LINE.slice(1)}`;
   }
   return `${USER_FACING_SYSTEM_ERROR} Reference code: ${errorCode.trim().toUpperCase()}. ${USER_FACING_SUPPORT_LINE}`;
+}
+
+export type ActionSuccess = { ok: true; warning?: string };
+export type ActionFailure = { ok: false; error: string; errorCode?: string };
+export type ActionResult = ActionSuccess | ActionFailure;
+
+/** Log a failed server action and return a safe message (avoids Next.js production throw redaction). */
+export async function finishActionFailure(
+  app: "staff" | "client",
+  route: string,
+  err: unknown,
+  actor: ApiErrorActor = {},
+  userHint?: string
+): Promise<ActionFailure> {
+  let errorCode: string | undefined;
+  try {
+    const admin = createServiceRoleClient();
+    errorCode = await logSystemError(
+      admin,
+      {
+        app,
+        route,
+        userId: actor.userId,
+        userName: actor.userName,
+        userRole: actor.userRole,
+        userRoleLabel: actor.userRoleLabel,
+        metadata: { server_action: true },
+      },
+      err
+    );
+    console.error(`[wayfinder] ${errorCode} ${route}:`, err);
+  } catch (logErr) {
+    console.error("[wayfinder] Server action error logging failed:", logErr);
+  }
+
+  const rawMessage = err instanceof Error ? err.message : String(err);
+  let hint = userHint?.trim();
+  if (!hint && rawMessage) {
+    hint = friendlyApplicationSaveError(rawMessage);
+  }
+  if (!hint || looksTechnical(hint)) {
+    hint = "We could not complete that action. Please try again.";
+  }
+
+  const error = errorCode
+    ? `${hint} Reference code: ${errorCode}. ${USER_FACING_SUPPORT_LINE}`
+    : `${hint} ${USER_FACING_SUPPORT_LINE}`;
+
+  return { ok: false, error, errorCode };
 }
 
 export type ApiErrorPayload = {
@@ -282,7 +331,7 @@ export function friendlyApplicationSaveError(message: string): string {
     return "Company name is required.";
   }
   if (looksTechnical(message)) {
-    return userFacingSystemErrorWithCode();
+    return "We could not save this record. Please try again.";
   }
   return message;
 }
@@ -325,6 +374,8 @@ function looksTechnical(message: string): boolean {
     lower.includes("econnrefused") ||
     lower.includes("digest:") ||
     lower.includes("server components render") ||
+    lower.includes("an error occurred in the server") ||
+    lower.includes("server action") ||
     lower.includes("service_role") ||
     /^[a-z_]+:\s/.test(lower)
   );

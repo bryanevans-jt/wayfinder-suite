@@ -1,7 +1,6 @@
 "use client";
 
 import { APPLICATION_STATUSES } from "@wayfinder/branding";
-import { friendlyClientError } from "@wayfinder/supabase/error-log";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { addClientApplication, updateClientApplication } from "./actions";
@@ -58,23 +57,23 @@ export function ClientApplicationForm({
       return;
     }
     startTransition(async () => {
-      try {
-        await addClientApplication(
-          clientId,
-          status,
-          company,
-          notes,
-          status === "Other" ? otherReason : null,
-          employerId || null
-        );
-        setEmployerId("");
-        setCompanyName("");
-        setNotes("");
-        setOtherReason("");
-        router.refresh();
-      } catch (e) {
-        setError(friendlyClientError(e));
+      const result = await addClientApplication(
+        clientId,
+        status,
+        company,
+        notes,
+        status === "Other" ? otherReason : null,
+        employerId || null
+      );
+      if (!result.ok) {
+        setError(result.error);
+        return;
       }
+      setEmployerId("");
+      setCompanyName("");
+      setNotes("");
+      setOtherReason("");
+      router.refresh();
     });
   }
 

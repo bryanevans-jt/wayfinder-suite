@@ -2,7 +2,6 @@
 
 import { DEFAULT_ACTIVITY_CODES } from "@wayfinder/supabase/es-time-tracking";
 import type { ServiceActivityType } from "@wayfinder/supabase/es-time-tracking";
-import { friendlyClientError } from "@wayfinder/supabase/error-log";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { TimeActivityFields, useTimeActivityDefaults } from "@/components/time-activity-fields";
@@ -21,22 +20,31 @@ export function ClientContactLogForm({ clientId, activities }: Props) {
   const [activityTypeId, setActivityTypeId] = useState(defaults.activityTypeId);
   const [durationMinutes, setDurationMinutes] = useState(defaults.durationMinutes);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   function save() {
     setError(null);
+    setNotice(null);
     startTransition(async () => {
-      try {
-        await addClientContactLog(clientId, publicOutcome, notes, {
-          activityTypeId,
-          durationMinutes,
-        });
-        setPublicOutcome("");
-        setNotes("");
-        router.refresh();
-      } catch (e) {
-        setError(friendlyClientError(e));
+      const result = await addClientContactLog(
+        clientId,
+        publicOutcome,
+        notes,
+        activityTypeId && durationMinutes > 0
+          ? { activityTypeId, durationMinutes }
+          : undefined
+      );
+      if (!result.ok) {
+        setError(result.error);
+        return;
       }
+      if (result.warning) {
+        setNotice(result.warning);
+      }
+      setPublicOutcome("");
+      setNotes("");
+      router.refresh();
     });
   }
 
@@ -46,7 +54,8 @@ export function ClientContactLogForm({ clientId, activities }: Props) {
         Log contact
       </h2>
       <p className="mt-1 text-xs text-brand-black/60">
-        Counselors see the public outcome and notes on the client timeline. Time is internal only.
+        Counselors see the public outcome and notes on the client timeline. Billable time is optional
+        — leave activity blank to skip time entry.
       </p>
       <div className="mt-3 space-y-3">
         <TimeActivityFields
@@ -90,6 +99,7 @@ export function ClientContactLogForm({ clientId, activities }: Props) {
         </button>
       </div>
       {error ? <p className="mt-2 text-sm text-red-700">{error}</p> : null}
+      {notice ? <p className="mt-2 text-sm text-amber-800">{notice}</p> : null}
     </div>
   );
 }
