@@ -3,14 +3,13 @@
 import {
   CONTACT_LOG_INTERNAL_NOTES_LABEL,
   CONTACT_LOG_NOTES_LABEL,
-} from "@wayfinder/branding";
-import { reportClientActionError } from "@wayfinder/auth-ui";
+} from "@wayfinder/branding/constants";
 import { DEFAULT_ACTIVITY_CODES } from "@wayfinder/supabase/es-time-tracking";
 import type { ServiceActivityType } from "@wayfinder/supabase/es-time-tracking";
+import type { ActionResult } from "@wayfinder/supabase/error-log";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { TimeActivityFields, useTimeActivityDefaults } from "@/components/time-activity-fields";
-import { addClientContactLog } from "./actions";
 
 type Props = {
   clientId: string;
@@ -28,36 +27,61 @@ export function ClientContactLogForm({ clientId, activities }: Props) {
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  useEffect(() => {
+    const match =
+      activities.find((a) => a.id === activityTypeId) ??
+      activities.find((a) => a.code === DEFAULT_ACTIVITY_CODES.contact) ??
+      activities[0];
+    if (!match) {
+      return;
+    }
+    if (activityTypeId !== match.id) {
+      setActivityTypeId(match.id);
+      setDurationMinutes(match.default_minutes);
+    }
+  }, [activities, activityTypeId]);
+
   function save() {
     setError(null);
     setNotice(null);
     startTransition(async () => {
       try {
-        const result = await addClientContactLog(
-          clientId,
-          contactNotes,
-          internalNotes,
-          activityTypeId && durationMinutes > 0
-            ? { activityTypeId, durationMinutes }
-            : undefined
-        );
-        if (!result.ok) {
-          setError(result.error);
+        const res = await fetch("/api/es/contact-log", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientId,
+            contactNotes,
+            internalNotes,
+            time:
+              activityTypeId && durationMinutes > 0
+                ? { activityTypeId, durationMinutes }
+                : undefined,
+          }),
+        });
+
+        const result = (await res.json()) as ActionResult;
+        if (!res.ok || !result.ok) {
+          setError(
+            !result.ok && result.error
+              ? result.error
+              : "We could not save this contact log. Please try again."
+          );
           return;
         }
+
         if (result.warning) {
           setNotice(result.warning);
         }
         setContactNotes("");
         setInternalNotes("");
-        router.refresh();
-      } catch (err) {
-        const reported = await reportClientActionError(
-          "staff",
-          "actions/addClientContactLog",
-          err
-        );
-        setError(reported.message);
+        try {
+          router.refresh();
+        } catch {
+          // Save succeeded even if refresh fails.
+        }
+      } catch {
+        setError("We could not save this contact log. Please try again.");
       }
     });
   }

@@ -1,11 +1,10 @@
 "use server";
 
-import { isApplicationStatus, CONTACT_LOG_NOTES_LABEL } from "@wayfinder/branding";
+import { isApplicationStatus } from "@wayfinder/branding";
 import {
   buildClientActivityInsertFkIds,
   DEFAULT_ACTIVITY_CODES,
   insertApplicationForClient,
-  insertContactLogForClient,
   insertEsTimeEntry,
   todayLocalDate,
 } from "@wayfinder/supabase";
@@ -17,6 +16,7 @@ import {
 import { assertNotPreviewMutation } from "@wayfinder/supabase/preview-server";
 import { revalidatePath } from "next/cache";
 import { assertEsAssignedToClient } from "@/lib/es-client-access";
+import { saveClientContactLog } from "@/lib/save-client-contact-log";
 
 function revalidateClientPaths(clientId: string) {
   revalidatePath("/dashboard/clients");
@@ -38,22 +38,49 @@ async function clientFkIds(
   return clientRow ? buildClientActivityInsertFkIds(clientRow) : [clientId];
 }
 
-function narrativeForContactTime(outcome: string, notes: string): string {
-  const combined =
-    [outcome.trim(), notes.trim()].filter(Boolean).join(" — ") || outcome.trim();
-  if (combined.length >= 10) {
-    return combined;
-  }
-  const padded = `Contact: ${combined}`;
-  return padded.length >= 10 ? padded : `${padded} (logged in Wayfinder Pro)`;
-}
-
 type TimeInput = {
   activityTypeId: string;
   durationMinutes: number;
   serviceDate?: string;
   narrative?: string | null;
 };
+
+export async function addClientContactLog(
+  clientId: string,
+  contactNotes: string,
+  internalNotes: string,
+  time?: TimeInput
+): Promise<ActionResult> {
+  let actorUserId: string | undefined;
+
+  try {
+    await assertNotPreviewMutation();
+    const { admin, userId } = await assertEsAssignedToClient(clientId);
+    actorUserId = userId;
+
+    const result = await saveClientContactLog(admin, userId, {
+      clientId,
+      contactNotes,
+      internalNotes,
+      time,
+    });
+
+    if (!result.ok) {
+      return result;
+    }
+
+    revalidateClientPaths(clientId);
+    return result;
+  } catch (err) {
+    return await finishActionFailure(
+      "staff",
+      "actions/addClientContactLog",
+      err,
+      { userId: actorUserId },
+      "We could not save this contact log."
+    );
+  }
+}
 
 export async function updateClientCurrentStage(
   clientId: string,
@@ -120,71 +147,6 @@ export async function updateClientCurrentStage(
   }
 
   revalidateClientPaths(clientId);
-}
-
-export async function addClientContactLog(
-  clientId: string,
-  contactNotes: string,
-  internalNotes: string,
-  time?: TimeInput
-): Promise<ActionResult> {
-  let actorUserId: string | undefined;
-
-  try {
-    await assertNotPreviewMutation();
-    const outcome = contactNotes.trim();
-    if (!outcome) {
-      return { ok: false, error: `${CONTACT_LOG_NOTES_LABEL} are required.` };
-    }
-
-    const { admin, userId } = await assertEsAssignedToClient(clientId);
-    actorUserId = userId;
-    const fkIds = await clientFkIds(admin, clientId);
-
-    const contactLogId = await insertContactLogForClient(admin, {
-      loggedBy: userId,
-      fkIds,
-      outcome,
-      notes: internalNotes.trim() || null,
-    });
-
-    let warning: string | undefined;
-
-    if (time?.activityTypeId && time.durationMinutes > 0) {
-      try {
-        const narrative = narrativeForContactTime(outcome, internalNotes);
-        await insertEsTimeEntry(admin, {
-          esUserId: userId,
-          clientId,
-          activityTypeId: time.activityTypeId,
-          serviceDate: time.serviceDate ?? todayLocalDate(),
-          durationMinutes: time.durationMinutes,
-          narrative,
-          linkedSourceType: "contact_log",
-          linkedSourceId: contactLogId,
-        });
-      } catch (timeErr) {
-        const timeMessage =
-          timeErr instanceof Error ? friendlyApplicationSaveError(timeErr.message) : null;
-        warning =
-          timeMessage && !timeMessage.includes("We could not save this record")
-            ? `Contact saved, but billable time was not recorded: ${timeMessage}`
-            : "Contact saved, but billable time was not recorded. You can add time on the Timesheet page.";
-        console.error("addClientContactLog time entry failed:", timeErr);
-      }
-    }
-
-    revalidateClientPaths(clientId);
-    return warning ? { ok: true, warning } : { ok: true };
-  } catch (err) {
-    return await finishActionFailure(
-      "staff",
-      "actions/addClientContactLog",
-      err,
-      { userId: actorUserId },
-      "We could not save this contact log."
-    );
-  }
 }
 
 export async function addClientApplication(
