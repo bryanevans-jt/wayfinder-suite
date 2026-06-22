@@ -13,6 +13,7 @@ type SavePayload = {
   office_id: string;
   counselor_id: string;
   es_user_id: string | null;
+  es_email?: string | null;
   current_service_id: string;
   current_stage_id: string;
 };
@@ -26,6 +27,8 @@ type Props = {
   serviceCatalog: PortalBootstrap["serviceCatalog"];
   serviceMilestones: PortalBootstrap["serviceMilestones"];
   busy: boolean;
+  allowDelete?: boolean;
+  allowEsEmail?: boolean;
   onClose: () => void;
   onSave: (payload: SavePayload) => Promise<void>;
   onDelete: () => Promise<void>;
@@ -42,6 +45,8 @@ export function ClientDetailDrawer({
   serviceCatalog,
   serviceMilestones,
   busy,
+  allowDelete = true,
+  allowEsEmail = false,
   onClose,
   onSave,
   onDelete,
@@ -61,6 +66,7 @@ export function ClientDetailDrawer({
   const [officeId, setOfficeId] = useState("");
   const [counselorId, setCounselorId] = useState("");
   const [esUserId, setEsUserId] = useState("");
+  const [esEmail, setEsEmail] = useState("");
   const [serviceId, setServiceId] = useState("");
   const [stageId, setStageId] = useState("");
 
@@ -71,6 +77,7 @@ export function ClientDetailDrawer({
     setOfficeId(client.office_id ?? offices[0]?.id ?? "");
     setCounselorId(client.counselor_id ?? "");
     setEsUserId(client.es_user_ids[0] ?? "");
+    setEsEmail("");
     const nextServiceId = client.current_service_id ?? serviceOptions[0]?.id ?? "";
     setServiceId(nextServiceId);
     setStageId(client.current_stage_id ?? "");
@@ -192,7 +199,10 @@ export function ClientDetailDrawer({
             <span className="font-medium text-brand-black">Employment specialist</span>
             <select
               value={esUserId}
-              onChange={(e) => setEsUserId(e.target.value)}
+              onChange={(e) => {
+                setEsUserId(e.target.value);
+                setEsEmail("");
+              }}
               className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
               disabled={busy}
             >
@@ -204,6 +214,25 @@ export function ClientDetailDrawer({
               ))}
             </select>
           </label>
+
+          {allowEsEmail ? (
+            <label className="block text-sm">
+              <span className="font-medium text-brand-black">Or assign by email</span>
+              <input
+                type="email"
+                value={esEmail}
+                onChange={(e) => {
+                  setEsEmail(e.target.value);
+                  if (e.target.value.trim()) {
+                    setEsUserId("");
+                  }
+                }}
+                placeholder="specialist@thejoshuatree.org"
+                className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                disabled={busy}
+              />
+            </label>
+          ) : null}
 
           <label className="block text-sm">
             <span className="font-medium text-brand-black">Counselor</span>
@@ -274,7 +303,8 @@ export function ClientDetailDrawer({
                   contact_email: email.trim(),
                   office_id: officeId,
                   counselor_id: counselorId,
-                  es_user_id: esUserId || null,
+                  es_user_id: esEmail.trim() ? null : esUserId || null,
+                  es_email: esEmail.trim() || null,
                   current_service_id: serviceId,
                   current_stage_id: stageId,
                 })
@@ -300,14 +330,16 @@ export function ClientDetailDrawer({
               Natural support
             </button>
           </div>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void onDelete().then(onClose)}
-            className="text-sm text-red-700 hover:underline disabled:opacity-60"
-          >
-            Delete client record
-          </button>
+          {allowDelete ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void onDelete().then(onClose)}
+              className="text-sm text-red-700 hover:underline disabled:opacity-60"
+            >
+              Delete client record
+            </button>
+          ) : null}
         </div>
       </div>
     </div>

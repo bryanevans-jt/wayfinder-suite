@@ -82,7 +82,9 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
     null
   );
 
-  const canManage = mode !== "supervisor";
+  const canManageOrg = mode !== "supervisor";
+  const canManageClients = true;
+  const [showArchivedClients, setShowArchivedClients] = useState(false);
   const canEditLogs = config?.canEditLogs ?? false;
   const canAssignAdmins = config?.canAssignAdmins ?? false;
   const b = config?.bootstrap;
@@ -167,6 +169,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
     if (!b) return [];
     const q = clientSearch.trim().toLowerCase();
     return b.clients.filter((c) => {
+      if (mode === "supervisor" && !showArchivedClients && c.archived_at) return false;
       if (clientFilterOffice && c.office_id !== clientFilterOffice) return false;
       if (clientFilterEs && !c.es_user_ids.includes(clientFilterEs)) return false;
       if (!q) return true;
@@ -182,7 +185,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [b, clientFilterOffice, clientFilterEs, clientSearch]);
+  }, [b, clientFilterOffice, clientFilterEs, clientSearch, mode, showArchivedClients]);
 
   useEffect(() => {
     setDrawerClient((current) => {
@@ -213,7 +216,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
         <p className="mt-2 max-w-3xl text-sm text-brand-black/75">{subtitle}</p>
       </header>
 
-      <PortalNav mode={mode} canManage={canManage} nav={nav} onChange={setNav} />
+      <PortalNav mode={mode} canManage={canManageOrg} nav={nav} onChange={setNav} />
 
       {error ? (
         <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
@@ -225,7 +228,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
         <p className="mt-6 text-sm text-brand-black/60">Loading…</p>
       ) : nav.primary === "offices" ? (
         <section className="mt-6 max-w-3xl space-y-6">
-          {canManage ? (
+          {canManageOrg ? (
             <form
               className="flex flex-wrap gap-2"
               onSubmit={(e) => {
@@ -283,7 +286,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               <OfficeListItem
                 key={o.id}
                 office={o}
-                canManage={canManage}
+                canManage={canManageOrg}
                 busy={busy}
                 onSave={(payload) =>
                   run(async () => {
@@ -312,15 +315,16 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
         </section>
       ) : nav.primary === "clients" ? (
         <section className="mt-6 max-w-6xl space-y-4">
-          {canManage ? (
-            <PortalSetupChecklist bootstrap={b} canManage={canManage} onNavigate={setNav} />
+          {canManageOrg ? (
+            <PortalSetupChecklist bootstrap={b} canManage={canManageOrg} onNavigate={setNav} />
           ) : null}
-          {canManage ? (
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-brand-black/70">
-                Search clients, add new ones, or import from CSV. Click a client to update their
-                details.
-              </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-brand-black/70">
+              {canManageOrg
+                ? "Search clients, add new ones, or import from CSV. Click a client to update their details."
+                : "Clients in your assigned offices or supervised ES caseloads. Click a client to assign ES, change service, or update stage."}
+            </p>
+            {canManageClients ? (
               <button
                 type="button"
                 disabled={busy}
@@ -329,17 +333,12 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               >
                 Add client
               </button>
-            </div>
-          ) : (
-            <p className="text-sm text-brand-black/70">
-              Clients in your assigned offices or linked to ES staff you supervise. Read-only —
-              contact the admin team to update records.
-            </p>
-          )}
-          {canManage ? (
+            ) : null}
+          </div>
+          {canManageOrg ? (
             <ClientImportPanel disabled={busy} onComplete={() => void reload()} />
           ) : null}
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <input
               value={clientSearch}
               onChange={(e) => setClientSearch(e.target.value)}
@@ -370,6 +369,17 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 </option>
               ))}
             </select>
+            {mode === "supervisor" ? (
+              <label className="inline-flex items-center gap-2 text-sm text-brand-black/80">
+                <input
+                  type="checkbox"
+                  checked={showArchivedClients}
+                  onChange={(e) => setShowArchivedClients(e.target.checked)}
+                  className="size-4 rounded border-neutral-300 text-brand-green focus:ring-brand-green"
+                />
+                View archived
+              </label>
+            ) : null}
           </div>
           <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white">
             <table className="min-w-full text-left text-sm">
@@ -379,23 +389,19 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                   <th className="px-3 py-2">Office</th>
                   <th className="px-3 py-2">Employment specialist</th>
                   <th className="px-3 py-2">Current stage</th>
-                  {canManage ? (
-                    <th className="px-3 py-2"> </th>
-                  ) : (
-                    <th className="px-3 py-2">Profile</th>
-                  )}
+                  <th className="px-3 py-2"> </th>
                 </tr>
               </thead>
               <tbody>
                 {filteredClients.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-3 py-8 text-center text-brand-black/60">
-                      {b.clients.length === 0 && canManage
+                      {b.clients.length === 0 && canManageOrg
                         ? "No clients yet. Add one above or use CSV import for bulk onboarding."
                         : "No clients match your filters."}
                     </td>
                   </tr>
-                ) : canManage ? (
+                ) : (
                   filteredClients.map((c) => (
                     <ClientListRow
                       key={c.id}
@@ -406,41 +412,11 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                       onManage={() => setDrawerClient(c)}
                     />
                   ))
-                ) : (
-                  filteredClients.map((c) => (
-                    <tr key={c.id} className="border-t border-neutral-100">
-                      <td className="px-3 py-3">
-                        <p className="font-medium text-brand-black">{clientDisplayName(c)}</p>
-                        {c.contact_email ? (
-                          <p className="text-xs text-brand-black/60">{c.contact_email}</p>
-                        ) : null}
-                      </td>
-                      <td className="px-3 py-3">{officeName(c.office_id)}</td>
-                      <td className="px-3 py-3">
-                        {c.es_user_ids.map((id) => esLabel(id)).join(", ") || "—"}
-                      </td>
-                      <td className="px-3 py-3">{c.stage_title ?? "—"}</td>
-                      <td className="px-3 py-3">
-                        <button
-                          type="button"
-                          className="font-medium text-brand-green hover:underline"
-                          onClick={() =>
-                            setProfileModalClient({
-                              id: c.id,
-                              label: clientDisplayName(c),
-                            })
-                          }
-                        >
-                          View profile
-                        </button>
-                      </td>
-                    </tr>
-                  ))
                 )}
               </tbody>
             </table>
           </div>
-          {canManage ? (
+          {canManageClients ? (
             <AddClientModal
               open={addClientOpen}
               onClose={() => setAddClientOpen(false)}
@@ -452,13 +428,14 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 id: e.id,
                 label: e.display_name,
               }))}
+              allowEsEmail={mode === "supervisor"}
               onCreated={() => void run(async () => {})}
             />
           ) : null}
         </section>
       ) : isTeamEsNav(nav) ? (
         <section className="mt-6 max-w-4xl space-y-6">
-          {canManage ? (
+          {canManageOrg ? (
             <form
               className="space-y-4 rounded-xl border border-neutral-200 bg-white p-4"
               onSubmit={(e) => {
@@ -533,17 +510,17 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                   <th className="px-3 py-2">Offices</th>
                   <th className="px-3 py-2">Clients</th>
                   <th className="px-3 py-2">Status</th>
-                  {canManage ? <th className="px-3 py-2">Actions</th> : null}
+                  {canManageOrg ? <th className="px-3 py-2">Actions</th> : null}
                 </tr>
               </thead>
               <tbody>
                 {b.esStaff.length === 0 ? (
                   <tr>
-                    <td colSpan={canManage ? 5 : 4} className="px-3 py-8 text-center text-brand-black/60">
+                    <td colSpan={canManageOrg ? 5 : 4} className="px-3 py-8 text-center text-brand-black/60">
                       No Employment Specialists in your scope.
                     </td>
                   </tr>
-                ) : canManage ? (
+                ) : canManageOrg ? (
                   b.esStaff.map((es) => (
                     <EsStaffListItem
                       key={es.id}
@@ -614,7 +591,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
             </table>
           </div>
         </section>
-      ) : isTeamCounselorsNav(nav) && canManage ? (
+      ) : isTeamCounselorsNav(nav) && canManageOrg ? (
         <section className="mt-6 max-w-4xl space-y-6">
           <p className="text-sm text-brand-black/70">
             Counselors are external partners with <strong>view-only</strong> access to their
@@ -740,7 +717,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
             </table>
           </div>
         </section>
-      ) : isTeamSupervisorsNav(nav) && canManage ? (
+      ) : isTeamSupervisorsNav(nav) && canManageOrg ? (
         <section className="mt-6 max-w-4xl space-y-6">
           <p className="text-sm text-brand-black/70">
             Supervisors oversee employment specialists — not counselors. Link supervisors to ES staff
@@ -869,7 +846,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
       ) : (nav.primary === "settings" && nav.settings === "advanced") ||
         nav.primary === "connections" ? (
         <section className="mt-6 max-w-5xl space-y-6">
-          {canManage ? (
+          {canManageOrg ? (
             <div>
               <h2 className="text-lg font-semibold text-brand-black">Advanced connections</h2>
               <p className="mt-1 text-sm text-brand-black/70">
@@ -883,7 +860,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
             </p>
           )}
           <div className="grid gap-8 lg:grid-cols-2">
-          {canManage ? (
+          {canManageOrg ? (
             <>
               <AssignmentCard
                 title="Counselor office access"
@@ -1202,14 +1179,14 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
             </p>
           ) : null}
         </section>
-      ) : nav.primary === "reports" && nav.reports === "messages" && canManage ? (
+      ) : nav.primary === "reports" && nav.reports === "messages" && canManageOrg ? (
         <AdminMessageAuditPanel
           clients={b.clients}
           isSuperAdmin={config?.role === "super_admin"}
         />
       ) : nav.primary === "settings" && nav.settings === "errors" && mode === "super_admin" ? (
         <ErrorLogPanel />
-      ) : nav.primary === "settings" && (nav.settings ?? "users") === "users" && canManage ? (
+      ) : nav.primary === "settings" && (nav.settings ?? "users") === "users" && canManageOrg ? (
         <section className="mt-6 max-w-3xl space-y-6">
           <div>
             <h2 className="text-lg font-semibold text-brand-black">Administrators</h2>
@@ -1318,6 +1295,8 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
           serviceCatalog={b.serviceCatalog}
           serviceMilestones={b.serviceMilestones}
           busy={busy}
+          allowDelete={canManageOrg}
+          allowEsEmail={mode === "supervisor"}
           onClose={() => setDrawerClient(null)}
           onSave={(payload) =>
             run(async () => {

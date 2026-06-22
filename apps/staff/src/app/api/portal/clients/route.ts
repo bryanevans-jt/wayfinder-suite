@@ -1,10 +1,18 @@
 import { assertPortalMutation, assertPortalSession, jsonPortalError } from "@/lib/portal-auth";
 import {
+  clientInSupervisorScope,
+  esUserAllowedForSupervisor,
+  loadSupervisorScope,
+  officeAllowedForSupervisor,
+  type SupervisorScope,
+} from "@/lib/supervisor-client-scope";
+import {
   createClientWithInvite,
   linkClientAuthUserByEmail,
   resolveAuthUserIdByEmail,
   updateClientRecord,
 } from "@wayfinder/supabase";
+import { isAdminTierRole } from "@wayfinder/supabase/roles";
 import { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -40,6 +48,7 @@ type CreateBody = {
   officeId?: string;
   counselorId?: string;
   esUserId?: string;
+  esEmail?: string;
 };
 
 type PatchBody = {
@@ -49,22 +58,73 @@ type PatchBody = {
   office_id?: string;
   counselor_id?: string;
   es_user_id?: string | null;
+  es_email?: string | null;
   current_service_id?: string;
   current_stage_id?: string;
 };
 
+async function supervisorScopeForSession(
+  admin: Awaited<ReturnType<typeof assertPortalSession>>["admin"],
+  role: string,
+  userId: string
+): Promise<SupervisorScope | null> {
+  if (isAdminTierRole(role)) {
+    return null;
+  }
+  return loadSupervisorScope(admin, userId);
+}
+
+async function resolveEsUserId(
+  admin: Awaited<ReturnType<typeof assertPortalSession>>["admin"],
+  scope: SupervisorScope | null,
+  esUserId?: string,
+  esEmail?: string
+): Promise<{ esUserId?: string; error?: string }> {
+  if (esEmail?.trim()) {
+    const resolved = await resolveAuthUserIdByEmail(admin, esEmail.trim());
+    if (!resolved) {
+      return { error: "No Wayfinder account found for that employment specialist email." };
+    }
+    if (scope && !esUserAllowedForSupervisor(scope, resolved)) {
+      return { error: "That employment specialist is outside your supervisor scope." };
+    }
+    return { esUserId: resolved };
+  }
+
+  if (esUserId?.trim()) {
+    const id = esUserId.trim();
+    if (scope && !esUserAllowedForSupervisor(scope, id)) {
+      return { error: "That employment specialist is outside your supervisor scope." };
+    }
+    return { esUserId: id };
+  }
+
+  return {};
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { admin } = await assertPortalMutation("admin");
+    const { admin, user, role } = await assertPortalMutation("supervisor");
     const body = (await request.json()) as CreateBody;
+    const scope = await supervisorScopeForSession(admin, role, user.id);
+
+    const officeId = body.officeId?.trim() ?? "";
+    if (scope && officeId && !officeAllowedForSupervisor(scope, officeId)) {
+      return Response.json({ error: "That office is outside your supervisor scope." }, { status: 403 });
+    }
+
+    const esResolved = await resolveEsUserId(admin, scope, body.esUserId, body.esEmail);
+    if (esResolved.error) {
+      return Response.json({ error: esResolved.error }, { status: 400 });
+    }
 
     const result = await createClientWithInvite(admin, {
       name: body.name ?? "",
       email: body.email ?? "",
       serviceId: body.serviceId ?? "",
-      officeId: body.officeId ?? "",
+      officeId,
       counselorId: body.counselorId ?? "",
-      esUserId: body.esUserId,
+      esUserId: esResolved.esUserId,
     });
 
     if ("error" in result) {
@@ -80,11 +140,16 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { admin } = await assertPortalMutation("admin");
+    const { admin, user, role } = await assertPortalMutation("supervisor");
     const body = (await request.json()) as PatchBody;
     const id = body.id?.trim();
     if (!id) {
       return Response.json({ error: "id is required" }, { status: 400 });
+    }
+
+    const scope = await supervisorScopeForSession(admin, role, user.id);
+    if (scope && !(await clientInSupervisorScope(admin, scope, id))) {
+      return Response.json({ error: "Client not found in your supervisor scope." }, { status: 403 });
     }
 
     const { data: existing, error: loadErr } = await admin
@@ -109,6 +174,9 @@ export async function PATCH(request: NextRequest) {
       const officeId = body.office_id.trim();
       if (!officeId) {
         return Response.json({ error: "office_id cannot be empty" }, { status: 400 });
+      }
+      if (scope && !officeAllowedForSupervisor(scope, officeId)) {
+        return Response.json({ error: "That office is outside your supervisor scope." }, { status: 403 });
       }
       patch.office_id = officeId;
     }
@@ -251,17 +319,26 @@ export async function PATCH(request: NextRequest) {
       if (profileErr) throw new Error(profileErr.message);
     }
 
-    if (body.es_user_id !== undefined) {
+    if (body.es_user_id !== undefined || body.es_email !== undefined) {
+      const esResolved = await resolveEsUserId(
+        admin,
+        scope,
+        body.es_user_id ?? undefined,
+        body.es_email ?? undefined
+      );
+      if (esResolved.error) {
+        return Response.json({ error: esResolved.error }, { status: 400 });
+      }
+
       const { error: clearErr } = await admin
         .from("es_client_assignments")
         .delete()
         .eq("client_id", id);
       if (clearErr) throw new Error(clearErr.message);
 
-      if (body.es_user_id) {
-        const esUserId = body.es_user_id.trim();
+      if (esResolved.esUserId) {
         const { error: assignErr } = await admin.from("es_client_assignments").insert({
-          es_user_id: esUserId,
+          es_user_id: esResolved.esUserId,
           client_id: id,
         });
         if (assignErr) throw new Error(assignErr.message);

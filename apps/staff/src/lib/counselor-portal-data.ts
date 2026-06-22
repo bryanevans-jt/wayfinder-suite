@@ -14,6 +14,7 @@ export type CounselorPortalClient = {
   current_stage_id: string | null;
   counselor_id: string | null;
   contact_email: string | null;
+  archived_at: string | null;
 };
 
 function normalizeClient(row: {
@@ -23,6 +24,7 @@ function normalizeClient(row: {
   current_stage_id: string | null;
   counselor_id: string | null;
   contact_email?: string | null;
+  archived_at?: string | null;
 }): CounselorPortalClient | null {
   const linkId = row.id ?? row.profile_id;
   const fkClientId = row.user_id ?? row.profile_id ?? row.id;
@@ -38,6 +40,7 @@ function normalizeClient(row: {
     current_stage_id: row.current_stage_id,
     counselor_id: row.counselor_id,
     contact_email: row.contact_email ?? null,
+    archived_at: row.archived_at ?? null,
   };
 }
 
@@ -50,7 +53,7 @@ export function getCounselorPortalAdmin() {
 }
 
 const CLIENT_SELECT =
-  "id, user_id, profile_id, current_stage_id, counselor_id, contact_email";
+  "id, user_id, profile_id, current_stage_id, counselor_id, contact_email, archived_at";
 
 /**
  * Legacy DBs: clients.counselor_id → profiles.id (counselor login uuid).
@@ -71,6 +74,16 @@ async function queryAssignedClientRows(
   if (!error) {
     return { data, error: null as null };
   }
+  if (error.message.includes("archived_at")) {
+    const retrySelect =
+      "id, user_id, profile_id, current_stage_id, counselor_id, contact_email";
+    const retryBase = admin.from("clients").select(retrySelect);
+    const retryQuery =
+      authUserId && authUserId !== counselorRowId
+        ? retryBase.or(`counselor_id.eq.${authUserId},counselor_id.eq.${counselorRowId}`)
+        : retryBase.eq("counselor_id", authUserId ?? counselorRowId);
+    return retryQuery;
+  }
   if (!error.message.includes("contact_email")) {
     return { data: null, error };
   }
@@ -87,12 +100,14 @@ async function queryAssignedClientRows(
 /** Loads assigned clients for a counselor row (server-only; bypasses RLS). */
 export async function fetchCounselorAssignedClients(
   counselorId: string,
-  authUserId?: string
+  authUserId?: string,
+  options: { includeArchived?: boolean } = {}
 ): Promise<{
   clients: CounselorPortalClient[];
   error: string | null;
   devHint: string | null;
 }> {
+  const { includeArchived = false } = options;
   const admin = getCounselorPortalAdmin();
   if (!admin) {
     console.error("[counselor portal] Missing SUPABASE_SERVICE_ROLE_KEY on staff app");
@@ -113,7 +128,8 @@ export async function fetchCounselorAssignedClients(
   const rawRows = data ?? [];
   const clients = rawRows
     .map((row) => normalizeClient(row))
-    .filter(Boolean) as CounselorPortalClient[];
+    .filter(Boolean)
+    .filter((c) => includeArchived || c!.archived_at == null) as CounselorPortalClient[];
 
   let devHint: string | null = null;
   if (process.env.NODE_ENV === "development" && clients.length === 0) {

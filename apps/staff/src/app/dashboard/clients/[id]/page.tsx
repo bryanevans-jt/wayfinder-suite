@@ -103,35 +103,35 @@ export default async function EsClientDetailPage({ params }: PageProps) {
     { data: employerDirectory },
   ] = await Promise.all([
     client.current_service_id
-      ? supabase.from("services").select("name").eq("id", client.current_service_id).maybeSingle()
+      ? admin.from("services").select("name").eq("id", client.current_service_id).maybeSingle()
       : Promise.resolve({ data: null as { name: string } | null }),
     client.current_stage_id
-      ? supabase
+      ? admin
           .from("service_milestones")
           .select("title")
           .eq("id", client.current_stage_id)
           .maybeSingle()
       : Promise.resolve({ data: null as { title: string } | null }),
     client.office_id
-      ? supabase.from("offices").select("name").eq("id", client.office_id).maybeSingle()
+      ? admin.from("offices").select("name").eq("id", client.office_id).maybeSingle()
       : Promise.resolve({ data: null as { name: string } | null }),
     client.counselor_id
-      ? supabase.from("counselors").select("full_name").eq("id", client.counselor_id).maybeSingle()
+      ? admin.from("counselors").select("full_name").eq("id", client.counselor_id).maybeSingle()
       : Promise.resolve({ data: null as { full_name: string } | null }),
     client.current_service_id
-      ? supabase
+      ? admin
           .from("service_milestones")
           .select("id, title, order_index")
           .eq("service_id", client.current_service_id)
           .order("order_index", { ascending: true })
       : Promise.resolve({ data: [] as { id: string; title: string; order_index: number }[] }),
-    supabase
+    admin
       .from("employers")
       .select(
         "id, name, status, city, state, latitude, longitude, position_need_primary, position_need_primary_other, position_need_secondary, position_need_secondary_other"
       )
       .eq("status", "active"),
-    supabase.from("employers").select("id, name").eq("status", "active").order("name"),
+    admin.from("employers").select("id, name").eq("status", "active").order("name"),
   ]);
 
   const milestoneOptions = (milestones ?? []).map((m) => ({

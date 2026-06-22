@@ -39,7 +39,7 @@ export const ANALYTICS_METRIC_DEFINITIONS = {
   },
 } as const;
 
-export const CLOSED_STAGE_PATTERN = /^(closed|dismissed)$/i;
+export const CLOSED_STAGE_PATTERN = /^(closed(\s+successfully)?|dismissed)$/i;
 
 export const INTAKE_STAGE_PATTERN = /intake|phase\s*1/i;
 

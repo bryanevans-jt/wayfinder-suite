@@ -1,7 +1,9 @@
 import { createServerClient } from "@wayfinder/supabase";
 import { clientDisplayName, isGoldApplicationStatus } from "@wayfinder/branding";
 import Link from "next/link";
+import { Suspense } from "react";
 import { StaffSupportNote } from "@/components/staff-support-note";
+import { ViewArchivedToggle } from "@/components/view-archived-toggle";
 import { STAFF_SUPPORT_EMAIL, STAFF_SUPPORT_MAILTO } from "@/lib/support-contact";
 import { requireCounselorSession } from "@/lib/app-session";
 import {
@@ -10,7 +12,14 @@ import {
 } from "@/lib/counselor-portal-data";
 import { formatPortalDateTime } from "@/lib/portal-datetime";
 
-export default async function CounselorPortalPage() {
+export default async function CounselorPortalPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ archived?: string }>;
+}) {
+  const { archived } = await searchParams;
+  const includeArchived = archived === "1";
+
   const { session, counselorRow } = await requireCounselorSession();
 
   if (!counselorRow) {
@@ -38,7 +47,8 @@ export default async function CounselorPortalPage() {
 
   const { clients, error: clientsLoadError, devHint } = await fetchCounselorAssignedClients(
     counselorRow.id,
-    session.effectiveUserId
+    session.effectiveUserId,
+    { includeArchived }
   );
 
   const admin = getCounselorPortalAdmin();
@@ -141,10 +151,18 @@ export default async function CounselorPortalPage() {
           . Open a card to see the full activity timeline. This portal is{" "}
           <span className="font-medium text-brand-black">view-only</span> — you cannot edit client
           records here.
+          {includeArchived ? (
+            <> Showing archived clients (Closed or Dismissed).</>
+          ) : (
+            <> Archived clients are hidden unless you turn on View archived.</>
+          )}
           {session.isPreviewing ? (
             <> You are previewing this counselor workspace in read-only mode.</>
           ) : null}
         </p>
+        <Suspense fallback={null}>
+          <ViewArchivedToggle className="mt-4" />
+        </Suspense>
       </header>
 
       {clientsLoadError ? (

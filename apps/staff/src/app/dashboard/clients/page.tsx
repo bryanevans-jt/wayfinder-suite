@@ -4,15 +4,24 @@ import { clientDisplayName, dedupeServicesForSelect, serviceDisplayName } from "
 import { USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import {
   RESPONSIVE_TABLE_CLASS,
   ResponsiveTableShell,
 } from "@/components/responsive-table-shell";
-import { fetchEsCaseloadClients } from "@/lib/es-caseload-data";
+import { ViewArchivedToggle } from "@/components/view-archived-toggle";
+import { fetchEsCaseloadClients, getEsCaseloadAdmin } from "@/lib/es-caseload-data";
 import { AddClientLauncher } from "./add-client-launcher";
 import { EsNaturalSupportButton } from "./es-natural-support-button";
 
-export default async function EsClientsPage() {
+type PageProps = {
+  searchParams: Promise<{ archived?: string }>;
+};
+
+export default async function EsClientsPage({ searchParams }: PageProps) {
+  const { archived } = await searchParams;
+  const includeArchived = archived === "1";
+
   const session = await getAppSession();
   if (!session) {
     redirect("/login");
@@ -33,13 +42,15 @@ export default async function EsClientsPage() {
     );
   }
 
+  const admin = getEsCaseloadAdmin();
   const supabase = await createServerClient();
+  const lookupClient = admin ?? supabase;
 
   const [caseload, servicesQuery, { data: offices }, { data: counselorsRaw }] = await Promise.all([
-    fetchEsCaseloadClients(effectiveUserId),
-    supabase.from("services").select("id, name, state").order("name", { ascending: true }),
-    supabase.from("offices").select("id, name").order("name", { ascending: true }),
-    supabase
+    fetchEsCaseloadClients(effectiveUserId, { includeArchived }),
+    lookupClient.from("services").select("id, name, state").order("name", { ascending: true }),
+    lookupClient.from("offices").select("id, name").order("name", { ascending: true }),
+    lookupClient
       .from("counselors")
       .select("id, full_name, office_id, offices(name)")
       .order("full_name", { ascending: true }),
@@ -48,7 +59,7 @@ export default async function EsClientsPage() {
   let servicesRaw: Array<{ id: string; name: string; state?: string | null }> =
     (servicesQuery.data ?? []) as Array<{ id: string; name: string; state?: string | null }>;
   if (servicesQuery.error?.message.includes("state")) {
-    const fallback = await supabase.from("services").select("id, name").order("name", {
+    const fallback = await lookupClient.from("services").select("id, name").order("name", {
       ascending: true,
     });
     servicesRaw = (fallback.data ?? []) as Array<{
@@ -76,7 +87,7 @@ export default async function EsClientsPage() {
   ] as string[];
   const { data: profiles } =
     profileIds.length > 0
-      ? await supabase.from("profiles").select("id, full_name").in("id", profileIds)
+      ? await lookupClient.from("profiles").select("id, full_name").in("id", profileIds)
       : { data: [] as { id: string; full_name: string | null }[] };
 
   const profileName = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));
@@ -84,12 +95,12 @@ export default async function EsClientsPage() {
   const serviceIds = [...new Set(clients.map((c) => c.current_service_id).filter(Boolean))] as string[];
   let serviceRowsResolved: Array<{ id: string; name: string; state?: string | null }> = [];
   if (serviceIds.length > 0) {
-    const serviceQuery = await supabase
+    const serviceQuery = await lookupClient
       .from("services")
       .select("id, name, state")
       .in("id", serviceIds);
     if (serviceQuery.error?.message.includes("state")) {
-      const fallback = await supabase.from("services").select("id, name").in("id", serviceIds);
+      const fallback = await lookupClient.from("services").select("id, name").in("id", serviceIds);
       serviceRowsResolved = (fallback.data ?? []) as Array<{
         id: string;
         name: string;
@@ -114,7 +125,7 @@ export default async function EsClientsPage() {
   const stageIds = [...new Set(clients.map((c) => c.current_stage_id).filter(Boolean))] as string[];
   const { data: stageRows } =
     stageIds.length > 0
-      ? await supabase.from("service_milestones").select("id, title").in("id", stageIds)
+      ? await lookupClient.from("service_milestones").select("id, title").in("id", stageIds)
       : { data: [] as { id: string; title: string }[] };
 
   const stageTitle = new Map((stageRows ?? []).map((m) => [m.id, m.title]));
@@ -153,15 +164,25 @@ export default async function EsClientsPage() {
           <h1 className="text-2xl font-semibold text-brand-black">Clients</h1>
           <p className="mt-1 max-w-2xl text-sm text-brand-black/75">
             Everyone listed here is assigned to you. Open a row to update their current stage.
+            {includeArchived ? (
+              <> Showing archived clients (Closed or Dismissed).</>
+            ) : (
+              <> Archived clients are hidden unless you turn on View archived.</>
+            )}
           </p>
         </div>
-        {!session.isPreviewing ? (
-          <AddClientLauncher
-            services={services}
-            offices={(offices ?? []) as { id: string; name: string }[]}
-            counselors={counselors}
-          />
-        ) : null}
+        <div className="flex flex-wrap items-center gap-4">
+          <Suspense fallback={null}>
+            <ViewArchivedToggle />
+          </Suspense>
+          {!session.isPreviewing ? (
+            <AddClientLauncher
+              services={services}
+              offices={(offices ?? []) as { id: string; name: string }[]}
+              counselors={counselors}
+            />
+          ) : null}
+        </div>
       </div>
 
       <ResponsiveTableShell className="mt-8">
@@ -179,8 +200,9 @@ export default async function EsClientsPage() {
             {clients.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-brand-black/70">
-                  No clients assigned yet. Use <span className="font-semibold text-brand-black">Add client</span>{" "}
-                  to create one.
+                  {includeArchived
+                    ? "No archived clients assigned to you."
+                    : "No active clients assigned yet. Use Add client to create one, or turn on View archived."}
                 </td>
               </tr>
             ) : (
@@ -198,6 +220,7 @@ export default async function EsClientsPage() {
                   ? (stageTitle.get(c.current_stage_id) ?? "—")
                   : "—";
                 const overdue = overdueByClient.get(c.id);
+                const archived = c.archived_at != null;
                 return (
                   <tr key={c.id} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50/80">
                     <td className="px-4 py-3">
@@ -207,6 +230,11 @@ export default async function EsClientsPage() {
                       >
                         {name}
                       </Link>
+                      {archived ? (
+                        <span className="ml-2 rounded-full bg-neutral-200 px-2 py-0.5 text-xs font-semibold uppercase text-brand-black/60">
+                          Archived
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3 text-brand-black">{svc}</td>
                     <td className="px-4 py-3 text-brand-black">{stage}</td>

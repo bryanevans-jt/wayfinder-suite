@@ -7,6 +7,11 @@ export type EsCaseloadClientRow = {
   contact_email: string | null;
   current_service_id: string | null;
   current_stage_id: string | null;
+  archived_at: string | null;
+};
+
+export type FetchEsCaseloadOptions = {
+  includeArchived?: boolean;
 };
 
 export function getEsCaseloadAdmin() {
@@ -34,8 +39,10 @@ export async function esIsAssignedToClient(esUserId: string, clientId: string): 
 }
 
 export async function fetchEsCaseloadClients(
-  esUserId: string
+  esUserId: string,
+  options: FetchEsCaseloadOptions = {}
 ): Promise<{ clients: EsCaseloadClientRow[]; error: string | null }> {
+  const { includeArchived = false } = options;
   const admin = getEsCaseloadAdmin();
   if (!admin) {
     return { clients: [], error: "Server configuration error" };
@@ -57,12 +64,35 @@ export async function fetchEsCaseloadClients(
 
   const { data: clientRows, error: clientsErr } = await admin
     .from("clients")
-    .select("id, user_id, profile_id, contact_email, current_service_id, current_stage_id")
+    .select(
+      "id, user_id, profile_id, contact_email, current_service_id, current_stage_id, archived_at"
+    )
     .in("id", clientIds);
+
+  if (clientsErr?.message.includes("archived_at")) {
+    const fallback = await admin
+      .from("clients")
+      .select("id, user_id, profile_id, contact_email, current_service_id, current_stage_id")
+      .in("id", clientIds);
+    if (fallback.error) {
+      return { clients: [], error: fallback.error.message };
+    }
+    const rows = (fallback.data ?? []).map((c) => ({
+      ...(c as Omit<EsCaseloadClientRow, "archived_at">),
+      archived_at: null,
+    })) as EsCaseloadClientRow[];
+    const clients = includeArchived ? rows : rows.filter((c) => c.archived_at == null);
+    return { clients, error: null };
+  }
 
   if (clientsErr) {
     return { clients: [], error: clientsErr.message };
   }
 
-  return { clients: (clientRows ?? []) as EsCaseloadClientRow[], error: null };
+  const rows = (clientRows ?? []) as EsCaseloadClientRow[];
+  const clients = includeArchived
+    ? rows
+    : rows.filter((c) => c.archived_at == null);
+
+  return { clients, error: null };
 }

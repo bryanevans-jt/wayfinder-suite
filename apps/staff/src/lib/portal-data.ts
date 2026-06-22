@@ -119,6 +119,7 @@ export type PortalBootstrap = {
     stage_title: string | null;
     counselor_id: string | null;
     counselor_name: string | null;
+    archived_at: string | null;
   }[];
   counselorOfficeLinks: { id: string; counselor_id: string; office_id: string }[];
   staffOfficeLinks: { id: string; user_id: string; office_id: string }[];
@@ -159,8 +160,15 @@ export async function loadPortalBootstrap(
   let clientsQuery = await admin
     .from("clients")
     .select(
-      "id, contact_email, office_id, user_id, profile_id, current_service_id, current_stage_id, counselor_id"
+      "id, contact_email, office_id, user_id, profile_id, current_service_id, current_stage_id, counselor_id, archived_at"
     );
+  if (clientsQuery.error?.message.includes("archived_at")) {
+    clientsQuery = await admin
+      .from("clients")
+      .select(
+        "id, contact_email, office_id, user_id, profile_id, current_service_id, current_stage_id, counselor_id"
+      );
+  }
   if (clientsQuery.error) {
     clientsQuery = await admin.from("clients").select("id, contact_email, office_id");
   }
@@ -433,22 +441,40 @@ export async function loadPortalBootstrap(
       .sort((a, b) =>
         (a.full_name ?? "").localeCompare(b.full_name ?? "", undefined, { sensitivity: "base" })
       ),
-    esUsers: esProfiles
-      .map((p) => {
-        const id = p.id as string;
-        const email = emailById.get(id) ?? "";
-        const profile = profileById.get(id);
-        return {
-          id,
-          email,
-          full_name: profile?.full_name ?? null,
-          display_name: staffNameFor(id),
-          office_ids: staffOfficeByUser.get(id) ?? [],
-        };
-      })
-      .sort((a, b) =>
-        a.display_name.localeCompare(b.display_name, undefined, { sensitivity: "base" })
-      ),
+    esUsers: (() => {
+      const mapped = esProfiles
+        .map((p) => {
+          const id = p.id as string;
+          const email = emailById.get(id) ?? "";
+          const profile = profileById.get(id);
+          return {
+            id,
+            email,
+            full_name: profile?.full_name ?? null,
+            display_name: staffNameFor(id),
+            office_ids: staffOfficeByUser.get(id) ?? [],
+          };
+        })
+        .sort((a, b) =>
+          a.display_name.localeCompare(b.display_name, undefined, { sensitivity: "base" })
+        );
+
+      if (scope?.supervisorUserId) {
+        const supId = scope.supervisorUserId;
+        if (!mapped.some((e) => e.id === supId)) {
+          const profile = profileById.get(supId);
+          mapped.unshift({
+            id: supId,
+            email: emailById.get(supId) ?? "",
+            full_name: profile?.full_name ?? null,
+            display_name: `${staffNameFor(supId)} (you)`,
+            office_ids: staffOfficeByUser.get(supId) ?? [],
+          });
+        }
+      }
+
+      return mapped;
+    })(),
     esStaff: (scopedEsIds
       ? allEsProfiles.filter((p) => scopedEsIds.has(p.id as string))
       : allEsProfiles
@@ -560,6 +586,7 @@ export async function loadPortalBootstrap(
         stage_title: stageId ? (stageTitleById.get(stageId) ?? null) : null,
         counselor_id: counselorId,
         counselor_name: counselorId ? (counselorNameById.get(counselorId) ?? null) : null,
+        archived_at: (c as { archived_at?: string | null }).archived_at ?? null,
       };
     })
       .sort((a, b) =>

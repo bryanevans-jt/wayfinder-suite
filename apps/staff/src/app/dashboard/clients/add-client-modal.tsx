@@ -23,6 +23,7 @@ type AddClientModalProps = {
   onCreated?: () => void;
   createEndpoint?: string;
   esUsers?: EsUserOption[];
+  allowEsEmail?: boolean;
 };
 
 export function AddClientModal({
@@ -34,6 +35,7 @@ export function AddClientModal({
   onCreated,
   createEndpoint = "/api/es/clients",
   esUsers,
+  allowEsEmail = false,
 }: AddClientModalProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -41,6 +43,7 @@ export function AddClientModal({
   const [officeId, setOfficeId] = useState(offices[0]?.id ?? "");
   const [counselorId, setCounselorId] = useState("");
   const [esUserId, setEsUserId] = useState(esUsers?.[0]?.id ?? "");
+  const [esEmail, setEsEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,6 +63,7 @@ export function AddClientModal({
     setOfficeId(offices[0]?.id ?? "");
     setCounselorId("");
     setEsUserId(esUsers?.[0]?.id ?? "");
+    setEsEmail("");
     setError(null);
     onClose();
   }
@@ -78,7 +82,11 @@ export function AddClientModal({
           serviceId,
           officeId,
           counselorId,
-          ...(esUsers ? { esUserId: esUserId || undefined } : {}),
+          ...(esUsers
+            ? allowEsEmail && esEmail.trim()
+              ? { esEmail: esEmail.trim() }
+              : { esUserId: esUserId || undefined }
+            : {}),
         }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
@@ -219,23 +227,51 @@ export function AddClientModal({
             </select>
           </div>
           {esUsers && esUsers.length > 0 ? (
-            <div>
-              <label className="block text-sm font-medium text-brand-black" htmlFor="es-user">
-                Assign to ES (optional)
-              </label>
-              <select
-                id="es-user"
-                className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-brand-black outline-none ring-brand-green focus:ring-2"
-                value={esUserId}
-                onChange={(ev) => setEsUserId(ev.target.value)}
-              >
-                <option value="">Unassigned</option>
-                {esUsers.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.label}
-                  </option>
-                ))}
-              </select>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-brand-black" htmlFor="es-user">
+                  Assign to employment specialist (optional)
+                </label>
+                <select
+                  id="es-user"
+                  className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-brand-black outline-none ring-brand-green focus:ring-2"
+                  value={esUserId}
+                  onChange={(ev) => {
+                    setEsUserId(ev.target.value);
+                    setEsEmail("");
+                  }}
+                >
+                  <option value="">Unassigned</option>
+                  {esUsers.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {allowEsEmail ? (
+                <div>
+                  <label className="block text-sm font-medium text-brand-black" htmlFor="es-email">
+                    Or assign by email
+                  </label>
+                  <input
+                    id="es-email"
+                    type="email"
+                    placeholder="specialist@thejoshuatree.org"
+                    className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm text-brand-black outline-none ring-brand-green focus:ring-2"
+                    value={esEmail}
+                    onChange={(ev) => {
+                      setEsEmail(ev.target.value);
+                      if (ev.target.value.trim()) {
+                        setEsUserId("");
+                      }
+                    }}
+                  />
+                  <p className="mt-1 text-xs text-brand-black/60">
+                    Use your own email to assign the client to yourself.
+                  </p>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
