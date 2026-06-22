@@ -1,7 +1,8 @@
 "use client";
 
 import { canAccessFormalReporting } from "@/lib/staff-nav";
-import { isEsRole, isSupervisorRole } from "@wayfinder/supabase/roles";
+import { SUPPORT_CONTACT_EMAIL, SUPPORT_CONTACT_MAILTO, SUPPORT_CONTACT_NAME } from "@wayfinder/branding";
+import { isAdminTierRole, isEsRole, isSuperAdminRole, isSupervisorRole } from "@wayfinder/supabase/roles";
 import { ReportingVsExportsGuide } from "./reporting-vs-exports-guide";
 
 type Props = {
@@ -89,14 +90,16 @@ export function ExportsWorkspace({ role, readOnly = false }: Props) {
         </p>
         {!canDownload ? (
           <p className="text-sm text-brand-black/70">
-            CSV downloads are available to <strong>employment specialists</strong> and{" "}
-            <strong>supervisors</strong> (applications). Administrators can export org-wide activity
-            from the <strong>Activity logs</strong> tab in the admin or supervisor portal, and review
-            messages under <strong>Message audit</strong> (admin tier). For org metrics, use{" "}
-            <a href="/dashboard/analytics" className="font-medium text-brand-green hover:underline">
-              Analytics
-            </a>
-            .
+            CSV downloads on this page are for <strong>employment specialists</strong> and{" "}
+            <strong>supervisors</strong>. Open the{" "}
+            <a href="/dashboard/timesheet" className="font-medium text-brand-green hover:underline">
+              Timesheet
+            </a>{" "}
+            page to download your time entries. For organization-wide data needs, email{" "}
+            <a href={SUPPORT_CONTACT_MAILTO} className="font-medium text-brand-green hover:underline">
+              {SUPPORT_CONTACT_NAME}
+            </a>{" "}
+            at {SUPPORT_CONTACT_EMAIL}.
           </p>
         ) : null}
         <div className="grid gap-4 sm:grid-cols-2">
@@ -129,10 +132,20 @@ export function ExportsWorkspace({ role, readOnly = false }: Props) {
         <ul className="mt-2 list-disc space-y-1 pl-5">
           <li>Downloads reflect data at the moment you click — they are not live links.</li>
           <li>Treat exported files like any other client information: store and share appropriately.</li>
-          <li>
-            Need a broader extract (all offices, message history, purge audit)? Use the admin or super
-            admin portal.
-          </li>
+          {isAdminTierRole(role) || isSuperAdminRole(role) ? (
+            <li>
+              Organization-wide extracts (all offices, message history, audit logs) are available in
+              your admin portal under Reports.
+            </li>
+          ) : (
+            <li>
+              Need a broader organization extract? Email{" "}
+              <a href={SUPPORT_CONTACT_MAILTO} className="font-medium text-brand-green hover:underline">
+                {SUPPORT_CONTACT_NAME}
+              </a>{" "}
+              at {SUPPORT_CONTACT_EMAIL}.
+            </li>
+          )}
           <li>
             Need official PDF submissions? Use{" "}
             <a href="/dashboard/reporting" className="font-medium text-brand-green hover:underline">

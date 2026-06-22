@@ -162,9 +162,12 @@ export function WayfinderProHelp({ role }: Props) {
         <section className="rounded-xl border border-brand-green/25 bg-brand-green/5 p-5">
           <h2 className="text-base font-semibold text-brand-black">When something goes wrong</h2>
           <p className="mt-2 text-sm text-brand-black/80">
-            If you see an error screen, note the <strong>WF-</strong> reference code shown on the page
-            and share it with your supervisor. They can get help without you needing to describe
-            technical details.
+            If you see an error, note the <strong>WF-</strong> reference code on the screen and email{" "}
+            <strong>Bryan Evans</strong> at{" "}
+            <a href="mailto:bryan.evans@thejoshuatree.org" className="text-brand-green hover:underline">
+              bryan.evans@thejoshuatree.org
+            </a>
+            . Include what you were doing when it happened.
           </p>
         </section>
       ) : null}

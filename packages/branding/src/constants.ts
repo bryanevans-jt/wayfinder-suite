@@ -34,6 +34,11 @@ export const EMAIL_LOGO_PATH = WAYFINDER_LOGO_PATH;
 
 export const APP_VERSION = "0.10.0";
 
+/** Primary technical contact while Wayfinder is in rollout. */
+export const SUPPORT_CONTACT_NAME = "Bryan Evans";
+export const SUPPORT_CONTACT_EMAIL = "bryan.evans@thejoshuatree.org";
+export const SUPPORT_CONTACT_MAILTO = `mailto:${SUPPORT_CONTACT_EMAIL}`;
+
 export const LEGAL_ENTITY = "Joshua Tree Service Group";
 
 export const CONFIDENTIALITY_NOTICE =

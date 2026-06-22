@@ -1,16 +1,22 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  SUPPORT_CONTACT_EMAIL,
+  SUPPORT_CONTACT_NAME,
+} from "@wayfinder/branding";
 import { createServiceRoleClient } from "./admin-server";
 import { roleDisplayName } from "./roles";
 
+export const USER_FACING_SUPPORT_LINE = `Email ${SUPPORT_CONTACT_NAME} at ${SUPPORT_CONTACT_EMAIL}.`;
+
 export const USER_FACING_SYSTEM_ERROR =
-  "Something didn't work quite right on our end, but don't worry — our team is already looking into it. Please try again in a moment. If this keeps happening, share the reference code below with your specialist or supervisor.";
+  "Something didn't work quite right on our end, but don't worry — our team is already looking into it. Please try again in a moment. If this keeps happening, share the reference code below with us.";
 
 /** User-facing message with an optional WF reference code. */
 export function userFacingSystemErrorWithCode(errorCode?: string | null): string {
   if (!errorCode?.trim()) {
-    return USER_FACING_SYSTEM_ERROR.replace(" share the reference code below with", " reach out to");
+    return `${USER_FACING_SYSTEM_ERROR.replace(" share the reference code below with us.", ".")} ${USER_FACING_SUPPORT_LINE}`;
   }
-  return `${USER_FACING_SYSTEM_ERROR} Reference code: ${errorCode.trim().toUpperCase()}.`;
+  return `${USER_FACING_SYSTEM_ERROR} Reference code: ${errorCode.trim().toUpperCase()}. ${USER_FACING_SUPPORT_LINE}`;
 }
 
 export type ApiErrorPayload = {
@@ -225,6 +231,60 @@ export function friendlyClientError(raw: unknown, errorCode?: string | null): st
     return raw;
   }
   return userFacingSystemErrorWithCode(errorCode);
+}
+
+/** Log a server-action failure and throw a safe message the client can display (with WF code when logged). */
+export async function throwLoggedUserError(
+  app: "staff" | "client",
+  route: string,
+  err: unknown,
+  actor: ApiErrorActor = {},
+  userHint?: string
+): Promise<never> {
+  let errorCode: string | undefined;
+  try {
+    const admin = createServiceRoleClient();
+    errorCode = await logSystemError(
+      admin,
+      {
+        app,
+        route,
+        userId: actor.userId,
+        userName: actor.userName,
+        userRole: actor.userRole,
+        userRoleLabel: actor.userRoleLabel,
+        metadata: { server_action: true },
+      },
+      err
+    );
+    console.error(`[wayfinder] ${errorCode} ${route}:`, err);
+  } catch (logErr) {
+    console.error("[wayfinder] Server action error logging failed:", logErr);
+  }
+
+  const hint = userHint?.trim() || "We could not complete that action. Please try again.";
+  const msg = errorCode
+    ? `${hint} Reference code: ${errorCode}. ${USER_FACING_SUPPORT_LINE}`
+    : `${hint} ${USER_FACING_SUPPORT_LINE}`;
+  const error = new Error(msg);
+  (error as Error & { errorCode?: string }).errorCode = errorCode;
+  throw error;
+}
+
+export function friendlyApplicationSaveError(message: string): string {
+  if (/invalid input syntax for type uuid/i.test(message)) {
+    return "We could not link that employer. Enter the company name only, or pick a different employer from the network.";
+  }
+  if (/foreign key constraint/i.test(message)) {
+    return "We could not save this application for this client. Refresh the page and try again.";
+  }
+  if (/null value in column "company_name"/i.test(message)) {
+    return "Company name is required.";
+  }
+  if (looksTechnical(message)) {
+    return userFacingSystemErrorWithCode();
+  }
+  return message;
 }
 
 export const USER_FACING_AUTH_ERROR =

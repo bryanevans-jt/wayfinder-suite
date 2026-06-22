@@ -128,6 +128,19 @@ export async function insertApplicationForClient(
     employer_id?: string | null;
   }
 ): Promise<string> {
+  const insertRow: Record<string, unknown> = {
+    status: row.status,
+    company_name: row.company_name,
+    notes: row.notes,
+  };
+  if (row.status_other_reason != null && row.status_other_reason !== "") {
+    insertRow.status_other_reason = row.status_other_reason;
+  }
+  const employerId = row.employer_id?.trim();
+  if (employerId) {
+    insertRow.employer_id = employerId;
+  }
+
   let lastMessage: string | undefined;
 
   for (const fkId of fkIds) {
@@ -135,7 +148,7 @@ export async function insertApplicationForClient(
       .from("applications")
       .insert({
         client_id: fkId,
-        ...row,
+        ...insertRow,
       })
       .select("id")
       .maybeSingle();

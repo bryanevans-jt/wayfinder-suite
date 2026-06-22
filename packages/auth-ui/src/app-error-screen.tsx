@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from "react";
 import {
+  SUPPORT_CONTACT_EMAIL,
+  SUPPORT_CONTACT_MAILTO,
+  SUPPORT_CONTACT_NAME,
+} from "@wayfinder/branding";
+import {
   userFacingSystemErrorWithCode,
   USER_FACING_SYSTEM_ERROR,
 } from "@wayfinder/supabase/error-log";
@@ -60,6 +65,17 @@ export function AppErrorScreen({ error, reset, app }: Props) {
       >
         Try again
       </button>
+      <p className="mt-6 text-sm text-brand-black/70">
+        Report this issue to{" "}
+        <a
+          href={SUPPORT_CONTACT_MAILTO}
+          className="font-medium text-brand-green underline underline-offset-2 hover:text-brand-green/80"
+        >
+          {SUPPORT_CONTACT_NAME}
+        </a>{" "}
+        at {SUPPORT_CONTACT_EMAIL}
+        {errorCode ? ` and include reference code ${errorCode}` : ""}.
+      </p>
     </main>
   );
 }

@@ -1,4 +1,4 @@
-import { STAFF_SUPPORT_EMAIL, STAFF_SUPPORT_MAILTO } from "@/lib/support-contact";
+import { SUPPORT_CONTACT_EMAIL, SUPPORT_CONTACT_MAILTO, SUPPORT_CONTACT_NAME } from "@wayfinder/branding";
 
 type Props = {
   className?: string;
@@ -7,14 +7,14 @@ type Props = {
 export function StaffSupportNote({ className = "" }: Props) {
   return (
     <p className={`text-sm text-brand-black/70 ${className}`.trim()}>
-      Questions or issues? Email{" "}
+      Questions or errors? Email{" "}
       <a
-        href={STAFF_SUPPORT_MAILTO}
+        href={SUPPORT_CONTACT_MAILTO}
         className="font-medium text-brand-green underline underline-offset-2 hover:text-brand-green/80"
       >
-        {STAFF_SUPPORT_EMAIL}
-      </a>
-      .
+        {SUPPORT_CONTACT_NAME}
+      </a>{" "}
+      at {SUPPORT_CONTACT_EMAIL}.
     </p>
   );
 }

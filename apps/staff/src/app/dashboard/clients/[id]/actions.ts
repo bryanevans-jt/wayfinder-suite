@@ -8,6 +8,10 @@ import {
   insertEsTimeEntry,
   todayLocalDate,
 } from "@wayfinder/supabase";
+import {
+  friendlyApplicationSaveError,
+  throwLoggedUserError,
+} from "@wayfinder/supabase/error-log";
 import { assertNotPreviewMutation } from "@wayfinder/supabase/preview-server";
 import { revalidatePath } from "next/cache";
 import { assertEsAssignedToClient } from "@/lib/es-client-access";
@@ -157,14 +161,15 @@ export async function addClientApplication(
     throw new Error("Company or employer is required");
   }
 
-  const { admin } = await assertEsAssignedToClient(clientId);
+  const { admin, userId } = await assertEsAssignedToClient(clientId);
 
   let resolvedCompany = company;
-  if (employerId) {
+  const normalizedEmployerId = employerId?.trim() || null;
+  if (normalizedEmployerId) {
     const { data: employer } = await admin
       .from("employers")
       .select("name")
-      .eq("id", employerId)
+      .eq("id", normalizedEmployerId)
       .maybeSingle();
     if (employer?.name) {
       resolvedCompany = employer.name as string;
@@ -175,13 +180,27 @@ export async function addClientApplication(
     throw new Error("Company name is required");
   }
 
-  await insertApplicationForClient(admin, [clientId], {
-    status: normalized,
-    company_name: resolvedCompany,
-    notes: notes.trim() || null,
-    status_other_reason: normalized === "Other" ? statusOtherReason?.trim() ?? null : null,
-    employer_id: employerId,
-  });
+  try {
+    await insertApplicationForClient(admin, [clientId], {
+      status: normalized,
+      company_name: resolvedCompany,
+      notes: notes.trim() || null,
+      status_other_reason: normalized === "Other" ? statusOtherReason?.trim() ?? null : null,
+      employer_id: normalizedEmployerId,
+    });
+  } catch (err) {
+    const hint =
+      err instanceof Error
+        ? friendlyApplicationSaveError(err.message)
+        : "We could not save this application.";
+    await throwLoggedUserError(
+      "staff",
+      "actions/addClientApplication",
+      err,
+      { userId },
+      hint
+    );
+  }
 
   revalidateClientPaths(clientId);
 }
