@@ -213,7 +213,7 @@ export default async function EsClientsPage() {
                     <td className="px-4 py-3">
                       {overdue ? (
                         <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold uppercase text-red-700">
-                          Overdue reply
+                          Needs reply
                         </span>
                       ) : (
                         <span className="text-brand-black/45">—</span>

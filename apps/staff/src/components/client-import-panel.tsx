@@ -2,8 +2,10 @@
 
 import {
   CLIENT_IMPORT_COLUMNS,
+  analyzeClientImportCsv,
   parseClientImportCsv,
   type ClientImportInputRow,
+  type ClientImportPreview,
 } from "@wayfinder/supabase/client-import-csv";
 import { friendlyClientError, USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
 import { useCallback, useState } from "react";
@@ -34,6 +36,7 @@ export function ClientImportPanel({ disabled = false, onComplete }: Props) {
   const [open, setOpen] = useState(false);
   const [reference, setReference] = useState<ImportReference | null>(null);
   const [parsedRows, setParsedRows] = useState<ClientImportInputRow[]>([]);
+  const [preview, setPreview] = useState<ClientImportPreview | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -67,6 +70,7 @@ export function ClientImportPanel({ disabled = false, onComplete }: Props) {
 
   function resetImportState() {
     setParsedRows([]);
+    setPreview(null);
     setParseError(null);
     setProgress(null);
     setResults([]);
@@ -83,6 +87,7 @@ export function ClientImportPanel({ disabled = false, onComplete }: Props) {
         return;
       }
       setParsedRows(rows);
+      setPreview(analyzeClientImportCsv(rows));
       if (!reference) {
         const res = await fetch("/api/portal/clients/import");
         const data = (await res.json()) as { reference?: ImportReference };
@@ -151,9 +156,10 @@ export function ClientImportPanel({ disabled = false, onComplete }: Props) {
         className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
       >
         <span>
-          <span className="block text-sm font-semibold text-brand-black">Import clients from CSV</span>
+          <span className="block text-sm font-semibold text-brand-black">Import clients from a spreadsheet</span>
           <span className="mt-0.5 block text-xs text-brand-black/60">
-            Bulk load hundreds of clients for initial setup. Accounts are created without email by default.
+            Add many clients at once using our template file. New accounts are created without an
+            email invitation unless you choose to send one.
           </span>
         </span>
         <span className="text-sm font-medium text-brand-green">{open ? "Hide" : "Show"}</span>
@@ -247,10 +253,50 @@ export function ClientImportPanel({ disabled = false, onComplete }: Props) {
 
           {parseError ? <p className="text-sm text-red-700">{parseError}</p> : null}
 
+          {parsedRows.length > 0 && !summary && preview ? (
+            <div className="space-y-3 rounded-lg border border-neutral-200 bg-neutral-50/80 p-3 text-sm text-brand-black/80">
+              <p>
+                <strong>{preview.rowCount}</strong> row{preview.rowCount === 1 ? "" : "s"} found —{" "}
+                <strong>{preview.readyCount}</strong> ready to import
+                {preview.issues.length > 0
+                  ? `, ${preview.issues.length} row${preview.issues.length === 1 ? "" : "s"} need fixes`
+                  : ""}
+                .
+              </p>
+              {preview.duplicateEmails.length > 0 ? (
+                <p className="text-amber-900">
+                  Duplicate emails in file: {preview.duplicateEmails.join(", ")}
+                </p>
+              ) : null}
+              {preview.issues.length > 0 ? (
+                <div className="max-h-40 overflow-auto rounded border border-neutral-200 bg-white">
+                  <table className="min-w-full text-left text-xs">
+                    <thead className="sticky top-0 bg-neutral-50">
+                      <tr>
+                        <th className="px-2 py-1.5">Row</th>
+                        <th className="px-2 py-1.5">Client</th>
+                        <th className="px-2 py-1.5">Problems</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {preview.issues.map((issue) => (
+                        <tr key={issue.row} className="border-t border-neutral-100">
+                          <td className="px-2 py-1.5">{issue.row}</td>
+                          <td className="px-2 py-1.5">{issue.clientName}</td>
+                          <td className="px-2 py-1.5 text-red-700">{issue.issues.join("; ")}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           {parsedRows.length > 0 && !summary ? (
             <p className="text-sm text-brand-black/70">
-              Ready to import <strong>{parsedRows.length}</strong> row
-              {parsedRows.length === 1 ? "" : "s"}.
+              Fix any problems above, then run import. Rows with problems may still fail during
+              import.
             </p>
           ) : null}
 

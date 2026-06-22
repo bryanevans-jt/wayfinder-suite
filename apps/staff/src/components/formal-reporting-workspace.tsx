@@ -1,5 +1,5 @@
 import { JT_VOCATIONAL_REPORTS_URL } from "@wayfinder/branding";
-import { ReportingVsExportsGuide } from "./reporting-vs-exports-guide";
+import { ReportingVsExportsGuide } from "@/components/reporting-vs-exports-guide";
 
 type Props = {
   readOnly?: boolean;
@@ -20,7 +20,7 @@ export function FormalReportingWorkspace({ readOnly = false }: Props) {
         <h2 className="text-lg font-semibold text-brand-black">Open Joshua Tree Reports</h2>
         <p className="mt-2 text-sm text-brand-black/80">
           Submit official progress notes and monthly reports (SE Monthly, VPR, JTSG VMR, EVF, time
-          sheets). Each submission generates a PDF, files it to Google Drive, and emails you a
+          sheets). Each submission creates a PDF, saves it to Google Drive, and emails you a
           confirmation.
         </p>
         <a
@@ -37,19 +37,19 @@ export function FormalReportingWorkspace({ readOnly = false }: Props) {
       </section>
 
       <section className="rounded-xl border border-neutral-200 bg-white p-5">
-        <h2 className="text-base font-semibold text-brand-black">Compile from Wayfinder first</h2>
+        <h2 className="text-base font-semibold text-brand-black">Start from Wayfinder Pro</h2>
         <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-brand-black/80">
           <li>
-            Use <strong>Data exports</strong> and the <strong>monthly activity report</strong> on
-            each client profile to gather narrative text, then enter it in Joshua Tree Reports.
+            On a client profile, use <strong>Monthly activity report</strong> to build summary text,
+            then open <strong>Joshua Tree Reports</strong> from that same section — the client name
+            is filled in for you.
           </li>
           <li>
-            When Wayfinder pre-fills fields in a future update, you can still{" "}
-            <strong>edit every field</strong> in Joshua Tree Reports before signing and submitting.
+            You can change every field in Joshua Tree Reports before you sign and submit.
           </li>
           <li>
-            Counselors and clients do not have access to Joshua Tree Reports. Employment specialists,
-            supervisors, and administrators can open it from here.
+            Counselors and clients do not use Joshua Tree Reports. Employment Specialists,
+            supervisors, and administrators can open it from the Reporting menu.
           </li>
         </ul>
       </section>

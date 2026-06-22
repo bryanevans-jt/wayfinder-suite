@@ -12,6 +12,105 @@ export type ClientImportColumn = (typeof CLIENT_IMPORT_COLUMNS)[number];
 
 export type ClientImportInputRow = Record<ClientImportColumn, string>;
 
+export type ClientImportPreviewIssue = {
+  row: number;
+  email: string;
+  clientName: string;
+  issues: string[];
+};
+
+export type ClientImportPreview = {
+  rowCount: number;
+  duplicateEmails: string[];
+  issues: ClientImportPreviewIssue[];
+  readyCount: number;
+};
+
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+/** Validates parsed rows before import — duplicate emails and missing required fields. */
+export function analyzeClientImportCsv(rows: ClientImportInputRow[]): ClientImportPreview {
+  const emailRows = new Map<string, number[]>();
+  const issues: ClientImportPreviewIssue[] = [];
+
+  rows.forEach((row, index) => {
+    const rowNum = index + 2;
+    const rowIssues: string[] = [];
+    const email = row.email.trim().toLowerCase();
+    const clientName = row.client_name.trim();
+
+    if (!clientName) {
+      rowIssues.push("Client name is required");
+    }
+    if (!email) {
+      rowIssues.push("Email is required");
+    } else if (!isValidEmail(email)) {
+      rowIssues.push("Email does not look valid");
+    } else {
+      const existing = emailRows.get(email) ?? [];
+      existing.push(rowNum);
+      emailRows.set(email, existing);
+    }
+    if (!row.office.trim()) {
+      rowIssues.push("Office is required");
+    }
+    if (!row.service.trim()) {
+      rowIssues.push("Service is required");
+    }
+    if (!row.counselor.trim()) {
+      rowIssues.push("Counselor is required");
+    }
+
+    if (rowIssues.length > 0) {
+      issues.push({
+        row: rowNum,
+        email: row.email.trim() || "—",
+        clientName: clientName || "—",
+        issues: rowIssues,
+      });
+    }
+  });
+
+  const duplicateEmails = [...emailRows.entries()]
+    .filter(([, nums]) => nums.length > 1)
+    .map(([email]) => email);
+
+  for (const email of duplicateEmails) {
+    const rowNums = emailRows.get(email)!;
+    for (const rowNum of rowNums) {
+      const existing = issues.find((i) => i.row === rowNum);
+      const dupMsg = `Duplicate email in file (also on row${rowNums.length > 2 ? "s" : ""} ${rowNums.filter((n) => n !== rowNum).join(", ")})`;
+      if (existing) {
+        if (!existing.issues.includes(dupMsg)) {
+          existing.issues.push(dupMsg);
+        }
+      } else {
+        const row = rows[rowNum - 2]!;
+        issues.push({
+          row: rowNum,
+          email: row.email.trim(),
+          clientName: row.client_name.trim() || "—",
+          issues: [dupMsg],
+        });
+      }
+    }
+  }
+
+  issues.sort((a, b) => a.row - b.row);
+
+  const issueRows = new Set(issues.map((i) => i.row));
+  const readyCount = rows.length - issueRows.size;
+
+  return {
+    rowCount: rows.length,
+    duplicateEmails,
+    issues,
+    readyCount: Math.max(0, readyCount),
+  };
+}
+
 function normKey(value: string): string {
   return value.trim().toLowerCase();
 }

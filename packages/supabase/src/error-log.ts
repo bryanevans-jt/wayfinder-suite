@@ -3,7 +3,39 @@ import { createServiceRoleClient } from "./admin-server";
 import { roleDisplayName } from "./roles";
 
 export const USER_FACING_SYSTEM_ERROR =
-  "Something didn't work quite right on our end, but don't worry — our technical team is already on it. Please try again in a moment. If this keeps happening, your specialist or supervisor can reach out for help.";
+  "Something didn't work quite right on our end, but don't worry — our team is already looking into it. Please try again in a moment. If this keeps happening, share the reference code below with your specialist or supervisor.";
+
+/** User-facing message with an optional WF reference code. */
+export function userFacingSystemErrorWithCode(errorCode?: string | null): string {
+  if (!errorCode?.trim()) {
+    return USER_FACING_SYSTEM_ERROR.replace(" share the reference code below with", " reach out to");
+  }
+  return `${USER_FACING_SYSTEM_ERROR} Reference code: ${errorCode.trim().toUpperCase()}.`;
+}
+
+export type ApiErrorPayload = {
+  error?: string;
+  errorCode?: string;
+};
+
+/** Parse a failed fetch response into a friendly message and optional reference code. */
+export async function parseApiErrorResponse(res: Response): Promise<{
+  message: string;
+  errorCode?: string;
+}> {
+  let payload: ApiErrorPayload | null = null;
+  try {
+    payload = (await res.json()) as ApiErrorPayload;
+  } catch {
+    payload = null;
+  }
+  const errorCode = payload?.errorCode?.trim().toUpperCase();
+  const message =
+    payload?.error && !looksTechnical(payload.error)
+      ? payload.error
+      : userFacingSystemErrorWithCode(errorCode);
+  return { message, errorCode };
+}
 
 export const USER_FACING_AUTH_REQUIRED = "Please sign in again to continue.";
 
@@ -106,9 +138,10 @@ export async function respondWithLoggedError(
   actor: ApiErrorActor = {},
   status = 500
 ): Promise<Response> {
+  let errorCode: string | undefined;
   try {
     const admin = createServiceRoleClient();
-    const errorCode = await logSystemError(
+    errorCode = await logSystemError(
       admin,
       {
         app,
@@ -126,7 +159,10 @@ export async function respondWithLoggedError(
     console.error("[wayfinder] Error logging failed:", logErr);
   }
 
-  return Response.json({ error: USER_FACING_SYSTEM_ERROR }, { status });
+  return Response.json(
+    { error: userFacingSystemErrorWithCode(errorCode), errorCode: errorCode ?? null },
+    { status }
+  );
 }
 
 export type AccessErrorLike = {
@@ -177,14 +213,18 @@ export async function respondWithAccessOrLoggedError(
 }
 
 /** Use in client catch blocks when fetch fails outside API error payloads. */
-export function friendlyClientError(raw: unknown): string {
+export function friendlyClientError(raw: unknown, errorCode?: string | null): string {
   if (raw instanceof Error && raw.message && !looksTechnical(raw.message)) {
+    const code = errorCode ?? (raw as Error & { errorCode?: string }).errorCode;
+    if (code && !raw.message.includes(code)) {
+      return `${raw.message} Reference code: ${code.toUpperCase()}.`;
+    }
     return raw.message;
   }
   if (typeof raw === "string" && raw && !looksTechnical(raw)) {
     return raw;
   }
-  return USER_FACING_SYSTEM_ERROR;
+  return userFacingSystemErrorWithCode(errorCode);
 }
 
 export const USER_FACING_AUTH_ERROR =

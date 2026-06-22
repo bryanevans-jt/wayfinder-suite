@@ -17,8 +17,16 @@ type ErrorLogRow = {
   stackTrace: string | null;
 };
 
+type ErrorLogSummary = {
+  total24h: number;
+  total7d: number;
+  staff7d: number;
+  client7d: number;
+};
+
 export function ErrorLogPanel() {
   const [logs, setLogs] = useState<ErrorLogRow[]>([]);
+  const [summary, setSummary] = useState<ErrorLogSummary | null>(null);
   const [codeFilter, setCodeFilter] = useState("");
   const [appFilter, setAppFilter] = useState("");
   const [loading, setLoading] = useState(true);
@@ -34,11 +42,16 @@ export function ErrorLogPanel() {
       if (codeFilter.trim()) params.set("code", codeFilter.trim());
       if (appFilter) params.set("app", appFilter);
       const res = await fetch(`/api/portal/error-logs?${params.toString()}`);
-      const data = (await res.json()) as { logs?: ErrorLogRow[]; error?: string };
+      const data = (await res.json()) as {
+        logs?: ErrorLogRow[];
+        summary?: ErrorLogSummary;
+        error?: string;
+      };
       if (!res.ok) {
         throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
       }
       setLogs(data.logs ?? []);
+      setSummary(data.summary ?? null);
     } catch (e) {
       setError(friendlyClientError(e));
     } finally {
@@ -69,6 +82,27 @@ export function ErrorLogPanel() {
           message — share a code here to get help diagnosing an issue quickly.
         </p>
       </div>
+
+      {summary ? (
+        <div className="grid gap-3 sm:grid-cols-4">
+          <div className="rounded-lg border border-neutral-200 bg-white px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-brand-black/55">Last 24 hours</p>
+            <p className="mt-1 text-2xl font-semibold text-brand-black">{summary.total24h}</p>
+          </div>
+          <div className="rounded-lg border border-neutral-200 bg-white px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-brand-black/55">Last 7 days</p>
+            <p className="mt-1 text-2xl font-semibold text-brand-black">{summary.total7d}</p>
+          </div>
+          <div className="rounded-lg border border-neutral-200 bg-white px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-brand-black/55">Wayfinder Pro (7d)</p>
+            <p className="mt-1 text-2xl font-semibold text-brand-black">{summary.staff7d}</p>
+          </div>
+          <div className="rounded-lg border border-neutral-200 bg-white px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-brand-black/55">Wayfinder (7d)</p>
+            <p className="mt-1 text-2xl font-semibold text-brand-black">{summary.client7d}</p>
+          </div>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-sm">

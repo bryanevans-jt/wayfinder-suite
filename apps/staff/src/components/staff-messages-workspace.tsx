@@ -135,7 +135,7 @@ export function StaffMessagesWorkspace() {
                   <span className="font-medium">{t.clientLabel ?? "Client"}</span>
                   {t.overdue ? (
                     <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-red-700">
-                      Overdue
+                      Needs reply
                     </span>
                   ) : null}
                   {t.lastPreview ? (
@@ -165,7 +165,7 @@ export function StaffMessagesWorkspace() {
                   onClick={() => dismissOverdue(activeId)}
                   className="rounded-lg border border-neutral-300 px-3 py-1 text-xs font-semibold text-brand-black hover:bg-neutral-50"
                 >
-                  Dismiss overdue alert
+                  Clear this alert
                 </button>
               ) : null}
             </div>

@@ -67,15 +67,28 @@ const analyticsNav: NavItem = {
   match: (p) => p === "/dashboard/analytics",
 };
 
+const helpNav: NavItem = {
+  href: "/dashboard/help",
+  label: "Help",
+  match: (p) => p === "/dashboard/help",
+};
+
+function withHelp(items: NavItem[]): NavItem[] {
+  if (items.some((i) => i.href === helpNav.href)) {
+    return items;
+  }
+  return [...items, helpNav];
+}
+
 function navItemsForRole(staffRole: string | null, showAuditLink = false): NavItem[] {
   if (isCounselorRole(staffRole)) {
-    return [
+    return withHelp([
       {
         href: "/dashboard/counselor",
         label: "My clients",
         match: (p) => p.startsWith("/dashboard/counselor"),
       },
-    ];
+    ]);
   }
 
   if (isSuperAdminRole(staffRole)) {
@@ -96,11 +109,11 @@ function navItemsForRole(staffRole: string | null, showAuditLink = false): NavIt
         match: (p) => p === "/dashboard/audit",
       });
     }
-    return items;
+    return withHelp(items);
   }
 
   if (staffRole === "admin") {
-    return [
+    return withHelp([
       {
         href: "/dashboard/admin",
         label: "Admin portal",
@@ -109,11 +122,11 @@ function navItemsForRole(staffRole: string | null, showAuditLink = false): NavIt
       analyticsNav,
       reportingNav,
       communityPartnersNav,
-    ];
+    ]);
   }
 
   if (isSupervisorRole(staffRole)) {
-    return [
+    return withHelp([
       {
         href: "/dashboard/supervisor",
         label: "Supervisor portal",
@@ -133,16 +146,11 @@ function navItemsForRole(staffRole: string | null, showAuditLink = false): NavIt
       analyticsNav,
       dataExportsNav,
       reportingNav,
-    ];
+    ]);
   }
 
   if (staffRole === "accountant") {
-    return [
-      {
-        href: "/dashboard/clients",
-        label: "Clients",
-        match: (p) => p.startsWith("/dashboard/clients"),
-      },
+    return withHelp([
       {
         href: "/dashboard/timesheet",
         label: "Timesheet",
@@ -150,11 +158,11 @@ function navItemsForRole(staffRole: string | null, showAuditLink = false): NavIt
       },
       communityPartnersNav,
       dataExportsNav,
-    ];
+    ]);
   }
 
   if (isEsRole(staffRole)) {
-    return [
+    return withHelp([
       {
         href: "/dashboard/clients",
         label: "Clients",
@@ -174,10 +182,10 @@ function navItemsForRole(staffRole: string | null, showAuditLink = false): NavIt
       analyticsNav,
       dataExportsNav,
       reportingNav,
-    ];
+    ]);
   }
 
-  return [
+  return withHelp([
     {
       href: "/dashboard/clients",
       label: "Clients",
@@ -189,7 +197,7 @@ function navItemsForRole(staffRole: string | null, showAuditLink = false): NavIt
       match: (p) => p === "/dashboard/messages",
     },
     dataExportsNav,
-  ];
+  ]);
 }
 
 function showNotificationsForRole(staffRole: string | null): boolean {

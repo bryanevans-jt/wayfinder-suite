@@ -21,6 +21,8 @@
     "./notify-user": "./src/notify-user.ts",
     "./meeting-notify": "./src/meeting-notify.ts",
     "./meeting-reminders": "./src/meeting-reminders.ts",
+    "./message-sla-notify": "./src/message-sla-notify.ts",
+    "./counselor-digest": "./src/counselor-digest.ts",
     "./error-log": "./src/error-log.ts",
     "./client-bulk-import": "./src/client-bulk-import.ts",
     "./client-import-csv": "./src/client-import-csv.ts",

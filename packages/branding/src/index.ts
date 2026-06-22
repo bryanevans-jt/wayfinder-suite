@@ -12,6 +12,7 @@ export {
   WAYFINDER_FAVICON_PATH,
   WAYFINDER_LOGO_PATH,
 } from "./constants";
+export { buildJtReportsPrefillUrl, type JtReportPrefillType } from "./jt-reports-prefill";
 export { ClientActivityTimeline, type ClientActivityFeedItem } from "./client-activity-timeline";
 export {
   buildClientActivityFeed,

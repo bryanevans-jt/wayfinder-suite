@@ -75,6 +75,7 @@ export function staffHomePath(role: string | null | undefined): string {
   if (r === "super_admin") return "/dashboard/super-admin";
   if (r === "admin") return "/dashboard/admin";
   if (r === "supervisor") return "/dashboard/supervisor";
+  if (r === "accountant") return "/dashboard/timesheet";
   return "/dashboard/clients";
 }
 

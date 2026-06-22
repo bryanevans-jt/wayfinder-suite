@@ -86,6 +86,13 @@ export default async function EsClientDetailPage({ params }: PageProps) {
     id: client.id,
   });
 
+  const { data: esProfile } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", session.effectiveUserId)
+    .maybeSingle();
+  const esDisplayName = (esProfile?.full_name as string | null) ?? null;
+
   const [
     { data: service },
     { data: stage },
@@ -332,6 +339,7 @@ export default async function EsClientDetailPage({ params }: PageProps) {
           <ClientActivityReportPanel
             clientId={client.id}
             clientName={displayName}
+            esName={esDisplayName}
             defaultFrom={reportDefaultFrom}
             defaultTo={reportDefaultTo}
           />

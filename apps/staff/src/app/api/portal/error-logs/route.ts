@@ -30,6 +30,31 @@ export async function GET(request: NextRequest) {
       throw new Error(error.message);
     }
 
+    const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const [{ count: total24h }, { count: total7d }, { count: staffCount }, { count: clientCount }] =
+      await Promise.all([
+        admin
+          .from("system_error_logs")
+          .select("id", { count: "exact", head: true })
+          .gte("created_at", since24h),
+        admin
+          .from("system_error_logs")
+          .select("id", { count: "exact", head: true })
+          .gte("created_at", since7d),
+        admin
+          .from("system_error_logs")
+          .select("id", { count: "exact", head: true })
+          .eq("app", "staff")
+          .gte("created_at", since7d),
+        admin
+          .from("system_error_logs")
+          .select("id", { count: "exact", head: true })
+          .eq("app", "client")
+          .gte("created_at", since7d),
+      ]);
+
     const logs = (data ?? []).map((row) => ({
       id: row.id as string,
       errorCode: row.error_code as string,
@@ -48,7 +73,15 @@ export async function GET(request: NextRequest) {
       metadata: (row.metadata as Record<string, unknown> | null) ?? {},
     }));
 
-    return Response.json({ logs });
+    return Response.json({
+      logs,
+      summary: {
+        total24h: total24h ?? 0,
+        total7d: total7d ?? 0,
+        staff7d: staffCount ?? 0,
+        client7d: clientCount ?? 0,
+      },
+    });
   } catch (error) {
     return await jsonPortalError(error, "api/portal/error-logs");
   }

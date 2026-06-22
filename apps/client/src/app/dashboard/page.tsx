@@ -1,9 +1,16 @@
 import { PushNotificationPrompt } from "@wayfinder/auth-ui";
+import { clientDisplayName } from "@wayfinder/branding";
 import { createServerClient, isSupportRole } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { ensureClientAuthProfile } from "@wayfinder/supabase";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
+import { ClientOnboardingTour } from "@/components/client-onboarding-tour";
+import {
+  SupportClientPicker,
+  type SupportClientOption,
+} from "@/components/support-client-picker";
 import { ClientActivity } from "./client-activity";
 import { ClientApplicationsCard } from "./client-applications-card";
 import { ClientMessagesPanel } from "./client-messages";
@@ -39,8 +46,53 @@ export default async function ClientDashboardPage({
 
   const displayEmail = authUser.user?.email ?? session.effectiveUserId;
 
+  let supportClients: SupportClientOption[] = [];
+  if (support && authUser.user) {
+    try {
+      const admin = createServiceRoleClient();
+      const { data: assignments } = await admin
+        .from("support_client_assignments")
+        .select("client_id")
+        .eq("support_user_id", authUser.user.id);
+      const clientIds = (assignments ?? []).map((a) => a.client_id as string);
+      if (clientIds.length > 0) {
+        const { data: clients } = await admin
+          .from("clients")
+          .select("id, contact_email, profile_id, user_id")
+          .in("id", clientIds);
+        const profileIds = [
+          ...new Set(
+            (clients ?? [])
+              .map((c) => (c.user_id ?? c.profile_id) as string | null)
+              .filter((id): id is string => Boolean(id))
+          ),
+        ];
+        const { data: profiles } = profileIds.length
+          ? await admin.from("profiles").select("id, full_name").in("id", profileIds)
+          : { data: [] as { id: string; full_name: string | null }[] };
+        const nameById = new Map(
+          (profiles ?? []).map((p) => [p.id as string, p.full_name as string | null])
+        );
+        supportClients = (clients ?? []).map((c) => {
+          const profileId = (c.user_id ?? c.profile_id) as string | null;
+          return {
+            id: c.id as string,
+            label: clientDisplayName({
+              full_name: profileId ? (nameById.get(profileId) ?? null) : null,
+              contact_email: c.contact_email as string | null,
+              id: c.id as string,
+            }),
+          };
+        });
+      }
+    } catch {
+      // Service role may be unset in local dev.
+    }
+  }
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-6 bg-brand-white px-4 py-8 sm:gap-8 sm:px-6 sm:py-16">
+      <ClientOnboardingTour />
       <header className="space-y-2">
         <p className="text-xs font-medium uppercase tracking-wide text-brand-green sm:text-sm">
           Wayfinder · {support ? "Support dashboard" : "Client dashboard"}
@@ -51,6 +103,11 @@ export default async function ClientDashboardPage({
           <span className="font-medium text-brand-green">{displayEmail}</span>
         </p>
       </header>
+      {support && supportClients.length > 1 ? (
+        <Suspense fallback={null}>
+          <SupportClientPicker clients={supportClients} selectedClientId={sp.client} />
+        </Suspense>
+      ) : null}
       <PushNotificationPrompt />
       <SuccessPath selectedClientId={sp.client} />
       <ClientNextMeeting selectedClientId={sp.client} />

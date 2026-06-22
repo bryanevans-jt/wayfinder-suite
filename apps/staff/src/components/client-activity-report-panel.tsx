@@ -1,10 +1,12 @@
 "use client";
 
+import { FormalReportLaunchLink } from "@/components/formal-report-launch-link";
 import { useCallback, useState, useTransition } from "react";
 
 type Props = {
   clientId: string;
   clientName: string;
+  esName?: string | null;
   defaultFrom: string;
   defaultTo: string;
 };
@@ -12,6 +14,7 @@ type Props = {
 export function ClientActivityReportPanel({
   clientId,
   clientName,
+  esName,
   defaultFrom,
   defaultTo,
 }: Props) {
@@ -66,9 +69,12 @@ export function ClientActivityReportPanel({
         Monthly activity report
       </h2>
       <p className="mt-1 text-xs text-brand-black/60">
-        Generate a copy-friendly summary for {clientName} to paste into official monthly reports
-        (VR agency forms, etc.). Includes contacts, applications, stage updates, and meetings.
+        Build a summary for {clientName} that you can copy into official monthly reports. Includes
+        contacts, applications, stage updates, and meetings.
       </p>
+      <div className="mt-3">
+        <FormalReportLaunchLink clientName={clientName} esName={esName} />
+      </div>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <label className="block text-sm font-medium text-brand-black">
           From
