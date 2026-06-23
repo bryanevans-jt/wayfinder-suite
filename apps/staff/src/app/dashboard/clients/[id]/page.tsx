@@ -1,17 +1,17 @@
 import { buildClientActivityFeed, ClientActivityTimeline, clientDisplayName, normalizeEmploymentGoal } from "@wayfinder/branding";
-import { buildClientActivityFkIds, createServerClient, isEsRole } from "@wayfinder/supabase";
+import { buildClientActivityFkIds, createServerClient, isEsRole, isSupervisorRole } from "@wayfinder/supabase";
 import { formatLocalDate, loadActiveActivityTypes, filterClientContactActivityTypes } from "@wayfinder/supabase/es-time-tracking";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAppSession, requireEsClientAccess } from "@/lib/app-session";
+import { requireAppSession, requireStaffClientAccess } from "@/lib/app-session";
 import { getEsCaseloadAdmin } from "@/lib/es-caseload-data";
+import { portalPathForRole } from "@/lib/staff-nav";
 import { findEmployerMatches } from "@/lib/employer-matching";
 import { supabaseEmbedName } from "@/lib/supabase-embed";
 import { ClientProfileForm, type ClientProfileData } from "@/components/client-profile-form";
 import { EmployerMatchPanel } from "@/components/employer-match-panel";
 import { ClientApplicationForm } from "./client-application-form";
 import { ClientContactLogForm } from "./client-contact-log-form";
-import { ClientManualTimeForm } from "./client-manual-time-form";
 import { ClientMeetingForm } from "./client-meeting-form";
 import { ClientStageForm } from "./client-stage-form";
 import { NaturalSupportPanel } from "./natural-support-panel";
@@ -26,11 +26,11 @@ export default async function EsClientDetailPage({ params }: PageProps) {
   const { id: clientId } = await params;
 
   const session = await requireAppSession();
-  if (!isEsRole(session.effectiveRole)) {
+  if (!isEsRole(session.effectiveRole) && !isSupervisorRole(session.effectiveRole)) {
     notFound();
   }
 
-  const hasAccess = await requireEsClientAccess(session, clientId);
+  const hasAccess = await requireStaffClientAccess(session, clientId);
   if (!hasAccess) {
     notFound();
   }
@@ -164,7 +164,7 @@ export default async function EsClientDetailPage({ params }: PageProps) {
       admin
         .from("client_meeting_requests")
         .select("id, status, starts_at, timezone, location, created_at, service_id, es_user_id")
-        .eq("client_id", client.id)
+        .in("client_id", activityFkIds)
         .order("created_at", { ascending: true }),
     ]);
 
@@ -232,13 +232,15 @@ export default async function EsClientDetailPage({ params }: PageProps) {
     name: e.name as string,
   }));
 
+  const backHref = portalPathForRole(session.effectiveRole) ?? "/dashboard/clients";
+
   return (
     <main className="px-6 py-10">
       <Link
-        href="/dashboard/clients"
+        href={backHref}
         className="text-sm font-medium text-brand-green hover:underline"
       >
-        ← Back to clients
+        ← {isSupervisorRole(session.effectiveRole) ? "Back to supervisor portal" : "Back to clients"}
       </Link>
 
       <header className="mt-6 border-b border-neutral-200 pb-6">
@@ -336,9 +338,6 @@ export default async function EsClientDetailPage({ params }: PageProps) {
             serviceId={client.current_service_id}
             serviceName={service?.name ?? null}
           />
-        ) : null}
-        {!readOnly ? (
-          <ClientManualTimeForm clientId={client.id} activities={activities} readOnly={readOnly} />
         ) : null}
         {!readOnly ? (
           <ClientActivityReportPanel

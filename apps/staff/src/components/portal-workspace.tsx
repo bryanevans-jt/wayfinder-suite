@@ -1295,8 +1295,9 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
           serviceCatalog={b.serviceCatalog}
           serviceMilestones={b.serviceMilestones}
           busy={busy}
-          allowDelete={canManageOrg}
+          allowDelete={canManageClients}
           allowEsEmail={mode === "supervisor"}
+          caseworkHref={mode === "supervisor" ? `/dashboard/clients/${drawerClient.id}` : null}
           onClose={() => setDrawerClient(null)}
           onSave={(payload) =>
             run(async () => {

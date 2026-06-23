@@ -14,8 +14,9 @@ import {
 } from "@wayfinder/supabase/error-log";
 import { assertNotPreviewMutation } from "@wayfinder/supabase/preview-server";
 import { revalidatePath } from "next/cache";
-import { assertEsAssignedToClient } from "@/lib/es-client-access";
+import { assertStaffClientWriteAccess } from "@/lib/es-client-access";
 import { saveClientContactLog } from "@/lib/save-client-contact-log";
+import { portalPathForRole } from "@/lib/staff-nav";
 
 function revalidateClientPaths(clientId: string) {
   revalidatePath("/dashboard/clients");
@@ -23,10 +24,11 @@ function revalidateClientPaths(clientId: string) {
   revalidatePath("/dashboard/counselor");
   revalidatePath(`/dashboard/counselor/clients/${clientId}`);
   revalidatePath("/dashboard/timesheet");
+  revalidatePath("/dashboard/supervisor");
 }
 
 async function clientFkIds(
-  admin: Awaited<ReturnType<typeof assertEsAssignedToClient>>["admin"],
+  admin: Awaited<ReturnType<typeof assertStaffClientWriteAccess>>["admin"],
   clientId: string
 ): Promise<string[]> {
   const { data: clientRow } = await admin
@@ -54,7 +56,7 @@ export async function addClientContactLog(
 
   try {
     await assertNotPreviewMutation();
-    const { admin, userId } = await assertEsAssignedToClient(clientId);
+    const { admin, userId } = await assertStaffClientWriteAccess(clientId);
     actorUserId = userId;
 
     const result = await saveClientContactLog(admin, userId, {
@@ -87,7 +89,7 @@ export async function updateClientCurrentStage(
   time?: TimeInput
 ) {
   await assertNotPreviewMutation();
-  const { admin, userId } = await assertEsAssignedToClient(clientId);
+  const { admin, userId } = await assertStaffClientWriteAccess(clientId);
 
   const { data: client, error: clientErr } = await admin
     .from("clients")
@@ -172,7 +174,7 @@ export async function addClientApplication(
       return { ok: false, error: "Select an employer from the network or enter a company name." };
     }
 
-    const { admin, userId } = await assertEsAssignedToClient(clientId);
+    const { admin, userId } = await assertStaffClientWriteAccess(clientId);
     actorUserId = userId;
 
     let resolvedCompany = company;
@@ -234,7 +236,7 @@ export async function updateClientApplication(
     throw new Error("Reason is required when status is Other");
   }
 
-  const { admin } = await assertEsAssignedToClient(clientId);
+  const { admin } = await assertStaffClientWriteAccess(clientId);
 
   const { error } = await admin
     .from("applications")
@@ -250,29 +252,4 @@ export async function updateClientApplication(
   }
 
   revalidateClientPaths(clientId);
-}
-
-export async function addManualClientTime(
-  clientId: string,
-  activityTypeId: string,
-  durationMinutes: number,
-  serviceDate: string,
-  narrative: string
-) {
-  await assertNotPreviewMutation();
-  const { admin, userId } = await assertEsAssignedToClient(clientId);
-
-  await insertEsTimeEntry(admin, {
-    esUserId: userId,
-    clientId,
-    activityTypeId,
-    serviceDate,
-    durationMinutes,
-    narrative,
-    linkedSourceType: "manual",
-    linkedSourceId: null,
-  });
-
-  revalidateClientPaths(clientId);
-  revalidatePath("/dashboard/timesheet");
 }

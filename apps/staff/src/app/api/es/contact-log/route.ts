@@ -1,6 +1,7 @@
 import { saveClientContactLog } from "@/lib/save-client-contact-log";
+import { clientInSupervisorScope, loadSupervisorScope } from "@/lib/supervisor-client-scope";
 import { esIsAssignedToClient } from "@/lib/es-caseload-data";
-import { createServerClient, isEsRole } from "@wayfinder/supabase";
+import { createServerClient, isEsRole, isSupervisorRole } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
   finishActionFailure,
@@ -31,6 +32,7 @@ function revalidateClientPaths(clientId: string) {
   revalidatePath("/dashboard/counselor");
   revalidatePath(`/dashboard/counselor/clients/${clientId}`);
   revalidatePath("/dashboard/timesheet");
+  revalidatePath("/dashboard/supervisor");
 }
 
 export async function POST(request: Request) {
@@ -54,7 +56,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: USER_FACING_AUTH_REQUIRED }, { status: 401 });
   }
 
-  if (!isEsRole(session.effectiveRole)) {
+  if (!isEsRole(session.effectiveRole) && !isSupervisorRole(session.effectiveRole)) {
     return NextResponse.json({ ok: false, error: USER_FACING_FORBIDDEN }, { status: 403 });
   }
 
@@ -77,8 +79,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "Client is required." }, { status: 400 });
   }
 
-  const assigned = await esIsAssignedToClient(session.effectiveUserId, clientId);
-  if (!assigned) {
+  let allowed = false;
+  if (isEsRole(session.effectiveRole)) {
+    allowed = await esIsAssignedToClient(session.effectiveUserId, clientId);
+  } else if (isSupervisorRole(session.effectiveRole)) {
+    const scope = await loadSupervisorScope(admin, session.effectiveUserId);
+    allowed = await clientInSupervisorScope(admin, scope, clientId);
+  }
+
+  if (!allowed) {
     return NextResponse.json(
       { ok: false, error: "Client not assigned to you." },
       { status: 403 }

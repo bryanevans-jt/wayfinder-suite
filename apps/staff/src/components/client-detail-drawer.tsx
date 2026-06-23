@@ -29,6 +29,7 @@ type Props = {
   busy: boolean;
   allowDelete?: boolean;
   allowEsEmail?: boolean;
+  caseworkHref?: string | null;
   onClose: () => void;
   onSave: (payload: SavePayload) => Promise<void>;
   onDelete: () => Promise<void>;
@@ -47,6 +48,7 @@ export function ClientDetailDrawer({
   busy,
   allowDelete = true,
   allowEsEmail = false,
+  caseworkHref = null,
   onClose,
   onSave,
   onDelete,
@@ -321,6 +323,14 @@ export function ClientDetailDrawer({
             >
               Profile & goals
             </button>
+            {caseworkHref ? (
+              <a
+                href={caseworkHref}
+                className="rounded-lg border border-brand-green/40 bg-brand-green/5 px-4 py-2 text-sm font-medium text-brand-green hover:bg-brand-green/10"
+              >
+                Open casework
+              </a>
+            ) : null}
             <button
               type="button"
               disabled={busy}

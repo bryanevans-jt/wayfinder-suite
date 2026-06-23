@@ -1,5 +1,6 @@
 import { assertPortalSession, jsonPortalError } from "@/lib/portal-auth";
 import { loadPortalBootstrap } from "@/lib/portal-data";
+import { loadSupervisorScope } from "@/lib/supervisor-client-scope";
 import { isAdminTierRole, isSuperAdminRole } from "@wayfinder/supabase/roles";
 import { NextRequest } from "next/server";
 
@@ -16,14 +17,11 @@ export async function GET(request: NextRequest) {
     let scope: { supervisorUserId?: string; officeIds?: string[]; esUserIds?: string[] } | undefined;
 
     if (role === "supervisor" && !isAdminTierRole(role)) {
-      const [{ data: offices }, { data: esLinks }] = await Promise.all([
-        admin.from("staff_office_assignments").select("office_id").eq("user_id", user.id),
-        admin.from("supervisor_es_assignments").select("es_user_id").eq("supervisor_user_id", user.id),
-      ]);
+      const supervisorScope = await loadSupervisorScope(admin, user.id);
       scope = {
-        supervisorUserId: user.id,
-        officeIds: (offices ?? []).map((o) => o.office_id as string),
-        esUserIds: (esLinks ?? []).map((e) => e.es_user_id as string),
+        supervisorUserId: supervisorScope.supervisorUserId,
+        officeIds: supervisorScope.officeIds,
+        esUserIds: supervisorScope.esUserIds,
       };
     }
 

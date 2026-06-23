@@ -2,6 +2,7 @@ import { assertPortalMutation, assertPortalSession, jsonPortalError } from "@/li
 import {
   clientInSupervisorScope,
   esUserAllowedForSupervisor,
+  esUserAllowedForSupervisorClient,
   loadSupervisorScope,
   officeAllowedForSupervisor,
   type SupervisorScope,
@@ -78,23 +79,34 @@ async function resolveEsUserId(
   admin: Awaited<ReturnType<typeof assertPortalSession>>["admin"],
   scope: SupervisorScope | null,
   esUserId?: string,
-  esEmail?: string
+  esEmail?: string,
+  clientId?: string
 ): Promise<{ esUserId?: string; error?: string }> {
   if (esEmail?.trim()) {
     const resolved = await resolveAuthUserIdByEmail(admin, esEmail.trim());
     if (!resolved) {
       return { error: "No Wayfinder account found for that employment specialist email." };
     }
-    if (scope && !esUserAllowedForSupervisor(scope, resolved)) {
-      return { error: "That employment specialist is outside your supervisor scope." };
+    if (scope) {
+      const allowed = clientId
+        ? await esUserAllowedForSupervisorClient(admin, scope, resolved, clientId)
+        : esUserAllowedForSupervisor(scope, resolved);
+      if (!allowed) {
+        return { error: "That employment specialist is outside your supervisor scope." };
+      }
     }
     return { esUserId: resolved };
   }
 
   if (esUserId?.trim()) {
     const id = esUserId.trim();
-    if (scope && !esUserAllowedForSupervisor(scope, id)) {
-      return { error: "That employment specialist is outside your supervisor scope." };
+    if (scope) {
+      const allowed = clientId
+        ? await esUserAllowedForSupervisorClient(admin, scope, id, clientId)
+        : esUserAllowedForSupervisor(scope, id);
+      if (!allowed) {
+        return { error: "That employment specialist is outside your supervisor scope." };
+      }
     }
     return { esUserId: id };
   }
@@ -320,28 +332,42 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (body.es_user_id !== undefined || body.es_email !== undefined) {
-      const esResolved = await resolveEsUserId(
-        admin,
-        scope,
-        body.es_user_id ?? undefined,
-        body.es_email ?? undefined
-      );
-      if (esResolved.error) {
-        return Response.json({ error: esResolved.error }, { status: 400 });
-      }
+      const trimmedEmail = body.es_email?.trim() ?? "";
+      const targetEsId = trimmedEmail ? null : body.es_user_id?.trim() || null;
 
-      const { error: clearErr } = await admin
+      const { data: currentLinks } = await admin
         .from("es_client_assignments")
-        .delete()
+        .select("es_user_id")
         .eq("client_id", id);
-      if (clearErr) throw new Error(clearErr.message);
+      const currentEsId = (currentLinks?.[0]?.es_user_id as string | undefined) ?? null;
 
-      if (esResolved.esUserId) {
-        const { error: assignErr } = await admin.from("es_client_assignments").insert({
-          es_user_id: esResolved.esUserId,
-          client_id: id,
-        });
-        if (assignErr) throw new Error(assignErr.message);
+      if (!trimmedEmail && targetEsId === currentEsId) {
+        // ES assignment unchanged — skip replace.
+      } else {
+        const esResolved = await resolveEsUserId(
+          admin,
+          scope,
+          targetEsId ?? undefined,
+          trimmedEmail || undefined,
+          id
+        );
+        if (esResolved.error) {
+          return Response.json({ error: esResolved.error }, { status: 400 });
+        }
+
+        const { error: clearErr } = await admin
+          .from("es_client_assignments")
+          .delete()
+          .eq("client_id", id);
+        if (clearErr) throw new Error(clearErr.message);
+
+        if (esResolved.esUserId) {
+          const { error: assignErr } = await admin.from("es_client_assignments").insert({
+            es_user_id: esResolved.esUserId,
+            client_id: id,
+          });
+          if (assignErr) throw new Error(assignErr.message);
+        }
       }
     }
 
@@ -353,10 +379,15 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { admin } = await assertPortalMutation("admin");
+    const { admin, user, role } = await assertPortalMutation("supervisor");
     const id = request.nextUrl.searchParams.get("id")?.trim();
     if (!id) {
       return Response.json({ error: "id is required" }, { status: 400 });
+    }
+
+    const scope = await supervisorScopeForSession(admin, role, user.id);
+    if (scope && !(await clientInSupervisorScope(admin, scope, id))) {
+      return Response.json({ error: "Client not found in your supervisor scope." }, { status: 403 });
     }
 
     await admin.from("es_client_assignments").delete().eq("client_id", id);

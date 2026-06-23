@@ -1,7 +1,9 @@
-import { createServerClient, isCounselorRole, isEsRole } from "@wayfinder/supabase";
+import { createServerClient, isCounselorRole, isEsRole, isSupervisorRole } from "@wayfinder/supabase";
+import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { getAppSession, type AppSession } from "@wayfinder/supabase/preview-server";
 import { notFound, redirect } from "next/navigation";
 import { esIsAssignedToClient } from "@/lib/es-caseload-data";
+import { clientInSupervisorScope, loadSupervisorScope } from "@/lib/supervisor-client-scope";
 
 export async function requireAppSession(): Promise<AppSession> {
   const session = await getAppSession();
@@ -46,4 +48,30 @@ export async function requireEsClientAccess(session: AppSession, clientId: strin
   }
 
   return esIsAssignedToClient(session.effectiveUserId, clientId);
+}
+
+export async function requireSupervisorClientAccess(session: AppSession, clientId: string) {
+  if (!isSupervisorRole(session.effectiveRole)) {
+    return false;
+  }
+
+  let admin;
+  try {
+    admin = createServiceRoleClient();
+  } catch {
+    return false;
+  }
+
+  const scope = await loadSupervisorScope(admin, session.effectiveUserId);
+  return clientInSupervisorScope(admin, scope, clientId);
+}
+
+export async function requireStaffClientAccess(session: AppSession, clientId: string) {
+  if (isEsRole(session.effectiveRole)) {
+    return requireEsClientAccess(session, clientId);
+  }
+  if (isSupervisorRole(session.effectiveRole)) {
+    return requireSupervisorClientAccess(session, clientId);
+  }
+  return false;
 }

@@ -4,7 +4,7 @@ import {
   resolveStaffDisplayName,
   serviceDisplayName,
 } from "@wayfinder/branding";
-import { createServerClient, isAdminTierRole, isSuperAdminRole } from "@wayfinder/supabase";
+import { createServerClient, isAdminTierRole, isSuperAdminRole, buildClientActivityFkIds } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import type { PortalTier } from "@wayfinder/supabase/roles";
@@ -689,8 +689,9 @@ export async function loadActivityLogs(
 
   const clientMap = new Map<
     string,
-    { email: string | null; office_id: string | null; name: string }
+    { email: string | null; office_id: string | null; name: string; canonicalId: string }
   >();
+  const aliasToCanonical = new Map<string, string>();
 
   for (const c of clientRows) {
     const id = c.id as string;
@@ -707,26 +708,32 @@ export async function loadActivityLogs(
       email: c.contact_email as string | null,
       office_id: c.office_id as string | null,
       name: label,
+      canonicalId: id,
     };
-    clientMap.set(id, entry);
-    if (userId) {
-      clientMap.set(userId, entry);
+    for (const fk of buildClientActivityFkIds(c)) {
+      clientMap.set(fk, entry);
+      aliasToCanonical.set(fk, id);
     }
   }
 
   const esByClient = new Map<string, string[]>();
   for (const link of esLinks ?? []) {
     const cid = link.client_id as string;
-    const list = esByClient.get(cid) ?? [];
+    const canonicalId = aliasToCanonical.get(cid) ?? cid;
+    const list = esByClient.get(canonicalId) ?? [];
     list.push(link.es_user_id as string);
-    esByClient.set(cid, list);
+    esByClient.set(canonicalId, list);
   }
 
-  function inScope(clientId: string): boolean {
-    const client = clientMap.get(clientId);
+  function inScope(rawClientId: string): boolean {
+    const clientId = aliasToCanonical.get(rawClientId) ?? rawClientId;
+    const client = clientMap.get(rawClientId) ?? clientMap.get(clientId);
     if (!client) return false;
 
-    if (filters.clientId && clientId !== filters.clientId) return false;
+    if (filters.clientId) {
+      const filterCanonical = aliasToCanonical.get(filters.clientId) ?? filters.clientId;
+      if (clientId !== filterCanonical) return false;
+    }
     if (filters.officeId && client.office_id !== filters.officeId) return false;
 
     const esIds = esByClient.get(clientId) ?? [];
@@ -758,10 +765,10 @@ export async function loadActivityLogs(
       id: log.id as string,
       kind: "contact",
       created_at: log.created_at as string,
-      client_id: clientId,
+      client_id: aliasToCanonical.get(clientId) ?? clientId,
       client_name: client?.name ?? null,
       client_email: client?.email ?? null,
-      es_user_ids: esByClient.get(clientId) ?? [],
+      es_user_ids: esByClient.get(aliasToCanonical.get(clientId) ?? clientId) ?? [],
       office_id: client?.office_id ?? null,
       summary: outcome || "Contact log",
       detail: (log.notes as string | null) ?? null,
@@ -778,10 +785,10 @@ export async function loadActivityLogs(
       id: app.id as string,
       kind: "application",
       created_at: app.created_at as string,
-      client_id: clientId,
+      client_id: aliasToCanonical.get(clientId) ?? clientId,
       client_name: client?.name ?? null,
       client_email: client?.email ?? null,
-      es_user_ids: esByClient.get(clientId) ?? [],
+      es_user_ids: esByClient.get(aliasToCanonical.get(clientId) ?? clientId) ?? [],
       office_id: client?.office_id ?? null,
       summary: `${app.company_name ?? "Application"} · ${app.status ?? ""}`,
       detail: (app.notes as string | null) ?? null,
@@ -800,10 +807,10 @@ export async function loadActivityLogs(
       id: ev.id as string,
       kind: "stage",
       created_at: ev.created_at as string,
-      client_id: clientId,
+      client_id: aliasToCanonical.get(clientId) ?? clientId,
       client_name: client?.name ?? null,
       client_email: client?.email ?? null,
-      es_user_ids: esByClient.get(clientId) ?? [],
+      es_user_ids: esByClient.get(aliasToCanonical.get(clientId) ?? clientId) ?? [],
       office_id: client?.office_id ?? null,
       summary: `Stage · ${title ?? "Milestone"}`,
       detail: null,
@@ -822,10 +829,10 @@ export async function loadActivityLogs(
       id: mtg.id as string,
       kind: "meeting",
       created_at: createdAt,
-      client_id: clientId,
+      client_id: aliasToCanonical.get(clientId) ?? clientId,
       client_name: client?.name ?? null,
       client_email: client?.email ?? null,
-      es_user_ids: esByClient.get(clientId) ?? [],
+      es_user_ids: esByClient.get(aliasToCanonical.get(clientId) ?? clientId) ?? [],
       office_id: client?.office_id ?? null,
       summary: `Meeting ${mtg.status ?? "pending"}${when ? ` · ${when}` : ""}`,
       detail: (mtg.location as string | null) ?? null,
