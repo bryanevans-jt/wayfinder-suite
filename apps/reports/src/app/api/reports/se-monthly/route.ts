@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getGoogleAuth, sendEmail } from '@/lib/google';
 import { generateSEMonthlyPdf } from '@/lib/pdf-generator';
+import { recordFormalSubmission } from '@/lib/record-submission';
+import { resolveSeMonthlyAlerts } from '@/lib/resolve-report-alerts';
 import { generateClientId } from '@/lib/utils';
 import { NextResponse } from 'next/server';
 
@@ -15,7 +17,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { reportData, typedEsName, signatureData } = body;
+    const { reportData, typedEsName, signatureData, wayfinderClientId } = body;
     if (!reportData) return NextResponse.json({ error: 'reportData required' }, { status: 400 });
 
     const admin = createAdminClient();
@@ -33,8 +35,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const clientId = generateClientId(reportData.jobSeekerName as string);
-    if (!clientId) return NextResponse.json({ error: 'Client name required' }, { status: 400 });
+    const normalizedClientId = generateClientId(reportData.jobSeekerName as string);
+    if (!normalizedClientId) return NextResponse.json({ error: 'Client name required' }, { status: 400 });
 
     const dataToSave = { ...reportData };
     if (Array.isArray(dataToSave.model)) dataToSave.model = (dataToSave.model as string[]).join(', ');
@@ -43,7 +45,8 @@ export async function POST(request: Request) {
 
     await admin.from('monthly_se_reports').upsert(
       {
-        client_id: clientId,
+        client_id: normalizedClientId,
+        wayfinder_client_id: wayfinderClientId || null,
         job_seeker_name: reportData.jobSeekerName,
         se_specialist_name: reportData.seSpecialistName,
         se_provider_name: reportData.seProviderName,
@@ -77,14 +80,34 @@ export async function POST(request: Request) {
 
     const drive = (await import('googleapis')).google.drive({ version: 'v3', auth });
     const fileName = `${reportData.jobSeekerName || 'Unknown Client'} - ${reportData.month || 'Date'} - SE Monthly Report.pdf`;
-    await drive.files.create({
+    const uploaded = await drive.files.create({
       supportsAllDrives: true,
       requestBody: { name: fileName, parents: [folderId] },
       media: {
         mimeType: 'application/pdf',
         body: Readable.from(pdfBytes),
       },
+      fields: 'id',
     });
+
+    const driveFileId = uploaded.data.id ?? null;
+
+    await recordFormalSubmission(admin, {
+      wayfinderClientId: wayfinderClientId || null,
+      clientName: String(reportData.jobSeekerName ?? ''),
+      state: 'GA',
+      reportTypeSlug: 'seMonthly',
+      reportingMonth: lastSubmittedMonth,
+      submittedBy: user.id,
+      submittedByName: typedEsName || (reportData.seSpecialistName as string) || user.email,
+      driveFileId,
+      driveFileName: fileName,
+      fieldSnapshot: reportData as Record<string, unknown>,
+    });
+
+    if (wayfinderClientId && lastSubmittedMonth) {
+      await resolveSeMonthlyAlerts(admin, wayfinderClientId, lastSubmittedMonth);
+    }
 
     await sendEmail(auth, {
       to: user.email,
@@ -93,7 +116,7 @@ export async function POST(request: Request) {
       attachments: [{ filename: fileName, content: pdfBytes.toString('base64'), encoding: 'base64' }],
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, driveFileId });
   } catch (e) {
     console.error('SE Monthly submission error:', e);
     return NextResponse.json(

@@ -1,44 +1,47 @@
-import { createClient } from '@/lib/supabase/server';
-import { NextResponse } from 'next/server';
-import { SUPERADMIN_EMAIL, ORG_DOMAIN } from '@/lib/constants';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient } from "@/lib/supabase/admin";
+import { ORG_DOMAIN, SUPERADMIN_EMAIL } from "@/lib/constants";
+import { handleWayfinderAuthCallback } from "@wayfinder/supabase/auth-callback";
+import { NextRequest } from "next/server";
 
-export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
-  const code = searchParams.get('code');
-  const next = searchParams.get('next') ?? '/';
+async function seedReportRoles(userId: string, email: string | null) {
+  if (!email?.endsWith(`@${ORG_DOMAIN}`)) return;
 
-  if (code) {
-    const supabase = await createClient();
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error && data.user) {
-      const email = data.user.email || '';
-      if (!email.endsWith(`@${ORG_DOMAIN}`)) {
-        await supabase.auth.signOut();
-        return NextResponse.redirect(`${origin}/login?error=org_only`);
-      }
-      const admin = createAdminClient();
-      if (email === SUPERADMIN_EMAIL) {
-        await admin.from('report_user_roles').upsert(
-          { user_id: data.user.id, role: 'superadmin' },
-          { onConflict: 'user_id' }
-        );
-      } else {
-        const { data: invite } = await admin
-          .from('supervisor_invites')
-          .select('id')
-          .eq('email', email.toLowerCase())
-          .single();
-        if (invite) {
-          await admin.from('report_user_roles').upsert(
-            { user_id: data.user.id, role: 'supervisor' },
-            { onConflict: 'user_id' }
-          );
-          await admin.from('supervisor_invites').delete().eq('id', invite.id);
-        }
-      }
-      return NextResponse.redirect(`${origin}${next}`);
-    }
+  const admin = createAdminClient();
+  if (email === SUPERADMIN_EMAIL) {
+    await admin.from("report_user_roles").upsert(
+      { user_id: userId, role: "superadmin" },
+      { onConflict: "user_id" }
+    );
+    return;
   }
-  return NextResponse.redirect(`${origin}/login?error=auth_failed`);
+
+  const { data: invite } = await admin
+    .from("supervisor_invites")
+    .select("id")
+    .eq("email", email.toLowerCase())
+    .maybeSingle();
+
+  if (invite) {
+    await admin.from("report_user_roles").upsert(
+      { user_id: userId, role: "supervisor" },
+      { onConflict: "user_id" }
+    );
+    await admin.from("supervisor_invites").delete().eq("id", invite.id);
+  }
+}
+
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  if (!url.searchParams.get("next")) {
+    url.searchParams.set("next", "/");
+  }
+
+  const callbackRequest =
+    url.toString() === request.url ? request : new NextRequest(url.toString(), request);
+
+  return handleWayfinderAuthCallback(callbackRequest, {
+    onAuthenticated: async ({ userId, email }) => {
+      await seedReportRoles(userId, email);
+    },
+  });
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { createClient } from '@/lib/supabase/client';
+import { ReportSupportNote } from '@/components/ReportSupportNote';
 import { useState, useEffect } from 'react';
 
 function LoginContent() {
@@ -26,7 +27,7 @@ function LoginContent() {
       const { data, error: signInError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/auth/callback?next=/`,
           queryParams: { access_type: 'offline', prompt: 'consent' },
         },
       });
@@ -89,6 +90,10 @@ function LoginContent() {
           {urlError === 'auth_failed' && (
             <p className="text-red-600 text-sm mt-4">Sign-in failed. Please try again.</p>
           )}
+          {urlError === 'auth' && (
+            <p className="text-red-600 text-sm mt-4">Sign-in failed. Please try again.</p>
+          )}
+          <ReportSupportNote className="mt-6" />
         </div>
       </div>
     </div>

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getGoogleAuth, sendEmail } from '@/lib/google';
 import { generateEVFPdf } from '@/lib/pdf-generator';
+import { recordFormalSubmission } from '@/lib/record-submission';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
@@ -34,13 +35,26 @@ export async function POST(request: Request) {
 
     const drive = (await import('googleapis')).google.drive({ version: 'v3', auth });
     const fileName = `EVF - ${reportData.Name || 'Client'} - ${reportData.Date}.pdf`;
-    await drive.files.create({
+    const uploaded = await drive.files.create({
       supportsAllDrives: true,
       requestBody: { name: fileName, parents: [folderId] },
       media: {
         mimeType: 'application/pdf',
         body: Readable.from(pdfBytes),
       },
+      fields: 'id',
+    });
+
+    await recordFormalSubmission(admin, {
+      clientName: reportData.Name || 'Client',
+      state: 'GA',
+      reportTypeSlug: 'evf',
+      reportingMonth: reportData.Date?.slice(0, 7) ?? null,
+      submittedBy: user.id,
+      submittedByName: user.email,
+      driveFileId: uploaded.data.id ?? null,
+      driveFileName: fileName,
+      fieldSnapshot: reportData,
     });
 
     await sendEmail(auth, {

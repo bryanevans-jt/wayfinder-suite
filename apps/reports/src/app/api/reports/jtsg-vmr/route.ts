@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getGoogleAuth, sendEmail } from '@/lib/google';
 import { generateJTSGVMRPdf } from '@/lib/pdf-generator';
+import { recordFormalSubmission } from '@/lib/record-submission';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { reportData, typedEsName, signatureData } = body;
+    const { reportData, typedEsName, signatureData, wayfinderClientId } = body;
     if (!reportData) return NextResponse.json({ error: 'reportData required' }, { status: 400 });
 
     const admin = createAdminClient();
@@ -39,13 +40,27 @@ export async function POST(request: Request) {
 
     const drive = (await import('googleapis')).google.drive({ version: 'v3', auth });
     const fileName = `JTSG VMR - ${reportData.ClientName || 'Client'} - ${reportData.MonthofService || reportData.Month || 'Date'}.pdf`;
-    await drive.files.create({
+    const uploaded = await drive.files.create({
       supportsAllDrives: true,
       requestBody: { name: fileName, parents: [folderId] },
       media: {
         mimeType: 'application/pdf',
         body: Readable.from(pdfBytes),
       },
+      fields: 'id',
+    });
+
+    await recordFormalSubmission(admin, {
+      wayfinderClientId: wayfinderClientId || null,
+      clientName: String(reportData.ClientName ?? 'Client'),
+      state: 'GA',
+      reportTypeSlug: 'jtsgvmr',
+      reportingMonth: null,
+      submittedBy: user.id,
+      submittedByName: typedEsName || String(reportData.EmploymentSpecialistName ?? user.email),
+      driveFileId: uploaded.data.id ?? null,
+      driveFileName: fileName,
+      fieldSnapshot: reportData as Record<string, unknown>,
     });
 
     await sendEmail(auth, {

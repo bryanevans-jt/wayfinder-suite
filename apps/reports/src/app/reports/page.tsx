@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { StateSelector } from '@/components/reports/StateSelector';
 import { ReportSelection } from '@/components/reports/ReportSelection';
-import { BasicInfo } from '@/components/reports/BasicInfo';
+import { ClientPicker, type ClientSelection } from '@/components/reports/ClientPicker';
 import { SEMonthlyForm } from '@/components/reports/SEMonthlyForm';
 import { VPRForm } from '@/components/reports/VPRForm';
 import { JTSGVMRForm } from '@/components/reports/JTSGVMRForm';
@@ -13,10 +14,12 @@ import { EVFForm } from '@/components/reports/EVFForm';
 import { JTSGTSVSForm } from '@/components/reports/JTSGTSVSForm';
 import { ReviewAndSign } from '@/components/reports/ReviewAndSign';
 import { SubmissionStatus } from '@/components/reports/SubmissionStatus';
+import { withReportSupportHint } from '@/lib/report-errors';
 
 type Screen =
+  | 'STATE_SELECTION'
   | 'REPORT_SELECTION'
-  | 'BASIC_INFO'
+  | 'CLIENT_PICKER'
   | 'REPORT_FORM'
   | 'VPR_FORM'
   | 'JTSG_VMR_FORM'
@@ -26,21 +29,27 @@ type Screen =
   | 'JTSG_VMR_REVIEW'
   | 'SUBMISSION_STATUS';
 
+type ReportingState = 'GA' | 'TN';
 type ReportType = 'seMonthly' | 'vpr' | 'jtsgvmr' | 'evf' | 'jtsgtsvs';
 
-export default function ReportsPage() {
+function ReportsWorkspace() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<{ email: string; displayName: string } | null>(null);
-  const [screen, setScreen] = useState<Screen>('REPORT_SELECTION');
+  const [screen, setScreen] = useState<Screen>('STATE_SELECTION');
+  const [selectedState, setSelectedState] = useState<ReportingState | ''>('');
   const [reportType, setReportType] = useState<ReportType | ''>('');
   const [esName, setEsName] = useState('');
   const [clientName, setClientName] = useState('');
+  const [wayfinderClientId, setWayfinderClientId] = useState<string | null>(null);
+  const [adHocClient, setAdHocClient] = useState(false);
   const [reportData, setReportData] = useState<Record<string, unknown>>({});
   const [typedEsName, setTypedEsName] = useState('');
   const [signatureData, setSignatureData] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [deepLinkHandled, setDeepLinkHandled] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -63,17 +72,76 @@ export default function ReportsPage() {
     });
   }, [router]);
 
-  const showMessage = (msg: string, isError = false) => {
-    setMessage(msg);
-    const el = document.getElementById('message-container');
-    if (el) {
-      const div = document.createElement('div');
-      div.className = `p-4 rounded-lg shadow-md mb-2 text-white ${isError ? 'bg-red-500' : 'bg-green-500'}`;
-      div.textContent = msg;
-      el.appendChild(div);
-      setTimeout(() => el.removeChild(div), 5000);
+  useEffect(() => {
+    if (loading || deepLinkHandled) return;
+
+    const report = searchParams.get('report') as ReportType | null;
+    const client = searchParams.get('client')?.trim() ?? '';
+    const es = searchParams.get('es')?.trim();
+    const clientId = searchParams.get('clientId')?.trim() ?? null;
+
+    if (es) setEsName(es);
+    if (client) setClientName(client);
+    if (clientId) {
+      setWayfinderClientId(clientId);
+      setAdHocClient(false);
     }
-  };
+
+    if (report && (report === 'seMonthly' || report === 'jtsgvmr')) {
+      setSelectedState('GA');
+      setReportType(report);
+      if (client) {
+        setScreen('CLIENT_PICKER');
+      }
+    } else if (report) {
+      setSelectedState('GA');
+      setReportType(report);
+      if (report === 'vpr') setScreen('VPR_FORM');
+      else if (report === 'evf') setScreen('EVF_FORM');
+      else if (report === 'jtsgtsvs') {
+        setScreen('JTSG_TSVS_FORM');
+      }
+    }
+
+    setDeepLinkHandled(true);
+  }, [loading, deepLinkHandled, searchParams]);
+
+  function afterClientSelected(selection: ClientSelection) {
+    setClientName(selection.clientName);
+    setWayfinderClientId(selection.wayfinderClientId);
+    setAdHocClient(selection.adHoc);
+
+    if (reportType === 'seMonthly') {
+      setReportData({
+        jobSeekerName: selection.clientName,
+        seSpecialistName: esName,
+        seProviderName: 'Joshua Tree Service Group',
+        counselorName: selection.counselorName ?? '',
+        employmentGoal: selection.employmentGoal ?? '',
+      });
+      setScreen('REPORT_FORM');
+    } else if (reportType === 'jtsgvmr') {
+      setReportData({
+        ClientName: selection.clientName,
+        ESName: esName,
+        EmploymentSpecialistName: esName,
+      });
+      setScreen('JTSG_VMR_FORM');
+    }
+  }
+
+  function afterReportType(type: ReportType) {
+    setReportType(type);
+    if (type === 'seMonthly' || type === 'jtsgvmr') {
+      setScreen('CLIENT_PICKER');
+    } else if (type === 'vpr') {
+      setScreen('VPR_FORM');
+    } else if (type === 'evf') {
+      setScreen('EVF_FORM');
+    } else if (type === 'jtsgtsvs') {
+      setScreen('JTSG_TSVS_FORM');
+    }
+  }
 
   if (loading || !user) {
     return (
@@ -92,44 +160,37 @@ export default function ReportsPage() {
         </Link>
       </div>
 
-      {screen === 'REPORT_SELECTION' && (
-        <ReportSelection
+      {screen === 'STATE_SELECTION' && (
+        <StateSelector
           user={user}
-          onSelect={(type) => {
-            setReportType(type);
-            if (type === 'seMonthly' || type === 'jtsgvmr') {
-              setScreen('BASIC_INFO');
-            } else if (type === 'vpr') {
-              setScreen('VPR_FORM');
-            } else if (type === 'evf') {
-              setScreen('EVF_FORM');
-            } else if (type === 'jtsgtsvs') {
-              setScreen('JTSG_TSVS_FORM');
-            }
+          onSelect={(state) => {
+            setSelectedState(state);
+            setScreen('REPORT_SELECTION');
           }}
         />
       )}
 
-      {screen === 'BASIC_INFO' && reportType && (
-        <BasicInfo
-          esName={esName}
-          clientName={clientName}
-          reportType={reportType}
-          onContinue={(es, client) => {
-            setEsName(es);
-            setClientName(client);
-            if (reportType === 'seMonthly') {
-              setReportData({
-                jobSeekerName: client,
-                seSpecialistName: es,
-                seProviderName: 'Joshua Tree Service Group',
-              });
-              setScreen('REPORT_FORM');
-            } else if (reportType === 'jtsgvmr') {
-              setReportData({ ClientName: client, ESName: es, EmploymentSpecialistName: es });
-              setScreen('JTSG_VMR_FORM');
-            }
+      {screen === 'REPORT_SELECTION' && selectedState && (
+        <ReportSelection
+          user={user}
+          state={selectedState}
+          onSelectGa={afterReportType}
+          onBack={() => {
+            setSelectedState('');
+            setReportType('');
+            setScreen('STATE_SELECTION');
           }}
+        />
+      )}
+
+      {screen === 'CLIENT_PICKER' && selectedState && reportType && (
+        <ClientPicker
+          state={selectedState}
+          esName={esName}
+          initialClientId={wayfinderClientId}
+          initialClientName={clientName}
+          onContinue={afterClientSelected}
+          onBack={() => setScreen('REPORT_SELECTION')}
         />
       )}
 
@@ -137,12 +198,15 @@ export default function ReportsPage() {
         <SEMonthlyForm
           clientName={clientName}
           esName={esName}
+          wayfinderClientId={wayfinderClientId}
+          adHoc={adHocClient}
           initialData={reportData}
           onReview={(data) => {
             setReportData(data);
             setTypedEsName(data.seSpecialistName as string);
             setScreen('REVIEW_AND_SIGN');
           }}
+          onBack={() => setScreen('CLIENT_PICKER')}
         />
       )}
 
@@ -153,7 +217,7 @@ export default function ReportsPage() {
             setMessage(msg);
             setScreen('SUBMISSION_STATUS');
           }}
-          onError={(msg) => showMessage(msg, true)}
+          onError={(msg) => setMessage(msg)}
         />
       )}
 
@@ -172,11 +236,13 @@ export default function ReportsPage() {
         <JTSGTSVSForm
           user={user}
           esName={esName}
+          initialClientName={clientName}
+          wayfinderClientId={wayfinderClientId}
           onSuccess={(msg) => {
             setMessage(msg);
             setScreen('SUBMISSION_STATUS');
           }}
-          onError={(msg) => showMessage(msg, true)}
+          onError={(msg) => setMessage(msg)}
         />
       )}
 
@@ -187,25 +253,18 @@ export default function ReportsPage() {
             setMessage(msg);
             setScreen('SUBMISSION_STATUS');
           }}
-          onError={(msg) => showMessage(msg, true)}
+          onError={(msg) => setMessage(msg)}
         />
       )}
 
       {screen === 'REVIEW_AND_SIGN' && reportType === 'seMonthly' && (
         <>
-          {submitError && (
+          {submitError ? (
             <div className="mx-4 mb-4 p-4 bg-red-100 border border-red-400 text-red-800 rounded-lg">
               <p className="font-semibold">Submission failed</p>
               <p className="text-sm mt-1">{submitError}</p>
-              <button
-                type="button"
-                onClick={() => setSubmitError(null)}
-                className="mt-2 text-sm underline hover:no-underline"
-              >
-                Dismiss
-              </button>
             </div>
-          )}
+          ) : null}
           <ReviewAndSign
             variant="seMonthly"
             reportData={reportData}
@@ -221,46 +280,38 @@ export default function ReportsPage() {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
-                    reportData: reportData,
+                    reportData,
                     typedEsName: typedNameValue || typedEsName,
                     signatureData: capturedSignature,
+                    wayfinderClientId,
                   }),
                 });
-                let data: { error?: string } = {};
-                try {
-                  data = await res.json();
-                } catch {
-                  data = { error: `Server error (${res.status})` };
-                }
+                const data = await res.json().catch(() => ({ error: `Server error (${res.status})` }));
                 if (!res.ok) throw new Error(data.error || 'Submission failed');
                 setMessage('Report submitted! You will receive an email with the final PDF shortly.');
                 setScreen('SUBMISSION_STATUS');
               } catch (e) {
-                setSubmitError((e as Error).message);
+                setSubmitError(withReportSupportHint((e as Error).message));
               } finally {
                 setLoading(false);
               }
             }}
-            onBack={() => { setSubmitError(null); setScreen('REPORT_FORM'); }}
+            onBack={() => {
+              setSubmitError(null);
+              setScreen('REPORT_FORM');
+            }}
           />
         </>
       )}
 
       {screen === 'JTSG_VMR_REVIEW' && reportType === 'jtsgvmr' && (
         <>
-          {submitError && (
+          {submitError ? (
             <div className="mx-4 mb-4 p-4 bg-red-100 border border-red-400 text-red-800 rounded-lg">
               <p className="font-semibold">Submission failed</p>
               <p className="text-sm mt-1">{submitError}</p>
-              <button
-                type="button"
-                onClick={() => setSubmitError(null)}
-                className="mt-2 text-sm underline hover:no-underline"
-              >
-                Dismiss
-              </button>
             </div>
-          )}
+          ) : null}
           <ReviewAndSign
             variant="jtsgvmr"
             reportData={reportData}
@@ -276,27 +327,26 @@ export default function ReportsPage() {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
-                    reportData: reportData,
+                    reportData,
                     typedEsName: typedNameValue || typedEsName,
                     signatureData: capturedSignature,
+                    wayfinderClientId,
                   }),
                 });
-                let data: { error?: string } = {};
-                try {
-                  data = await res.json();
-                } catch {
-                  data = { error: `Server error (${res.status})` };
-                }
+                const data = await res.json().catch(() => ({ error: `Server error (${res.status})` }));
                 if (!res.ok) throw new Error(data.error || 'Submission failed');
                 setMessage('Report submitted! You will receive an email with the final PDF shortly.');
                 setScreen('SUBMISSION_STATUS');
               } catch (e) {
-                setSubmitError((e as Error).message);
+                setSubmitError(withReportSupportHint((e as Error).message));
               } finally {
                 setLoading(false);
               }
             }}
-            onBack={() => { setSubmitError(null); setScreen('JTSG_VMR_FORM'); }}
+            onBack={() => {
+              setSubmitError(null);
+              setScreen('JTSG_VMR_FORM');
+            }}
           />
         </>
       )}
@@ -306,12 +356,29 @@ export default function ReportsPage() {
           message={message}
           onHome={() => router.push('/')}
           onSubmitAnother={() => {
-            setScreen('REPORT_SELECTION');
+            setScreen('STATE_SELECTION');
             setReportType('');
+            setSelectedState('');
+            setWayfinderClientId(null);
+            setAdHocClient(false);
             setSubmitError(null);
           }}
         />
       )}
     </div>
+  );
+}
+
+export default function ReportsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-700" />
+        </div>
+      }
+    >
+      <ReportsWorkspace />
+    </Suspense>
   );
 }

@@ -7,16 +7,31 @@ const ACCEPTED_TYPES = '.pdf,.doc,.docx,.xls,.xlsx';
 interface Props {
   user: { email: string; displayName: string };
   esName: string;
+  initialClientName?: string;
+  wayfinderClientId?: string | null;
   onSuccess: (msg: string) => void;
   onError: (msg: string) => void;
 }
 
-export function JTSGTSVSForm({ user, esName, onSuccess, onError }: Props) {
+export function JTSGTSVSForm({
+  user,
+  esName,
+  initialClientName = '',
+  wayfinderClientId = null,
+  onSuccess,
+  onError,
+}: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [clientName, setClientName] = useState('');
+  const [clientName, setClientName] = useState(initialClientName);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [templateUrl, setTemplateUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialClientName) {
+      setClientName(initialClientName);
+    }
+  }, [initialClientName]);
 
   useEffect(() => {
     fetch('/api/reports/jtsg-tsvs')
@@ -58,6 +73,9 @@ export function JTSGTSVSForm({ user, esName, onSuccess, onError }: Props) {
       const formData = new FormData();
       formData.append('employmentSpecialistName', esName || user.displayName);
       formData.append('clientName', clientName.trim());
+      if (wayfinderClientId) {
+        formData.append('wayfinderClientId', wayfinderClientId);
+      }
       formData.append('file', selectedFile);
 
       const res = await fetch('/api/reports/jtsg-tsvs', {

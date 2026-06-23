@@ -1,4 +1,14 @@
 {
   "framework": "nextjs",
-  "regions": ["iad1"]
+  "regions": ["iad1"],
+  "crons": [
+    {
+      "path": "/api/cron/missing-reports",
+      "schedule": "0 14 7 * *"
+    },
+    {
+      "path": "/api/cron/overdue-reports",
+      "schedule": "1 22 10 * *"
+    }
+  ]
 }

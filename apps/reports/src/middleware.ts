@@ -1,6 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
+import { wayfinderServerAuthOptions } from '@wayfinder/supabase/auth-client-options';
 import { NextResponse, type NextRequest } from 'next/server';
-
 const ORG_DOMAIN = 'thejoshuatree.org';
 const REPORTING_ROLES = new Set(['es', 'supervisor', 'admin', 'super_admin']);
 
@@ -11,6 +11,7 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      ...wayfinderServerAuthOptions,
       cookies: {
         getAll() {
           return request.cookies.getAll();

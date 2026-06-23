@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getGoogleAuth, sendEmail } from '@/lib/google';
 import { generateVPRPdf } from '@/lib/pdf-generator';
+import { recordFormalSubmission } from '@/lib/record-submission';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
@@ -15,6 +16,7 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const reportData = body.reportData as Record<string, string>;
+    const wayfinderClientId = body.wayfinderClientId as string | undefined;
     if (!reportData) return NextResponse.json({ error: 'reportData required' }, { status: 400 });
 
     const admin = createAdminClient();
@@ -44,13 +46,27 @@ export async function POST(request: Request) {
 
     const drive = (await import('googleapis')).google.drive({ version: 'v3', auth });
     const fileName = `${reportData.ClientName || 'Client'} - ${reportData.EmploymentSpecialistName || 'Specialist'} - ${reportData.Date} Report.pdf`;
-    await drive.files.create({
+    const uploaded = await drive.files.create({
       supportsAllDrives: true,
       requestBody: { name: fileName, parents: [folderId] },
       media: {
         mimeType: 'application/pdf',
         body: Readable.from(pdfBytes),
       },
+      fields: 'id',
+    });
+
+    await recordFormalSubmission(admin, {
+      wayfinderClientId: wayfinderClientId || null,
+      clientName: reportData.ClientName || 'Client',
+      state: 'GA',
+      reportTypeSlug: 'vpr',
+      reportingMonth: reportData.Date?.slice(0, 7) ?? null,
+      submittedBy: user.id,
+      submittedByName: reportData.EmploymentSpecialistName || user.email,
+      driveFileId: uploaded.data.id ?? null,
+      driveFileName: fileName,
+      fieldSnapshot: reportData,
     });
 
     await sendEmail(auth, {

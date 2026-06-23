@@ -1,31 +1,81 @@
-import { createClient } from '@/lib/supabase/server';
-import { NextResponse } from 'next/server';
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { NextResponse } from "next/server";
+
+const RECALL_SKIP = new Set([
+  "jobdevelopment",
+  "month",
+  "daterangecovers",
+  "datereportsubmitted",
+  "hoursofcoaching",
+]);
+
+function toCamel(s: string): string {
+  return s.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const clientId = searchParams.get('clientId');
-  if (!clientId) {
-    return NextResponse.json({ error: 'clientId required' }, { status: 400 });
+  const adHoc = searchParams.get("adHoc") === "true";
+  const wayfinderClientId = searchParams.get("wayfinderClientId")?.trim();
+  const clientId = searchParams.get("clientId")?.trim();
+
+  if (adHoc) {
+    return NextResponse.json({});
   }
+
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user?.email?.endsWith('@thejoshuatree.org')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user?.email?.endsWith("@thejoshuatree.org")) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const { data, error } = await supabase
-    .from('monthly_se_reports')
-    .select('*')
-    .eq('client_id', clientId)
-    .single();
-  if (error && error.code !== 'PGRST116') {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const admin = createAdminClient();
+  let row: Record<string, unknown> | null = null;
+
+  if (wayfinderClientId) {
+    const { data } = await admin
+      .from("monthly_se_reports")
+      .select("*")
+      .eq("wayfinder_client_id", wayfinderClientId)
+      .maybeSingle();
+    row = data as Record<string, unknown> | null;
   }
-  if (!data) return NextResponse.json({});
-  const { client_id, last_submitted, last_submitted_month, created_at, updated_at, ...raw } = data;
-  const toCamel = (s: string) => s.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+
+  if (!row && clientId) {
+    const { data } = await admin
+      .from("monthly_se_reports")
+      .select("*")
+      .eq("client_id", clientId)
+      .maybeSingle();
+    row = data as Record<string, unknown> | null;
+  }
+
+  if (!row) {
+    return NextResponse.json({});
+  }
+
   const recall: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(raw)) {
-    recall[toCamel(k)] = v;
+  for (const [key, value] of Object.entries(row)) {
+    if (
+      key === "id" ||
+      key === "client_id" ||
+      key === "wayfinder_client_id" ||
+      key === "last_submitted" ||
+      key === "last_submitted_month" ||
+      key === "created_at" ||
+      key === "updated_at"
+    ) {
+      continue;
+    }
+    const camel = toCamel(key);
+    if (RECALL_SKIP.has(camel.toLowerCase())) {
+      continue;
+    }
+    recall[camel] = value;
   }
+
   return NextResponse.json(recall);
 }

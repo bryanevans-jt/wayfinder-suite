@@ -3,6 +3,7 @@ import { google } from 'googleapis';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getGoogleAuth, sendEmail } from '@/lib/google';
+import { recordFormalSubmission } from '@/lib/record-submission';
 import { NextResponse } from 'next/server';
 
 const FILE_MIME_MAP: Record<string, string> = {
@@ -57,6 +58,7 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const employmentSpecialistName = (formData.get('employmentSpecialistName') as string)?.trim() || '';
     const clientName = (formData.get('clientName') as string)?.trim() || '';
+    const wayfinderClientId = (formData.get('wayfinderClientId') as string)?.trim() || '';
     const file = formData.get('file') as File | null;
 
     if (!clientName) return NextResponse.json({ error: 'Client name required' }, { status: 400 });
@@ -91,13 +93,26 @@ export async function POST(request: Request) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    await drive.files.create({
+    const uploaded = await drive.files.create({
       supportsAllDrives: true,
       requestBody: { name: uploadFileName, parents: [folderId] },
       media: {
         mimeType,
         body: Readable.from(buffer),
       },
+      fields: 'id',
+    });
+
+    await recordFormalSubmission(admin, {
+      wayfinderClientId: wayfinderClientId || null,
+      clientName,
+      state: 'GA',
+      reportTypeSlug: 'jtsgtsvs',
+      submittedBy: user.id,
+      submittedByName: employmentSpecialistName || user.email,
+      driveFileId: uploaded.data.id ?? null,
+      driveFileName: uploadFileName,
+      fieldSnapshot: { clientName, employmentSpecialistName },
     });
 
     const fileBase64 = buffer.toString('base64');

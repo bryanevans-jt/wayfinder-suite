@@ -13,6 +13,7 @@
     "./roles": "./src/roles.ts",
     "./admin-server": "./src/admin-server.ts",
     "./auth-callback": "./src/auth-callback.ts",
+    "./auth-client-options": "./src/auth-client-options.ts",
     "./meeting-ics": "./src/meeting-ics.ts",
     "./natural-support-invite": "./src/natural-support-invite.ts",
     "./preview-server": "./src/preview-server.ts",

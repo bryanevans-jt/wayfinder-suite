@@ -2,16 +2,27 @@
 
 import { useState, useEffect, useRef } from 'react';
 
-const RECALL_EXCLUDE = ['jobDevelopment', 'month', 'dateRangeCovers', 'dateReportSubmitted'];
+const RECALL_EXCLUDE = ['jobDevelopment', 'month', 'dateRangeCovers', 'dateReportSubmitted', 'hoursOfCoaching'];
 
 interface Props {
   clientName: string;
   esName: string;
+  wayfinderClientId?: string | null;
+  adHoc?: boolean;
   initialData: Record<string, unknown>;
   onReview: (data: Record<string, unknown>) => void;
+  onBack?: () => void;
 }
 
-export function SEMonthlyForm({ clientName, esName, initialData, onReview }: Props) {
+export function SEMonthlyForm({
+  clientName,
+  esName,
+  wayfinderClientId,
+  adHoc = false,
+  initialData,
+  onReview,
+  onBack,
+}: Props) {
   const [data, setData] = useState<Record<string, unknown>>({
     ...initialData,
     jobSeekerName: clientName,
@@ -20,27 +31,60 @@ export function SEMonthlyForm({ clientName, esName, initialData, onReview }: Pro
   });
   const [loading, setLoading] = useState(true);
   const [recallMessage, setRecallMessage] = useState('');
+  const [reportMonth, setReportMonth] = useState(
+    (initialData.month as string) || new Date().toISOString().slice(0, 7)
+  );
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
-    async function loadRecall() {
+    async function loadRecallAndPrefill() {
       if (!clientName) {
         setLoading(false);
         return;
       }
+
       try {
-        const clientId = clientName.toLowerCase().replace(/\s/g, '');
-        const res = await fetch(`/api/reports/recall?clientId=${encodeURIComponent(clientId)}`);
-        if (res.ok) {
-          const recalled = await res.json();
-          if (recalled && Object.keys(recalled).length > 0) {
-            const merged = { ...recalled };
-            RECALL_EXCLUDE.forEach((k) => delete merged[k]);
-            setData((prev) => ({ ...merged, ...prev }));
-            setRecallMessage('Previous report data loaded.');
+        if (!adHoc) {
+          const recallParams = new URLSearchParams();
+          if (wayfinderClientId) {
+            recallParams.set('wayfinderClientId', wayfinderClientId);
           } else {
-            setRecallMessage('No previous report found for this client.');
+            recallParams.set('clientId', clientName.toLowerCase().replace(/\s/g, ''));
           }
+          const recallRes = await fetch(`/api/reports/recall?${recallParams}`);
+          if (recallRes.ok) {
+            const recalled = await recallRes.json();
+            if (recalled && Object.keys(recalled).length > 0) {
+              const merged = { ...recalled };
+              RECALL_EXCLUDE.forEach((k) => delete merged[k]);
+              setData((prev) => ({ ...merged, ...prev }));
+              setRecallMessage('Previous report data loaded (except date, hours coached, and job development).');
+            } else {
+              setRecallMessage('No previous report found for this client.');
+            }
+          }
+
+          if (wayfinderClientId) {
+            const prefillRes = await fetch(
+              `/api/wayfinder/prefill?clientId=${encodeURIComponent(wayfinderClientId)}&month=${encodeURIComponent(reportMonth)}`
+            );
+            if (prefillRes.ok) {
+              const prefill = await prefillRes.json();
+              setData((prev) => ({
+                ...prev,
+                counselorName: prefill.counselorName || prev.counselorName,
+                employmentGoal: prefill.employmentGoal || prev.employmentGoal,
+                jobDevelopment: prefill.jobDevelopment || prev.jobDevelopment,
+              }));
+              if (prefill.jobDevelopment) {
+                setRecallMessage((msg) =>
+                  msg ? `${msg} Job development pre-filled from Wayfinder contact logs.` : 'Job development pre-filled from Wayfinder contact logs.'
+                );
+              }
+            }
+          }
+        } else {
+          setRecallMessage('Manual client — no prior report recall.');
         }
       } catch {
         setRecallMessage('Could not load previous data.');
@@ -48,8 +92,8 @@ export function SEMonthlyForm({ clientName, esName, initialData, onReview }: Pro
         setLoading(false);
       }
     }
-    loadRecall();
-  }, [clientName]);
+    loadRecallAndPrefill();
+  }, [clientName, wayfinderClientId, adHoc, reportMonth]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,27 +123,20 @@ export function SEMonthlyForm({ clientName, esName, initialData, onReview }: Pro
   return (
     <div className="flex flex-col items-center min-h-screen bg-gray-50 p-4">
       <div className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-3xl mt-10">
+        {onBack ? (
+          <button type="button" onClick={onBack} className="text-sm text-gray-500 hover:text-green-600 mb-4">
+            ← Back
+          </button>
+        ) : null}
         <h1 className="text-3xl font-bold mb-4 text-center text-green-800">SE Monthly Reports</h1>
-        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-          <p className="text-sm text-gray-700 italic">
-            <strong>Instructions:</strong> This report must be completed in its entirety...
-          </p>
-        </div>
-        {recallMessage && (
-          <p className="text-sm text-green-600 mb-4">{recallMessage}</p>
-        )}
+        {recallMessage ? <p className="text-sm text-green-600 mb-4">{recallMessage}</p> : null}
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
           <div className="border border-gray-300 rounded-lg p-4">
             <h3 className="text-lg font-semibold mb-2">Identified Supported Employment Model</h3>
             <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
               {['Traditional', 'IPS', 'Customized Supported Employment'].map((m) => (
                 <label key={m} className="flex items-center">
-                  <input
-                    type="checkbox"
-                    name="model"
-                    value={m}
-                    className="form-checkbox text-green-600 rounded-md"
-                  />
+                  <input type="checkbox" name="model" value={m} className="form-checkbox text-green-600 rounded-md" />
                   <span className="ml-2">{m}</span>
                 </label>
               ))}
@@ -110,7 +147,8 @@ export function SEMonthlyForm({ clientName, esName, initialData, onReview }: Pro
             <input
               type="month"
               name="month"
-              defaultValue={(data.month as string) || ''}
+              value={reportMonth}
+              onChange={(e) => setReportMonth(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg"
               required
             />
@@ -140,7 +178,6 @@ export function SEMonthlyForm({ clientName, esName, initialData, onReview }: Pro
             <input
               type="text"
               name="counselorName"
-              placeholder="Full name of the GVRA counselor"
               defaultValue={(data.counselorName as string) || ''}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg"
               required
@@ -171,7 +208,6 @@ export function SEMonthlyForm({ clientName, esName, initialData, onReview }: Pro
             <input
               type="text"
               name="employmentGoal"
-              placeholder="The client's stated goal for employment"
               defaultValue={(data.employmentGoal as string) || ''}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg"
               required
@@ -182,7 +218,6 @@ export function SEMonthlyForm({ clientName, esName, initialData, onReview }: Pro
             <input
               type="text"
               name="dateRangeCovers"
-              placeholder="e.g., 10/01/2025 - 10/31/2025"
               defaultValue={(data.dateRangeCovers as string) || ''}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg"
               required
@@ -193,29 +228,27 @@ export function SEMonthlyForm({ clientName, esName, initialData, onReview }: Pro
             <input
               type="text"
               name="hoursOfCoaching"
-              placeholder="e.g., 15.5"
               defaultValue={(data.hoursOfCoaching as string) || ''}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg"
               required
             />
           </div>
           {[
-            { key: 'medicalConsiderations', label: 'Medical Considerations', hint: 'Describe any accommodations...' },
-            { key: 'behavioralHealthConsiderations', label: 'Behavioral Health Considerations', hint: 'Describe any accommodations...' },
-            { key: 'sensory', label: 'Sensory', hint: "Describe how the job seeker's needs are being addressed..." },
-            { key: 'assistiveTechnology', label: 'Assistive Technology/Accommodations...', hint: 'Describe the use of AWT...' },
-            { key: 'releaseOfInformation', label: 'Release of Information/Self-Advocacy', hint: 'Describe how disclosure has been addressed...' },
-            { key: 'jobDevelopment', label: 'Job Development', hint: 'Describe progress and activities...' },
-            { key: 'ongoingSupports', label: 'On-going Supports & follow-up', hint: 'Indicate what ongoing supports are being provided...' },
-            { key: 'potentialBarriers', label: 'Potential Barriers', hint: 'Describe any new or ongoing potential barriers...' },
-            { key: 'extendedServices', label: 'Extended Services', hint: 'Describe how extended services will be provided...' },
-          ].map(({ key, label, hint }) => (
+            { key: 'medicalConsiderations', label: 'Medical Considerations' },
+            { key: 'behavioralHealthConsiderations', label: 'Behavioral Health Considerations' },
+            { key: 'sensory', label: 'Sensory' },
+            { key: 'assistiveTechnology', label: 'Assistive Technology/Accommodations...' },
+            { key: 'releaseOfInformation', label: 'Release of Information/Self-Advocacy' },
+            { key: 'jobDevelopment', label: 'Job Development' },
+            { key: 'ongoingSupports', label: 'On-going Supports & follow-up' },
+            { key: 'potentialBarriers', label: 'Potential Barriers' },
+            { key: 'extendedServices', label: 'Extended Services' },
+          ].map(({ key, label }) => (
             <div key={key} className="mb-6">
               <label className="block text-gray-700 font-semibold mb-1">{label}</label>
-              <p className="text-xs text-gray-500 mb-2 italic">{hint}</p>
               <textarea
                 name={key}
-                rows={4}
+                rows={key === 'jobDevelopment' ? 8 : 4}
                 defaultValue={(data[key] as string) || ''}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                 required
