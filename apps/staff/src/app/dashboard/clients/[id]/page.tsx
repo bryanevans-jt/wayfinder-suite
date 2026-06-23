@@ -16,6 +16,7 @@ import { ClientMeetingForm } from "./client-meeting-form";
 import { ClientStageForm } from "./client-stage-form";
 import { NaturalSupportPanel } from "./natural-support-panel";
 import { ClientActivityReportPanel } from "@/components/client-activity-report-panel";
+import { SubmittedFormalReportsPanel } from "@/components/submitted-formal-reports-panel";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -348,6 +349,7 @@ export default async function EsClientDetailPage({ params }: PageProps) {
             defaultTo={reportDefaultTo}
           />
         ) : null}
+        {!readOnly ? <SubmittedFormalReportsPanel clientId={client.id} /> : null}
         {!readOnly ? <NaturalSupportPanel clientId={client.id} /> : null}
       </section>
 

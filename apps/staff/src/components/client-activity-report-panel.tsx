@@ -73,7 +73,7 @@ export function ClientActivityReportPanel({
         contacts, applications, stage updates, and meetings.
       </p>
       <div className="mt-3">
-        <FormalReportLaunchLink clientName={clientName} esName={esName} />
+        <FormalReportLaunchLink clientName={clientName} esName={esName} wayfinderClientId={clientId} />
       </div>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <label className="block text-sm font-medium text-brand-black">

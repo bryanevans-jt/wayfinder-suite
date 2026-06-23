@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StaffSidebarPanel } from "./staff-sidebar";
 import { PushNotificationPrompt } from "@wayfinder/auth-ui";
+import { ReportAlertsBanner } from "./report-alerts-banner";
 
 type Props = {
   staffRole: string | null;
@@ -51,6 +52,7 @@ export function StaffDashboardShell({ staffRole, showAuditLink = false, children
         </div>
         <div className="min-w-0 flex-1 bg-white">
           <PushNotificationPrompt className="mx-4 mt-3 lg:mx-6" />
+          <ReportAlertsBanner staffRole={staffRole} />
           {children}
         </div>
       </div>

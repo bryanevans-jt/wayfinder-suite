@@ -3,6 +3,7 @@ import { buildJtReportsPrefillUrl, type JtReportPrefillType } from "@wayfinder/b
 type Props = {
   clientName: string;
   esName?: string | null;
+  wayfinderClientId?: string | null;
   report?: JtReportPrefillType;
   className?: string;
 };
@@ -10,10 +11,11 @@ type Props = {
 export function FormalReportLaunchLink({
   clientName,
   esName,
+  wayfinderClientId,
   report = "seMonthly",
   className = "",
 }: Props) {
-  const href = buildJtReportsPrefillUrl({ clientName, esName, report });
+  const href = buildJtReportsPrefillUrl({ clientName, esName, report, wayfinderClientId });
 
   return (
     <a

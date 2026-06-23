@@ -33,7 +33,8 @@ export function FormalReportingWorkspace({ readOnly = false }: Props) {
           Open reporting workspace
         </a>
         <p className="mt-3 text-xs text-brand-black/55">
-          Uses your Wayfinder Pro sign-in · Georgia and Tennessee reports by client office state
+          Uses your Wayfinder Pro sign-in · Georgia and Tennessee reports by client office state ·
+          Missing/overdue SE Monthly alerts appear on your dashboard
         </p>
       </section>
 
