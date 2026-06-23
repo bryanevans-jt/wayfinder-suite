@@ -23,6 +23,7 @@ type Props = {
   variantLabel?: string;
   shouldCreateUser?: boolean;
   termsHref?: string;
+  redirectAfterSignIn?: string;
 };
 
 /**
@@ -34,6 +35,7 @@ export function LoginFormShell({
   variantLabel,
   shouldCreateUser,
   termsHref,
+  redirectAfterSignIn,
 }: Props) {
   return (
     <LoginFormClient
@@ -41,6 +43,7 @@ export function LoginFormShell({
       variantLabel={variantLabel}
       shouldCreateUser={shouldCreateUser}
       termsHref={termsHref}
+      redirectAfterSignIn={redirectAfterSignIn}
     />
   );
 }

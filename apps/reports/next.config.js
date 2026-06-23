@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["@wayfinder/branding", "@wayfinder/supabase"],
+  transpilePackages: ["@wayfinder/auth-ui", "@wayfinder/branding", "@wayfinder/supabase"],
 };
 
 module.exports = nextConfig;

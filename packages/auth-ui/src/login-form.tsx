@@ -14,6 +14,8 @@ type LoginFormProps = {
   shouldCreateUser?: boolean;
   /** Link to Terms of Use (shown above sign-in actions). */
   termsHref?: string;
+  /** Where to send the browser after passkey sign-in succeeds. */
+  redirectAfterSignIn?: string;
 };
 
 export function LoginForm({
@@ -21,6 +23,7 @@ export function LoginForm({
   variantLabel,
   shouldCreateUser = true,
   termsHref,
+  redirectAfterSignIn = "/dashboard",
 }: LoginFormProps) {
   const supabase = useMemo(() => createClient(), []);
   const [email, setEmail] = useState("");
@@ -68,7 +71,7 @@ export function LoginForm({
       return;
     }
     if (data?.session) {
-      window.location.assign("/dashboard");
+      window.location.assign(redirectAfterSignIn);
     }
   }
 

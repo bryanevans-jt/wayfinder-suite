@@ -1,105 +1,47 @@
-'use client';
+import { LoginFormShell } from "@wayfinder/auth-ui";
+import { ReportSupportNote } from "@/components/ReportSupportNote";
 
-import { createClient } from '@/lib/supabase/client';
-import { ReportSupportNote } from '@/components/ReportSupportNote';
-import { useState, useEffect } from 'react';
+type SearchParams = Promise<{ error?: string; next?: string }>;
 
-function LoginContent() {
-  const [logoSrc, setLogoSrc] = useState('/logo.svg');
-  const [signingIn, setSigningIn] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [urlError, setUrlError] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      setUrlError(params.get('error'));
-    }
-  }, []);
-
-  const handleSignIn = async () => {
-    setAuthError(null);
-    setSigningIn(true);
-    try {
-      const supabase = createClient();
-      const { data, error: signInError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=/`,
-          queryParams: { access_type: 'offline', prompt: 'consent' },
-        },
-      });
-      if (signInError) {
-        setAuthError(signInError.message);
-        return;
-      }
-      if (data?.url) {
-        window.location.href = data.url;
-      } else {
-        setAuthError('Sign-in could not be started. Please check that Google Auth is enabled in Supabase.');
-      }
-    } catch (e) {
-      setAuthError((e as Error).message || 'An unexpected error occurred');
-    } finally {
-      setSigningIn(false);
-    }
-  };
-
-  if (!mounted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-gray-600">Loading...</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
-      <div className="flex-1 flex flex-col items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-sm text-center">
-          <div className="flex justify-center mb-4 min-h-[80px] items-center">
-            <img
-              src={logoSrc}
-              alt="Joshua Tree Service Group"
-              className="max-h-24 w-auto object-contain"
-              style={{ maxWidth: '240px' }}
-              onError={() => setLogoSrc((prev) => (prev === '/logo.svg' ? '/logo.png' : prev))}
-            />
-          </div>
-          <h1 className="text-2xl font-bold mb-2 text-green-800">Report Submission</h1>
-          <p className="text-gray-600 mb-6">
-            Sign in with your organizational Google account to get started.
-          </p>
-          <button
-            onClick={handleSignIn}
-            disabled={signingIn}
-            className="w-full py-3 px-4 bg-green-700 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {signingIn ? 'Redirecting...' : 'Sign In with Google'}
-          </button>
-          {authError && (
-            <p className="text-red-600 text-sm mt-4">{authError}</p>
-          )}
-          {urlError === 'org_only' && (
-            <p className="text-red-600 text-sm mt-4">
-              Only @thejoshuatree.org accounts can access this application.
-            </p>
-          )}
-          {urlError === 'auth_failed' && (
-            <p className="text-red-600 text-sm mt-4">Sign-in failed. Please try again.</p>
-          )}
-          {urlError === 'auth' && (
-            <p className="text-red-600 text-sm mt-4">Sign-in failed. Please try again.</p>
-          )}
-          <ReportSupportNote className="mt-6" />
-        </div>
-      </div>
-    </div>
-  );
+function staffTermsUrl(): string | undefined {
+  const base = process.env.NEXT_PUBLIC_STAFF_APP_URL?.replace(/\/$/, "");
+  return base ? `${base}/terms` : undefined;
 }
 
-export default function LoginPage() {
-  return <LoginContent />;
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const { error } = await searchParams;
+
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-brand-white px-4 py-16">
+      {error === "org_only" ? (
+        <p className="mb-6 max-w-md rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-center text-sm text-red-900">
+          Only @thejoshuatree.org accounts can access formal reporting.
+        </p>
+      ) : null}
+      {error === "forbidden" ? (
+        <p className="mb-6 max-w-md rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-950">
+          Your Wayfinder Pro role does not include formal reporting. Open Wayfinder Pro for your
+          usual workspace.
+        </p>
+      ) : null}
+      {error === "auth" || error === "auth_failed" ? (
+        <p className="mb-6 max-w-md rounded-lg border border-brand-gold/40 bg-brand-white px-4 py-3 text-center text-sm text-brand-black">
+          Sign-in could not be completed. Request a new magic link or use your passkey again.
+        </p>
+      ) : null}
+
+      <LoginFormShell
+        productName="Joshua Tree Reports"
+        shouldCreateUser={false}
+        termsHref={staffTermsUrl()}
+        redirectAfterSignIn="/"
+      />
+
+      <ReportSupportNote className="mt-8 max-w-md text-center" />
+    </div>
+  );
 }
