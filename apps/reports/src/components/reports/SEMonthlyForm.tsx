@@ -2,7 +2,15 @@
 
 import { useState, useEffect, useRef } from 'react';
 
-const RECALL_EXCLUDE = ['jobDevelopment', 'month', 'dateRangeCovers', 'dateReportSubmitted', 'hoursOfCoaching'];
+const RECALL_EXCLUDE = [
+  'jobDevelopment',
+  'month',
+  'dateRangeCovers',
+  'dateReportSubmitted',
+  'hoursOfCoaching',
+  'seSpecialistName',
+  'jobSeekerName',
+];
 
 interface Props {
   clientName: string;
@@ -57,7 +65,12 @@ export function SEMonthlyForm({
             if (recalled && Object.keys(recalled).length > 0) {
               const merged = { ...recalled };
               RECALL_EXCLUDE.forEach((k) => delete merged[k]);
-              setData((prev) => ({ ...merged, ...prev }));
+              setData((prev) => ({
+                ...merged,
+                ...prev,
+                seSpecialistName: esName,
+                jobSeekerName: clientName,
+              }));
               setRecallMessage('Previous report data loaded (except date, hours coached, and job development).');
             } else {
               setRecallMessage('No previous report found for this client.');
@@ -93,7 +106,7 @@ export function SEMonthlyForm({
       }
     }
     loadRecallAndPrefill();
-  }, [clientName, wayfinderClientId, adHoc, reportMonth]);
+  }, [clientName, wayfinderClientId, adHoc, reportMonth, esName]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

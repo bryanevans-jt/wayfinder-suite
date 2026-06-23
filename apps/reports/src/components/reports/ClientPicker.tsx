@@ -40,7 +40,7 @@ export function ClientPicker({
   const [results, setResults] = useState<SearchClient[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(initialClientId ?? null);
   const [manualName, setManualName] = useState(initialClientId ? '' : initialClientName);
-  const [adHoc, setAdHoc] = useState(!initialClientId);
+  const [adHoc, setAdHoc] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notFoundWarning, setNotFoundWarning] = useState(false);
 

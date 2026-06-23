@@ -15,6 +15,7 @@ import { JTSGTSVSForm } from '@/components/reports/JTSGTSVSForm';
 import { ReviewAndSign } from '@/components/reports/ReviewAndSign';
 import { SubmissionStatus } from '@/components/reports/SubmissionStatus';
 import { withReportSupportHint } from '@/lib/report-errors';
+import { resolveReportingEsName } from '@/lib/es-display-name';
 
 type Screen =
   | 'STATE_SELECTION'
@@ -53,7 +54,7 @@ function ReportsWorkspace() {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) {
         router.push('/login');
         return;
@@ -63,11 +64,20 @@ function ReportsWorkspace() {
         router.push('/login?error=org_only');
         return;
       }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, first_name, last_name')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      const resolvedEsName = resolveReportingEsName(profile, user.user_metadata);
+
       setUser({
         email,
-        displayName: user.user_metadata?.full_name || user.email || '',
+        displayName: resolvedEsName || email,
       });
-      setEsName(user.user_metadata?.full_name || user.email || '');
+      setEsName(resolvedEsName);
       setLoading(false);
     });
   }, [router]);
