@@ -1,4 +1,4 @@
-import { JT_VOCATIONAL_REPORTS_URL } from "./constants";
+import { WAYFINDER_REPORTS_URL } from "./constants";
 
 export type JtReportPrefillType = "seMonthly" | "vpr" | "jtsgvmr" | "evf" | "jtsgtsvs";
 
@@ -8,7 +8,7 @@ export function reportsAppBaseUrl(): string {
   if (configured) {
     return configured.replace(/\/$/, "");
   }
-  return JT_VOCATIONAL_REPORTS_URL.replace(/\/$/, "");
+  return WAYFINDER_REPORTS_URL.replace(/\/$/, "");
 }
 
 /** Launch URL for formal reporting inside Wayfinder Pro. */
