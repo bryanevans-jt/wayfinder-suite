@@ -25,7 +25,7 @@ export function FormalReportLaunchLink({
         "inline-flex rounded-lg border border-brand-gold/50 bg-brand-gold/10 px-4 py-2 text-sm font-semibold text-brand-black hover:bg-brand-gold/20"
       }
     >
-      Open Joshua Tree Reports for this client
+      Open formal reporting for this client
     </a>
   );
 }

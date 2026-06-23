@@ -8,6 +8,7 @@
     "lint": "turbo lint",
     "dev:staff": "npm run dev -w @wayfinder/staff",
     "dev:client": "npm run dev -w @wayfinder/client",
+    "dev:reports": "npm run dev -w @wayfinder/reports",
     "generate-vapid": "node scripts/generate-vapid-keys.mjs"
   },
   "devDependencies": {

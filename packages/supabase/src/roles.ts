@@ -69,6 +69,11 @@ export function isKnownRole(role: string | null | undefined): boolean {
   return isStaffRole(role) || isClientRole(role);
 }
 
+/** Formal reporting (Joshua Tree Reports) — ES, supervisors, and admin tier. */
+export function canAccessFormalReporting(role: string | null | undefined): boolean {
+  return isEsRole(role) || isSupervisorRole(role) || isAdminTierRole(role);
+}
+
 export function staffHomePath(role: string | null | undefined): string {
   const r = normalizeRole(role);
   if (r === "counselor") return "/dashboard/counselor";

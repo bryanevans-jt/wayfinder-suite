@@ -1,4 +1,5 @@
 import {
+  canAccessFormalReporting,
   isAdminTierRole,
   isCounselorRole,
   isEsRole,
@@ -8,10 +9,7 @@ import {
   staffHomePath,
 } from "@wayfinder/supabase/roles";
 
-/** Formal reporting (Joshua Tree Reports) — ES, supervisors, and admin tier. */
-export function canAccessFormalReporting(role: string | null | undefined): boolean {
-  return isEsRole(role) || isSupervisorRole(role) || isAdminTierRole(role);
-}
+export { canAccessFormalReporting };
 
 const COUNSELOR_BLOCKED_PREFIXES = [
   "/dashboard/clients",

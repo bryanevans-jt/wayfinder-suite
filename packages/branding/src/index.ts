@@ -17,7 +17,7 @@ export {
   CONTACT_LOG_INTERNAL_NOTES_LABEL,
   CONTACT_LOG_NOTES_LABEL,
 } from "./constants";
-export { buildJtReportsPrefillUrl, type JtReportPrefillType } from "./jt-reports-prefill";
+export { buildJtReportsPrefillUrl, buildReportsAppUrl, reportsAppBaseUrl, type JtReportPrefillType } from "./jt-reports-prefill";
 export { ClientActivityTimeline, type ClientActivityFeedItem } from "./client-activity-timeline";
 export {
   buildClientActivityFeed,
