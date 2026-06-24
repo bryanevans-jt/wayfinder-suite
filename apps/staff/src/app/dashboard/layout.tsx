@@ -1,3 +1,4 @@
+import { PwaInstallPrompt } from "@wayfinder/branding";
 import { StaffDashboardShell } from "@/components/staff-dashboard-shell";
 import { PreviewBanner } from "@/components/preview-banner";
 import { getAppSession, staffAppOrigin } from "@wayfinder/supabase/preview-server";
@@ -25,6 +26,9 @@ export default async function DashboardLayout({
         />
       ) : null}
       <StaffDashboardShell staffRole={navRole} showAuditLink={showAuditLink}>
+        <div className="px-4 pt-4 sm:px-6">
+          <PwaInstallPrompt />
+        </div>
         {children}
       </StaffDashboardShell>
     </div>

@@ -51,6 +51,14 @@ const EXPORT_CARDS: ExportCard[] = [
     filename: "wayfinder-timesheet.csv",
     roles: ["es"],
   },
+  {
+    title: "Payroll export (approved time)",
+    description:
+      "Approved billable entries for the current pay period — formatted for payroll processing.",
+    href: "/api/exports/payroll",
+    filename: "wayfinder-payroll.csv",
+    roles: [],
+  },
 ];
 
 function canUseExport(role: string | null, card: ExportCard): boolean {
@@ -60,10 +68,14 @@ function canUseExport(role: string | null, card: ExportCard): boolean {
   if (isSupervisorRole(role)) {
     return card.roles.includes("supervisor");
   }
+  if (role === "accountant") {
+    return card.href === "/api/exports/payroll";
+  }
   return false;
 }
 
 function hasAnyExport(role: string | null): boolean {
+  if (role === "accountant") return true;
   return EXPORT_CARDS.some((card) => canUseExport(role, card));
 }
 
@@ -88,7 +100,7 @@ export function ExportsWorkspace({ role, readOnly = false }: Props) {
           Pull operational data into a spreadsheet. These files are for analysis and internal use —
           not for funder PDF submission.
         </p>
-        {!canDownload ? (
+        {!canDownload && role !== "accountant" ? (
           <p className="text-sm text-brand-black/70">
             CSV downloads on this page are for <strong>employment specialists</strong> and{" "}
             <strong>supervisors</strong>. Open the{" "}

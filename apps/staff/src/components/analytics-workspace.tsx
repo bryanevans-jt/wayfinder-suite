@@ -14,6 +14,7 @@ type FilterOptions = {
 
 type Props = {
   readOnly?: boolean;
+  showBenchmark?: boolean;
 };
 
 function formatPercent(value: number | null): string {
@@ -29,7 +30,7 @@ function formatMonthLabel(yyyyMm: string): string {
   return date.toLocaleDateString(undefined, { month: "short", year: "numeric" });
 }
 
-export function AnalyticsWorkspace({ readOnly = false }: Props) {
+export function AnalyticsWorkspace({ readOnly = false, showBenchmark = false }: Props) {
   const defaults = useMemo(() => defaultAnalyticsRange(), []);
   const [from, setFrom] = useState(defaults.from);
   const [to, setTo] = useState(defaults.to);
@@ -37,6 +38,11 @@ export function AnalyticsWorkspace({ readOnly = false }: Props) {
   const [esUserId, setEsUserId] = useState("");
   const [filters, setFilters] = useState<FilterOptions | null>(null);
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
+  const [benchmark, setBenchmark] = useState<{
+    hireRateDeltaPct: number | null;
+    medianDaysToHireDelta: number | null;
+    current: { hireRate: number | null; medianDaysToHire: number | null };
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,6 +91,11 @@ export function AnalyticsWorkspace({ readOnly = false }: Props) {
       setLoading(true);
       try {
         await loadSummary();
+        if (showBenchmark) {
+          const bRes = await fetch(`/api/analytics/benchmark?${queryString}`);
+          const bData = (await bRes.json()) as { benchmark?: typeof benchmark };
+          if (bRes.ok) setBenchmark(bData.benchmark ?? null);
+        }
       } catch (e) {
         setError(friendlyClientError(e));
         setSummary(null);
@@ -92,7 +103,7 @@ export function AnalyticsWorkspace({ readOnly = false }: Props) {
         setLoading(false);
       }
     })();
-  }, [loadSummary]);
+  }, [loadSummary, showBenchmark, queryString]);
 
   const exportHref = `/api/analytics/export?${queryString}`;
 
@@ -180,6 +191,34 @@ export function AnalyticsWorkspace({ readOnly = false }: Props) {
         <p className="text-sm text-brand-black/60">Loading analytics…</p>
       ) : summary ? (
         <>
+          {benchmark ? (
+            <section className="rounded-xl border border-brand-green/25 bg-brand-green/5 p-5">
+              <h2 className="text-base font-semibold text-brand-black">Outcome benchmark</h2>
+              <p className="mt-1 text-sm text-brand-black/65">
+                Compared to the prior period of equal length in your scope.
+              </p>
+              <ul className="mt-4 grid gap-3 sm:grid-cols-2 text-sm">
+                <li className="rounded-lg border border-neutral-100 bg-white px-4 py-3">
+                  <span className="font-medium">Hire rate</span>
+                  <p className="mt-1 text-brand-black/80">
+                    {formatPercent(benchmark.current.hireRate)} now
+                    {benchmark.hireRateDeltaPct != null
+                      ? ` · ${benchmark.hireRateDeltaPct >= 0 ? "+" : ""}${benchmark.hireRateDeltaPct.toFixed(1)}% vs prior`
+                      : null}
+                  </p>
+                </li>
+                <li className="rounded-lg border border-neutral-100 bg-white px-4 py-3">
+                  <span className="font-medium">Median days to hire</span>
+                  <p className="mt-1 text-brand-black/80">
+                    {benchmark.current.medianDaysToHire ?? "—"} days now
+                    {benchmark.medianDaysToHireDelta != null
+                      ? ` · ${benchmark.medianDaysToHireDelta >= 0 ? "+" : ""}${benchmark.medianDaysToHireDelta} days vs prior`
+                      : null}
+                  </p>
+                </li>
+              </ul>
+            </section>
+          ) : null}
           <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <MetricCard
               title={ANALYTICS_METRIC_DEFINITIONS.activeCaseload.label}

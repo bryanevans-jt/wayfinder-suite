@@ -12,3 +12,16 @@
 body {
   @apply bg-brand-white text-brand-black antialiased;
 }
+
+html.wf-a11y-large-text {
+  font-size: 118%;
+}
+
+html.wf-a11y-high-contrast body {
+  background: #fff;
+  color: #000;
+}
+
+html.wf-a11y-high-contrast a {
+  text-decoration: underline;
+}

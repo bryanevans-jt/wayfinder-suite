@@ -4,6 +4,7 @@ import {
   resolveErrorActor,
   USER_FACING_AUTH_REQUIRED,
 } from "@wayfinder/supabase/error-log";
+import { sortNotificationsByPriority } from "@wayfinder/supabase/notification-priority";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -32,7 +33,8 @@ export async function GET() {
     }
 
     const unread = (data ?? []).filter((n) => !n.read_at).length;
-    return NextResponse.json({ notifications: data ?? [], unread });
+    const notifications = sortNotificationsByPriority(data ?? []);
+    return NextResponse.json({ notifications, unread });
   } catch (err) {
     return respondWithLoggedError("client", route, err);
   }

@@ -26,10 +26,14 @@ export {
 } from "./client-activity-feed";
 export {
   APPLICATION_STATUSES,
+  PIPELINE_BOARD_STATUSES,
   applicationStatusLabel,
   isApplicationStatus,
   isGoldApplicationStatus,
+  isPipelineBoardStatus,
+  isTerminalApplicationStatus,
   type ApplicationStatus,
+  type PipelineBoardStatus,
 } from "./application-status";
 export {
   EMPLOYMENT_CATEGORIES,
@@ -61,6 +65,7 @@ export {
 } from "./person-display-name";
 export { MEETING_TIMEZONES } from "./meeting-timezones";
 export { WayfinderFooter } from "./wayfinder-footer";
+export { PwaInstallPrompt } from "./pwa-install-prompt";
 export { WayfinderTopNav, type WayfinderNavBadge } from "./wayfinder-top-nav";
 export { wayfinderSecurityHeaders } from "./security-headers";
 export {

@@ -70,6 +70,10 @@ type Props = {
   readOnlyReason?: "preview" | "role";
   isAdminTier?: boolean;
   initialEmployers?: EmployerRow[];
+  lastTouchByEmployer?: Record<
+    string,
+    { touchedAt: string; touchedByName: string | null; outcome: string | null }
+  >;
 };
 
 export function CommunityPartnersWorkspace({
@@ -78,6 +82,7 @@ export function CommunityPartnersWorkspace({
   readOnlyReason = "preview",
   isAdminTier = false,
   initialEmployers = [],
+  lastTouchByEmployer = {},
 }: Props) {
   const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>("list");
@@ -473,13 +478,14 @@ export function CommunityPartnersWorkspace({
               <th className="px-4 py-3 font-semibold text-brand-black">Status</th>
               <th className="px-4 py-3 font-semibold text-brand-black">Contact</th>
               <th className="px-4 py-3 font-semibold text-brand-black">Location</th>
+              <th className="px-4 py-3 font-semibold text-brand-black">Last touched</th>
               <th className="px-4 py-3 font-semibold text-brand-black">Office</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-brand-black/60">
+                <td colSpan={6} className="px-4 py-8 text-center text-brand-black/60">
                   Loading employers…
                 </td>
               </tr>
@@ -526,6 +532,23 @@ export function CommunityPartnersWorkspace({
                       ) : null}
                     </td>
                     <td className="px-4 py-3 text-brand-black">{location}</td>
+                    <td className="px-4 py-3 text-sm text-brand-black/80">
+                      {(() => {
+                        const touch = lastTouchByEmployer[row.id];
+                        if (!touch) return <span className="text-brand-black/45">—</span>;
+                        return (
+                          <div>
+                            <div>{new Date(touch.touchedAt).toLocaleDateString()}</div>
+                            {touch.touchedByName ? (
+                              <div className="text-xs text-brand-black/55">{touch.touchedByName}</div>
+                            ) : null}
+                            {touch.outcome ? (
+                              <div className="text-xs text-brand-black/55 line-clamp-2">{touch.outcome}</div>
+                            ) : null}
+                          </div>
+                        );
+                      })()}
+                    </td>
                     <td className="px-4 py-3 text-brand-black">{officeName}</td>
                   </tr>
                 );

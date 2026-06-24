@@ -10,6 +10,7 @@ import { findEmployerMatches } from "@/lib/employer-matching";
 import { supabaseEmbedName } from "@/lib/supabase-embed";
 import { ClientProfileForm, type ClientProfileData } from "@/components/client-profile-form";
 import { EmployerMatchPanel } from "@/components/employer-match-panel";
+import { ClientJobStartDateForm } from "./client-job-start-date-form";
 import { ClientApplicationForm } from "./client-application-form";
 import { ClientContactLogForm } from "./client-contact-log-form";
 import { ClientMeetingForm } from "./client-meeting-form";
@@ -21,7 +22,7 @@ import { SubmittedFormalReportsPanel } from "@/components/submitted-formal-repor
 type PageProps = { params: Promise<{ id: string }> };
 
 const CLIENT_SELECT =
-  "id, user_id, profile_id, contact_email, current_service_id, current_stage_id, office_id, counselor_id, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other";
+  "id, user_id, profile_id, contact_email, current_service_id, current_stage_id, office_id, counselor_id, job_start_date, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other";
 
 export default async function EsClientDetailPage({ params }: PageProps) {
   const { id: clientId } = await params;
@@ -314,6 +315,12 @@ export default async function EsClientDetailPage({ params }: PageProps) {
           <ClientContactLogForm
             clientId={client.id}
             activities={filterClientContactActivityTypes(activities)}
+          />
+        ) : null}
+        {!readOnly ? (
+          <ClientJobStartDateForm
+            clientId={client.id}
+            initialJobStartDate={(client as { job_start_date?: string | null }).job_start_date ?? null}
           />
         ) : null}
         {!readOnly ? (

@@ -7,8 +7,9 @@ import {
 import { DEFAULT_ACTIVITY_CODES } from "@wayfinder/supabase/es-time-tracking";
 import type { ServiceActivityType } from "@wayfinder/supabase/es-time-tracking";
 import type { ActionResult } from "@wayfinder/supabase/error-log";
+import { suggestContactLogFollowUps } from "@wayfinder/supabase/contact-log-suggestions";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { TimeActivityFields, useTimeActivityDefaults } from "@/components/time-activity-fields";
 
 type Props = {
@@ -40,6 +41,18 @@ export function ClientContactLogForm({ clientId, activities }: Props) {
       setDurationMinutes(match.default_minutes);
     }
   }, [activities, activityTypeId]);
+
+  const selectedActivity = activities.find((a) => a.id === activityTypeId);
+  const suggestions = useMemo(
+    () =>
+      suggestContactLogFollowUps({
+        activityName: selectedActivity?.name ?? "",
+        narrative: contactNotes,
+        daysSinceLastContact: null,
+        hasOpenApplications: false,
+      }),
+    [selectedActivity?.name, contactNotes]
+  );
 
   function save() {
     setError(null);
@@ -129,6 +142,19 @@ export function ClientContactLogForm({ clientId, activities }: Props) {
           activityTypeLabel="Activity type"
           disabled={pending}
         />
+        {suggestions.length > 0 ? (
+          <div className="flex flex-wrap gap-2" aria-label="Suggestions">
+            {suggestions.map((s) => (
+              <span
+                key={s.id}
+                className="rounded-full border border-brand-green/30 bg-brand-green/5 px-3 py-1 text-xs text-brand-black/80"
+                title={s.message}
+              >
+                {s.message}
+              </span>
+            ))}
+          </div>
+        ) : null}
         <button
           type="button"
           onClick={save}

@@ -26,7 +26,10 @@ export default async function AnalyticsPage() {
         application activity. Numbers use the same definitions every time and can be exported
         for leadership or grant reporting.
       </p>
-      <AnalyticsWorkspace readOnly={session.isPreviewing} />
+      <AnalyticsWorkspace
+        readOnly={session.isPreviewing}
+        showBenchmark={isSupervisorRole(role) || isAdminTierRole(role)}
+      />
     </main>
   );
 }

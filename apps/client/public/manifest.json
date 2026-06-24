@@ -1,0 +1,17 @@
+{
+  "name": "Wayfinder",
+  "short_name": "Wayfinder",
+  "description": "Joshua Tree Wayfinder — your employment success path",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2d6a4f",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

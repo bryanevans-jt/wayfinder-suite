@@ -67,6 +67,18 @@ const analyticsNav: NavItem = {
   match: (p) => p === "/dashboard/analytics",
 };
 
+const complianceNav: NavItem = {
+  href: "/dashboard/compliance",
+  label: "Compliance",
+  match: (p) => p === "/dashboard/compliance",
+};
+
+const operationsNav: NavItem = {
+  href: "/dashboard/operations",
+  label: "Team operations",
+  match: (p) => p === "/dashboard/operations",
+};
+
 const helpNav: NavItem = {
   href: "/dashboard/help",
   label: "Help",
@@ -101,6 +113,8 @@ function navItemsForRole(staffRole: string | null, showAuditLink = false): NavIt
       analyticsNav,
       reportingNav,
       communityPartnersNav,
+      complianceNav,
+      operationsNav,
     ];
     if (showAuditLink) {
       items.push({
@@ -122,6 +136,8 @@ function navItemsForRole(staffRole: string | null, showAuditLink = false): NavIt
       analyticsNav,
       reportingNav,
       communityPartnersNav,
+      complianceNav,
+      operationsNav,
     ]);
   }
 
@@ -146,6 +162,8 @@ function navItemsForRole(staffRole: string | null, showAuditLink = false): NavIt
       analyticsNav,
       dataExportsNav,
       reportingNav,
+      operationsNav,
+      complianceNav,
     ]);
   }
 

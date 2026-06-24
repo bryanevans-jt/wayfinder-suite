@@ -1,6 +1,7 @@
 import { createServerClient, isEsReplyOverdue, isEsRole } from "@wayfinder/supabase";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { clientDisplayName, dedupeServicesForSelect, serviceDisplayName } from "@wayfinder/branding";
+import { sortClientsByTriage } from "@wayfinder/supabase/caseload-triage";
 import { USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -10,6 +11,12 @@ import {
   ResponsiveTableShell,
 } from "@/components/responsive-table-shell";
 import { ViewArchivedToggle } from "@/components/view-archived-toggle";
+import { CaseloadTriageIcons } from "@/components/caseload-triage-icons";
+import {
+  EsApplicationPipelineBoard,
+  type PipelineApplication,
+} from "@/components/es-application-pipeline-board";
+import { loadCaseloadTriageFlags } from "@/lib/caseload-operations";
 import { fetchEsCaseloadClients, getEsCaseloadAdmin } from "@/lib/es-caseload-data";
 import { AddClientLauncher } from "./add-client-launcher";
 import { EsNaturalSupportButton } from "./es-natural-support-button";
@@ -81,6 +88,13 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
   }
 
   const clients = caseload.clients;
+
+  const clientIds = clients.map((c) => c.id);
+
+  const triageFlagsByClient =
+    admin && clientIds.length > 0
+      ? await loadCaseloadTriageFlags(admin, effectiveUserId, clientIds)
+      : new Map();
 
   const profileIds = [
     ...new Set(clients.map((c) => c.user_id ?? c.profile_id).filter(Boolean)),
@@ -157,6 +171,39 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
       };
     }) ?? [];
 
+  const clientRows = clients.map((c) => {
+    const profileId = c.user_id ?? c.profile_id;
+    const name = clientDisplayName({
+      full_name: (profileId ? profileName.get(profileId) : null) ?? null,
+      contact_email: c.contact_email,
+      id: c.id,
+    });
+    return { ...c, displayName: name };
+  });
+
+  const sortedClients = sortClientsByTriage(
+    clientRows.map((c) => ({ id: c.id, name: c.displayName })),
+    triageFlagsByClient
+  ).map((row) => clientRows.find((c) => c.id === row.id)!);
+
+  let pipelineApplications: PipelineApplication[] = [];
+  if (admin && clientIds.length > 0) {
+    const { data: appRows } = await admin
+      .from("applications")
+      .select("id, client_id, company_name, status, updated_at, created_at")
+      .in("client_id", clientIds)
+      .order("updated_at", { ascending: false });
+    const nameByClient = new Map(clientRows.map((c) => [c.id, c.displayName]));
+    pipelineApplications = (appRows ?? []).map((a) => ({
+      id: a.id as string,
+      clientId: a.client_id as string,
+      clientName: nameByClient.get(a.client_id as string) ?? "Client",
+      companyName: (a.company_name as string) || "—",
+      status: (a.status as string) || "Applied",
+      updatedAt: (a.updated_at ?? a.created_at) as string,
+    }));
+  }
+
   return (
     <main className="px-4 py-8 sm:px-6 sm:py-10">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -185,6 +232,11 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
         </div>
       </div>
 
+      <EsApplicationPipelineBoard
+        applications={pipelineApplications}
+        readOnly={session.isPreviewing}
+      />
+
       <ResponsiveTableShell className="mt-8">
         <table className={RESPONSIVE_TABLE_CLASS}>
           <thead>
@@ -206,13 +258,8 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
                 </td>
               </tr>
             ) : (
-              clients.map((c) => {
-                const profileId = c.user_id ?? c.profile_id;
-                const name = clientDisplayName({
-                  full_name: (profileId ? profileName.get(profileId) : null) ?? null,
-                  contact_email: c.contact_email,
-                  id: c.id,
-                });
+              sortedClients.map((c) => {
+                const name = c.displayName;
                 const svc = c.current_service_id
                   ? (serviceName.get(c.current_service_id) ?? "—")
                   : "—";
@@ -221,6 +268,7 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
                   : "—";
                 const overdue = overdueByClient.get(c.id);
                 const archived = c.archived_at != null;
+                const triageFlags = triageFlagsByClient.get(c.id) ?? [];
                 return (
                   <tr key={c.id} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50/80">
                     <td className="px-4 py-3">
@@ -230,6 +278,7 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
                       >
                         {name}
                       </Link>
+                      <CaseloadTriageIcons flags={triageFlags} />
                       {archived ? (
                         <span className="ml-2 rounded-full bg-neutral-200 px-2 py-0.5 text-xs font-semibold uppercase text-brand-black/60">
                           Archived

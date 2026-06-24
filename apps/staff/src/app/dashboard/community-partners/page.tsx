@@ -8,6 +8,8 @@ import { isAdminTierRole } from "@wayfinder/supabase/roles";
 import { createServerClient } from "@wayfinder/supabase";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { redirect } from "next/navigation";
+import { loadEmployerLastTouches } from "@/lib/caseload-operations";
+import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 
 export default async function CommunityPartnersPage() {
   const session = await getAppSession();
@@ -49,6 +51,25 @@ export default async function CommunityPartnersPage() {
     ? []
     : ((employersQuery.data ?? []) as EmployerRow[]);
 
+  let lastTouchByEmployer: Record<string, { touchedAt: string; touchedByName: string | null; outcome: string | null }> = {};
+  if (!migrationMissing && initialEmployers.length > 0) {
+    try {
+      const admin = createServiceRoleClient();
+      const touches = await loadEmployerLastTouches(
+        admin,
+        initialEmployers.map((e) => e.id)
+      );
+      lastTouchByEmployer = Object.fromEntries(
+        [...touches.entries()].map(([id, t]) => [
+          id,
+          { touchedAt: t.touchedAt, touchedByName: t.touchedByName, outcome: t.outcome },
+        ])
+      );
+    } catch {
+      lastTouchByEmployer = {};
+    }
+  }
+
   return (
     <main className="px-4 py-8 sm:px-6 sm:py-10">
       <header className="max-w-3xl">
@@ -82,6 +103,7 @@ export default async function CommunityPartnersPage() {
         readOnlyReason={session.isPreviewing ? "preview" : "role"}
         isAdminTier={isAdminTier}
         initialEmployers={initialEmployers}
+        lastTouchByEmployer={lastTouchByEmployer}
       />
     </main>
   );

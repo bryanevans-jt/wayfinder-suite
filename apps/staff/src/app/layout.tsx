@@ -28,6 +28,7 @@ export const metadata: Metadata = {
     icon: [{ url: WAYFINDER_FAVICON_PATH, type: "image/png" }],
     apple: [{ url: WAYFINDER_FAVICON_PATH, type: "image/png" }],
   },
+  manifest: "/manifest.json",
 };
 
 export default async function RootLayout({

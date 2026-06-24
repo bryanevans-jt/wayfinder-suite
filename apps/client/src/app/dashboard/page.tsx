@@ -1,11 +1,13 @@
 import { PushNotificationPrompt } from "@wayfinder/auth-ui";
-import { clientDisplayName } from "@wayfinder/branding";
+import { clientDisplayName, PwaInstallPrompt } from "@wayfinder/branding";
 import { createServerClient, isSupportRole } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { ensureClientAuthProfile } from "@wayfinder/supabase";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { AccessibilitySettings } from "@/components/accessibility-settings";
+import { ClientCelebrationsCard } from "@/components/client-celebrations-card";
 import { ClientOnboardingTour } from "@/components/client-onboarding-tour";
 import {
   SupportClientPicker,
@@ -45,6 +47,12 @@ export default async function ClientDashboardPage({
   }
 
   const displayEmail = authUser.user?.email ?? session.effectiveUserId;
+
+  const { data: a11yProfile } = await supabase
+    .from("profiles")
+    .select("accessibility_large_text, accessibility_high_contrast")
+    .eq("id", session.effectiveUserId)
+    .maybeSingle();
 
   let supportClients: SupportClientOption[] = [];
   if (support && authUser.user) {
@@ -92,6 +100,7 @@ export default async function ClientDashboardPage({
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-6 bg-brand-white px-4 py-8 sm:gap-8 sm:px-6 sm:py-16">
+      <PwaInstallPrompt />
       <ClientOnboardingTour />
       <header className="space-y-2">
         <p className="text-xs font-medium uppercase tracking-wide text-brand-green sm:text-sm">
@@ -109,12 +118,17 @@ export default async function ClientDashboardPage({
         </Suspense>
       ) : null}
       <PushNotificationPrompt />
+      <ClientCelebrationsCard />
       <SuccessPath selectedClientId={sp.client} />
       <ClientNextMeeting selectedClientId={sp.client} />
       <ClientApplicationsCard selectedClientId={sp.client} />
       <ClientActivity selectedClientId={sp.client} />
       {!support ? <ClientMessagesPanel /> : null}
       <DashboardActions allowPasskey={!support} />
+      <AccessibilitySettings
+        initialLargeText={Boolean(a11yProfile?.accessibility_large_text)}
+        initialHighContrast={Boolean(a11yProfile?.accessibility_high_contrast)}
+      />
     </main>
   );
 }

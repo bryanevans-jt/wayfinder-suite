@@ -27,7 +27,12 @@
     "./error-log": "./src/error-log.ts",
     "./client-bulk-import": "./src/client-bulk-import.ts",
     "./client-import-csv": "./src/client-import-csv.ts",
-    "./es-time-tracking": "./src/es-time-tracking.ts"
+    "./es-time-tracking": "./src/es-time-tracking.ts",
+    "./caseload-triage": "./src/caseload-triage.ts",
+    "./employment-celebrations": "./src/employment-celebrations.ts",
+    "./notification-priority": "./src/notification-priority.ts",
+    "./payroll-period": "./src/payroll-period.ts",
+    "./contact-log-suggestions": "./src/contact-log-suggestions.ts"
   },
   "scripts": {
     "lint": "tsc --noEmit"

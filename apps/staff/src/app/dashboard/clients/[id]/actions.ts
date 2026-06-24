@@ -16,7 +16,9 @@ import { assertNotPreviewMutation } from "@wayfinder/supabase/preview-server";
 import { revalidatePath } from "next/cache";
 import { assertStaffClientWriteAccess } from "@/lib/es-client-access";
 import { saveClientContactLog } from "@/lib/save-client-contact-log";
-import { portalPathForRole } from "@/lib/staff-nav";
+import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { processEmploymentCelebration } from "@wayfinder/supabase/employment-celebrations";
+import { clientDisplayName } from "@wayfinder/branding";
 
 function revalidateClientPaths(clientId: string) {
   revalidatePath("/dashboard/clients");
@@ -252,4 +254,76 @@ export async function updateClientApplication(
   }
 
   revalidateClientPaths(clientId);
+}
+
+export async function setClientJobStartDate(
+  clientId: string,
+  jobStartDate: string
+): Promise<ActionResult> {
+  let actorUserId: string | undefined;
+
+  try {
+    await assertNotPreviewMutation();
+    const trimmed = jobStartDate.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return { ok: false, error: "Enter a valid job start date." };
+    }
+
+    const { admin, userId } = await assertStaffClientWriteAccess(clientId);
+    actorUserId = userId;
+
+    const { error } = await admin
+      .from("clients")
+      .update({ job_start_date: trimmed })
+      .eq("id", clientId);
+
+    if (error) {
+      return { ok: false, error: error.message };
+    }
+
+    const { data: clientRow } = await admin
+      .from("clients")
+      .select("contact_email, user_id, profile_id")
+      .eq("id", clientId)
+      .maybeSingle();
+
+    const profileId = (clientRow?.user_id ?? clientRow?.profile_id) as string | null;
+    let clientLabel = (clientRow?.contact_email as string | null) ?? "Client";
+    if (profileId) {
+      const { data: profile } = await admin
+        .from("profiles")
+        .select("full_name")
+        .eq("id", profileId)
+        .maybeSingle();
+      clientLabel = clientDisplayName({
+        full_name: (profile?.full_name as string | null) ?? null,
+        contact_email: clientRow?.contact_email as string | null,
+        id: clientId,
+      });
+    }
+
+    try {
+      const celebrationAdmin = createServiceRoleClient();
+      await processEmploymentCelebration(
+        celebrationAdmin,
+        clientId,
+        "hire",
+        trimmed,
+        clientLabel
+      );
+    } catch (err) {
+      console.error("hire celebration failed:", err);
+    }
+
+    revalidateClientPaths(clientId);
+    return { ok: true };
+  } catch (err) {
+    return finishActionFailure(
+      "staff",
+      "actions/setClientJobStartDate",
+      err,
+      { userId: actorUserId },
+      "We could not save the job start date."
+    );
+  }
 }
