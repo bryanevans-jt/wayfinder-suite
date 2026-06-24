@@ -18,14 +18,25 @@ function sectionsForRole(role: string | null): Section[] {
   if (isSuperAdminRole(role)) {
     return [
       {
+        title: "Sidebar layout",
+        body:
+          "The sidebar groups your work: Portal for configuration, Oversight for team health, Tools for reporting and partners. Notifications appear at the top when you have unread alerts.",
+        steps: [
+          "Portal → Super admin portal (and Audit when not previewing).",
+          "Oversight → Team operations, Compliance, Analytics.",
+          "Tools → Reporting (Joshua Tree Reports), Community Partners.",
+          "Help → this guide.",
+        ],
+      },
+      {
         title: "Super admin portal",
         body:
-          "The portal is your control center for organization setup, staff roles, integrations, and system health. Sidebar links are for day-to-day work; portal tabs hold configuration.",
+          "The portal is your control center for organization setup, staff roles, integrations, and system health.",
         steps: [
           "Portal → Organization for offices, services, and branding.",
           "Portal → Staff for roles, assignments, and invitations.",
           "Portal → Settings → Error log for WF reference codes and stack traces.",
-          "Sidebar Reporting opens Joshua Tree Reports; Data exports downloads CSV files from Wayfinder Pro.",
+          "Portal → Settings → Payroll for pay-period configuration used by accountant exports.",
           "Portal → Reports → Activity logs for org-wide audit CSV exports (not the same as sidebar Data exports).",
         ],
       },
@@ -34,8 +45,7 @@ function sectionsForRole(role: string | null): Section[] {
         body: "Three different tools — use the one that matches the task.",
         steps: [
           "Reporting (sidebar): Joshua Tree Reports — official PDF submissions to Google Drive.",
-          "Data exports (sidebar): CSV downloads from Wayfinder Pro for spreadsheets.",
-          "Analytics (sidebar): live charts for leadership and grant metrics.",
+          "Analytics (sidebar): live charts including outcome benchmarking for leadership.",
           "Portal activity logs: administrative audit trails, not client monthly reports.",
         ],
       },
@@ -45,14 +55,22 @@ function sectionsForRole(role: string | null): Section[] {
   if (isAdminTierRole(role)) {
     return [
       {
-        title: "Your admin portal",
-        body: "Use the Admin portal tab for organization settings and staff management. Use the sidebar for everyday work with clients and reports.",
+        title: "Sidebar layout",
+        body:
+          "Daily configuration lives in the Admin portal. Oversight pages show team capacity, compliance gaps, and analytics. Notifications alert you to message SLA issues and employment milestones.",
         steps: [
-          "Open Admin portal from the sidebar when you need to add offices, services, or staff.",
-          "Use Clients (Employment Specialists only) for caseload work — admins typically oversee through Analytics and exports.",
-          "Reporting in the sidebar opens Joshua Tree Reports for official monthly paperwork.",
-          "Data exports downloads spreadsheet files when you need numbers outside the app.",
-          "Analytics shows organization-wide progress at a glance.",
+          "Portal → Admin portal for offices, services, and staff.",
+          "Oversight → Team operations, Compliance, Analytics.",
+          "Tools → Reporting, Community Partners.",
+        ],
+      },
+      {
+        title: "Team operations and compliance",
+        body: "Use these when supervising program delivery — you see organization-wide slices as an admin.",
+        steps: [
+          "Team operations: ES caseload capacity and billable-hour trends.",
+          "Compliance: SE Monthly report gaps and timesheets awaiting approval.",
+          "Analytics: organization-wide progress and outcome benchmarking.",
         ],
       },
     ];
@@ -61,14 +79,24 @@ function sectionsForRole(role: string | null): Section[] {
   if (isSupervisorRole(role)) {
     return [
       {
-        title: "Supervisor portal and daily work",
-        body: "Your portal shows team overview. The sidebar is where you review messages, timesheets, and exports.",
+        title: "Sidebar layout",
+        body:
+          "Daily work is at the top (portal, messages, timesheet). Oversight covers your team’s coaching queue and compliance. Check Notifications for SLA alerts and client milestones.",
+        steps: [
+          "Daily work → Supervisor portal, Messages, Timesheet.",
+          "Oversight → Team operations, Compliance, Reporting, Analytics.",
+          "Tools → Data exports, Community Partners.",
+        ],
+      },
+      {
+        title: "Supervisor portal and coaching",
+        body: "Your portal shows team overview. Team operations adds a coaching queue for overdue message replies and thin contact logs.",
         steps: [
           "Supervisor portal: see your Employment Specialists and high-level caseload signals.",
-          "Messages: read-only view of client threads. You will get an alert if a specialist has not replied within 48 business hours.",
-          "Timesheet: review and approve time entries from your team.",
+          "Team operations: capacity view plus coaching queue (SLA overdue and fewer than four contacts per month).",
+          "Messages: read-only view of client threads.",
+          "Compliance: your team’s SE Monthly gaps and pending timesheet approvals.",
           "Reporting: open Joshua Tree Reports to submit or review official monthly reports.",
-          "Data exports: download CSV files when you need spreadsheets for supervision meetings.",
         ],
       },
     ];
@@ -77,14 +105,24 @@ function sectionsForRole(role: string | null): Section[] {
   if (isEsRole(role)) {
     return [
       {
+        title: "Sidebar layout",
+        body:
+          "Clients is your home base. The sidebar groups daily work (clients, messages, timesheet, reporting) and resources (partners, analytics, exports). Notifications surface message SLA and employment celebrations.",
+        steps: [
+          "Daily work → Clients, Messages, Timesheet, Reporting.",
+          "Resources → Community Partners, Analytics, Data exports.",
+        ],
+      },
+      {
         title: "Working with your clients",
-        body: "Clients in the sidebar is your home base. Open a client to log contacts, applications, meetings, and time.",
+        body:
+          "The Clients page sorts people who need follow-up to the top and shows attention badges. The application pipeline lets you click a card to change its status (including Offer).",
         steps: [
           "Log every contact and job application on the client profile — counselors see your contact notes.",
+          "Use suggested chips when logging contacts to speed up common entries.",
           "Use Messages to reply to clients. Aim to respond within 48 business hours.",
-          "Timesheet: review billable time captured from contacts, applications, and manual entries.",
-          "On each client profile, Monthly activity report builds text you can copy into official reports.",
-          "Reporting in the sidebar opens Joshua Tree Reports with the client name filled in — you can change any field before signing.",
+          "Set job start date on the profile when a client is hired — this triggers milestone notifications for the team and counselors.",
+          "Reporting in the sidebar opens Joshua Tree Reports with the client name filled in.",
         ],
       },
     ];
@@ -93,11 +131,20 @@ function sectionsForRole(role: string | null): Section[] {
   if (role === "accountant") {
     return [
       {
-        title: "Timesheet and exports",
-        body: "Your account focuses on time tracking and downloading data — you do not manage client caseloads here.",
+        title: "Sidebar layout",
+        body:
+          "Payroll tools are grouped at the top; Community Partners is reference data shared across the team.",
         steps: [
-          "Timesheet is your home page — review and work with time entries as assigned.",
-          "Data exports downloads spreadsheet files when you need them for payroll or records.",
+          "Payroll → Timesheet, Data exports.",
+          "Reference → Community Partners.",
+        ],
+      },
+      {
+        title: "Timesheet and exports",
+        body: "Your account focuses on approved time and payroll exports — you do not manage client caseloads here.",
+        steps: [
+          "Timesheet: review approved weeks as configured by super admin pay-period settings.",
+          "Data exports: download payroll CSV when you need numbers outside the app.",
           "Community Partners lists employer contacts shared across the team.",
         ],
       },
@@ -107,11 +154,13 @@ function sectionsForRole(role: string | null): Section[] {
   if (isCounselorRole(role)) {
     return [
       {
-        title: "My clients",
-        body: "You can see activity for clients assigned to you. You cannot edit their records or send messages through Wayfinder Pro.",
+        title: "My clients and notifications",
+        body:
+          "You can see activity for clients assigned to you. You cannot edit their records or send messages through Wayfinder Pro.",
         steps: [
           "Open My clients to see recent updates — contacts, applications, and milestones.",
-          "You will receive a weekly summary notification when there is new activity.",
+          "Notifications (top of the sidebar): weekly activity summaries and employment celebrations (hire, 30/60/90 days). Tap an alert to open that client’s timeline.",
+          "On mobile, open Menu to reach Notifications and My clients.",
           "If something looks wrong, contact the client’s Employment Specialist or your program supervisor.",
         ],
       },

@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StaffSidebarPanel } from "./staff-sidebar";
+import { PwaInstallPrompt } from "@wayfinder/branding";
 import { PushNotificationPrompt } from "@wayfinder/auth-ui";
 import { ReportAlertsBanner } from "./report-alerts-banner";
 
@@ -51,6 +52,9 @@ export function StaffDashboardShell({ staffRole, showAuditLink = false, children
           </button>
         </div>
         <div className="min-w-0 flex-1 bg-white">
+          <div className="mx-4 mt-3 lg:mx-6">
+            <PwaInstallPrompt />
+          </div>
           <PushNotificationPrompt className="mx-4 mt-3 lg:mx-6" />
           <ReportAlertsBanner staffRole={staffRole} />
           {children}

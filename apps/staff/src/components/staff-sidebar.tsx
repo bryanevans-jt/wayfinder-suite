@@ -1,16 +1,14 @@
 "use client";
 
-import {
-  isAdminTierRole,
-  isCounselorRole,
-  isEsRole,
-  isSuperAdminRole,
-  isSupervisorRole,
-} from "@wayfinder/supabase/roles";
+import { isCounselorRole } from "@wayfinder/supabase/roles";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { COMMUNITY_PARTNERS_PATH } from "@/lib/staff-nav";
+import {
+  showStaffNotifications,
+  staffNavSectionsForRole,
+  staffWorkspaceLabel,
+} from "@/lib/staff-nav";
 
 const StaffSidebarAccount = dynamic(
   () =>
@@ -35,205 +33,6 @@ const StaffNotificationsBell = dynamic(
   { ssr: false }
 );
 
-type NavItem = {
-  href: string;
-  label: string;
-  match: (pathname: string) => boolean;
-  external?: boolean;
-};
-
-const reportingNav: NavItem = {
-  href: "/dashboard/reporting",
-  label: "Reporting",
-  match: (p) => p === "/dashboard/reporting",
-};
-
-const dataExportsNav: NavItem = {
-  href: "/dashboard/exports",
-  label: "Data exports",
-  match: (p) => p === "/dashboard/exports",
-};
-
-const communityPartnersNav: NavItem = {
-  href: COMMUNITY_PARTNERS_PATH,
-  label: "Community Partners",
-  match: (p) =>
-    p.startsWith(COMMUNITY_PARTNERS_PATH) || p.startsWith("/dashboard/employer-network"),
-};
-
-const analyticsNav: NavItem = {
-  href: "/dashboard/analytics",
-  label: "Analytics",
-  match: (p) => p === "/dashboard/analytics",
-};
-
-const complianceNav: NavItem = {
-  href: "/dashboard/compliance",
-  label: "Compliance",
-  match: (p) => p === "/dashboard/compliance",
-};
-
-const operationsNav: NavItem = {
-  href: "/dashboard/operations",
-  label: "Team operations",
-  match: (p) => p === "/dashboard/operations",
-};
-
-const helpNav: NavItem = {
-  href: "/dashboard/help",
-  label: "Help",
-  match: (p) => p === "/dashboard/help",
-};
-
-function withHelp(items: NavItem[]): NavItem[] {
-  if (items.some((i) => i.href === helpNav.href)) {
-    return items;
-  }
-  return [...items, helpNav];
-}
-
-function navItemsForRole(staffRole: string | null, showAuditLink = false): NavItem[] {
-  if (isCounselorRole(staffRole)) {
-    return withHelp([
-      {
-        href: "/dashboard/counselor",
-        label: "My clients",
-        match: (p) => p.startsWith("/dashboard/counselor"),
-      },
-    ]);
-  }
-
-  if (isSuperAdminRole(staffRole)) {
-    const items: NavItem[] = [
-      {
-        href: "/dashboard/super-admin",
-        label: "Super admin",
-        match: (p) => p.startsWith("/dashboard/super-admin"),
-      },
-      analyticsNav,
-      reportingNav,
-      communityPartnersNav,
-      complianceNav,
-      operationsNav,
-    ];
-    if (showAuditLink) {
-      items.push({
-        href: "/dashboard/audit",
-        label: "Audit",
-        match: (p) => p === "/dashboard/audit",
-      });
-    }
-    return withHelp(items);
-  }
-
-  if (staffRole === "admin") {
-    return withHelp([
-      {
-        href: "/dashboard/admin",
-        label: "Admin portal",
-        match: (p) => p.startsWith("/dashboard/admin"),
-      },
-      analyticsNav,
-      reportingNav,
-      communityPartnersNav,
-      complianceNav,
-      operationsNav,
-    ]);
-  }
-
-  if (isSupervisorRole(staffRole)) {
-    return withHelp([
-      {
-        href: "/dashboard/supervisor",
-        label: "Supervisor portal",
-        match: (p) => p.startsWith("/dashboard/supervisor"),
-      },
-      {
-        href: "/dashboard/timesheet",
-        label: "Timesheet",
-        match: (p) => p.startsWith("/dashboard/timesheet"),
-      },
-      {
-        href: "/dashboard/messages",
-        label: "Messages",
-        match: (p) => p === "/dashboard/messages",
-      },
-      communityPartnersNav,
-      analyticsNav,
-      dataExportsNav,
-      reportingNav,
-      operationsNav,
-      complianceNav,
-    ]);
-  }
-
-  if (staffRole === "accountant") {
-    return withHelp([
-      {
-        href: "/dashboard/timesheet",
-        label: "Timesheet",
-        match: (p) => p.startsWith("/dashboard/timesheet"),
-      },
-      communityPartnersNav,
-      dataExportsNav,
-    ]);
-  }
-
-  if (isEsRole(staffRole)) {
-    return withHelp([
-      {
-        href: "/dashboard/clients",
-        label: "Clients",
-        match: (p) => p.startsWith("/dashboard/clients"),
-      },
-      {
-        href: "/dashboard/timesheet",
-        label: "Timesheet",
-        match: (p) => p.startsWith("/dashboard/timesheet"),
-      },
-      communityPartnersNav,
-      {
-        href: "/dashboard/messages",
-        label: "Messages",
-        match: (p) => p === "/dashboard/messages",
-      },
-      analyticsNav,
-      dataExportsNav,
-      reportingNav,
-    ]);
-  }
-
-  return withHelp([
-    {
-      href: "/dashboard/clients",
-      label: "Clients",
-      match: (p) => p.startsWith("/dashboard/clients"),
-    },
-    {
-      href: "/dashboard/messages",
-      label: "Messages",
-      match: (p) => p === "/dashboard/messages",
-    },
-    dataExportsNav,
-  ]);
-}
-
-function showNotificationsForRole(staffRole: string | null): boolean {
-  return (
-    isEsRole(staffRole) ||
-    isSupervisorRole(staffRole) ||
-    isAdminTierRole(staffRole)
-  );
-}
-
-function workspaceLabel(staffRole: string | null): string {
-  if (isCounselorRole(staffRole)) return "Counselor workspace";
-  if (isSuperAdminRole(staffRole)) return "Super admin";
-  if (isAdminTierRole(staffRole)) return "Admin workspace";
-  if (isSupervisorRole(staffRole)) return "Supervisor workspace";
-  return "Staff workspace";
-}
-
 export type StaffSidebarPanelProps = {
   staffRole: string | null;
   showAuditLink?: boolean;
@@ -248,35 +47,45 @@ export function StaffSidebarPanel({
   className = "",
 }: StaffSidebarPanelProps) {
   const pathname = usePathname() ?? "";
-  const nav = navItemsForRole(staffRole, showAuditLink);
+  const sections = staffNavSectionsForRole(staffRole, showAuditLink);
 
   return (
     <div className={`flex min-h-0 flex-col ${className}`.trim()}>
       <div className="flex flex-1 flex-col gap-1 p-4">
         <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-brand-green">
-          {workspaceLabel(staffRole)}
+          {staffWorkspaceLabel(staffRole)}
         </p>
-        {showNotificationsForRole(staffRole) ? <StaffNotificationsBell /> : null}
-        <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-brand-black/50">
-          Menu
-        </p>
-        {nav.map((item) => {
-          const active = item.match(pathname);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onNavigate}
-              className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                active
-                  ? "bg-brand-green/10 text-brand-green"
-                  : "text-brand-black hover:bg-neutral-100"
-              }`}
-            >
-              {item.label}
-            </Link>
-          );
-        })}
+        {showStaffNotifications(staffRole) ? <StaffNotificationsBell /> : null}
+        {sections.map((section, sectionIndex) => (
+          <div key={section.label ?? `section-${sectionIndex}`} className={sectionIndex > 0 ? "mt-3" : ""}>
+            {section.label ? (
+              <p className="px-3 pb-1 pt-1 text-xs font-semibold uppercase tracking-wide text-brand-black/45">
+                {section.label}
+              </p>
+            ) : sectionIndex === 0 ? (
+              <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-brand-black/50">
+                Menu
+              </p>
+            ) : null}
+            {section.items.map((item) => {
+              const active = item.match(pathname);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onNavigate}
+                  className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    active
+                      ? "bg-brand-green/10 text-brand-green"
+                      : "text-brand-black hover:bg-neutral-100"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </div>
       <StaffSidebarAccount showPasskey={!isCounselorRole(staffRole)} />
     </div>

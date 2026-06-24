@@ -148,7 +148,9 @@ export default async function CounselorPortalPage({
         <h1 className="mt-1 text-3xl font-semibold text-brand-green">Your clients</h1>
         <p className="mt-2 max-w-2xl text-sm text-brand-black/80">
           Signed in as <span className="font-medium text-brand-black">{counselorRow.full_name}</span>
-          . Open a card to see the full activity timeline. This portal is{" "}
+          . Open a card to see the full activity timeline. Check{" "}
+          <span className="font-medium text-brand-black">Notifications</span> in the sidebar for
+          weekly activity summaries and employment milestones. This portal is{" "}
           <span className="font-medium text-brand-black">view-only</span> — you cannot edit client
           records here.
           {includeArchived ? (

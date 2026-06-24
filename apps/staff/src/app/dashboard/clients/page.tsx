@@ -11,6 +11,7 @@ import {
   ResponsiveTableShell,
 } from "@/components/responsive-table-shell";
 import { ViewArchivedToggle } from "@/components/view-archived-toggle";
+import { CaseloadTriageLegend } from "@/components/caseload-triage-legend";
 import { CaseloadTriageIcons } from "@/components/caseload-triage-icons";
 import {
   EsApplicationPipelineBoard,
@@ -210,7 +211,9 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
         <div>
           <h1 className="text-2xl font-semibold text-brand-black">Clients</h1>
           <p className="mt-1 max-w-2xl text-sm text-brand-black/75">
-            Everyone listed here is assigned to you. Open a row to update their current stage.
+            Everyone listed here is assigned to you. Clients who need follow-up appear first in the
+            table. Use the application pipeline above to update statuses — click a card, then pick
+            the new stage. Open a row to update their current stage.
             {includeArchived ? (
               <> Showing archived clients (Closed or Dismissed).</>
             ) : (
@@ -236,6 +239,8 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
         applications={pipelineApplications}
         readOnly={session.isPreviewing}
       />
+
+      <CaseloadTriageLegend />
 
       <ResponsiveTableShell className="mt-8">
         <table className={RESPONSIVE_TABLE_CLASS}>
