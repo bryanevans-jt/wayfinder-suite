@@ -4,6 +4,7 @@ import {
   getSupabaseUrl,
   isCounselorRole,
   staffHomePath,
+  type SupabaseCookieToSet,
   wayfinderServerAuthOptions,
 } from "@wayfinder/supabase";
 import { resolvePreviewSession } from "@wayfinder/supabase/preview-middleware";
@@ -27,8 +28,10 @@ export async function middleware(request: NextRequest) {
       getAll() {
         return request.cookies.getAll();
       },
-      setAll(cookiesToSet: { name: string; value: string }[]) {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+      setAll(cookiesToSet: SupabaseCookieToSet[]) {
+        cookiesToSet.forEach(({ name, value, options }) =>
+          response.cookies.set(name, value, options)
+        );
       },
     },
   });
