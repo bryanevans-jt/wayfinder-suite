@@ -13,11 +13,18 @@ export type DemoClientRow = {
 };
 
 export async function listDemoClients(admin: SupabaseClient): Promise<DemoClientRow[]> {
-  const { data: clients } = await admin
+  const { data: clients, error } = await admin
     .from("clients")
     .select("id, contact_email, user_id, profile_id, created_at")
     .eq("is_demo", true)
     .order("created_at", { ascending: false });
+
+  if (error?.message.includes("is_demo")) {
+    return [];
+  }
+  if (error) {
+    throw new Error(error.message);
+  }
 
   if (!clients?.length) {
     return [];

@@ -15,6 +15,18 @@ type DemoRow = {
 
 type Option = { id: string; label: string };
 
+async function readJson<T>(res: Response): Promise<T> {
+  const text = await res.text();
+  if (!text.trim()) {
+    throw new Error(`Empty response from ${res.url || "server"} (${res.status})`);
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(`Invalid response from ${res.url || "server"} (${res.status})`);
+  }
+}
+
 export function DemoTrainingWorkspace() {
   const [demoClients, setDemoClients] = useState<DemoRow[]>([]);
   const [esUsers, setEsUsers] = useState<Option[]>([]);
@@ -32,41 +44,42 @@ export function DemoTrainingWorkspace() {
   const [message, setMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [demoRes, esRes, officeRes, serviceRes, counselorRes] = await Promise.all([
+    const [demoRes, configRes] = await Promise.all([
       fetch("/api/portal/demo-clients"),
-      fetch("/api/portal/es-users"),
-      fetch("/api/portal/offices"),
-      fetch("/api/portal/config"),
-      fetch("/api/portal/counselors"),
+      fetch("/api/portal/config?tier=super_admin"),
     ]);
 
-    const demoData = (await demoRes.json()) as { demoClients?: DemoRow[]; error?: string };
+    const demoData = await readJson<{ demoClients?: DemoRow[]; error?: string }>(demoRes);
     if (!demoRes.ok) {
       throw new Error(demoData.error ?? USER_FACING_SYSTEM_ERROR);
     }
     setDemoClients(demoData.demoClients ?? []);
 
-    const esData = (await esRes.json()) as { users?: { id: string; display_name?: string; email?: string }[] };
+    const configData = await readJson<{
+      bootstrap?: {
+        esUsers?: { id: string; display_name?: string; email?: string }[];
+        offices?: { id: string; name: string }[];
+        services?: { id: string; name: string }[];
+        counselors?: { id: string; full_name: string }[];
+      };
+      error?: string;
+    }>(configRes);
+
+    if (!configRes.ok) {
+      throw new Error(configData.error ?? USER_FACING_SYSTEM_ERROR);
+    }
+
+    const bootstrap = configData.bootstrap;
     setEsUsers(
-      (esData.users ?? []).map((u) => ({
+      (bootstrap?.esUsers ?? []).map((u) => ({
         id: u.id,
         label: u.display_name?.trim() || u.email || u.id,
       }))
     );
-
-    const officeData = (await officeRes.json()) as { offices?: { id: string; name: string }[] };
-    setOffices((officeData.offices ?? []).map((o) => ({ id: o.id, label: o.name })));
-
-    const configData = (await serviceRes.json()) as {
-      services?: { id: string; name: string }[];
-    };
-    setServices((configData.services ?? []).map((s) => ({ id: s.id, label: s.name })));
-
-    const counselorData = (await counselorRes.json()) as {
-      counselors?: { id: string; full_name: string }[];
-    };
+    setOffices((bootstrap?.offices ?? []).map((o) => ({ id: o.id, label: o.name })));
+    setServices((bootstrap?.services ?? []).map((s) => ({ id: s.id, label: s.name })));
     setCounselors(
-      (counselorData.counselors ?? []).map((c) => ({ id: c.id, label: c.full_name }))
+      (bootstrap?.counselors ?? []).map((c) => ({ id: c.id, label: c.full_name }))
     );
   }, []);
 

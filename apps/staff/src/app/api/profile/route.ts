@@ -1,4 +1,5 @@
 import { createServerClient } from "@wayfinder/supabase";
+import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
   respondWithLoggedError,
   resolveErrorActor,
@@ -10,10 +11,13 @@ import {
   isEsRole,
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 const PROFILE_SELECT =
   "id, full_name, first_name, last_name, phone, home_city, bio, role";
+
+const PROFILE_SELECT_FALLBACK = "id, full_name, role";
 
 function canEditOwnStaffProfile(role: string | null | undefined): boolean {
   return isEsRole(role) || isSupervisorRole(role) || isAdminTierRole(role);
@@ -22,6 +26,47 @@ function canEditOwnStaffProfile(role: string | null | undefined): boolean {
 function composeFullName(first: string, last: string): string | null {
   const name = [first, last].filter((p) => p.trim().length > 0).join(" ").trim();
   return name || null;
+}
+
+async function loadProfileRow(
+  admin: SupabaseClient,
+  userId: string
+): Promise<{ profile: Record<string, unknown> | null; error: Error | null }> {
+  const full = await admin
+    .from("profiles")
+    .select(PROFILE_SELECT)
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (!full.error) {
+    return { profile: full.data as Record<string, unknown> | null, error: null };
+  }
+
+  if (!full.error.message.includes("column")) {
+    return { profile: null, error: full.error };
+  }
+
+  const fallback = await admin
+    .from("profiles")
+    .select(PROFILE_SELECT_FALLBACK)
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (fallback.error) {
+    return { profile: null, error: fallback.error };
+  }
+
+  return {
+    profile: {
+      ...(fallback.data as Record<string, unknown>),
+      first_name: null,
+      last_name: null,
+      phone: null,
+      home_city: null,
+      bio: null,
+    },
+    error: null,
+  };
 }
 
 export async function GET() {
@@ -37,12 +82,8 @@ export async function GET() {
     }
 
     const actor = await resolveErrorActor(supabase, user.id);
-
-    const { data: profile, error } = await supabase
-      .from("profiles")
-      .select(PROFILE_SELECT)
-      .eq("id", user.id)
-      .maybeSingle();
+    const admin = createServiceRoleClient();
+    const { profile, error } = await loadProfileRow(admin, user.id);
 
     if (error) {
       return respondWithLoggedError("staff", route, error, actor);
@@ -74,12 +115,9 @@ export async function PATCH(request: Request) {
     }
 
     const actor = await resolveErrorActor(supabase, user.id);
+    const admin = createServiceRoleClient();
 
-    const { data: existing, error: loadError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
+    const { profile: existing, error: loadError } = await loadProfileRow(admin, user.id);
 
     if (loadError) {
       return respondWithLoggedError("staff", route, loadError, actor);
@@ -104,23 +142,51 @@ export async function PATCH(request: Request) {
     const bio = (body.bio ?? "").trim();
     const full_name = composeFullName(first_name, last_name);
 
-    const { data: profile, error } = await supabase
+    const patch = {
+      first_name: first_name || null,
+      last_name: last_name || null,
+      full_name,
+      phone: phone || null,
+      home_city: home_city || null,
+      bio: bio || null,
+      updated_at: new Date().toISOString(),
+    };
+
+    let profile: Record<string, unknown> | null = null;
+    let { data: updated, error } = await admin
       .from("profiles")
-      .update({
-        first_name: first_name || null,
-        last_name: last_name || null,
-        full_name,
-        phone: phone || null,
-        home_city: home_city || null,
-        bio: bio || null,
-        updated_at: new Date().toISOString(),
-      })
+      .update(patch)
       .eq("id", user.id)
       .select(PROFILE_SELECT)
       .maybeSingle();
 
-    if (error) {
+    if (error?.message.includes("column")) {
+      const basic = await admin
+        .from("profiles")
+        .update({
+          full_name,
+          updated_at: patch.updated_at,
+        })
+        .eq("id", user.id)
+        .select(PROFILE_SELECT_FALLBACK)
+        .maybeSingle();
+
+      if (basic.error) {
+        return respondWithLoggedError("staff", route, basic.error, actor);
+      }
+
+      profile = {
+        ...(basic.data as Record<string, unknown>),
+        first_name: first_name || null,
+        last_name: last_name || null,
+        phone: null,
+        home_city: null,
+        bio: null,
+      };
+    } else if (error) {
       return respondWithLoggedError("staff", route, error, actor);
+    } else {
+      profile = updated as Record<string, unknown> | null;
     }
 
     return NextResponse.json({ profile });
