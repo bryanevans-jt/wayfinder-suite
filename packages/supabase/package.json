@@ -20,6 +20,7 @@
     "./preview-cookies": "./src/preview-cookies.ts",
     "./preview-handoff": "./src/preview-handoff.ts",
     "./preview-middleware": "./src/preview-middleware.ts",
+    "./preview-stop": "./src/preview-stop.ts",
     "./notify-user": "./src/notify-user.ts",
     "./meeting-notify": "./src/meeting-notify.ts",
     "./meeting-reminders": "./src/meeting-reminders.ts",

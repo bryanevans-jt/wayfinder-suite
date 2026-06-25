@@ -50,3 +50,32 @@ export const PREVIEW_COOKIE_NAMES = [
   PREVIEW_ROLE_COOKIE,
   PREVIEW_NAME_COOKIE,
 ] as const;
+
+/** Clear preview cookies on a Next.js response (match domain from previewCookieOptions). */
+export function clearPreviewCookiesOnResponse(response: {
+  cookies: {
+    set: (
+      name: string,
+      value: string,
+      options?: {
+        httpOnly?: boolean;
+        sameSite?: "lax" | "strict" | "none";
+        path?: string;
+        maxAge?: number;
+        expires?: Date;
+        domain?: string;
+        secure?: boolean;
+      }
+    ) => void;
+  };
+}): void {
+  const base = previewCookieOptions(0);
+  const expires = new Date(0);
+  for (const name of PREVIEW_COOKIE_NAMES) {
+    response.cookies.set(name, "", {
+      ...base,
+      maxAge: 0,
+      expires,
+    });
+  }
+}

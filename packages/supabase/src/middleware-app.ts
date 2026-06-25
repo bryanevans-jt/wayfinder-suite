@@ -185,7 +185,7 @@ export async function wayfinderAuthMiddleware(
   const wantsStaff = isStaffRole(effectiveRole);
   const wantsClient = isClientRole(effectiveRole);
 
-  if (pathname.startsWith("/api/preview/handoff")) {
+  if (pathname.startsWith("/api/preview/handoff") || pathname.startsWith("/api/preview/stop")) {
     return response;
   }
 

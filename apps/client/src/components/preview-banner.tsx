@@ -7,28 +7,15 @@ import { useState } from "react";
 type Props = {
   targetName: string | null;
   targetRole: string;
-  staffAppUrl: string;
 };
 
-export function PreviewBanner({ targetName, targetRole, staffAppUrl }: Props) {
+export function PreviewBanner({ targetName, targetRole }: Props) {
   const [busy, setBusy] = useState(false);
 
   async function exitPreview() {
     setBusy(true);
-    try {
-      const res = await fetch(`${staffAppUrl}/api/preview/stop`, {
-        method: "POST",
-        credentials: "include",
-      });
-      if (!res.ok) {
-        window.location.href = `${staffAppUrl}/api/preview/stop`;
-        return;
-      }
-      const data = (await res.json()) as { redirectUrl?: string };
-      window.location.href = data.redirectUrl ?? `${staffAppUrl}/dashboard/super-admin`;
-    } catch {
-      window.location.href = `${staffAppUrl}/api/preview/stop`;
-    }
+    // Same-origin stop clears preview cookies on the client app, then chains to staff.
+    window.location.href = "/api/preview/stop";
   }
 
   const label = personDisplayName({ full_name: targetName, id: "" }, "User");

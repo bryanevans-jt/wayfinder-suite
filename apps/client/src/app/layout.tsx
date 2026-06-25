@@ -5,7 +5,7 @@ import {
   WayfinderTopNav,
 } from "@wayfinder/branding";
 import { PreviewBanner } from "@/components/preview-banner";
-import { getAppSession, staffAppOrigin } from "@wayfinder/supabase/preview-server";
+import { getAppSession } from "@wayfinder/supabase/preview-server";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -46,7 +46,6 @@ export default async function RootLayout({
           <PreviewBanner
             targetName={session.preview.targetName}
             targetRole={session.preview.effectiveRole}
-            staffAppUrl={staffAppOrigin()}
           />
         ) : null}
         <WayfinderTopNav
