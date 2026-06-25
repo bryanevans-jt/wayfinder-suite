@@ -5,7 +5,9 @@ export type TagFieldType =
   | "month"
   | "number"
   | "select"
-  | "checkbox";
+  | "checkbox"
+  | "boolean"
+  | "radio";
 
 export type TagSchemaField = {
   key: string;
@@ -18,6 +20,10 @@ export type TagSchemaField = {
   help?: string;
   placeholder?: string;
   options?: Array<{ value: string; label: string }>;
+  /** For type "radio": shared group name; each field key is one option rendered as ☑/☐ in the PDF. */
+  group?: string;
+  /** Heading shown once for a radio group (use on any member of the group). */
+  groupLabel?: string;
 };
 
 export function parseTagSchema(raw: unknown): TagSchemaField[] {

@@ -18,19 +18,20 @@ interface Props {
   onBack?: () => void;
 }
 
-function defaultForType(type: TagSchemaField['type']): string {
+function defaultForType(type: TagSchemaField['type']): string | boolean {
   const now = new Date();
   if (type === 'date') return now.toISOString().slice(0, 10);
   if (type === 'month') return now.toISOString().slice(0, 7);
   if (type === 'number') return '0';
+  if (type === 'boolean') return false;
   return '';
 }
 
 function buildInitialValues(
   fields: TagSchemaField[],
   prefill: Partial<TnPrefillValues>
-): Record<string, string> {
-  const values: Record<string, string> = {};
+): Record<string, string | boolean> {
+  const values: Record<string, string | boolean> = {};
   for (const field of fields) {
     const fromPrefill = applyPrefillToFieldKey(field.key, field.prefill, prefill);
     values[field.key] = fromPrefill ?? defaultForType(field.type);
@@ -49,7 +50,8 @@ export function TnDynamicForm({
   onBack,
 }: Props) {
   const formRef = useRef<HTMLFormElement>(null);
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<Record<string, string | boolean>>({});
+  const [radioValues, setRadioValues] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -91,9 +93,34 @@ export function TnDynamicForm({
     }
     const formData = new FormData(formRef.current);
     const data: Record<string, unknown> = {};
+    const radioGroups = new Map<string, TagSchemaField[]>();
+    for (const field of tagSchema) {
+      if (field.type === 'radio' && field.group) {
+        const list = radioGroups.get(field.group) ?? [];
+        list.push(field);
+        radioGroups.set(field.group, list);
+      }
+    }
+
+    for (const [groupName, members] of radioGroups) {
+      const selected = radioValues[groupName] ?? '';
+      const required = members.some((m) => m.required);
+      if (required && !selected) {
+        alert(`Please select an option for "${members[0]?.section ?? groupName}".`);
+        return;
+      }
+      for (const member of members) {
+        data[member.key] = member.key === selected;
+      }
+    }
+
     for (const field of tagSchema) {
       if (field.type === 'checkbox') {
         data[field.key] = formData.getAll(field.key).map(String);
+      } else if (field.type === 'boolean') {
+        data[field.key] = formData.get(field.key) === 'on';
+      } else if (field.type === 'radio') {
+        continue;
       } else {
         data[field.key] = String(formData.get(field.key) ?? '');
       }
@@ -128,11 +155,142 @@ export function TnDynamicForm({
   }
 
   const sections = new Map<string, TagSchemaField[]>();
+  const radioGroupsBySection = new Map<string, Map<string, TagSchemaField[]>>();
   for (const field of tagSchema) {
     const section = field.section || 'Report fields';
     const list = sections.get(section) ?? [];
     list.push(field);
     sections.set(section, list);
+    if (field.type === 'radio' && field.group) {
+      const sectionGroups = radioGroupsBySection.get(section) ?? new Map<string, TagSchemaField[]>();
+      const groupList = sectionGroups.get(field.group) ?? [];
+      groupList.push(field);
+      sectionGroups.set(field.group, groupList);
+      radioGroupsBySection.set(section, sectionGroups);
+    }
+  }
+
+  const renderedRadioGroups = new Set<string>();
+
+  function renderField(field: TagSchemaField) {
+    if (field.type === 'radio' && field.group) {
+      const groupKey = `${field.section ?? ''}:${field.group}`;
+      if (renderedRadioGroups.has(groupKey)) return null;
+      renderedRadioGroups.add(groupKey);
+      const members =
+        radioGroupsBySection.get(field.section || 'Report fields')?.get(field.group) ?? [field];
+      const required = members.some((m) => m.required);
+      const groupLabel =
+        members.find((m) => m.groupLabel)?.groupLabel ?? members[0]?.group ?? 'Select one';
+      const groupHelp = members.find((m) => m.help)?.help;
+      const groupName = field.group!;
+      return (
+        <div key={groupKey}>
+          <p className="block text-gray-700 font-semibold mb-1">
+            {groupLabel}
+            {required ? <span className="text-red-600"> *</span> : null}
+          </p>
+          {groupHelp ? <p className="text-sm text-gray-600 mb-2">{groupHelp}</p> : null}
+          <div className="space-y-2">
+            {members.map((member) => (
+              <label key={member.key} className="flex items-start gap-2 text-sm">
+                <input
+                  type="radio"
+                  name={`radio-${groupName}`}
+                  value={member.key}
+                  checked={radioValues[groupName] === member.key}
+                  onChange={() =>
+                    setRadioValues((prev) => ({ ...prev, [groupName]: member.key }))
+                  }
+                  className="mt-1"
+                />
+                <span>{member.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div key={field.key}>
+        <label htmlFor={field.key} className="block text-gray-700 font-semibold mb-1">
+          {field.label}
+          {field.required ? <span className="text-red-600"> *</span> : null}
+        </label>
+        {field.help ? <p className="text-sm text-gray-600 mb-2">{field.help}</p> : null}
+        {field.type === 'textarea' ? (
+          <textarea
+            id={field.key}
+            name={field.key}
+            rows={4}
+            required={field.required}
+            readOnly={field.readOnly}
+            placeholder={field.placeholder}
+            defaultValue={String(values[field.key] ?? '')}
+            className={`w-full px-4 py-2 border border-gray-300 rounded-lg ${
+              field.readOnly ? 'bg-gray-100' : ''
+            }`}
+          />
+        ) : field.type === 'select' ? (
+          <select
+            id={field.key}
+            name={field.key}
+            required={field.required}
+            defaultValue={String(values[field.key] ?? '')}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+          >
+            <option value="">Select...</option>
+            {(field.options ?? []).map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        ) : field.type === 'checkbox' ? (
+          <div className="space-y-2">
+            {(field.options ?? []).map((opt) => (
+              <label key={opt.value} className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name={field.key} value={opt.value} />
+                {opt.label}
+              </label>
+            ))}
+          </div>
+        ) : field.type === 'boolean' ? (
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              id={field.key}
+              name={field.key}
+              type="checkbox"
+              defaultChecked={Boolean(values[field.key])}
+            />
+            <span>{field.placeholder || 'Check if yes / applicable'}</span>
+          </label>
+        ) : (
+          <input
+            id={field.key}
+            name={field.key}
+            type={
+              field.type === 'number'
+                ? 'number'
+                : field.type === 'month'
+                  ? 'month'
+                  : field.type === 'date'
+                    ? 'date'
+                    : 'text'
+            }
+            required={field.required}
+            readOnly={field.readOnly}
+            placeholder={field.placeholder}
+            defaultValue={String(values[field.key] ?? '')}
+            step={field.type === 'number' ? 'any' : undefined}
+            className={`w-full px-4 py-2 border border-gray-300 rounded-lg ${
+              field.readOnly ? 'bg-gray-100' : ''
+            }`}
+          />
+        )}
+      </div>
+    );
   }
 
   return (
@@ -153,69 +311,7 @@ export function TnDynamicForm({
             <div key={section}>
               <h2 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-4">{section}</h2>
               <div className="space-y-4">
-                {fields.map((field) => (
-                  <div key={field.key}>
-                    <label htmlFor={field.key} className="block text-gray-700 font-semibold mb-1">
-                      {field.label}
-                      {field.required ? <span className="text-red-600"> *</span> : null}
-                    </label>
-                    {field.help ? (
-                      <p className="text-sm text-gray-600 mb-2">{field.help}</p>
-                    ) : null}
-                    {field.type === 'textarea' ? (
-                      <textarea
-                        id={field.key}
-                        name={field.key}
-                        rows={4}
-                        required={field.required}
-                        readOnly={field.readOnly}
-                        placeholder={field.placeholder}
-                        defaultValue={values[field.key] ?? ''}
-                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg ${
-                          field.readOnly ? 'bg-gray-100' : ''
-                        }`}
-                      />
-                    ) : field.type === 'select' ? (
-                      <select
-                        id={field.key}
-                        name={field.key}
-                        required={field.required}
-                        defaultValue={values[field.key] ?? ''}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      >
-                        <option value="">Select...</option>
-                        {(field.options ?? []).map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                    ) : field.type === 'checkbox' ? (
-                      <div className="space-y-2">
-                        {(field.options ?? []).map((opt) => (
-                          <label key={opt.value} className="flex items-center gap-2 text-sm">
-                            <input type="checkbox" name={field.key} value={opt.value} />
-                            {opt.label}
-                          </label>
-                        ))}
-                      </div>
-                    ) : (
-                      <input
-                        id={field.key}
-                        name={field.key}
-                        type={field.type === 'number' ? 'number' : field.type === 'month' ? 'month' : field.type === 'date' ? 'date' : 'text'}
-                        required={field.required}
-                        readOnly={field.readOnly}
-                        placeholder={field.placeholder}
-                        defaultValue={values[field.key] ?? ''}
-                        step={field.type === 'number' ? 'any' : undefined}
-                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg ${
-                          field.readOnly ? 'bg-gray-100' : ''
-                        }`}
-                      />
-                    )}
-                  </div>
-                ))}
+                {fields.map((field) => renderField(field))}
               </div>
             </div>
           ))}

@@ -263,10 +263,18 @@ export async function generateTnGoogleDocPdf(
     const requests: object[] = [];
     for (const key in parsedData) {
       const val = parsedData[key];
+      let replaceText: string;
+      if (typeof val === 'boolean') {
+        replaceText = val ? '☑' : '☐';
+      } else if (Array.isArray(val)) {
+        replaceText = val.join(', ');
+      } else {
+        replaceText = String(val ?? '');
+      }
       requests.push({
         replaceAllText: {
           containsText: { text: `{{${key}}}` },
-          replaceText: Array.isArray(val) ? val.join(', ') : String(val ?? ''),
+          replaceText,
         },
       });
     }

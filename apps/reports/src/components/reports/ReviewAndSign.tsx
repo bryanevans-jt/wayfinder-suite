@@ -114,9 +114,16 @@ export function ReviewAndSign({
   const summaryHtml = orderedKeys
     .map((key) => {
       const value = reportData[key];
-      if (!value) return '';
+      if (value === false || value === '') return '';
       const label = fieldLabels[key] || key;
-      const displayValue = Array.isArray(value) ? value.join(', ') : String(value);
+      const displayValue =
+        typeof value === 'boolean'
+          ? value
+            ? 'Yes'
+            : 'No'
+          : Array.isArray(value)
+            ? value.join(', ')
+            : String(value);
       return (
         <div key={key} className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
           <dt className="font-semibold text-gray-800">{label}</dt>
