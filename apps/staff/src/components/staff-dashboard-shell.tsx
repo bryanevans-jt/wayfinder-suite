@@ -34,7 +34,7 @@ export function StaffDashboardShell({ staffRole, showAuditLink = false, children
 
   return (
     <div className="flex min-h-0 flex-1">
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-neutral-200 bg-white lg:flex">
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-neutral-200 bg-white lg:flex">
         <StaffSidebarPanel staffRole={staffRole} showAuditLink={showAuditLink} />
       </aside>
 

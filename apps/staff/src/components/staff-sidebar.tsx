@@ -57,33 +57,39 @@ export function StaffSidebarPanel({
         </p>
         {showStaffNotifications(staffRole) ? <StaffNotificationsBell /> : null}
         {sections.map((section, sectionIndex) => (
-          <div key={section.label ?? `section-${sectionIndex}`} className={sectionIndex > 0 ? "mt-3" : ""}>
+          <div
+            key={section.label ?? `section-${sectionIndex}`}
+            className={sectionIndex > 0 ? "mt-4 border-t border-neutral-100 pt-4" : ""}
+          >
             {section.label ? (
-              <p className="px-3 pb-1 pt-1 text-xs font-semibold uppercase tracking-wide text-brand-black/45">
+              <p className="mb-1.5 px-3 text-xs font-semibold uppercase tracking-wide text-brand-black/45">
                 {section.label}
               </p>
             ) : sectionIndex === 0 ? (
-              <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-brand-black/50">
+              <p className="mb-1.5 px-3 text-xs font-semibold uppercase tracking-wide text-brand-black/50">
                 Menu
               </p>
             ) : null}
-            {section.items.map((item) => {
-              const active = item.match(pathname);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={onNavigate}
-                  className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                    active
-                      ? "bg-brand-green/10 text-brand-green"
-                      : "text-brand-black hover:bg-neutral-100"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
+            <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
+              {section.items.map((item) => {
+                const active = item.match(pathname);
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      onClick={onNavigate}
+                      className={`block w-full rounded-lg px-3 py-2 text-sm font-medium leading-snug transition-colors ${
+                        active
+                          ? "bg-brand-green/10 text-brand-green"
+                          : "text-brand-black hover:bg-neutral-100"
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         ))}
       </div>
@@ -100,7 +106,7 @@ type StaffSidebarProps = {
 /** @deprecated Prefer StaffDashboardShell for responsive layout. */
 export function StaffSidebar({ staffRole, showAuditLink = false }: StaffSidebarProps) {
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r border-neutral-200 bg-white">
+    <aside className="flex w-64 shrink-0 flex-col border-r border-neutral-200 bg-white">
       <StaffSidebarPanel staffRole={staffRole} showAuditLink={showAuditLink} />
     </aside>
   );

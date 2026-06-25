@@ -58,7 +58,7 @@ const reportingNav: StaffNavItem = {
 
 const dataExportsNav: StaffNavItem = {
   href: "/dashboard/exports",
-  label: "Data exports",
+  label: "Data Exports",
   match: (p) => p === "/dashboard/exports",
 };
 
