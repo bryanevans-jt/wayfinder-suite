@@ -161,7 +161,7 @@ export function AnalyticsWorkspace({ readOnly = false, showBenchmark = false }: 
                 onChange={(e) => setEsUserId(e.target.value)}
                 className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
               >
-                <option value="">All ES</option>
+                <option value="">All Employment Specialists</option>
                 {filters.esUsers.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.name}

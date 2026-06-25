@@ -8,7 +8,7 @@ export default async function ExportsPage() {
 
   return (
     <main className="px-6 py-10">
-      <h1 className="text-2xl font-semibold text-brand-black">Data exports</h1>
+      <h1 className="text-2xl font-semibold text-brand-black">Data Exports</h1>
       <p className="mt-2 max-w-2xl text-brand-black/75">
         Download CSV snapshots from Wayfinder Pro for spreadsheets and internal analysis. For
         official PDF submissions, use{" "}

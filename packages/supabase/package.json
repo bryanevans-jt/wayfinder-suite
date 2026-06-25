@@ -18,6 +18,7 @@
     "./natural-support-invite": "./src/natural-support-invite.ts",
     "./preview-server": "./src/preview-server.ts",
     "./preview-cookies": "./src/preview-cookies.ts",
+    "./preview-handoff": "./src/preview-handoff.ts",
     "./preview-middleware": "./src/preview-middleware.ts",
     "./notify-user": "./src/notify-user.ts",
     "./meeting-notify": "./src/meeting-notify.ts",

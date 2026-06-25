@@ -93,19 +93,25 @@ export async function loadReportAlertsForStaffUser(
 
   const rows = (data ?? []) as AlertRecord[];
 
+  const { data: demoClients } = await admin.from("clients").select("id").eq("is_demo", true);
+  const demoIds = new Set((demoClients ?? []).map((c) => c.id as string));
+  const productionRows = rows.filter(
+    (row) => !row.wayfinder_client_id || !demoIds.has(row.wayfinder_client_id)
+  );
+
   if (isAdminTierRole(role)) {
-    return rows.map(mapAlert).filter((r): r is ReportAlertRow => r !== null);
+    return productionRows.map(mapAlert).filter((r): r is ReportAlertRow => r !== null);
   }
 
   if (isEsRole(role)) {
-    return rows
+    return productionRows
       .filter((row) => row.es_user_id === userId)
       .map(mapAlert)
       .filter((r): r is ReportAlertRow => r !== null);
   }
 
   if (isSupervisorRole(role)) {
-    return filterAlertsForSupervisor(admin, userId, rows);
+    return filterAlertsForSupervisor(admin, userId, productionRows);
   }
 
   return [];

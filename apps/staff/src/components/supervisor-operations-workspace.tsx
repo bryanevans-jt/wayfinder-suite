@@ -18,13 +18,13 @@ export function SupervisorOperationsWorkspace({ capacity, coaching, showCoaching
           Active caseload and billable minutes (last 4 weeks) per employment specialist.
         </p>
         {capacity.length === 0 ? (
-          <p className="mt-4 text-sm text-brand-black/60">No ES data in scope.</p>
+          <p className="mt-4 text-sm text-brand-black/60">No Employment Specialist data in scope.</p>
         ) : (
           <div className="mt-4 overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="border-b border-neutral-200 text-left">
-                  <th className="py-2 pr-4 font-semibold">ES</th>
+                  <th className="py-2 pr-4 font-semibold">Employment Specialist</th>
                   <th className="py-2 pr-4 font-semibold">Caseload</th>
                   <th className="py-2 font-semibold">Billable (4 wk)</th>
                 </tr>

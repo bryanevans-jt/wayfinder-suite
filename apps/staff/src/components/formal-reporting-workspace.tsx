@@ -20,11 +20,7 @@ export function FormalReportingWorkspace({ readOnly = false, showAdminLink = fal
 
       <ReportingVsExportsGuide
         context="reporting"
-        reportingAction={
-          readOnly
-            ? undefined
-            : { href: reportsUrl, label: "Open reporting workspace" }
-        }
+        reportingAction={{ href: reportsUrl, label: "Open Reporting Workspace" }}
       />
 
       <section className="rounded-xl border border-neutral-200 bg-white p-5">

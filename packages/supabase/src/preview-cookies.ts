@@ -1,3 +1,4 @@
+import { wayfinderCookieOptions } from "./auth-client-options";
 import { isKnownRole } from "./roles";
 
 export const PREVIEW_TARGET_COOKIE = "wf_preview_target";
@@ -31,11 +32,15 @@ export function readPreviewCookies(
 }
 
 export function previewCookieOptions(maxAge = PREVIEW_COOKIE_MAX_AGE_SEC) {
+  const shared = wayfinderCookieOptions();
   return {
     httpOnly: true,
     sameSite: "lax" as const,
     path: "/",
     maxAge,
+    ...(shared?.domain
+      ? { domain: shared.domain, secure: shared.secure ?? true }
+      : {}),
   };
 }
 

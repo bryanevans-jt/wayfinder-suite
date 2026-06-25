@@ -20,7 +20,12 @@ type ClientRow = {
   office_id: string | null;
   created_at: string;
   current_stage_id: string | null;
+  is_demo?: boolean | null;
 };
+
+function excludeDemoClients(rows: ClientRow[]): ClientRow[] {
+  return rows.filter((c) => !c.is_demo);
+}
 
 export type ClientFact = {
   clientId: string;
@@ -70,7 +75,7 @@ async function loadScopedClientRows(
   scope: AnalyticsScope,
   filters: { officeId?: string | null; esUserId?: string | null }
 ): Promise<ClientRow[]> {
-  const select = "id, user_id, profile_id, office_id, created_at, current_stage_id";
+  const select = "id, user_id, profile_id, office_id, created_at, current_stage_id, is_demo";
 
   if (scope.kind === "es") {
     const { data: links } = await admin
@@ -82,7 +87,7 @@ async function loadScopedClientRows(
       return [];
     }
     const { data } = await admin.from("clients").select(select).in("id", clientIds);
-    return applyClientFilters(data ?? [], filters);
+    return excludeDemoClients(applyClientFilters(data ?? [], filters));
   }
 
   if (scope.kind === "supervisor") {
@@ -124,10 +129,10 @@ async function loadScopedClientRows(
       rows = rows.filter((c) => allowed.has(c.id as string));
     }
 
-    return applyClientFilters(rows, filters);
+    return excludeDemoClients(applyClientFilters(rows, filters));
   }
 
-  let query = admin.from("clients").select(select).limit(10000);
+  let query = admin.from("clients").select(select).eq("is_demo", false).limit(10000);
   if (filters.officeId) {
     query = query.eq("office_id", filters.officeId);
   }

@@ -79,7 +79,7 @@ export function ReportingVsExportsGuide({
               : "border-neutral-200 bg-white"
           }`}
         >
-          <dt className="font-semibold text-brand-black">Data exports</dt>
+          <dt className="font-semibold text-brand-black">Data Exports</dt>
           <dd className="mt-1 text-brand-black/80">
             <strong>Wayfinder Pro</strong> — download spreadsheet files (CSV) of caseload,
             applications, activity, and timesheets when you need numbers in Excel or for meetings.
@@ -91,7 +91,7 @@ export function ReportingVsExportsGuide({
                 href="/dashboard/exports"
                 className="text-sm font-medium text-brand-green hover:underline"
               >
-                Go to Data exports →
+                Go to Data Exports →
               </Link>
             </dd>
           ) : null}

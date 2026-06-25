@@ -83,8 +83,14 @@ const complianceNav: StaffNavItem = {
 
 const operationsNav: StaffNavItem = {
   href: "/dashboard/operations",
-  label: "Team operations",
+  label: "Team Operations",
   match: (p) => p === "/dashboard/operations",
+};
+
+const profileNav: StaffNavItem = {
+  href: "/dashboard/profile",
+  label: "My Profile",
+  match: (p) => p === "/dashboard/profile",
 };
 
 const helpNav: StaffNavItem = {
@@ -100,30 +106,45 @@ function withHelpSections(sections: StaffNavSection[]): StaffNavSection[] {
   return [...sections, { items: [helpNav] }];
 }
 
+function canEditStaffProfile(role: string | null | undefined): boolean {
+  return isEsRole(role) || isSupervisorRole(role) || isAdminTierRole(role);
+}
+
+function withHelpAndProfile(sections: StaffNavSection[], role: string | null): StaffNavSection[] {
+  let out = sections;
+  if (canEditStaffProfile(role)) {
+    out = [...out, { label: "Account", items: [profileNav] }];
+  }
+  return withHelpSections(out);
+}
+
 /** Sidebar navigation grouped for clarity — daily work first, then oversight tools. */
 export function staffNavSectionsForRole(
   staffRole: string | null,
   showAuditLink = false
 ): StaffNavSection[] {
   if (isCounselorRole(staffRole)) {
-    return withHelpSections([
-      {
-        items: [
-          {
-            href: "/dashboard/counselor",
-            label: "My clients",
-            match: (p) => p.startsWith("/dashboard/counselor"),
-          },
-        ],
-      },
-    ]);
+    return withHelpAndProfile(
+      [
+        {
+          items: [
+            {
+              href: "/dashboard/counselor",
+              label: "My Clients",
+              match: (p) => p.startsWith("/dashboard/counselor"),
+            },
+          ],
+        },
+      ],
+      staffRole
+    );
   }
 
   if (isSuperAdminRole(staffRole)) {
     const items: StaffNavItem[] = [
       {
         href: "/dashboard/super-admin",
-        label: "Super admin portal",
+        label: "Super Admin Portal",
         match: (p) => p.startsWith("/dashboard/super-admin"),
       },
     ];
@@ -134,7 +155,8 @@ export function staffNavSectionsForRole(
         match: (p) => p === "/dashboard/audit",
       });
     }
-    return withHelpSections([
+    return withHelpAndProfile(
+      [
       { label: "Portal", items },
       {
         label: "Oversight",
@@ -144,17 +166,20 @@ export function staffNavSectionsForRole(
         label: "Tools",
         items: [reportingNav, communityPartnersNav],
       },
-    ]);
+    ],
+      staffRole
+    );
   }
 
   if (staffRole === "admin") {
-    return withHelpSections([
+    return withHelpAndProfile(
+      [
       {
         label: "Portal",
         items: [
           {
             href: "/dashboard/admin",
-            label: "Admin portal",
+            label: "Admin Portal",
             match: (p) => p.startsWith("/dashboard/admin"),
           },
         ],
@@ -167,17 +192,20 @@ export function staffNavSectionsForRole(
         label: "Tools",
         items: [reportingNav, communityPartnersNav],
       },
-    ]);
+    ],
+      staffRole
+    );
   }
 
   if (isSupervisorRole(staffRole)) {
-    return withHelpSections([
+    return withHelpAndProfile(
+      [
       {
-        label: "Daily work",
+        label: "Daily Work",
         items: [
           {
             href: "/dashboard/supervisor",
-            label: "Supervisor portal",
+            label: "Supervisor Portal",
             match: (p) => p.startsWith("/dashboard/supervisor"),
           },
           {
@@ -200,7 +228,9 @@ export function staffNavSectionsForRole(
         label: "Tools",
         items: [dataExportsNav, communityPartnersNav],
       },
-    ]);
+    ],
+      staffRole
+    );
   }
 
   if (staffRole === "accountant") {
@@ -224,9 +254,10 @@ export function staffNavSectionsForRole(
   }
 
   if (isEsRole(staffRole)) {
-    return withHelpSections([
+    return withHelpAndProfile(
+      [
       {
-        label: "Daily work",
+        label: "Daily Work",
         items: [
           {
             href: "/dashboard/clients",
@@ -250,7 +281,9 @@ export function staffNavSectionsForRole(
         label: "Resources",
         items: [communityPartnersNav, analyticsNav, dataExportsNav],
       },
-    ]);
+    ],
+      staffRole
+    );
   }
 
   return withHelpSections([
@@ -328,11 +361,11 @@ export function showStaffNotifications(role: string | null | undefined): boolean
 }
 
 export function staffWorkspaceLabel(staffRole: string | null): string {
-  if (isCounselorRole(staffRole)) return "Counselor workspace";
-  if (isSuperAdminRole(staffRole)) return "Super admin";
-  if (isAdminTierRole(staffRole)) return "Admin workspace";
-  if (isSupervisorRole(staffRole)) return "Supervisor workspace";
-  if (isEsRole(staffRole)) return "Employment specialist";
+  if (isCounselorRole(staffRole)) return "Counselor Workspace";
+  if (isSuperAdminRole(staffRole)) return "Super Admin";
+  if (isAdminTierRole(staffRole)) return "Admin Workspace";
+  if (isSupervisorRole(staffRole)) return "Supervisor Workspace";
+  if (isEsRole(staffRole)) return "Employment Specialist";
   if (staffRole === "accountant") return "Accountant";
-  return "Staff workspace";
+  return "Staff Workspace";
 }

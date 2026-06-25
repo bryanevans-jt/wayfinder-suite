@@ -322,7 +322,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
             <p className="text-sm text-brand-black/70">
               {canManageOrg
                 ? "Search clients, add new ones, or import from CSV. Click a client to update their details."
-                : "Clients in your assigned offices or supervised ES caseloads. Click a client to assign ES, change service, or update stage."}
+                : "Clients in your assigned offices or supervised Employment Specialist caseloads. Click a client to assign an Employment Specialist, change service, or update stage."}
             </p>
             {canManageClients ? (
               <button
@@ -492,7 +492,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 disabled={busy}
                 className="rounded-lg bg-brand-gold px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
               >
-                Add ES
+                Add Employment Specialist
               </button>
             </form>
           ) : (
@@ -720,7 +720,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
       ) : isTeamSupervisorsNav(nav) && canManageOrg ? (
         <section className="mt-6 max-w-4xl space-y-6">
           <p className="text-sm text-brand-black/70">
-            Supervisors oversee employment specialists — not counselors. Link supervisors to ES staff
+            Supervisors oversee employment specialists — not counselors. Link supervisors to Employment Specialist staff
             under Settings → Advanced connections, or when editing a team member.
           </p>
           <form
@@ -784,7 +784,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 <tr>
                   <th className="px-3 py-2">Name</th>
                   <th className="px-3 py-2">Offices</th>
-                  <th className="px-3 py-2">ES staff</th>
+                  <th className="px-3 py-2">Employment Specialist staff</th>
                   <th className="px-3 py-2">Status</th>
                   <th className="px-3 py-2">Actions</th>
                 </tr>
@@ -819,7 +819,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                         run(async () => {
                           if (s.es_count > 0) {
                             throw new Error(
-                              `${s.display_name} still supervises ${s.es_count} ES staff member(s). Remove those links first.`
+                              `${s.display_name} still supervises ${s.es_count} Employment Specialist staff member(s). Remove those links first.`
                             );
                           }
                           if (
@@ -902,7 +902,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 }}
               />
               <AssignmentCard
-                title="ES office coverage"
+                title="Employment Specialist office coverage"
                 description="Offices each employment specialist can work from."
                 busy={busy}
                 onAdd={(userId, officeId) =>
@@ -940,7 +940,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 }}
               />
               <AssignmentCard
-                title="Supervisor to ES link"
+                title="Supervisor to Employment Specialist link"
                 description="Which employment specialists each supervisor oversees."
                 busy={busy}
                 onAdd={(supervisorId, esId) =>
@@ -1028,15 +1028,15 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 Assignments in your scope. Contact an admin to change links.
               </p>
               <ReadOnlyLinkList
-                title="Supervisor ↔ ES"
+                title="Supervisor ↔ Employment Specialist"
                 links={b.supervisorEsLinks.map((l) => ({
                   id: l.id,
                   label: `${staffLabel(l.supervisor_user_id)} → ${staffLabel(l.es_user_id)}`,
                 }))}
-                empty="No ES staff linked to you yet."
+                empty="No Employment Specialist staff linked to you yet."
               />
               <ReadOnlyLinkList
-                title="Client ↔ ES"
+                title="Client ↔ Employment Specialist"
                 links={b.esClientLinks.map((l) => ({
                   id: l.id,
                   label: `${staffLabel(l.es_user_id)} → ${clientLabel(l.client_id)}`,
@@ -1044,12 +1044,12 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 empty="No client caseloads in your scope."
               />
               <ReadOnlyLinkList
-                title="ES ↔ office"
+                title="Employment Specialist ↔ office"
                 links={b.staffOfficeLinks.map((l) => ({
                   id: l.id,
                   label: `${staffLabel(l.user_id)} · ${officeName(l.office_id)}`,
                 }))}
-                empty="No ES office links in your scope."
+                empty="No Employment Specialist office links in your scope."
               />
             </div>
           )}
@@ -1075,7 +1075,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               onChange={(e) => setFilterEs(e.target.value)}
               className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
             >
-              <option value="">All ES</option>
+              <option value="">All Employment Specialists</option>
               {b.esUsers.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.display_name}

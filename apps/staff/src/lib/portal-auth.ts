@@ -83,6 +83,7 @@ function portalAuthUserMessage(error: PortalAuthError): string {
   if (error.status === 401) return USER_FACING_AUTH_REQUIRED;
   if (error.message === "Account inactive") return USER_FACING_ACCOUNT_INACTIVE;
   if (error.status === 403) return USER_FACING_FORBIDDEN;
+  if (error.status === 400 || error.status === 404) return error.message;
   if (error.status === 503) return USER_FACING_SYSTEM_ERROR;
   return USER_FACING_SYSTEM_ERROR;
 }

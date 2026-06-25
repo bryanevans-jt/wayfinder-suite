@@ -7,8 +7,9 @@ import {
   previewCookieOptions,
 } from "@wayfinder/supabase/preview-cookies";
 import { previewRedirectUrl } from "@wayfinder/supabase/preview-server";
+import { buildClientPreviewHandoffUrl } from "@wayfinder/supabase/preview-handoff";
 import { createClient } from "@wayfinder/supabase/server";
-import { isKnownRole, isSuperAdminRole } from "@wayfinder/supabase/roles";
+import { isClientRole, isKnownRole, isSuperAdminRole } from "@wayfinder/supabase/roles";
 import {
   respondWithLoggedError,
   resolveErrorActor,
@@ -76,7 +77,14 @@ export async function POST(request: Request) {
       action: "enter",
     });
 
-    const redirectUrl = previewRedirectUrl(targetProfile.role);
+    const redirectUrl = isClientRole(targetProfile.role)
+      ? buildClientPreviewHandoffUrl({
+          targetUserId,
+          actorUserId: user.id,
+          targetRole: targetProfile.role,
+          targetName: (targetProfile.full_name as string | null) ?? null,
+        })
+      : previewRedirectUrl(targetProfile.role);
     const response = NextResponse.json({
       ok: true,
       redirectUrl,
