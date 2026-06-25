@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { SignOutButton } from '@/components/SignOutButton';
+import type { TagSchemaField } from '@/lib/tag-schema';
+import { parseTagSchema } from '@/lib/tag-schema';
 
 type ReportingState = 'GA' | 'TN';
 type GaReportType = 'seMonthly' | 'vpr' | 'jtsgvmr' | 'evf' | 'jtsgtsvs';
@@ -11,22 +13,37 @@ type GaReport = {
   name: string;
 };
 
+export type TnReportSelection = {
+  id: string;
+  slug: string;
+  name: string;
+  requiresSignature: boolean;
+  tagSchema: TagSchemaField[];
+};
+
 type TnProgram = {
   id: string;
   name: string;
   slug: string;
   enabled: boolean;
-  reports: { id: string; slug: string; name: string }[];
+  reports: Array<{
+    id: string;
+    slug: string;
+    name: string;
+    requiresSignature?: boolean;
+    tagSchema?: unknown;
+  }>;
 };
 
 interface Props {
   user: { email: string; displayName: string };
   state: ReportingState;
   onSelectGa: (type: GaReportType) => void;
+  onSelectTn: (report: TnReportSelection) => void;
   onBack: () => void;
 }
 
-export function ReportSelection({ user, state, onSelectGa, onBack }: Props) {
+export function ReportSelection({ user, state, onSelectGa, onSelectTn, onBack }: Props) {
   const [gaReports, setGaReports] = useState<GaReport[]>([]);
   const [programs, setPrograms] = useState<TnProgram[]>([]);
   const [selected, setSelected] = useState('');
@@ -43,7 +60,14 @@ export function ReportSelection({ user, state, onSelectGa, onBack }: Props) {
   }, [state]);
 
   const enabledTnReports = programs.flatMap((p) =>
-    p.enabled ? p.reports.map((r) => ({ ...r, programName: p.name })) : []
+    p.enabled
+      ? p.reports.map((r) => ({
+          ...r,
+          programName: p.name,
+          requiresSignature: Boolean(r.requiresSignature),
+          tagSchema: parseTagSchema(r.tagSchema),
+        }))
+      : []
   );
 
   function handleContinue() {
@@ -103,10 +127,10 @@ export function ReportSelection({ user, state, onSelectGa, onBack }: Props) {
           <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-gray-700">
             <p className="font-medium">No Tennessee reports are enabled yet.</p>
             <p className="mt-2">
-              Programs are seeded in admin. Enable a program and add report templates in the{" "}
+              Programs are seeded in admin. Enable a program and add report templates in the{' '}
               <a href="/admin" className="font-medium text-green-700 hover:underline">
                 reports admin portal
-              </a>{" "}
+              </a>{' '}
               when ready.
             </p>
             <ul className="mt-3 list-disc pl-5 space-y-1">
@@ -121,9 +145,26 @@ export function ReportSelection({ user, state, onSelectGa, onBack }: Props) {
         ) : (
           <ul className="space-y-2">
             {enabledTnReports.map((report) => (
-              <li key={report.id} className="rounded-lg border border-gray-200 px-4 py-3 text-sm">
-                <p className="font-medium">{report.name}</p>
-                <p className="text-xs text-gray-500">{report.programName}</p>
+              <li key={report.id}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onSelectTn({
+                      id: report.id,
+                      slug: report.slug,
+                      name: report.name,
+                      requiresSignature: report.requiresSignature,
+                      tagSchema: report.tagSchema,
+                    })
+                  }
+                  className="w-full rounded-lg border border-gray-200 px-4 py-3 text-left text-sm hover:border-green-300 hover:bg-green-50"
+                >
+                  <p className="font-medium">{report.name}</p>
+                  <p className="text-xs text-gray-500">{report.programName}</p>
+                  {report.requiresSignature ? (
+                    <p className="text-xs text-green-700 mt-1">Signature required</p>
+                  ) : null}
+                </button>
               </li>
             ))}
           </ul>

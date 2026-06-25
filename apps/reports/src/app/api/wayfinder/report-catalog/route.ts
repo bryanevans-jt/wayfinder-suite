@@ -51,7 +51,7 @@ export async function GET(request: Request) {
         ? await admin
             .from("report_type_definitions")
             .select(
-              "id, program_id, slug, name, enabled, requires_signature, template_kind, sort_order"
+              "id, program_id, slug, name, enabled, requires_signature, template_kind, sort_order, tag_schema"
             )
             .eq("state", "TN")
             .in("program_id", programIds)
@@ -82,6 +82,7 @@ export async function GET(request: Request) {
             name: r.name,
             requiresSignature: r.requires_signature,
             templateKind: r.template_kind,
+            tagSchema: r.tag_schema ?? [],
           })),
       })),
     });

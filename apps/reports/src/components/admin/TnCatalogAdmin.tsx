@@ -169,6 +169,24 @@ export function TnCatalogAdmin({ onMessage }: Props) {
                           <label className="inline-flex items-center gap-2 text-sm">
                             <input
                               type="checkbox"
+                              checked={reportType.requiresSignature}
+                              disabled={saving}
+                              onChange={(e) => {
+                                updateReportTypeLocal(program.id, reportType.id, {
+                                  requiresSignature: e.target.checked,
+                                });
+                                void save({
+                                  reportTypes: [
+                                    { id: reportType.id, requiresSignature: e.target.checked },
+                                  ],
+                                });
+                              }}
+                            />
+                            Requires signature
+                          </label>
+                          <label className="inline-flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
                               checked={reportType.enabled}
                               disabled={saving}
                               onChange={(e) => {

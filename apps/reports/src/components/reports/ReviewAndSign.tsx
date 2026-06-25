@@ -80,7 +80,11 @@ interface Props {
   onTypedNameChange?: (name: string) => void;
   onSubmit: (capturedSignature: string, typedNameValue: string) => void | Promise<void>;
   onBack: () => void;
-  variant?: 'seMonthly' | 'jtsgvmr';
+  variant?: 'seMonthly' | 'jtsgvmr' | 'tn';
+  fieldLabels?: Record<string, string>;
+  orderedKeys?: string[];
+  signatureLabel?: string;
+  typedNameLabel?: string;
 }
 
 export function ReviewAndSign({
@@ -92,12 +96,20 @@ export function ReviewAndSign({
   onSubmit,
   onBack,
   variant = 'seMonthly',
+  fieldLabels: fieldLabelsProp,
+  orderedKeys: orderedKeysProp,
+  signatureLabel,
+  typedNameLabel,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [typedName, setTypedName] = useState(typedEsName);
 
-  const orderedKeys = variant === 'jtsgvmr' ? JTSG_VMR_ORDERED_KEYS : SE_MONTHLY_ORDERED_KEYS;
-  const fieldLabels = variant === 'jtsgvmr' ? JTSG_VMR_LABELS : SE_MONTHLY_LABELS;
+  const orderedKeys =
+    orderedKeysProp ??
+    (variant === 'jtsgvmr' ? JTSG_VMR_ORDERED_KEYS : SE_MONTHLY_ORDERED_KEYS);
+  const fieldLabels =
+    fieldLabelsProp ??
+    (variant === 'jtsgvmr' ? JTSG_VMR_LABELS : SE_MONTHLY_LABELS);
 
   const summaryHtml = orderedKeys
     .map((key) => {
@@ -230,7 +242,7 @@ export function ReviewAndSign({
         <div className="mt-6 space-y-6">
           <div>
             <label className="block text-gray-700 font-semibold mb-1">
-              {variant === 'jtsgvmr' ? 'ES Typed Name' : 'ES Typed Name'}
+              {typedNameLabel ?? (variant === 'jtsgvmr' ? 'ES Typed Name' : 'ES Typed Name')}
             </label>
             <input
               type="text"
@@ -244,7 +256,8 @@ export function ReviewAndSign({
           </div>
           <div>
             <label className="block text-gray-700 font-semibold mb-1">
-              {variant === 'jtsgvmr' ? 'Provider Signature' : 'ES Signature'}
+              {signatureLabel ??
+                (variant === 'jtsgvmr' ? 'Provider Signature' : 'ES Signature')}
             </label>
             <canvas
               ref={canvasRef}

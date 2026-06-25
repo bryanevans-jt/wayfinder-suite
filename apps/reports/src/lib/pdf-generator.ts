@@ -236,6 +236,115 @@ export async function generateJTSGVMRPdf(
   }
 }
 
+const TN_SIGNATURE_TAGS = ['{{esSignature}}', '{{essignature}}', '{{ProviderSignature}}'] as const;
+
+export async function generateTnGoogleDocPdf(
+  auth: Awaited<ReturnType<typeof import('./google').getGoogleAuth>>,
+  parsedData: Record<string, unknown>,
+  config: {
+    templateId: string;
+    typedEsName?: string;
+    signatureData?: string;
+    signatureFolderId?: string;
+    embedSignature: boolean;
+  }
+) {
+  const drive = google.drive({ version: 'v3', auth });
+  const docs = google.docs({ version: 'v1', auth });
+  const copy = await drive.files.copy({
+    supportsAllDrives: true,
+    fileId: config.templateId,
+    requestBody: { name: `[TEMP] TN Report - ${parsedData.clientName || parsedData.clientname || 'Report'}` },
+  });
+  const tempDocId = copy.data.id!;
+  let tempSig: { fileId: string; url: string } | null = null;
+
+  try {
+    const requests: object[] = [];
+    for (const key in parsedData) {
+      const val = parsedData[key];
+      requests.push({
+        replaceAllText: {
+          containsText: { text: `{{${key}}}` },
+          replaceText: Array.isArray(val) ? val.join(', ') : String(val ?? ''),
+        },
+      });
+    }
+    requests.push({
+      replaceAllText: {
+        containsText: { text: '{{typedEsName}}' },
+        replaceText: config.typedEsName || '',
+      },
+    });
+    requests.push({
+      replaceAllText: {
+        containsText: { text: '{{submissionDate}}' },
+        replaceText: new Date().toLocaleDateString(),
+      },
+    });
+    await docs.documents.batchUpdate({ documentId: tempDocId, requestBody: { requests } });
+
+    const shouldEmbed = config.embedSignature && !!config.signatureData;
+    if (shouldEmbed && config.signatureFolderId) {
+      tempSig = await uploadSignatureToDrive(drive, config.signatureData!, config.signatureFolderId);
+      const placeholder = `__SIGNATURE_${Date.now()}__`;
+      for (const tag of TN_SIGNATURE_TAGS) {
+        await docs.documents.batchUpdate({
+          documentId: tempDocId,
+          requestBody: {
+            requests: [{ replaceAllText: { containsText: { text: tag }, replaceText: placeholder } }],
+          },
+        });
+      }
+      const doc = await docs.documents.get({ documentId: tempDocId });
+      const idx = findPlaceholderIndex((doc.data.body?.content as unknown[]) || [], placeholder);
+      if (idx !== -1) {
+        const imageRequests = [
+          { deleteContentRange: { range: { startIndex: idx, endIndex: idx + placeholder.length } } },
+          {
+            insertInlineImage: {
+              location: { index: idx },
+              uri: tempSig.url,
+              objectSize: { height: { magnitude: 75, unit: 'PT' }, width: { magnitude: 150, unit: 'PT' } },
+            },
+          },
+        ];
+        await docs.documents.batchUpdate({
+          documentId: tempDocId,
+          requestBody: { requests: imageRequests },
+        });
+      }
+    } else {
+      for (const tag of TN_SIGNATURE_TAGS) {
+        await docs.documents.batchUpdate({
+          documentId: tempDocId,
+          requestBody: {
+            requests: [{ replaceAllText: { containsText: { text: tag }, replaceText: '' } }],
+          },
+        });
+      }
+    }
+
+    const pdfRes = await drive.files.export(
+      { supportsAllDrives: true, fileId: tempDocId, mimeType: 'application/pdf' } as {
+        fileId: string;
+        mimeType: string;
+      },
+      { responseType: 'arraybuffer' }
+    );
+    return Buffer.from(pdfRes.data as ArrayBuffer);
+  } finally {
+    await drive.files.delete({ supportsAllDrives: true, fileId: tempDocId });
+    if (tempSig) {
+      try {
+        await drive.files.delete({ supportsAllDrives: true, fileId: tempSig.fileId });
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+}
+
 export async function generateEVFPdf(
   auth: Awaited<ReturnType<typeof import('./google').getGoogleAuth>>,
   parsedData: Record<string, unknown>,

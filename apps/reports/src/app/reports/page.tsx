@@ -12,10 +12,13 @@ import { VPRForm } from '@/components/reports/VPRForm';
 import { JTSGVMRForm } from '@/components/reports/JTSGVMRForm';
 import { EVFForm } from '@/components/reports/EVFForm';
 import { JTSGTSVSForm } from '@/components/reports/JTSGTSVSForm';
+import { TnDynamicForm } from '@/components/reports/TnDynamicForm';
 import { ReviewAndSign } from '@/components/reports/ReviewAndSign';
 import { SubmissionStatus } from '@/components/reports/SubmissionStatus';
 import { withReportSupportHint } from '@/lib/report-errors';
 import { resolveReportingEsName } from '@/lib/es-display-name';
+import type { TnReportSelection } from '@/components/reports/ReportSelection';
+import { tagSchemaLabels, tagSchemaOrderedKeys } from '@/lib/tag-schema';
 
 type Screen =
   | 'STATE_SELECTION'
@@ -26,6 +29,8 @@ type Screen =
   | 'JTSG_VMR_FORM'
   | 'JTSG_TSVS_FORM'
   | 'EVF_FORM'
+  | 'TN_FORM'
+  | 'TN_REVIEW_AND_SIGN'
   | 'REVIEW_AND_SIGN'
   | 'JTSG_VMR_REVIEW'
   | 'SUBMISSION_STATUS';
@@ -51,6 +56,8 @@ function ReportsWorkspace() {
   const [loading, setLoading] = useState(true);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [deepLinkHandled, setDeepLinkHandled] = useState(false);
+  const [tnReport, setTnReport] = useState<TnReportSelection | null>(null);
+  const [tnFieldLabels, setTnFieldLabels] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const supabase = createClient();
@@ -121,6 +128,12 @@ function ReportsWorkspace() {
     setWayfinderClientId(selection.wayfinderClientId);
     setAdHocClient(selection.adHoc);
 
+    if (selectedState === 'TN' && tnReport) {
+      setReportData({});
+      setScreen('TN_FORM');
+      return;
+    }
+
     if (reportType === 'seMonthly') {
       setReportData({
         jobSeekerName: selection.clientName,
@@ -138,6 +151,47 @@ function ReportsWorkspace() {
       });
       setScreen('JTSG_VMR_FORM');
     }
+  }
+
+  async function submitTnReport(
+    data: Record<string, unknown>,
+    capturedSignature: string,
+    typedNameValue: string
+  ) {
+    if (!tnReport) return;
+    setSubmitError(null);
+    setLoading(true);
+    try {
+      const res = await fetch('/api/reports/tn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reportTypeSlug: tnReport.slug,
+          reportData: data,
+          typedEsName: typedNameValue || typedEsName || esName,
+          signatureData: capturedSignature || '',
+          wayfinderClientId,
+        }),
+      });
+      const payload = await res.json().catch(() => ({ error: `Server error (${res.status})` }));
+      if (!res.ok) throw new Error(payload.error || 'Submission failed');
+      setMessage('Report submitted! You will receive an email with the final PDF shortly.');
+      setScreen('SUBMISSION_STATUS');
+    } catch (e) {
+      setSubmitError(withReportSupportHint((e as Error).message));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function afterTnFormContinue(data: Record<string, unknown>) {
+    setReportData(data);
+    if (tnReport?.requiresSignature) {
+      setTypedEsName(esName);
+      setScreen('TN_REVIEW_AND_SIGN');
+      return;
+    }
+    void submitTnReport(data, '', esName);
   }
 
   function afterReportType(type: ReportType) {
@@ -185,15 +239,21 @@ function ReportsWorkspace() {
           user={user}
           state={selectedState}
           onSelectGa={afterReportType}
+          onSelectTn={(report) => {
+            setTnReport(report);
+            setTnFieldLabels(tagSchemaLabels(report.tagSchema));
+            setScreen('CLIENT_PICKER');
+          }}
           onBack={() => {
             setSelectedState('');
             setReportType('');
+            setTnReport(null);
             setScreen('STATE_SELECTION');
           }}
         />
       )}
 
-      {screen === 'CLIENT_PICKER' && selectedState && reportType && (
+      {screen === 'CLIENT_PICKER' && selectedState && (reportType || tnReport) && (
         <ClientPicker
           state={selectedState}
           esName={esName}
@@ -202,6 +262,63 @@ function ReportsWorkspace() {
           onContinue={afterClientSelected}
           onBack={() => setScreen('REPORT_SELECTION')}
         />
+      )}
+
+      {screen === 'TN_FORM' && tnReport && (
+        <>
+          {submitError ? (
+            <div className="mx-4 mb-4 p-4 bg-red-100 border border-red-400 text-red-800 rounded-lg">
+              <p className="font-semibold">Submission failed</p>
+              <p className="text-sm mt-1">{submitError}</p>
+            </div>
+          ) : null}
+          {loading ? (
+            <div className="flex items-center justify-center min-h-screen">
+              <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-700" />
+            </div>
+          ) : (
+            <TnDynamicForm
+              reportName={tnReport.name}
+              tagSchema={tnReport.tagSchema}
+              esName={esName}
+              requiresSignature={tnReport.requiresSignature}
+              wayfinderClientId={wayfinderClientId}
+              adHoc={adHocClient}
+              onContinue={afterTnFormContinue}
+              onBack={() => setScreen('CLIENT_PICKER')}
+            />
+          )}
+        </>
+      )}
+
+      {screen === 'TN_REVIEW_AND_SIGN' && tnReport && (
+        <>
+          {submitError ? (
+            <div className="mx-4 mb-4 p-4 bg-red-100 border border-red-400 text-red-800 rounded-lg">
+              <p className="font-semibold">Submission failed</p>
+              <p className="text-sm mt-1">{submitError}</p>
+            </div>
+          ) : null}
+          <ReviewAndSign
+            variant="tn"
+            reportData={reportData}
+            typedEsName={typedEsName}
+            signatureData={signatureData}
+            onSignatureChange={setSignatureData}
+            onTypedNameChange={setTypedEsName}
+            orderedKeys={tagSchemaOrderedKeys(tnReport.tagSchema)}
+            fieldLabels={tnFieldLabels}
+            typedNameLabel="Evaluator Typed Name"
+            signatureLabel="CRP Signature"
+            onSubmit={async (capturedSignature, typedNameValue) => {
+              await submitTnReport(reportData, capturedSignature, typedNameValue);
+            }}
+            onBack={() => {
+              setSubmitError(null);
+              setScreen('TN_FORM');
+            }}
+          />
+        </>
       )}
 
       {screen === 'REPORT_FORM' && (
@@ -369,6 +486,7 @@ function ReportsWorkspace() {
             setScreen('STATE_SELECTION');
             setReportType('');
             setSelectedState('');
+            setTnReport(null);
             setWayfinderClientId(null);
             setAdHocClient(false);
             setSubmitError(null);
