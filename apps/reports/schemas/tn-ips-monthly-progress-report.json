@@ -24,33 +24,20 @@
   },
   {
     "key": "service1check",
-    "label": "Career Development and Placement",
+    "label": "Career Development & Placement",
     "type": "boolean",
     "section": "Service information",
     "placeholder": "Check if this phase applies this month"
   },
   {
     "key": "s1start",
-    "label": "Career Development and Placement — Start Date",
+    "label": "Career Development & Placement — Start Date",
     "type": "date",
     "section": "Service information"
   },
   {
     "key": "s1complete",
-    "label": "Career Development and Placement — Completion Date",
-    "type": "date",
-    "section": "Service information"
-  },
-  {
-    "key": "service5check",
-    "label": "90 Day Stabilization",
-    "type": "boolean",
-    "section": "Service information",
-    "placeholder": "Check if this phase applies this month"
-  },
-  {
-    "key": "s5complete",
-    "label": "90 Day Stabilization — Completion Date",
+    "label": "Career Development & Placement — Completion Date",
     "type": "date",
     "section": "Service information"
   },
@@ -93,6 +80,38 @@
     "section": "Service information"
   },
   {
+    "key": "service4check",
+    "label": "60 Day Stabilization & Maintenance",
+    "type": "boolean",
+    "section": "Service information",
+    "placeholder": "Check if this phase applies this month"
+  },
+  {
+    "key": "s4start",
+    "label": "60 Day Stabilization & Maintenance — Start Date",
+    "type": "date",
+    "section": "Service information"
+  },
+  {
+    "key": "s4complete",
+    "label": "60 Day Stabilization & Maintenance — Completion Date",
+    "type": "date",
+    "section": "Service information"
+  },
+  {
+    "key": "service5check",
+    "label": "90 Day Stabilization & Maintenance",
+    "type": "boolean",
+    "section": "Service information",
+    "placeholder": "Check if this phase applies this month"
+  },
+  {
+    "key": "s5complete",
+    "label": "90 Day Stabilization & Maintenance — Completion Date",
+    "type": "date",
+    "section": "Service information"
+  },
+  {
     "key": "service6check",
     "label": "Re-Engaging with Individual",
     "type": "boolean",
@@ -111,25 +130,6 @@
     "type": "date",
     "section": "Service information",
     "help": "Should coincide with start date of another phase when applicable."
-  },
-  {
-    "key": "service4check",
-    "label": "60 Day Stabilization & Maintenance",
-    "type": "boolean",
-    "section": "Service information",
-    "placeholder": "Check if this phase applies this month"
-  },
-  {
-    "key": "s4start",
-    "label": "60 Day Stabilization & Maintenance — Start Date",
-    "type": "date",
-    "section": "Service information"
-  },
-  {
-    "key": "s4complete",
-    "label": "60 Day Stabilization & Maintenance — Completion Date",
-    "type": "date",
-    "section": "Service information"
   },
   {
     "key": "barriers",

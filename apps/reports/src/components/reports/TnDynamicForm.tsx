@@ -6,6 +6,10 @@ import {
   type TnPrefillValues,
 } from '@/lib/tn-prefill';
 import type { JobDevelopmentContactRow } from '@/lib/job-development-prefill';
+import {
+  IPS_MONTHLY_SERVICE_SECTION,
+  normalizeIpsMonthlyServiceFields,
+} from '@/lib/schemas/ips-monthly-service-order';
 import type { TagSchemaField } from '@/lib/tag-schema';
 import { InitialPad } from '@/components/reports/InitialPad';
 
@@ -22,7 +26,7 @@ interface Props {
 
 function defaultForType(type: TagSchemaField['type']): string | boolean {
   const now = new Date();
-  if (type === 'date') return now.toISOString().slice(0, 10);
+  if (type === 'date') return '';
   if (type === 'month') return now.toISOString().slice(0, 7);
   if (type === 'number') return '0';
   if (type === 'boolean') return false;
@@ -587,9 +591,14 @@ export function TnDynamicForm({
           {[...sections.entries()].map(([section, fields]) => {
             const tableRows = fields.filter((field) => field.type === 'table_row');
             const jdRows = fields.filter((field) => field.type === 'jd_contact_row');
-            const regularFields = fields.filter(
-              (field) => field.type !== 'table_row' && field.type !== 'jd_contact_row'
-            );
+            const regularFields = (() => {
+              const filtered = fields.filter(
+                (field) => field.type !== 'table_row' && field.type !== 'jd_contact_row'
+              );
+              return section === IPS_MONTHLY_SERVICE_SECTION
+                ? normalizeIpsMonthlyServiceFields(filtered)
+                : filtered;
+            })();
             return (
               <div key={section}>
                 <h2 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-4">{section}</h2>
