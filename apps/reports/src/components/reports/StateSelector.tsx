@@ -17,14 +17,31 @@ export function StateSelector({ user, onSelect }: Props) {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch('/api/wayfinder/states')
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 20000);
+
+    fetch('/api/wayfinder/states', { signal: controller.signal })
       .then(async (res) => {
         if (!res.ok) throw new Error('Could not load states');
         const data = await res.json();
         setStates(data.states ?? []);
       })
-      .catch((e) => setError((e as Error).message))
-      .finally(() => setLoading(false));
+      .catch((e) => {
+        const message =
+          (e as Error).name === 'AbortError'
+            ? 'Loading states timed out. Please refresh or try again in a moment.'
+            : (e as Error).message;
+        setError(message);
+      })
+      .finally(() => {
+        window.clearTimeout(timeoutId);
+        setLoading(false);
+      });
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
   }, []);
 
   if (loading) {

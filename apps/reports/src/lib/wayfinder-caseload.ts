@@ -30,33 +30,42 @@ async function loadProfileRole(admin: SupabaseClient, userId: string): Promise<s
 }
 
 async function loadSupervisorScope(admin: SupabaseClient, supervisorUserId: string): Promise<SupervisorScope> {
-  const [{ data: offices }, { data: esLinks }, { data: staffOfficeLinks }, { data: esProfiles }] =
-    await Promise.all([
-      admin.from("staff_office_assignments").select("office_id").eq("user_id", supervisorUserId),
-      admin
-        .from("supervisor_es_assignments")
-        .select("es_user_id")
-        .eq("supervisor_user_id", supervisorUserId),
-      admin.from("staff_office_assignments").select("user_id, office_id"),
-      admin.from("profiles").select("id").eq("role", "es"),
-    ]);
+  const [{ data: offices }, { data: esLinks }] = await Promise.all([
+    admin.from("staff_office_assignments").select("office_id").eq("user_id", supervisorUserId),
+    admin
+      .from("supervisor_es_assignments")
+      .select("es_user_id")
+      .eq("supervisor_user_id", supervisorUserId),
+  ]);
 
   const officeIds = (offices ?? []).map((o) => o.office_id as string);
   const officeSet = new Set(officeIds);
   const esUserIds = new Set((esLinks ?? []).map((e) => e.es_user_id as string));
 
-  const officesByUser = new Map<string, string[]>();
-  for (const link of staffOfficeLinks ?? []) {
-    const uid = link.user_id as string;
-    const list = officesByUser.get(uid) ?? [];
-    list.push(link.office_id as string);
-    officesByUser.set(uid, list);
-  }
+  if (officeIds.length > 0) {
+    const { data: staffOfficeLinks } = await admin
+      .from("staff_office_assignments")
+      .select("user_id, office_id")
+      .in("office_id", officeIds);
 
-  for (const profile of esProfiles ?? []) {
-    const id = profile.id as string;
-    if ((officesByUser.get(id) ?? []).some((officeId) => officeSet.has(officeId))) {
-      esUserIds.add(id);
+    const candidateUserIds = new Set<string>();
+    for (const link of staffOfficeLinks ?? []) {
+      const userId = link.user_id as string;
+      const officeId = link.office_id as string;
+      if (userId !== supervisorUserId && officeSet.has(officeId)) {
+        candidateUserIds.add(userId);
+      }
+    }
+
+    if (candidateUserIds.size > 0) {
+      const { data: esProfiles } = await admin
+        .from("profiles")
+        .select("id")
+        .in("id", [...candidateUserIds])
+        .eq("role", "es");
+      for (const profile of esProfiles ?? []) {
+        esUserIds.add(profile.id as string);
+      }
     }
   }
 

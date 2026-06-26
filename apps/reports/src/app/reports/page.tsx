@@ -56,6 +56,7 @@ function ReportsWorkspace() {
   const [signatureData, setSignatureData] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [deepLinkHandled, setDeepLinkHandled] = useState(false);
   const [tnReport, setTnReport] = useState<TnReportSelection | null>(null);
@@ -66,11 +67,18 @@ function ReportsWorkspace() {
     const supabase = createClient();
 
     async function loadAuth() {
+      const AUTH_TIMEOUT_MS = 15000;
       try {
+        const authResult = await Promise.race([
+          supabase.auth.getUser(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Auth check timed out')), AUTH_TIMEOUT_MS)
+          ),
+        ]);
         const {
           data: { user },
           error: userError,
-        } = await supabase.auth.getUser();
+        } = authResult;
 
         if (cancelled) return;
 
@@ -85,19 +93,7 @@ function ReportsWorkspace() {
           return;
         }
 
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('full_name, first_name, last_name')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        if (cancelled) return;
-
-        if (profileError) {
-          console.error('Reports profile load failed:', profileError.message);
-        }
-
-        const resolvedEsName = resolveReportingEsName(profile, user.user_metadata);
+        const resolvedEsName = resolveReportingEsName(null, user.user_metadata);
 
         setUser({
           email,
@@ -108,7 +104,12 @@ function ReportsWorkspace() {
       } catch (err) {
         console.error('Reports auth init failed:', err);
         if (!cancelled) {
-          router.replace('/login?next=/reports&error=auth');
+          setAuthError(
+            err instanceof Error && err.message === 'Auth check timed out'
+              ? 'Sign-in is taking too long. Try refreshing, or sign out and use your passkey again.'
+              : 'Could not verify your session. Try signing in again.'
+          );
+          setLoading(false);
         }
       }
     }
@@ -235,6 +236,22 @@ function ReportsWorkspace() {
     } else if (type === 'jtsgtsvs') {
       setScreen('JTSG_TSVS_FORM');
     }
+  }
+
+  if (authError) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4">
+        <div className="max-w-md rounded-2xl border border-amber-200 bg-white p-8 text-center shadow-lg">
+          <p className="text-amber-950">{authError}</p>
+          <Link
+            href="/login?next=/reports"
+            className="mt-6 inline-block rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600"
+          >
+            Back to sign in
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   if (loading || !user) {

@@ -73,7 +73,7 @@ export async function handleWayfinderAuthCallback(
   }
 
   const redirectTarget = new URL(next, url.origin);
-  const response = NextResponse.redirect(redirectTarget);
+  let response = NextResponse.redirect(redirectTarget);
 
   const supabase = createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
     ...wayfinderServerAuthOptions,
@@ -82,6 +82,8 @@ export async function handleWayfinderAuthCallback(
         return request.cookies.getAll();
       },
       setAll(cookiesToSet: SupabaseCookieToSet[]) {
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        response = NextResponse.redirect(redirectTarget);
         cookiesToSet.forEach(({ name, value, options }) =>
           response.cookies.set(name, value, options)
         );

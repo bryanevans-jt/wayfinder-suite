@@ -10,6 +10,19 @@ import { NextResponse, type NextRequest } from 'next/server';
 const ORG_DOMAIN = 'thejoshuatree.org';
 const REPORTING_ROLES = new Set(['es', 'supervisor', 'admin', 'super_admin']);
 
+async function loadReportingRole(
+  supabase: ReturnType<typeof createServerClient>
+): Promise<string | null> {
+  const { data: rpcRows, error } = await supabase.rpc('get_auth_user_profile');
+  if (!error && rpcRows) {
+    const row = (Array.isArray(rpcRows) ? rpcRows[0] : rpcRows) as { role?: string } | undefined;
+    if (row?.role) {
+      return String(row.role).toLowerCase();
+    }
+  }
+  return null;
+}
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -71,13 +84,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirect);
   }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .maybeSingle();
-
-  const role = (profile?.role as string | undefined)?.toLowerCase() ?? '';
+  const role = (await loadReportingRole(supabase)) ?? '';
   if (!REPORTING_ROLES.has(role)) {
     const staffUrl = process.env.NEXT_PUBLIC_STAFF_APP_URL?.replace(/\/$/, '') || '';
     if (staffUrl) {
