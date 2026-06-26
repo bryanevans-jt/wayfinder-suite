@@ -1,5 +1,9 @@
 import { buildClientActivityFkIds } from "@wayfinder/supabase";
 import type { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import {
+  filterOfficesForPicker,
+  queryAllOffices,
+} from "@/lib/office-visibility";
 import type { AnalyticsScope } from "./access";
 import {
   CLOSED_STAGE_PATTERN,
@@ -419,19 +423,36 @@ export async function loadAnalyticsFilterOptions(
     esUserIds = [...new Set((links ?? []).map((l) => l.es_user_id as string))];
   }
 
-  const [{ data: offices }, { data: profiles }] = await Promise.all([
-    officeIds.length
-      ? admin.from("offices").select("id, name").in("id", officeIds).order("name")
-      : scope.kind === "org"
-        ? admin.from("offices").select("id, name").order("name")
-        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+  let officeOptions: Array<{ id: string; name: string }> = [];
+  if (officeIds.length) {
+    const { data: offices } = await admin
+      .from("offices")
+      .select("id, name, is_hidden")
+      .in("id", officeIds)
+      .order("name");
+    officeOptions = filterOfficesForPicker(
+      (offices ?? []).map((office) => ({
+        id: office.id as string,
+        name: office.name as string,
+        is_hidden: (office as { is_hidden?: boolean | null }).is_hidden,
+      })),
+      { alwaysIncludeIds: officeIds }
+    ).map((office) => ({ id: office.id, name: office.name }));
+  } else if (scope.kind === "org") {
+    officeOptions = filterOfficesForPicker(await queryAllOffices(admin)).map((office) => ({
+      id: office.id,
+      name: office.name,
+    }));
+  }
+
+  const [{ data: profiles }] = await Promise.all([
     esUserIds.length
       ? admin.from("profiles").select("id, full_name, email").in("id", esUserIds)
       : Promise.resolve({ data: [] as { id: string; full_name: string | null; email: string | null }[] }),
   ]);
 
   return {
-    offices: (offices ?? []).map((o) => ({ id: o.id as string, name: o.name as string })),
+    offices: officeOptions,
     esUsers: (profiles ?? [])
       .map((p) => ({
         id: p.id as string,

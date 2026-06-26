@@ -19,6 +19,7 @@ import {
 } from "@/components/es-application-pipeline-board";
 import { loadCaseloadTriageFlags } from "@/lib/caseload-operations";
 import { fetchEsCaseloadClients, getEsCaseloadAdmin } from "@/lib/es-caseload-data";
+import { fetchOfficesForPicker } from "@/lib/office-visibility";
 import { AddClientLauncher } from "./add-client-launcher";
 import { EsNaturalSupportButton } from "./es-natural-support-button";
 
@@ -54,10 +55,10 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
   const supabase = await createServerClient();
   const lookupClient = admin ?? supabase;
 
-  const [caseload, servicesQuery, { data: offices }, { data: counselorsRaw }] = await Promise.all([
+  const [caseload, servicesQuery, offices, { data: counselorsRaw }] = await Promise.all([
     fetchEsCaseloadClients(effectiveUserId, { includeArchived }),
     lookupClient.from("services").select("id, name, state").order("name", { ascending: true }),
-    lookupClient.from("offices").select("id, name").order("name", { ascending: true }),
+    fetchOfficesForPicker(lookupClient),
     lookupClient
       .from("counselors")
       .select("id, full_name, office_id, offices(name)")

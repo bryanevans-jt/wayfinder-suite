@@ -9,6 +9,7 @@ import { createServerClient } from "@wayfinder/supabase";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { redirect } from "next/navigation";
 import { loadEmployerLastTouches } from "@/lib/caseload-operations";
+import { fetchOfficesForPicker } from "@/lib/office-visibility";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 
 export default async function CommunityPartnersPage() {
@@ -36,14 +37,14 @@ export default async function CommunityPartnersPage() {
   const canEdit = canEditCommunityPartners(session.effectiveRole);
   const readOnly = session.isPreviewing || !canEdit;
 
-  const [employersQuery, officesQuery] = await Promise.all([
+  const [employersQuery, offices] = await Promise.all([
     supabase
       .from("employers")
       .select(
         "id, name, status, industry, contact_name, contact_email, contact_phone, address_line1, city, state, zip, website, office_id, position_need_primary, position_need_primary_other, position_need_secondary, position_need_secondary_other, latitude, longitude, submission_source, offices(name)"
       )
       .order("name", { ascending: true }),
-    supabase.from("offices").select("id, name").order("name", { ascending: true }),
+    fetchOfficesForPicker(supabase),
   ]);
 
   const migrationMissing = employersQuery.error?.message.includes("employers");
@@ -98,7 +99,7 @@ export default async function CommunityPartnersPage() {
       </header>
 
       <CommunityPartnersWorkspace
-        offices={(officesQuery.data ?? []) as { id: string; name: string }[]}
+        offices={offices}
         readOnly={readOnly}
         readOnlyReason={session.isPreviewing ? "preview" : "role"}
         isAdminTier={isAdminTier}

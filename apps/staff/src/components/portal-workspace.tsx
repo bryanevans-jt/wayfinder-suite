@@ -228,6 +228,12 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
         <p className="mt-6 text-sm text-brand-black/60">Loading…</p>
       ) : nav.primary === "offices" ? (
         <section className="mt-6 max-w-3xl space-y-6">
+          {mode === "super_admin" ? (
+            <p className="text-sm text-brand-black/70">
+              Hide offices you are not working with yet. Hidden offices stay in the directory but
+              disappear from admin and supervisor pickers until you show them again.
+            </p>
+          ) : null}
           {canManageOrg ? (
             <form
               className="flex flex-wrap gap-2"
@@ -287,6 +293,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 key={o.id}
                 office={o}
                 canManage={canManageOrg}
+                canToggleVisibility={mode === "super_admin"}
                 busy={busy}
                 onSave={(payload) =>
                   run(async () => {
@@ -294,6 +301,17 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                       method: "PATCH",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ id: o.id, ...payload }),
+                    });
+                    const data = (await res.json()) as { error?: string };
+                    if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                  })
+                }
+                onToggleHidden={(isHidden) =>
+                  run(async () => {
+                    const res = await fetch("/api/portal/offices", {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ id: o.id, is_hidden: isHidden }),
                     });
                     const data = (await res.json()) as { error?: string };
                     if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
@@ -2021,19 +2039,24 @@ type OfficeRow = {
   name: string;
   city: string | null;
   state: string | null;
+  is_hidden?: boolean;
 };
 
 function OfficeListItem({
   office,
   canManage,
+  canToggleVisibility,
   busy,
   onSave,
+  onToggleHidden,
   onDelete,
 }: {
   office: OfficeRow;
   canManage: boolean;
+  canToggleVisibility: boolean;
   busy: boolean;
   onSave: (payload: { name: string; city: string; state: string }) => Promise<void>;
+  onToggleHidden: (isHidden: boolean) => Promise<void>;
   onDelete: () => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
@@ -2111,31 +2134,57 @@ function OfficeListItem({
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
       <div>
-        <p className="font-medium text-brand-black">{office.name}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="font-medium text-brand-black">{office.name}</p>
+          {office.is_hidden ? (
+            <span className="rounded-full bg-neutral-200 px-2 py-0.5 text-xs font-medium text-neutral-700">
+              Hidden
+            </span>
+          ) : null}
+        </div>
         {office.city || office.state ? (
           <p className="text-xs text-brand-black/60">
             {[office.city, office.state].filter(Boolean).join(", ")}
           </p>
         ) : null}
+        {office.is_hidden ? (
+          <p className="mt-1 text-xs text-brand-black/55">
+            Hidden from admin and supervisor office pickers.
+          </p>
+        ) : null}
       </div>
-      {canManage ? (
-        <div className="flex gap-3">
-          <button
-            type="button"
-            disabled={busy}
-            className="font-medium text-brand-green hover:underline disabled:opacity-60"
-            onClick={() => setEditing(true)}
-          >
-            Edit
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            className="text-red-700 hover:underline disabled:opacity-60"
-            onClick={() => void onDelete()}
-          >
-            Delete
-          </button>
+      {canManage || canToggleVisibility ? (
+        <div className="flex flex-wrap gap-3">
+          {canToggleVisibility ? (
+            <button
+              type="button"
+              disabled={busy}
+              className="font-medium text-brand-black/70 hover:underline disabled:opacity-60"
+              onClick={() => void onToggleHidden(!office.is_hidden)}
+            >
+              {office.is_hidden ? "Show office" : "Hide office"}
+            </button>
+          ) : null}
+          {canManage ? (
+            <>
+              <button
+                type="button"
+                disabled={busy}
+                className="font-medium text-brand-green hover:underline disabled:opacity-60"
+                onClick={() => setEditing(true)}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                className="text-red-700 hover:underline disabled:opacity-60"
+                onClick={() => void onDelete()}
+              >
+                Delete
+              </button>
+            </>
+          ) : null}
         </div>
       ) : null}
     </li>

@@ -25,7 +25,9 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    const bootstrap = await loadPortalBootstrap(admin, scope);
+    const bootstrap = await loadPortalBootstrap(admin, scope, {
+      includeHiddenOffices: isSuperAdminRole(role),
+    });
     return Response.json({
       bootstrap,
       canEditLogs: isSuperAdminRole(role),

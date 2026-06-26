@@ -9,6 +9,12 @@ import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import type { PortalTier } from "@wayfinder/supabase/roles";
 import { redirect } from "next/navigation";
+import {
+  collectReferencedOfficeIds,
+  filterOfficesForPicker,
+  queryAllOffices,
+  type OfficeRecord,
+} from "@/lib/office-visibility";
 
 export async function requirePortalPage(minTier: PortalTier) {
   const session = await getAppSession();
@@ -43,7 +49,13 @@ export async function requirePortalPage(minTier: PortalTier) {
 }
 
 export type PortalBootstrap = {
-  offices: { id: string; name: string; city: string | null; state: string | null }[];
+  offices: {
+    id: string;
+    name: string;
+    city: string | null;
+    state: string | null;
+    is_hidden: boolean;
+  }[];
   services: { id: string; name: string }[];
   /** Raw service rows (for edit dropdowns — includes legacy ids). */
   serviceCatalog: { id: string; name: string; state?: string | null }[];
@@ -129,33 +141,10 @@ export type PortalBootstrap = {
 
 export async function loadPortalBootstrap(
   admin: ReturnType<typeof createServiceRoleClient>,
-  scope?: { supervisorUserId?: string; officeIds?: string[]; esUserIds?: string[] }
+  scope?: { supervisorUserId?: string; officeIds?: string[]; esUserIds?: string[] },
+  options?: { includeHiddenOffices?: boolean }
 ): Promise<PortalBootstrap> {
-  let officesQuery = await admin
-    .from("offices")
-    .select("id, name, city, state")
-    .order("name");
-  let officesRows: Array<{
-    id: string;
-    name: string;
-    city?: string | null;
-    state?: string | null;
-  }> = (officesQuery.data ?? []) as Array<{
-    id: string;
-    name: string;
-    city?: string | null;
-    state?: string | null;
-  }>;
-  if (
-    officesQuery.error?.message.includes("city") ||
-    officesQuery.error?.message.includes("state")
-  ) {
-    const fallback = await admin.from("offices").select("id, name").order("name");
-    if (fallback.error) throw new Error(fallback.error.message);
-    officesRows = (fallback.data ?? []) as typeof officesRows;
-  } else if (officesQuery.error) {
-    throw new Error(officesQuery.error.message);
-  }
+  let officesRows: OfficeRecord[] = await queryAllOffices(admin);
 
   let clientsQuery = await admin
     .from("clients")
@@ -412,12 +401,23 @@ export async function loadPortalBootstrap(
       ])
     : null;
 
+  const referencedOfficeIds = collectReferencedOfficeIds(
+    clientRows.map((client) => client.office_id as string | null),
+    staffOfficeLinksOut.map((link) => link.office_id),
+    counselorOfficeLinksOut.map((link) => link.office_id)
+  );
+  officesRows = filterOfficesForPicker(officesRows, {
+    includeHidden: options?.includeHiddenOffices ?? false,
+    alwaysIncludeIds: referencedOfficeIds,
+  });
+
   return {
     offices: officesRows.map((o) => ({
       id: o.id,
       name: o.name,
       city: o.city ?? null,
       state: o.state ?? null,
+      is_hidden: o.is_hidden === true,
     })),
     services: dedupeServicesForSelect(servicesRaw),
     serviceCatalog: servicesRaw.map((s) => ({

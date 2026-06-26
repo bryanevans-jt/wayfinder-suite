@@ -10,6 +10,7 @@ import {
   type EmployerStatusLogEntry,
 } from "@/components/employer-status-log-panel";
 import { canEditCommunityPartners, isCommunityPartnersRole } from "@/lib/community-partners-auth";
+import { fetchOfficesForPicker } from "@/lib/office-visibility";
 import { COMMUNITY_PARTNERS_NETWORK_NAME } from "@/lib/employer-constants";
 import {
   employerMatchEligibility,
@@ -87,9 +88,11 @@ export default async function CommunityPartnerDetailPage({ params }: PageProps) 
           .order("created_at", { ascending: false })
       : null;
 
-  const [{ data: offices }, clientsResult, applicationsResult, { data: statusLogsRaw }] =
+  const [{ data: officesRaw }, clientsResult, applicationsResult, { data: statusLogsRaw }] =
     await Promise.all([
-      supabase.from("offices").select("id, name").order("name"),
+      fetchOfficesForPicker(supabase, {
+        alwaysIncludeIds: [(employer as { office_id?: string | null }).office_id],
+      }).then((rows) => ({ data: rows })),
       clientsQuery ?? Promise.resolve({ data: [] as Record<string, unknown>[] }),
       applicationsQuery ?? Promise.resolve({ data: [] as Record<string, unknown>[] }),
       supabase
@@ -218,7 +221,7 @@ export default async function CommunityPartnerDetailPage({ params }: PageProps) 
               ),
             } as EmployerRow
           }
-          offices={(offices ?? []) as { id: string; name: string }[]}
+          offices={(officesRaw ?? []) as { id: string; name: string }[]}
           readOnly={readOnly}
           canDelete={canDelete}
         />

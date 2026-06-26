@@ -1,21 +1,19 @@
 import { assertPortalMutation, assertPortalSession, jsonPortalError } from "@/lib/portal-auth";
+import {
+  filterOfficesForPicker,
+  queryAllOffices,
+} from "@/lib/office-visibility";
+import { isSuperAdminRole } from "@wayfinder/supabase/roles";
 import { insertOfficeRow } from "@wayfinder/supabase";
 import { NextRequest } from "next/server";
 
 export async function GET() {
   try {
-    const { admin } = await assertPortalSession("supervisor");
-    let result = await admin.from("offices").select("id, name, city, state").order("name");
-    if (
-      result.error?.message.includes("city") ||
-      result.error?.message.includes("state")
-    ) {
-      const fallback = await admin.from("offices").select("id, name").order("name");
-      if (fallback.error) throw new Error(fallback.error.message);
-      return Response.json({ offices: fallback.data ?? [] });
-    }
-    if (result.error) throw new Error(result.error.message);
-    return Response.json({ offices: result.data ?? [] });
+    const { admin, role } = await assertPortalSession("supervisor");
+    const offices = filterOfficesForPicker(await queryAllOffices(admin), {
+      includeHidden: isSuperAdminRole(role),
+    });
+    return Response.json({ offices });
   } catch (error) {
     return await jsonPortalError(error);
   }
@@ -41,19 +39,24 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { admin } = await assertPortalMutation("admin");
+    const { admin, role } = await assertPortalMutation("admin");
     const body = (await request.json()) as {
       id?: string;
       name?: string;
       city?: string;
       state?: string;
+      is_hidden?: boolean;
     };
     const id = body.id?.trim();
     if (!id) {
       return Response.json({ error: "id is required" }, { status: 400 });
     }
 
-    const patch: Record<string, string | null> = {};
+    if (body.is_hidden !== undefined && !isSuperAdminRole(role)) {
+      return Response.json({ error: "Only super admins can hide offices" }, { status: 403 });
+    }
+
+    const patch: Record<string, string | boolean | null> = {};
     if (body.name !== undefined) {
       const name = body.name.trim();
       if (!name) {
@@ -68,6 +71,9 @@ export async function PATCH(request: NextRequest) {
       const state = body.state.trim();
       patch.state = state || null;
     }
+    if (body.is_hidden !== undefined) {
+      patch.is_hidden = Boolean(body.is_hidden);
+    }
 
     if (Object.keys(patch).length === 0) {
       return Response.json({ error: "Nothing to update" }, { status: 400 });
@@ -77,8 +83,30 @@ export async function PATCH(request: NextRequest) {
       .from("offices")
       .update(patch)
       .eq("id", id)
-      .select("id, name, city, state")
+      .select("id, name, city, state, is_hidden")
       .maybeSingle();
+
+    if (result.error?.message.includes("Could not find the 'is_hidden'")) {
+      if (body.is_hidden !== undefined) {
+        return Response.json(
+          {
+            error:
+              "Could not update office visibility — run migration 20260627140000_offices_hidden_flag.sql in Supabase.",
+          },
+          { status: 503 }
+        );
+      }
+      const { is_hidden: _hidden, ...withoutHidden } = patch;
+      if (Object.keys(withoutHidden).length === 0) {
+        return Response.json({ error: "Nothing to update" }, { status: 400 });
+      }
+      result = await admin
+        .from("offices")
+        .update(withoutHidden)
+        .eq("id", id)
+        .select("id, name, city, state")
+        .maybeSingle();
+    }
 
     if (result.error?.message.includes("Could not find the 'city'")) {
       if (body.city !== undefined) {
@@ -96,7 +124,7 @@ export async function PATCH(request: NextRequest) {
           .from("offices")
           .update(withoutCity)
           .eq("id", id)
-          .select("id, name, city, state")
+          .select("id, name, city, state, is_hidden")
           .maybeSingle();
       }
     }
@@ -116,7 +144,7 @@ export async function PATCH(request: NextRequest) {
           .from("offices")
           .update(withoutState)
           .eq("id", id)
-          .select("id, name, city, state")
+          .select("id, name, city, state, is_hidden")
           .maybeSingle();
       }
     }
