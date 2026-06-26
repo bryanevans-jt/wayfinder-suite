@@ -18,6 +18,7 @@ export type TnReportSelection = {
   slug: string;
   name: string;
   requiresSignature: boolean;
+  templateKind: string;
   tagSchema: TagSchemaField[];
 };
 
@@ -31,6 +32,7 @@ type TnProgram = {
     slug: string;
     name: string;
     requiresSignature?: boolean;
+    templateKind?: string;
     tagSchema?: unknown;
   }>;
 };
@@ -65,6 +67,7 @@ export function ReportSelection({ user, state, onSelectGa, onSelectTn, onBack }:
           ...r,
           programName: p.name,
           requiresSignature: Boolean(r.requiresSignature),
+          templateKind: (r.templateKind as string) ?? 'google_doc',
           tagSchema: parseTagSchema(r.tagSchema),
         }))
       : []
@@ -154,6 +157,7 @@ export function ReportSelection({ user, state, onSelectGa, onSelectTn, onBack }:
                       slug: report.slug,
                       name: report.name,
                       requiresSignature: report.requiresSignature,
+                      templateKind: report.templateKind,
                       tagSchema: report.tagSchema,
                     })
                   }
@@ -163,6 +167,9 @@ export function ReportSelection({ user, state, onSelectGa, onSelectTn, onBack }:
                   <p className="text-xs text-gray-500">{report.programName}</p>
                   {report.requiresSignature ? (
                     <p className="text-xs text-green-700 mt-1">Signature required</p>
+                  ) : null}
+                  {report.templateKind === 'pdf_upload' ? (
+                    <p className="text-xs text-blue-700 mt-1">Download, print, and upload completed form</p>
                   ) : null}
                 </button>
               </li>

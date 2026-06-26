@@ -5,6 +5,7 @@ import { getGoogleAuth, sendEmail } from "@/lib/google";
 import { generateTnGoogleDocPdf } from "@/lib/pdf-generator";
 import { recordFormalSubmission } from "@/lib/record-submission";
 import { resolveTnClientName } from "@/lib/tn-prefill";
+import { loadTnReportDefinition } from "@/lib/tn-report-definition";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -34,30 +35,19 @@ export async function POST(request: Request) {
     }
 
     const admin = createAdminClient();
-    const { data: definition, error: defError } = await admin
-      .from("report_type_definitions")
-      .select(
-        "slug, name, enabled, requires_signature, template_kind, google_doc_template_id, drive_folder_id"
-      )
-      .eq("state", "TN")
-      .eq("slug", reportTypeSlug.trim())
-      .maybeSingle();
-
-    if (defError) {
-      return NextResponse.json({ error: defError.message }, { status: 500 });
-    }
+    const definition = await loadTnReportDefinition(admin, reportTypeSlug);
     if (!definition?.enabled) {
       return NextResponse.json({ error: "Report type is not enabled" }, { status: 404 });
     }
-    if (definition.template_kind !== "google_doc") {
+    if (definition.templateKind !== "google_doc") {
       return NextResponse.json(
         { error: "Only google_doc Tennessee reports are supported in this flow" },
         { status: 400 }
       );
     }
 
-    const templateId = definition.google_doc_template_id as string | null;
-    const folderId = definition.drive_folder_id as string | null;
+    const templateId = definition.googleDocTemplateId;
+    const folderId = definition.driveFolderId;
     if (!templateId || !folderId) {
       return NextResponse.json(
         { error: "Template ID and Drive folder must be configured in admin for this report type." },
@@ -65,7 +55,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const requiresSignature = Boolean(definition.requires_signature);
+    const requiresSignature = definition.requiresSignature;
     if (requiresSignature && !signatureData) {
       return NextResponse.json({ error: "Signature is required for this report type." }, { status: 400 });
     }
@@ -89,7 +79,7 @@ export async function POST(request: Request) {
 
     const drive = (await import("googleapis")).google.drive({ version: "v3", auth });
     const customerName = resolveTnClientName(reportData);
-    const fileName = `${customerName} - ${definition.name as string}.pdf`;
+    const fileName = `${customerName} - ${definition.name}.pdf`;
     const uploaded = await drive.files.create({
       supportsAllDrives: true,
       requestBody: { name: fileName, parents: [folderId] },
@@ -107,7 +97,7 @@ export async function POST(request: Request) {
       wayfinderClientId: wayfinderClientId || null,
       clientName: customerName,
       state: "TN",
-      reportTypeSlug: definition.slug as string,
+      reportTypeSlug: definition.slug,
       submittedBy: user.id,
       submittedByName: submitterName,
       driveFileId,
@@ -117,7 +107,7 @@ export async function POST(request: Request) {
 
     await sendEmail(auth, {
       to: user.email,
-      subject: `Completed ${definition.name as string} for ${customerName}`,
+      subject: `Completed ${definition.name} for ${customerName}`,
       text: `Hello,\n\nYour completed Tennessee report for ${customerName} is attached.\n\nThank you!`,
       attachments: [{ filename: fileName, content: pdfBytes.toString("base64"), encoding: "base64" }],
     });

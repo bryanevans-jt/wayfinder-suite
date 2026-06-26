@@ -13,6 +13,7 @@ import { JTSGVMRForm } from '@/components/reports/JTSGVMRForm';
 import { EVFForm } from '@/components/reports/EVFForm';
 import { JTSGTSVSForm } from '@/components/reports/JTSGTSVSForm';
 import { TnDynamicForm } from '@/components/reports/TnDynamicForm';
+import { TnPdfUploadForm } from '@/components/reports/TnPdfUploadForm';
 import { ReviewAndSign } from '@/components/reports/ReviewAndSign';
 import { SubmissionStatus } from '@/components/reports/SubmissionStatus';
 import { withReportSupportHint } from '@/lib/report-errors';
@@ -30,6 +31,7 @@ type Screen =
   | 'JTSG_TSVS_FORM'
   | 'EVF_FORM'
   | 'TN_FORM'
+  | 'TN_PDF_UPLOAD'
   | 'TN_REVIEW_AND_SIGN'
   | 'REVIEW_AND_SIGN'
   | 'JTSG_VMR_REVIEW'
@@ -130,7 +132,7 @@ function ReportsWorkspace() {
 
     if (selectedState === 'TN' && tnReport) {
       setReportData({});
-      setScreen('TN_FORM');
+      setScreen(tnReport.templateKind === 'pdf_upload' ? 'TN_PDF_UPLOAD' : 'TN_FORM');
       return;
     }
 
@@ -289,6 +291,23 @@ function ReportsWorkspace() {
             />
           )}
         </>
+      )}
+
+      {screen === 'TN_PDF_UPLOAD' && tnReport && user && (
+        <TnPdfUploadForm
+          reportName={tnReport.name}
+          reportTypeSlug={tnReport.slug}
+          user={user}
+          esName={esName}
+          initialClientName={clientName}
+          wayfinderClientId={wayfinderClientId}
+          onSuccess={(msg) => {
+            setMessage(msg);
+            setScreen('SUBMISSION_STATUS');
+          }}
+          onError={(msg) => setMessage(msg)}
+          onBack={() => setScreen('CLIENT_PICKER')}
+        />
       )}
 
       {screen === 'TN_REVIEW_AND_SIGN' && tnReport && (
