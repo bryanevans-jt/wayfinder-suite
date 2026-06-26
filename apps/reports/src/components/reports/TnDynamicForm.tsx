@@ -24,6 +24,7 @@ function defaultForType(type: TagSchemaField['type']): string | boolean {
   if (type === 'month') return now.toISOString().slice(0, 7);
   if (type === 'number') return '0';
   if (type === 'boolean') return false;
+  if (type === 'table_row') return '';
   return '';
 }
 
@@ -33,6 +34,12 @@ function buildInitialValues(
 ): Record<string, string | boolean> {
   const values: Record<string, string | boolean> = {};
   for (const field of fields) {
+    if (field.type === 'table_row') {
+      if (field.trainingKey) values[field.trainingKey] = '';
+      if (field.dateKey) values[field.dateKey] = '';
+      if (field.commentsKey) values[field.commentsKey] = '';
+      continue;
+    }
     const fromPrefill = applyPrefillToFieldKey(field.key, field.prefill, prefill);
     values[field.key] = fromPrefill ?? defaultForType(field.type);
   }
@@ -115,6 +122,18 @@ export function TnDynamicForm({
     }
 
     for (const field of tagSchema) {
+      if (field.type === 'table_row') {
+        if (field.trainingKey) {
+          data[field.trainingKey] = String(formData.get(field.trainingKey) ?? '');
+        }
+        if (field.dateKey) {
+          data[field.dateKey] = String(formData.get(field.dateKey) ?? '');
+        }
+        if (field.commentsKey) {
+          data[field.commentsKey] = String(formData.get(field.commentsKey) ?? '');
+        }
+        continue;
+      }
       if (field.type === 'checkbox') {
         data[field.key] = formData.getAll(field.key).map(String);
       } else if (field.type === 'boolean') {
@@ -171,8 +190,68 @@ export function TnDynamicForm({
   }
 
   const renderedRadioGroups = new Set<string>();
+  const hasTableRows = tagSchema.some((field) => field.type === 'table_row');
+
+  function renderCompetencyTable(rows: TagSchemaField[]) {
+    return (
+      <div className="overflow-x-auto -mx-1">
+        <table className="w-full min-w-[720px] border-collapse border border-gray-300 text-sm">
+          <thead>
+            <tr className="bg-green-50 text-left">
+              <th className="border border-gray-300 p-2 font-semibold text-gray-800 w-[42%]">
+                Competency Area
+              </th>
+              <th className="border border-gray-300 p-2 font-semibold text-gray-800 w-[14%]">
+                Training Needed?
+              </th>
+              <th className="border border-gray-300 p-2 font-semibold text-gray-800 w-[16%]">
+                Date Provided
+              </th>
+              <th className="border border-gray-300 p-2 font-semibold text-gray-800">Comments</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.key} className="align-top">
+                <td className="border border-gray-300 p-2 text-gray-800">{row.rowLabel}</td>
+                <td className="border border-gray-300 p-2">
+                  <select
+                    name={row.trainingKey}
+                    defaultValue={String(values[row.trainingKey!] ?? '')}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded bg-white"
+                  >
+                    <option value="">—</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                  </select>
+                </td>
+                <td className="border border-gray-300 p-2">
+                  <input
+                    type="date"
+                    name={row.dateKey}
+                    defaultValue={String(values[row.dateKey!] ?? '')}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded"
+                  />
+                </td>
+                <td className="border border-gray-300 p-2">
+                  <input
+                    type="text"
+                    name={row.commentsKey}
+                    defaultValue={String(values[row.commentsKey!] ?? '')}
+                    placeholder="Optional"
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded"
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
 
   function renderField(field: TagSchemaField) {
+    if (field.type === 'table_row') return null;
     if (field.type === 'radio' && field.group) {
       const groupKey = `${field.section ?? ''}:${field.group}`;
       if (renderedRadioGroups.has(groupKey)) return null;
@@ -295,7 +374,11 @@ export function TnDynamicForm({
 
   return (
     <div className="flex flex-col items-center min-h-screen bg-gray-50 p-4">
-      <div className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-3xl mt-10">
+      <div
+        className={`bg-white p-8 rounded-2xl shadow-lg w-full mt-10 ${
+          hasTableRows ? 'max-w-6xl' : 'max-w-3xl'
+        }`}
+      >
         {onBack ? (
           <button type="button" onClick={onBack} className="text-sm text-gray-500 hover:text-green-600 mb-4">
             ← Back
@@ -307,14 +390,19 @@ export function TnDynamicForm({
         </p>
 
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-8">
-          {[...sections.entries()].map(([section, fields]) => (
-            <div key={section}>
-              <h2 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-4">{section}</h2>
-              <div className="space-y-4">
-                {fields.map((field) => renderField(field))}
+          {[...sections.entries()].map(([section, fields]) => {
+            const tableRows = fields.filter((field) => field.type === 'table_row');
+            const regularFields = fields.filter((field) => field.type !== 'table_row');
+            return (
+              <div key={section}>
+                <h2 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-4">{section}</h2>
+                {regularFields.length > 0 ? (
+                  <div className="space-y-4 mb-4">{regularFields.map((field) => renderField(field))}</div>
+                ) : null}
+                {tableRows.length > 0 ? renderCompetencyTable(tableRows) : null}
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           <button
             type="submit"

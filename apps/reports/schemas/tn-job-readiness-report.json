@@ -1,0 +1,357 @@
+[
+  {
+    "key": "clientName",
+    "label": "Customer Name",
+    "type": "text",
+    "section": "Customer information",
+    "prefill": "clientName",
+    "required": true
+  },
+  {
+    "key": "row_a1",
+    "label": "1. Can fill out a paper/online job application completely and correctly or has a responsible party who can assist when necessary (no blank items, signed)",
+    "type": "table_row",
+    "section": "A. The Job Application",
+    "rowLabel": "1. Can fill out a paper/online job application completely and correctly or has a responsible party who can assist when necessary (no blank items, signed)",
+    "trainingKey": "traininga1",
+    "dateKey": "datea1",
+    "commentsKey": "commentsa1"
+  },
+  {
+    "key": "row_a2",
+    "label": "2. Resume or fact sheet developed. The resume must be submitted to VR with the Vendor Authorization for payment of job readiness services.",
+    "type": "table_row",
+    "section": "A. The Job Application",
+    "rowLabel": "2. Resume or fact sheet developed. The resume must be submitted to VR with the Vendor Authorization for payment of job readiness services.",
+    "trainingKey": "traininga2",
+    "dateKey": "datea2",
+    "commentsKey": "commentsa2"
+  },
+  {
+    "key": "row_a3",
+    "label": "3. References contacted (by the provider of job readiness services) in advance with complete information on name, address, telephone #, job title. The customer's reference sheet must be submitted to VR with the Vendor Authorization for payment of job readiness services.",
+    "type": "table_row",
+    "section": "A. The Job Application",
+    "rowLabel": "3. References contacted (by the provider of job readiness services) in advance with complete information on name, address, telephone #, job title. The customer's reference sheet must be submitted to VR with the Vendor Authorization for payment of job readiness services.",
+    "trainingKey": "traininga3",
+    "dateKey": "datea3",
+    "commentsKey": "commentsa3"
+  },
+  {
+    "key": "row_a4",
+    "label": "4. Demonstrates understanding of legal implications of signature on application (drug screen, felony record, etc.)",
+    "type": "table_row",
+    "section": "A. The Job Application",
+    "rowLabel": "4. Demonstrates understanding of legal implications of signature on application (drug screen, felony record, etc.)",
+    "trainingKey": "traininga4",
+    "dateKey": "datea4",
+    "commentsKey": "commentsa4"
+  },
+  {
+    "key": "row_a5",
+    "label": "5. Drug screening and ability to pass has been discussed with customer.",
+    "type": "table_row",
+    "section": "A. The Job Application",
+    "rowLabel": "5. Drug screening and ability to pass has been discussed with customer.",
+    "trainingKey": "traininga5",
+    "dateKey": "datea5",
+    "commentsKey": "commentsa5"
+  },
+  {
+    "key": "row_a6",
+    "label": "6. Education section fully completed accurately with dates.",
+    "type": "table_row",
+    "section": "A. The Job Application",
+    "rowLabel": "6. Education section fully completed accurately with dates.",
+    "trainingKey": "traininga6",
+    "dateKey": "datea6",
+    "commentsKey": "commentsa6"
+  },
+  {
+    "key": "row_b1",
+    "label": "1. Can identify work interests. Understands if they are realistic.",
+    "type": "table_row",
+    "section": "B. Finding the Right Job",
+    "rowLabel": "1. Can identify work interests. Understands if they are realistic.",
+    "trainingKey": "trainingb1",
+    "dateKey": "dateb1",
+    "commentsKey": "commentsb1"
+  },
+  {
+    "key": "row_b2",
+    "label": "2. Understands the importance of liking the job and feeling a part of the work environment (keeping the job, working harder, making fewer mistakes).",
+    "type": "table_row",
+    "section": "B. Finding the Right Job",
+    "rowLabel": "2. Understands the importance of liking the job and feeling a part of the work environment (keeping the job, working harder, making fewer mistakes).",
+    "trainingKey": "trainingb2",
+    "dateKey": "dateb2",
+    "commentsKey": "commentsb2"
+  },
+  {
+    "key": "row_b3",
+    "label": "3. Understands and can discuss own abilities and aptitudes.",
+    "type": "table_row",
+    "section": "B. Finding the Right Job",
+    "rowLabel": "3. Understands and can discuss own abilities and aptitudes.",
+    "trainingKey": "trainingb3",
+    "dateKey": "dateb3",
+    "commentsKey": "commentsb3"
+  },
+  {
+    "key": "row_b4",
+    "label": "4. Understands the importance of motivation, attention and dependability.",
+    "type": "table_row",
+    "section": "B. Finding the Right Job",
+    "rowLabel": "4. Understands the importance of motivation, attention and dependability.",
+    "trainingKey": "trainingb4",
+    "dateKey": "dateb4",
+    "commentsKey": "commentsb4"
+  },
+  {
+    "key": "row_b5",
+    "label": "5. Discuss being present every day, being on time, and getting along with others.",
+    "type": "table_row",
+    "section": "B. Finding the Right Job",
+    "rowLabel": "5. Discuss being present every day, being on time, and getting along with others.",
+    "trainingKey": "trainingb5",
+    "dateKey": "dateb5",
+    "commentsKey": "commentsb5"
+  },
+  {
+    "key": "row_b6",
+    "label": "6. Can explain the benefits of working.",
+    "type": "table_row",
+    "section": "B. Finding the Right Job",
+    "rowLabel": "6. Can explain the benefits of working.",
+    "trainingKey": "trainingb6",
+    "dateKey": "dateb6",
+    "commentsKey": "commentsb6"
+  },
+  {
+    "key": "row_b7",
+    "label": "7. Understands how to perform a job search (Career Centers, friends/family, newspaper, internet, staffing services, staying organized).",
+    "type": "table_row",
+    "section": "B. Finding the Right Job",
+    "rowLabel": "7. Understands how to perform a job search (Career Centers, friends/family, newspaper, internet, staffing services, staying organized).",
+    "trainingKey": "trainingb7",
+    "dateKey": "dateb7",
+    "commentsKey": "commentsb7"
+  },
+  {
+    "key": "row_c1",
+    "label": "1. Understands first contact and first impressions.",
+    "type": "table_row",
+    "section": "C. The Job Interview",
+    "rowLabel": "1. Understands first contact and first impressions.",
+    "trainingKey": "trainingc1",
+    "dateKey": "datec1",
+    "commentsKey": "commentsc1"
+  },
+  {
+    "key": "row_c2",
+    "label": "2. Can understand potential job interview questions.",
+    "type": "table_row",
+    "section": "C. The Job Interview",
+    "rowLabel": "2. Can understand potential job interview questions.",
+    "trainingKey": "trainingc2",
+    "dateKey": "datec2",
+    "commentsKey": "commentsc2"
+  },
+  {
+    "key": "row_c3",
+    "label": "3. Demonstrates effective non-verbal behavior (eye contact, personal habits, calmness).",
+    "type": "table_row",
+    "section": "C. The Job Interview",
+    "rowLabel": "3. Demonstrates effective non-verbal behavior (eye contact, personal habits, calmness).",
+    "trainingKey": "trainingc3",
+    "dateKey": "datec3",
+    "commentsKey": "commentsc3"
+  },
+  {
+    "key": "row_c4",
+    "label": "4. Understands and demonstrates appropriate dress and grooming for an interview.",
+    "type": "table_row",
+    "section": "C. The Job Interview",
+    "rowLabel": "4. Understands and demonstrates appropriate dress and grooming for an interview.",
+    "trainingKey": "trainingc4",
+    "dateKey": "datec4",
+    "commentsKey": "commentsc4"
+  },
+  {
+    "key": "row_c5",
+    "label": "5. Mock interviews (job readiness/placement provider; offsite interview conducted by third party).",
+    "type": "table_row",
+    "section": "C. The Job Interview",
+    "rowLabel": "5. Mock interviews (job readiness/placement provider; offsite interview conducted by third party).",
+    "trainingKey": "trainingc5",
+    "dateKey": "datec5",
+    "commentsKey": "commentsc5"
+  },
+  {
+    "key": "row_c6",
+    "label": "6. Customer can discuss strengths as a worker.",
+    "type": "table_row",
+    "section": "C. The Job Interview",
+    "rowLabel": "6. Customer can discuss strengths as a worker.",
+    "trainingKey": "trainingc6",
+    "dateKey": "datec6",
+    "commentsKey": "commentsc6"
+  },
+  {
+    "key": "row_c7",
+    "label": "7. Can write out answers or verbally respond to interview questions.",
+    "type": "table_row",
+    "section": "C. The Job Interview",
+    "rowLabel": "7. Can write out answers or verbally respond to interview questions.",
+    "trainingKey": "trainingc7",
+    "dateKey": "datec7",
+    "commentsKey": "commentsc7"
+  },
+  {
+    "key": "row_c8",
+    "label": "8. Understands the need for follow up after an interview (phone call, thank you note).",
+    "type": "table_row",
+    "section": "C. The Job Interview",
+    "rowLabel": "8. Understands the need for follow up after an interview (phone call, thank you note).",
+    "trainingKey": "trainingc8",
+    "dateKey": "datec8",
+    "commentsKey": "commentsc8"
+  },
+  {
+    "key": "row_c9",
+    "label": "9. Can explain what may be perceived as negatives on application (convictions, lapses in employment).",
+    "type": "table_row",
+    "section": "C. The Job Interview",
+    "rowLabel": "9. Can explain what may be perceived as negatives on application (convictions, lapses in employment).",
+    "trainingKey": "trainingc9",
+    "dateKey": "datec9",
+    "commentsKey": "commentsc9"
+  },
+  {
+    "key": "row_c10",
+    "label": "10. Understands pros and cons of disclosure of disability and knows how to request a reasonable accommodation.",
+    "type": "table_row",
+    "section": "C. The Job Interview",
+    "rowLabel": "10. Understands pros and cons of disclosure of disability and knows how to request a reasonable accommodation.",
+    "trainingKey": "trainingc10",
+    "dateKey": "datec10",
+    "commentsKey": "commentsc10"
+  },
+  {
+    "key": "row_d1",
+    "label": "1. Contingency plan/barriers to employment (transportation, childcare, illness, weather, gas/lunch money, alarm clock). Ongoing issues must be on the Job Placement Activity Plan.",
+    "type": "table_row",
+    "section": "D. Keeping the Job",
+    "rowLabel": "1. Contingency plan/barriers to employment (transportation, childcare, illness, weather, gas/lunch money, alarm clock). Ongoing issues must be on the Job Placement Activity Plan.",
+    "trainingKey": "trainingd1",
+    "dateKey": "dated1",
+    "commentsKey": "commentsd1"
+  },
+  {
+    "key": "row_d2",
+    "label": "2. Attendance; what are acceptable absences. What to do when you need to be absent.",
+    "type": "table_row",
+    "section": "D. Keeping the Job",
+    "rowLabel": "2. Attendance; what are acceptable absences. What to do when you need to be absent.",
+    "trainingKey": "trainingd2",
+    "dateKey": "dated2",
+    "commentsKey": "commentsd2"
+  },
+  {
+    "key": "row_d3",
+    "label": "3. Punctuality (upon arriving at work, following breaks and lunch).",
+    "type": "table_row",
+    "section": "D. Keeping the Job",
+    "rowLabel": "3. Punctuality (upon arriving at work, following breaks and lunch).",
+    "trainingKey": "trainingd3",
+    "dateKey": "dated3",
+    "commentsKey": "commentsd3"
+  },
+  {
+    "key": "row_d4",
+    "label": "4. Getting along with others — co-workers and supervisors.",
+    "type": "table_row",
+    "section": "D. Keeping the Job",
+    "rowLabel": "4. Getting along with others — co-workers and supervisors.",
+    "trainingKey": "trainingd4",
+    "dateKey": "dated4",
+    "commentsKey": "commentsd4"
+  },
+  {
+    "key": "row_d5",
+    "label": "5. Quality of work.",
+    "type": "table_row",
+    "section": "D. Keeping the Job",
+    "rowLabel": "5. Quality of work.",
+    "trainingKey": "trainingd5",
+    "dateKey": "dated5",
+    "commentsKey": "commentsd5"
+  },
+  {
+    "key": "row_d6",
+    "label": "6. Quantity of work.",
+    "type": "table_row",
+    "section": "D. Keeping the Job",
+    "rowLabel": "6. Quantity of work.",
+    "trainingKey": "trainingd6",
+    "dateKey": "dated6",
+    "commentsKey": "commentsd6"
+  },
+  {
+    "key": "row_d7",
+    "label": "7. Working safely.",
+    "type": "table_row",
+    "section": "D. Keeping the Job",
+    "rowLabel": "7. Working safely.",
+    "trainingKey": "trainingd7",
+    "dateKey": "dated7",
+    "commentsKey": "commentsd7"
+  },
+  {
+    "key": "row_d8",
+    "label": "8. Following directions.",
+    "type": "table_row",
+    "section": "D. Keeping the Job",
+    "rowLabel": "8. Following directions.",
+    "trainingKey": "trainingd8",
+    "dateKey": "dated8",
+    "commentsKey": "commentsd8"
+  },
+  {
+    "key": "row_d9",
+    "label": "9. Can assess strengths and weakness. Accepting responsibility for own behavior and problems on the job.",
+    "type": "table_row",
+    "section": "D. Keeping the Job",
+    "rowLabel": "9. Can assess strengths and weakness. Accepting responsibility for own behavior and problems on the job.",
+    "trainingKey": "trainingd9",
+    "dateKey": "dated9",
+    "commentsKey": "commentsd9"
+  },
+  {
+    "key": "row_d10",
+    "label": "10. Knows how to request a reasonable accommodation.",
+    "type": "table_row",
+    "section": "D. Keeping the Job",
+    "rowLabel": "10. Knows how to request a reasonable accommodation.",
+    "trainingKey": "trainingd10",
+    "dateKey": "dated10",
+    "commentsKey": "commentsd10"
+  },
+  {
+    "key": "row_e1",
+    "label": "1. Understands the importance of giving two weeks notice, leaving on good terms, and making sure there is another job to go to.",
+    "type": "table_row",
+    "section": "E. Leaving the Job",
+    "rowLabel": "1. Understands the importance of giving two weeks notice, leaving on good terms, and making sure there is another job to go to.",
+    "trainingKey": "traininge1",
+    "dateKey": "datee1",
+    "commentsKey": "commentse1"
+  },
+  {
+    "key": "date",
+    "label": "Date report content was reviewed with customer or representative/guardian",
+    "type": "date",
+    "section": "Certification",
+    "required": true
+  }
+]
