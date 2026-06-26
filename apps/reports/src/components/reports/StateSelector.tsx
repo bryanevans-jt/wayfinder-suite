@@ -63,7 +63,8 @@ export function StateSelector({ user, onSelect }: Props) {
         {error ? <p className="text-red-600 text-sm mb-4">{error}</p> : null}
         {states.length === 0 ? (
           <p className="text-sm text-gray-600">
-            No clients in your caseload are assigned to a GA or TN office yet.
+            No reporting states are available for your account yet. ES and supervisors need clients
+            in a GA or TN office; admins see states with enabled report types in the admin portal.
           </p>
         ) : (
           <>

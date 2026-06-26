@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { reportsServerAuthOptions } from "@/lib/supabase/auth-options";
 import { ORG_DOMAIN, SUPERADMIN_EMAIL } from "@/lib/constants";
 import { handleWayfinderAuthCallback } from "@wayfinder/supabase/auth-callback";
 import { NextRequest } from "next/server";
@@ -40,6 +41,7 @@ export async function GET(request: NextRequest) {
     url.toString() === request.url ? request : new NextRequest(url.toString(), request);
 
   return handleWayfinderAuthCallback(callbackRequest, {
+    serverAuthOptions: reportsServerAuthOptions,
     onAuthenticated: async ({ userId, email }) => {
       await seedReportRoles(userId, email);
     },

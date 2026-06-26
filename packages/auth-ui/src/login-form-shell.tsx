@@ -1,5 +1,6 @@
 "use client";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { LoginForm } from "./login-form";
 
 type Props = {
@@ -8,6 +9,7 @@ type Props = {
   shouldCreateUser?: boolean;
   termsHref?: string;
   redirectAfterSignIn?: string;
+  createSupabaseClient?: () => SupabaseClient;
 };
 
 /** Client-only login shell (reports + staff share this component). */
@@ -17,6 +19,7 @@ export function LoginFormShell({
   shouldCreateUser,
   termsHref,
   redirectAfterSignIn,
+  createSupabaseClient,
 }: Props) {
   return (
     <LoginForm
@@ -25,6 +28,7 @@ export function LoginFormShell({
       shouldCreateUser={shouldCreateUser}
       termsHref={termsHref}
       redirectAfterSignIn={redirectAfterSignIn}
+      createSupabaseClient={createSupabaseClient}
     />
   );
 }

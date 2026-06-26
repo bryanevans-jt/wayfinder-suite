@@ -2,9 +2,9 @@ import { createServerClient } from '@supabase/ssr';
 import {
   getSupabaseAnonKey,
   getSupabaseUrl,
-  wayfinderServerAuthOptions,
   type SupabaseCookieToSet,
 } from '@wayfinder/supabase';
+import { reportsServerAuthOptions } from '@/lib/supabase/auth-options';
 import { NextResponse, type NextRequest } from 'next/server';
 
 const ORG_DOMAIN = 'thejoshuatree.org';
@@ -40,7 +40,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-    ...wayfinderServerAuthOptions,
+    ...reportsServerAuthOptions,
     cookies: {
       getAll() {
         return request.cookies.getAll();

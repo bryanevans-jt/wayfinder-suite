@@ -54,6 +54,7 @@ export async function handleWayfinderAuthCallback(
       userId: string;
       email: string | null;
     }) => Promise<void>;
+    serverAuthOptions?: typeof wayfinderServerAuthOptions;
   }
 ): Promise<NextResponse> {
   const url = new URL(request.url);
@@ -76,7 +77,7 @@ export async function handleWayfinderAuthCallback(
   let response = NextResponse.redirect(redirectTarget);
 
   const supabase = createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
-    ...wayfinderServerAuthOptions,
+    ...(options?.serverAuthOptions ?? wayfinderServerAuthOptions),
     cookies: {
       getAll() {
         return request.cookies.getAll();

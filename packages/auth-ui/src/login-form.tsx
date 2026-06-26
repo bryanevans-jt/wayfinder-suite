@@ -1,6 +1,7 @@
 "use client";
 
 import { createClient } from "@wayfinder/supabase/client";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { friendlyAuthError } from "@wayfinder/supabase/error-log";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -16,6 +17,8 @@ type LoginFormProps = {
   termsHref?: string;
   /** Where to send the browser after passkey sign-in succeeds. */
   redirectAfterSignIn?: string;
+  /** Override Supabase browser client (e.g. reports host-only auth cookies). */
+  createSupabaseClient?: () => SupabaseClient;
 };
 
 export function LoginForm({
@@ -24,8 +27,9 @@ export function LoginForm({
   shouldCreateUser = true,
   termsHref,
   redirectAfterSignIn = "/dashboard",
+  createSupabaseClient = createClient,
 }: LoginFormProps) {
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = useMemo(() => createSupabaseClient(), [createSupabaseClient]);
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState<null | "magic" | "passkey">(null);
   const [notice, setNotice] = useState<string | null>(null);

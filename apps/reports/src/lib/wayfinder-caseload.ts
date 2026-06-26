@@ -29,6 +29,36 @@ async function loadProfileRole(admin: SupabaseClient, userId: string): Promise<s
   return (data?.role as string | undefined)?.toLowerCase() ?? null;
 }
 
+/** States with enabled catalog entries — used for admin-tier users. */
+async function loadCatalogReportingStates(admin: SupabaseClient): Promise<ReportingState[]> {
+  const states: ReportingState[] = ["GA"];
+
+  const { data: programs } = await admin
+    .from("report_service_programs")
+    .select("id")
+    .eq("state", "TN")
+    .eq("enabled", true);
+
+  const programIds = (programs ?? []).map((p) => p.id as string);
+  if (programIds.length === 0) {
+    return states;
+  }
+
+  const { data: enabledTypes } = await admin
+    .from("report_type_definitions")
+    .select("id")
+    .eq("state", "TN")
+    .eq("enabled", true)
+    .in("program_id", programIds)
+    .limit(1);
+
+  if (enabledTypes?.length) {
+    states.push("TN");
+  }
+
+  return states;
+}
+
 async function loadSupervisorScope(admin: SupabaseClient, supervisorUserId: string): Promise<SupervisorScope> {
   const [{ data: offices }, { data: esLinks }] = await Promise.all([
     admin.from("staff_office_assignments").select("office_id").eq("user_id", supervisorUserId),
@@ -206,9 +236,17 @@ export async function getAvailableReportingStates(
   userId: string
 ): Promise<ReportingState[]> {
   const role = await loadProfileRole(admin, userId);
+  const states = new Set<ReportingState>();
+
+  if (isAdminTierRole(role)) {
+    for (const state of await loadCatalogReportingStates(admin)) {
+      states.add(state);
+    }
+  }
+
   const scope = await loadScopedClientIds(admin, userId, role);
   if (scope !== "all" && scope.size === 0) {
-    return [];
+    return [...states].sort();
   }
 
   let query = admin
@@ -222,10 +260,9 @@ export async function getAvailableReportingStates(
 
   const { data, error } = await query;
   if (error) {
-    return [];
+    return [...states].sort();
   }
 
-  const states = new Set<ReportingState>();
   for (const row of data ?? []) {
     const embed = row.offices as { state?: string } | { state?: string }[] | null;
     const state = Array.isArray(embed) ? embed[0]?.state : embed?.state;
