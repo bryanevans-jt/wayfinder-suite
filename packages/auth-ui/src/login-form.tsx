@@ -71,8 +71,20 @@ export function LoginForm({
       return;
     }
     if (data?.session) {
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      });
+      if (sessionError) {
+        setNotice(friendlyAuthError(sessionError.message));
+        return;
+      }
       window.location.assign(redirectAfterSignIn);
+      return;
     }
+    setNotice(
+      "Passkey sign-in did not complete on this site. Use the magic link for this browser, or sign in to Wayfinder Pro first and open reporting from there."
+    );
   }
 
   return (

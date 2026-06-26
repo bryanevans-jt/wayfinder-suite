@@ -1,7 +1,14 @@
 import { LoginFormShell } from "@wayfinder/auth-ui";
 import { ReportSupportNote } from "@/components/ReportSupportNote";
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 
 type SearchParams = Promise<{ error?: string; next?: string }>;
+
+function safeNextPath(next: string | undefined): string {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return "/";
+  return next;
+}
 
 function staffTermsUrl(): string | undefined {
   const base = process.env.NEXT_PUBLIC_STAFF_APP_URL?.replace(/\/$/, "");
@@ -13,7 +20,16 @@ export default async function LoginPage({
 }: {
   searchParams: SearchParams;
 }) {
-  const { error } = await searchParams;
+  const { error, next } = await searchParams;
+  const redirectAfterSignIn = safeNextPath(next);
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user?.email?.endsWith("@thejoshuatree.org")) {
+    redirect(redirectAfterSignIn);
+  }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-brand-white px-4 py-16">
@@ -38,7 +54,7 @@ export default async function LoginPage({
         productName="Joshua Tree Reports"
         shouldCreateUser={false}
         termsHref={staffTermsUrl()}
-        redirectAfterSignIn="/"
+        redirectAfterSignIn={redirectAfterSignIn}
       />
 
       <ReportSupportNote className="mt-8 max-w-md text-center" />
