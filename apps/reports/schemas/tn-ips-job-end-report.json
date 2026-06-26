@@ -1,0 +1,202 @@
+[
+  {
+    "key": "clientName",
+    "label": "Customer Name",
+    "type": "text",
+    "section": "Personal information",
+    "prefill": "clientName",
+    "required": true
+  },
+  {
+    "key": "counselorName",
+    "label": "VR Counselor",
+    "type": "text",
+    "section": "Personal information",
+    "prefill": "counselorName",
+    "required": true
+  },
+  {
+    "key": "ccName",
+    "label": "Care Coordinator",
+    "type": "text",
+    "section": "Personal information"
+  },
+  {
+    "key": "esName",
+    "label": "Employment Specialist",
+    "type": "text",
+    "section": "Personal information",
+    "prefill": "esName",
+    "required": true
+  },
+  {
+    "key": "jobtitle",
+    "label": "Job Title",
+    "type": "text",
+    "section": "Information about the job",
+    "required": true
+  },
+  {
+    "key": "startdate",
+    "label": "Start Date",
+    "type": "date",
+    "section": "Information about the job",
+    "required": true
+  },
+  {
+    "key": "employerName",
+    "label": "Employer",
+    "type": "text",
+    "section": "Information about the job",
+    "required": true
+  },
+  {
+    "key": "enddate",
+    "label": "Job End Date",
+    "type": "date",
+    "section": "Information about the job",
+    "required": true
+  },
+  {
+    "key": "disclosure",
+    "label": "Was there disclosure?",
+    "type": "select",
+    "section": "Information about the job",
+    "options": [
+      {
+        "value": "Yes",
+        "label": "Yes"
+      },
+      {
+        "value": "No",
+        "label": "No"
+      }
+    ]
+  },
+  {
+    "key": "benefits",
+    "label": "Benefits?",
+    "type": "text",
+    "section": "Information about the job",
+    "placeholder": "e.g. Yes — health insurance, or No"
+  },
+  {
+    "key": "ffdate",
+    "label": "Date of face-to-face with Employment Specialist after job loss",
+    "type": "date",
+    "section": "Information about the job",
+    "help": "Employment Specialist should see customer within three days of job loss.",
+    "required": true
+  },
+  {
+    "key": "payrate",
+    "label": "Rate of Pay",
+    "type": "text",
+    "section": "Information about the job",
+    "placeholder": "e.g. 15.00"
+  },
+  {
+    "key": "reason1check",
+    "label": "Quit for a better job",
+    "type": "radio",
+    "section": "Reason for job end",
+    "group": "reasonForEnd",
+    "groupLabel": "Reason for job end",
+    "required": true
+  },
+  {
+    "key": "reason2check",
+    "label": "Quit — illness related",
+    "type": "radio",
+    "section": "Reason for job end",
+    "group": "reasonForEnd"
+  },
+  {
+    "key": "reason3check",
+    "label": "Quit for another reason",
+    "type": "radio",
+    "section": "Reason for job end",
+    "group": "reasonForEnd"
+  },
+  {
+    "key": "reason4check",
+    "label": "Terminated",
+    "type": "radio",
+    "section": "Reason for job end",
+    "group": "reasonForEnd"
+  },
+  {
+    "key": "perspective",
+    "label": "Customer's perspective regarding job end",
+    "type": "textarea",
+    "section": "Comments",
+    "required": true
+  },
+  {
+    "key": "staffcomments",
+    "label": "Staff comments regarding job end",
+    "type": "textarea",
+    "section": "Comments"
+  },
+  {
+    "key": "employercomments",
+    "label": "Employer comments",
+    "type": "textarea",
+    "section": "Comments"
+  },
+  {
+    "key": "supportsprovided",
+    "label": "Types of supports provided",
+    "type": "textarea",
+    "section": "Comments"
+  },
+  {
+    "key": "likesposition",
+    "label": "What did the person like/dislike about the position?",
+    "type": "textarea",
+    "section": "Comments"
+  },
+  {
+    "key": "anotheryescheck",
+    "label": "Yes",
+    "type": "radio",
+    "section": "Next steps",
+    "group": "anotherJob",
+    "groupLabel": "Does the person wish to find another job?",
+    "required": true
+  },
+  {
+    "key": "anothernocheck",
+    "label": "No",
+    "type": "radio",
+    "section": "Next steps",
+    "group": "anotherJob"
+  },
+  {
+    "key": "anotherunsurecheck",
+    "label": "Unsure at this time",
+    "type": "radio",
+    "section": "Next steps",
+    "group": "anotherJob"
+  },
+  {
+    "key": "anotherjobkind",
+    "label": "If so, what kind?",
+    "type": "text",
+    "section": "Next steps",
+    "help": "Complete if customer wishes to find another job."
+  },
+  {
+    "key": "clientpreferences",
+    "label": "Customer's preferences regarding disclosure on the next job",
+    "type": "textarea",
+    "section": "Next steps"
+  },
+  {
+    "key": "nextsteps",
+    "label": "Next steps",
+    "type": "textarea",
+    "section": "Next steps",
+    "required": true
+  }
+]
