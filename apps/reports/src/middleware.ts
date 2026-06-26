@@ -1,31 +1,50 @@
 import { createServerClient } from '@supabase/ssr';
-import { wayfinderServerAuthOptions } from '@wayfinder/supabase/auth-client-options';
+import {
+  getSupabaseAnonKey,
+  getSupabaseUrl,
+  wayfinderServerAuthOptions,
+  type SupabaseCookieToSet,
+} from '@wayfinder/supabase';
 import { NextResponse, type NextRequest } from 'next/server';
+
 const ORG_DOMAIN = 'thejoshuatree.org';
 const REPORTING_ROLES = new Set(['es', 'supervisor', 'admin', 'super_admin']);
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      ...wayfinderServerAuthOptions,
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
+  let supabaseUrl: string;
+  let supabaseAnonKey: string;
+  try {
+    supabaseUrl = getSupabaseUrl();
+    supabaseAnonKey = getSupabaseAnonKey();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Missing Supabase environment variables.';
+    return new NextResponse(
+      `Reports configuration error: ${message}\n\nSet NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY on this Vercel project.`,
+      { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8' } }
+    );
+  }
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    ...wayfinderServerAuthOptions,
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet: SupabaseCookieToSet[]) {
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        response = NextResponse.next({ request });
+        cookiesToSet.forEach(({ name, value, options }) =>
+          response.cookies.set(name, value, options)
+        );
+      },
+    },
+  });
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const isAuthCallback = request.nextUrl.pathname.startsWith('/auth/');
   const isLogin = request.nextUrl.pathname === '/login';
@@ -45,6 +64,7 @@ export async function middleware(request: NextRequest) {
 
   const email = user.email || '';
   if (!email.endsWith(`@${ORG_DOMAIN}`)) {
+    await supabase.auth.signOut();
     const redirect = request.nextUrl.clone();
     redirect.pathname = '/login';
     redirect.searchParams.set('error', 'org_only');
@@ -66,6 +86,14 @@ export async function middleware(request: NextRequest) {
     const redirect = request.nextUrl.clone();
     redirect.pathname = '/login';
     redirect.searchParams.set('error', 'forbidden');
+    return NextResponse.redirect(redirect);
+  }
+
+  if (isLogin) {
+    const next = request.nextUrl.searchParams.get('next');
+    const redirect = request.nextUrl.clone();
+    redirect.pathname = next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
+    redirect.search = '';
     return NextResponse.redirect(redirect);
   }
 

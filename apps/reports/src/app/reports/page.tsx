@@ -62,33 +62,61 @@ function ReportsWorkspace() {
   const [tnFieldLabels, setTnFieldLabels] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    let cancelled = false;
     const supabase = createClient();
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) {
-        router.push('/login');
-        return;
+
+    async function loadAuth() {
+      try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (cancelled) return;
+
+        if (userError || !user) {
+          router.replace('/login?next=/reports');
+          return;
+        }
+
+        const email = user.email || '';
+        if (!email.endsWith('@thejoshuatree.org')) {
+          router.replace('/login?error=org_only');
+          return;
+        }
+
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('full_name, first_name, last_name')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        if (profileError) {
+          console.error('Reports profile load failed:', profileError.message);
+        }
+
+        const resolvedEsName = resolveReportingEsName(profile, user.user_metadata);
+
+        setUser({
+          email,
+          displayName: resolvedEsName || email,
+        });
+        setEsName(resolvedEsName);
+        setLoading(false);
+      } catch (err) {
+        console.error('Reports auth init failed:', err);
+        if (!cancelled) {
+          router.replace('/login?next=/reports&error=auth');
+        }
       }
-      const email = user.email || '';
-      if (!email.endsWith('@thejoshuatree.org')) {
-        router.push('/login?error=org_only');
-        return;
-      }
+    }
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name, first_name, last_name')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      const resolvedEsName = resolveReportingEsName(profile, user.user_metadata);
-
-      setUser({
-        email,
-        displayName: resolvedEsName || email,
-      });
-      setEsName(resolvedEsName);
-      setLoading(false);
-    });
+    void loadAuth();
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   useEffect(() => {

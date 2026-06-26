@@ -1,7 +1,5 @@
 import { LoginFormShell } from "@wayfinder/auth-ui";
 import { ReportSupportNote } from "@/components/ReportSupportNote";
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 
 type SearchParams = Promise<{ error?: string; next?: string }>;
 
@@ -22,14 +20,6 @@ export default async function LoginPage({
 }) {
   const { error, next } = await searchParams;
   const redirectAfterSignIn = safeNextPath(next);
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (user?.email?.endsWith("@thejoshuatree.org")) {
-    redirect(redirectAfterSignIn);
-  }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-brand-white px-4 py-16">
