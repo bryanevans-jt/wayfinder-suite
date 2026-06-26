@@ -8,7 +8,8 @@ export type TagFieldType =
   | "checkbox"
   | "boolean"
   | "radio"
-  | "table_row";
+  | "table_row"
+  | "jd_contact_row";
 
 export type TagSchemaField = {
   key: string;
@@ -31,7 +32,35 @@ export type TagSchemaField = {
   trainingKey?: string;
   dateKey?: string;
   commentsKey?: string;
+  /** For type "jd_contact_row": 1-based row index for activity-log prefill. */
+  rowIndex?: number;
+  initialKey?: string;
+  businessKey?: string;
+  contactKey?: string;
+  resultsKey?: string;
 };
+
+function isJdContactRowField(
+  item: unknown
+): item is TagSchemaField & {
+  type: "jd_contact_row";
+  dateKey: string;
+  initialKey: string;
+  businessKey: string;
+  contactKey: string;
+  resultsKey: string;
+} {
+  if (typeof item !== "object" || item === null) return false;
+  const field = item as TagSchemaField;
+  return (
+    field.type === "jd_contact_row" &&
+    typeof field.dateKey === "string" &&
+    typeof field.initialKey === "string" &&
+    typeof field.businessKey === "string" &&
+    typeof field.contactKey === "string" &&
+    typeof field.resultsKey === "string"
+  );
+}
 
 function isTableRowField(
   item: unknown
@@ -65,6 +94,15 @@ export function parseTagSchema(raw: unknown): TagSchemaField[] {
         typeof field.commentsKey === "string"
       );
     }
+    if (field.type === "jd_contact_row") {
+      return (
+        typeof field.dateKey === "string" &&
+        typeof field.initialKey === "string" &&
+        typeof field.businessKey === "string" &&
+        typeof field.contactKey === "string" &&
+        typeof field.resultsKey === "string"
+      );
+    }
     return typeof field.label === "string";
   });
 }
@@ -79,6 +117,15 @@ export function tagSchemaLabels(fields: TagSchemaField[]): Record<string, string
       labels[field.commentsKey] = `${prefix} — Comments`;
       continue;
     }
+    if (isJdContactRowField(field)) {
+      const prefix = `JD contact row ${field.rowIndex ?? field.key}`;
+      labels[field.dateKey] = `${prefix} — Date`;
+      labels[field.initialKey] = `${prefix} — Initials`;
+      labels[field.businessKey] = `${prefix} — Business`;
+      labels[field.contactKey] = `${prefix} — Contact`;
+      labels[field.resultsKey] = `${prefix} — Results`;
+      continue;
+    }
     labels[field.key] = field.label;
   }
   return labels;
@@ -89,6 +136,16 @@ export function tagSchemaOrderedKeys(fields: TagSchemaField[]): string[] {
   for (const field of fields) {
     if (isTableRowField(field)) {
       keys.push(field.trainingKey, field.dateKey, field.commentsKey);
+      continue;
+    }
+    if (isJdContactRowField(field)) {
+      keys.push(
+        field.dateKey,
+        field.initialKey,
+        field.businessKey,
+        field.contactKey,
+        field.resultsKey
+      );
       continue;
     }
     if (field.type === "radio") continue;

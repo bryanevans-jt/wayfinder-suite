@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   applyPrefillToFieldKey,
   type TnPrefillValues,
 } from '@/lib/tn-prefill';
+import type { JobDevelopmentContactRow } from '@/lib/job-development-prefill';
 import type { TagSchemaField } from '@/lib/tag-schema';
+import { InitialPad } from '@/components/reports/InitialPad';
 
 interface Props {
   reportName: string;
@@ -25,12 +27,30 @@ function defaultForType(type: TagSchemaField['type']): string | boolean {
   if (type === 'number') return '0';
   if (type === 'boolean') return false;
   if (type === 'table_row') return '';
+  if (type === 'jd_contact_row') return '';
   return '';
+}
+
+function applyJdContactPrefill(
+  fields: TagSchemaField[],
+  values: Record<string, string | boolean>,
+  contacts: JobDevelopmentContactRow[]
+) {
+  for (const field of fields) {
+    if (field.type !== 'jd_contact_row' || !field.rowIndex) continue;
+    const row = contacts[field.rowIndex - 1];
+    if (!row) continue;
+    if (field.dateKey) values[field.dateKey] = row.rdate;
+    if (field.businessKey) values[field.businessKey] = row.business;
+    if (field.contactKey) values[field.contactKey] = row.contact;
+    if (field.resultsKey) values[field.resultsKey] = row.results;
+  }
 }
 
 function buildInitialValues(
   fields: TagSchemaField[],
-  prefill: Partial<TnPrefillValues>
+  prefill: Partial<TnPrefillValues>,
+  jdContacts: JobDevelopmentContactRow[] = []
 ): Record<string, string | boolean> {
   const values: Record<string, string | boolean> = {};
   for (const field of fields) {
@@ -40,9 +60,18 @@ function buildInitialValues(
       if (field.commentsKey) values[field.commentsKey] = '';
       continue;
     }
+    if (field.type === 'jd_contact_row') {
+      if (field.dateKey) values[field.dateKey] = '';
+      if (field.initialKey) values[field.initialKey] = '';
+      if (field.businessKey) values[field.businessKey] = '';
+      if (field.contactKey) values[field.contactKey] = '';
+      if (field.resultsKey) values[field.resultsKey] = '';
+      continue;
+    }
     const fromPrefill = applyPrefillToFieldKey(field.key, field.prefill, prefill);
     values[field.key] = fromPrefill ?? defaultForType(field.type);
   }
+  applyJdContactPrefill(fields, values, jdContacts);
   return values;
 }
 
@@ -60,20 +89,55 @@ export function TnDynamicForm({
   const [values, setValues] = useState<Record<string, string | boolean>>({});
   const [radioValues, setRadioValues] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [reportMonth, setReportMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const hasJdContactRows = tagSchema.some((field) => field.type === 'jd_contact_row');
+
+  const refreshJdContacts = useCallback(
+    async (month: string) => {
+      if (!wayfinderClientId || adHoc || !hasJdContactRows) return;
+      try {
+        const res = await fetch(
+          `/api/wayfinder/prefill?clientId=${encodeURIComponent(wayfinderClientId)}&month=${encodeURIComponent(month)}`
+        );
+        if (!res.ok) return;
+        const data = (await res.json()) as { jobDevelopmentContacts?: JobDevelopmentContactRow[] };
+        setValues((prev) => {
+          const next = { ...prev };
+          applyJdContactPrefill(tagSchema, next, data.jobDevelopmentContacts ?? []);
+          for (const field of tagSchema) {
+            if (field.type === 'jd_contact_row' && field.initialKey) {
+              next[field.initialKey] = prev[field.initialKey] ?? '';
+            }
+          }
+          return next;
+        });
+      } catch {
+        /* keep manual entries */
+      }
+    },
+    [wayfinderClientId, adHoc, hasJdContactRows, tagSchema]
+  );
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       const basePrefill: Partial<TnPrefillValues> = { esName };
+      let jdContacts: JobDevelopmentContactRow[] = [];
+      const monthField = tagSchema.find((field) => field.key === 'reportMonth');
+      const month = monthField ? reportMonth : new Date().toISOString().slice(0, 7);
+
       if (wayfinderClientId && !adHoc) {
         try {
           const res = await fetch(
-            `/api/wayfinder/prefill?clientId=${encodeURIComponent(wayfinderClientId)}`
+            `/api/wayfinder/prefill?clientId=${encodeURIComponent(wayfinderClientId)}&month=${encodeURIComponent(month)}`
           );
           if (res.ok) {
-            const data = (await res.json()) as Partial<TnPrefillValues>;
+            const data = (await res.json()) as Partial<TnPrefillValues> & {
+              jobDevelopmentContacts?: JobDevelopmentContactRow[];
+            };
             Object.assign(basePrefill, data);
+            jdContacts = data.jobDevelopmentContacts ?? [];
           }
         } catch {
           /* use ES name only */
@@ -81,7 +145,7 @@ export function TnDynamicForm({
       }
 
       if (!cancelled) {
-        setValues(buildInitialValues(tagSchema, basePrefill));
+        setValues(buildInitialValues(tagSchema, basePrefill, jdContacts));
         setLoading(false);
       }
     }
@@ -134,6 +198,14 @@ export function TnDynamicForm({
         }
         continue;
       }
+      if (field.type === 'jd_contact_row') {
+        if (field.dateKey) data[field.dateKey] = String(formData.get(field.dateKey) ?? '');
+        if (field.initialKey) data[field.initialKey] = String(formData.get(field.initialKey) ?? '');
+        if (field.businessKey) data[field.businessKey] = String(formData.get(field.businessKey) ?? '');
+        if (field.contactKey) data[field.contactKey] = String(formData.get(field.contactKey) ?? '');
+        if (field.resultsKey) data[field.resultsKey] = String(formData.get(field.resultsKey) ?? '');
+        continue;
+      }
       if (field.type === 'checkbox') {
         data[field.key] = formData.getAll(field.key).map(String);
       } else if (field.type === 'boolean') {
@@ -144,6 +216,17 @@ export function TnDynamicForm({
         data[field.key] = String(formData.get(field.key) ?? '');
       }
     }
+
+    const reportMonthValue = String(formData.get('reportMonth') ?? data.reportMonth ?? '');
+    if (/^\d{4}-\d{2}$/.test(reportMonthValue)) {
+      const [year, mon] = reportMonthValue.split('-');
+      const monthName = new Date(Number(year), Number(mon) - 1, 1).toLocaleString('en-US', {
+        month: 'long',
+      });
+      data.month = monthName;
+      data.year = year;
+    }
+
     onContinue(data);
   }
 
@@ -190,7 +273,8 @@ export function TnDynamicForm({
   }
 
   const renderedRadioGroups = new Set<string>();
-  const hasTableRows = tagSchema.some((field) => field.type === 'table_row');
+  const hasTableRows =
+    tagSchema.some((field) => field.type === 'table_row' || field.type === 'jd_contact_row');
 
   function renderCompetencyTable(rows: TagSchemaField[]) {
     return (
@@ -250,8 +334,103 @@ export function TnDynamicForm({
     );
   }
 
+  function renderJdContactTable(rows: TagSchemaField[]) {
+    return (
+      <div className="space-y-3">
+        {wayfinderClientId && !adHoc ? (
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <p className="text-gray-600">
+              Job development rows are prefilled from this customer&apos;s activity log for the selected
+              report month. Edit any cell or draw initials before submit.
+            </p>
+            <button
+              type="button"
+              onClick={() => void refreshJdContacts(reportMonth)}
+              className="px-3 py-1.5 rounded-lg border border-green-700 text-green-800 hover:bg-green-50"
+            >
+              Reload from activity log
+            </button>
+          </div>
+        ) : null}
+        <div className="overflow-x-auto -mx-1">
+          <table className="w-full min-w-[900px] border-collapse border border-gray-300 text-sm">
+            <thead>
+              <tr className="bg-green-50 text-left">
+                <th className="border border-gray-300 p-2 font-semibold w-[12%]">Date</th>
+                <th className="border border-gray-300 p-2 font-semibold w-[12%]">Staff Initials</th>
+                <th className="border border-gray-300 p-2 font-semibold w-[18%]">Business</th>
+                <th className="border border-gray-300 p-2 font-semibold w-[16%]">Contact</th>
+                <th className="border border-gray-300 p-2 font-semibold">Results / Next Steps</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.key} className="align-top">
+                  <td className="border border-gray-300 p-2">
+                    <input
+                      type="date"
+                      name={row.dateKey}
+                      value={String(values[row.dateKey!] ?? '')}
+                      onChange={(e) =>
+                        setValues((prev) => ({ ...prev, [row.dateKey!]: e.target.value }))
+                      }
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded"
+                    />
+                  </td>
+                  <td className="border border-gray-300 p-2">
+                    <InitialPad
+                      name={row.initialKey!}
+                      label={`Initials row ${row.rowIndex ?? row.key}`}
+                      value={String(values[row.initialKey!] ?? '')}
+                      onChange={(dataUrl) =>
+                        setValues((prev) => ({ ...prev, [row.initialKey!]: dataUrl }))
+                      }
+                    />
+                  </td>
+                  <td className="border border-gray-300 p-2">
+                    <input
+                      type="text"
+                      name={row.businessKey}
+                      value={String(values[row.businessKey!] ?? '')}
+                      onChange={(e) =>
+                        setValues((prev) => ({ ...prev, [row.businessKey!]: e.target.value }))
+                      }
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded"
+                    />
+                  </td>
+                  <td className="border border-gray-300 p-2">
+                    <input
+                      type="text"
+                      name={row.contactKey}
+                      value={String(values[row.contactKey!] ?? '')}
+                      onChange={(e) =>
+                        setValues((prev) => ({ ...prev, [row.contactKey!]: e.target.value }))
+                      }
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded"
+                    />
+                  </td>
+                  <td className="border border-gray-300 p-2">
+                    <textarea
+                      name={row.resultsKey}
+                      rows={2}
+                      value={String(values[row.resultsKey!] ?? '')}
+                      onChange={(e) =>
+                        setValues((prev) => ({ ...prev, [row.resultsKey!]: e.target.value }))
+                      }
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded"
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
   function renderField(field: TagSchemaField) {
-    if (field.type === 'table_row') return null;
+    if (field.type === 'table_row' || field.type === 'jd_contact_row') return null;
     if (field.type === 'radio' && field.group) {
       const groupKey = `${field.section ?? ''}:${field.group}`;
       if (renderedRadioGroups.has(groupKey)) return null;
@@ -345,6 +524,21 @@ export function TnDynamicForm({
             />
             <span>{field.placeholder || 'Check if yes / applicable'}</span>
           </label>
+        ) : field.type === 'month' && field.key === 'reportMonth' ? (
+          <input
+            id={field.key}
+            name={field.key}
+            type="month"
+            required={field.required}
+            value={reportMonth}
+            onChange={(e) => {
+              const nextMonth = e.target.value;
+              setReportMonth(nextMonth);
+              setValues((prev) => ({ ...prev, [field.key]: nextMonth }));
+              void refreshJdContacts(nextMonth);
+            }}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+          />
         ) : (
           <input
             id={field.key}
@@ -392,7 +586,10 @@ export function TnDynamicForm({
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-8">
           {[...sections.entries()].map(([section, fields]) => {
             const tableRows = fields.filter((field) => field.type === 'table_row');
-            const regularFields = fields.filter((field) => field.type !== 'table_row');
+            const jdRows = fields.filter((field) => field.type === 'jd_contact_row');
+            const regularFields = fields.filter(
+              (field) => field.type !== 'table_row' && field.type !== 'jd_contact_row'
+            );
             return (
               <div key={section}>
                 <h2 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-4">{section}</h2>
@@ -400,6 +597,7 @@ export function TnDynamicForm({
                   <div className="space-y-4 mb-4">{regularFields.map((field) => renderField(field))}</div>
                 ) : null}
                 {tableRows.length > 0 ? renderCompetencyTable(tableRows) : null}
+                {jdRows.length > 0 ? renderJdContactTable(jdRows) : null}
               </div>
             );
           })}

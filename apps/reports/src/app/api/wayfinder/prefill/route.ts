@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { buildJobDevelopmentFromContactLogs } from "@/lib/job-development-prefill";
+import { buildJobDevelopmentContactRows, buildJobDevelopmentFromContactLogs } from "@/lib/job-development-prefill";
 import { resolveReportingEsName } from "@/lib/es-display-name";
 import { formatClientAddress } from "@/lib/tn-prefill";
 import { assertReportingUser, getCaseloadClientById } from "@/lib/wayfinder-caseload";
@@ -32,6 +32,7 @@ export async function GET(request: Request) {
     }
 
     const jobDevelopment = await buildJobDevelopmentFromContactLogs(admin, clientId, month);
+    const jobDevelopmentContacts = await buildJobDevelopmentContactRows(admin, clientId, month);
 
     const { data: clientRow } = await admin
       .from("clients")
@@ -58,6 +59,7 @@ export async function GET(request: Request) {
       esName,
       officeState: client.officeState,
       jobDevelopment,
+      jobDevelopmentContacts,
     });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 403 });

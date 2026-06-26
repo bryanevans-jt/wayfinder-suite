@@ -238,6 +238,51 @@ export async function generateJTSGVMRPdf(
 
 const TN_SIGNATURE_TAGS = ['{{esSignature}}', '{{essignature}}', '{{ProviderSignature}}'] as const;
 
+function isTnDrawnImageValue(val: unknown): val is string {
+  return typeof val === 'string' && val.startsWith('data:image/');
+}
+
+async function embedDrawnImageAtTag(
+  drive: ReturnType<typeof google.drive>,
+  docs: ReturnType<typeof google.docs>,
+  documentId: string,
+  tag: string,
+  imageData: string,
+  folderId: string,
+  size: { width: number; height: number }
+): Promise<string | null> {
+  const uploaded = await uploadSignatureToDrive(drive, imageData, folderId);
+  const placeholder = `__IMAGE_${Date.now()}_${Math.random().toString(36).slice(2)}__`;
+  await docs.documents.batchUpdate({
+    documentId,
+    requestBody: {
+      requests: [{ replaceAllText: { containsText: { text: tag }, replaceText: placeholder } }],
+    },
+  });
+  const doc = await docs.documents.get({ documentId });
+  const idx = findPlaceholderIndex((doc.data.body?.content as unknown[]) || [], placeholder);
+  if (idx === -1) return uploaded.fileId;
+  await docs.documents.batchUpdate({
+    documentId,
+    requestBody: {
+      requests: [
+        { deleteContentRange: { range: { startIndex: idx, endIndex: idx + placeholder.length } } },
+        {
+          insertInlineImage: {
+            location: { index: idx },
+            uri: uploaded.url,
+            objectSize: {
+              height: { magnitude: size.height, unit: 'PT' },
+              width: { magnitude: size.width, unit: 'PT' },
+            },
+          },
+        },
+      ],
+    },
+  });
+  return uploaded.fileId;
+}
+
 export async function generateTnGoogleDocPdf(
   auth: Awaited<ReturnType<typeof import('./google').getGoogleAuth>>,
   parsedData: Record<string, unknown>,
@@ -258,11 +303,13 @@ export async function generateTnGoogleDocPdf(
   });
   const tempDocId = copy.data.id!;
   let tempSig: { fileId: string; url: string } | null = null;
+  const tempImageFileIds: string[] = [];
 
   try {
     const requests: object[] = [];
     for (const key in parsedData) {
       const val = parsedData[key];
+      if (isTnDrawnImageValue(val)) continue;
       let replaceText: string;
       if (typeof val === 'boolean') {
         replaceText = val ? '☑' : '☐';
@@ -291,6 +338,41 @@ export async function generateTnGoogleDocPdf(
       },
     });
     await docs.documents.batchUpdate({ documentId: tempDocId, requestBody: { requests } });
+
+    if (config.signatureFolderId) {
+      const initialKeys = Object.keys(parsedData)
+        .filter((key) => /^initial\d+$/i.test(key))
+        .sort((a, b) => Number(a.replace(/\D/g, '')) - Number(b.replace(/\D/g, '')));
+      for (const key of initialKeys) {
+        const val = parsedData[key];
+        if (isTnDrawnImageValue(val)) {
+          const fileId = await embedDrawnImageAtTag(
+            drive,
+            docs,
+            tempDocId,
+            `{{${key}}}`,
+            val,
+            config.signatureFolderId,
+            { width: 48, height: 24 }
+          );
+          if (fileId) tempImageFileIds.push(fileId);
+        } else {
+          await docs.documents.batchUpdate({
+            documentId: tempDocId,
+            requestBody: {
+              requests: [
+                {
+                  replaceAllText: {
+                    containsText: { text: `{{${key}}}` },
+                    replaceText: '',
+                  },
+                },
+              ],
+            },
+          });
+        }
+      }
+    }
 
     const shouldEmbed = config.embedSignature && !!config.signatureData;
     if (shouldEmbed && config.signatureFolderId) {
@@ -346,6 +428,13 @@ export async function generateTnGoogleDocPdf(
     if (tempSig) {
       try {
         await drive.files.delete({ supportsAllDrives: true, fileId: tempSig.fileId });
+      } catch {
+        /* ignore */
+      }
+    }
+    for (const fileId of tempImageFileIds) {
+      try {
+        await drive.files.delete({ supportsAllDrives: true, fileId });
       } catch {
         /* ignore */
       }

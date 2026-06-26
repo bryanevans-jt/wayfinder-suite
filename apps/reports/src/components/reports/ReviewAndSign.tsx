@@ -121,6 +121,8 @@ export function ReviewAndSign({
           ? value
             ? 'Yes'
             : 'No'
+          : typeof value === 'string' && value.startsWith('data:image/')
+            ? '(drawn initial/signature)'
           : Array.isArray(value)
             ? value.join(', ')
             : String(value);

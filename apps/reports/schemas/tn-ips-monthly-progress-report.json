@@ -1,0 +1,288 @@
+[
+  {
+    "key": "clientName",
+    "label": "Customer Name",
+    "type": "text",
+    "section": "Report header",
+    "prefill": "clientName",
+    "required": true
+  },
+  {
+    "key": "reportMonth",
+    "label": "Report Month",
+    "type": "month",
+    "section": "Report header",
+    "required": true
+  },
+  {
+    "key": "counselorName",
+    "label": "VR Counselor Name",
+    "type": "text",
+    "section": "Report header",
+    "prefill": "counselorName",
+    "required": true
+  },
+  {
+    "key": "service1check",
+    "label": "Career Development and Placement",
+    "type": "boolean",
+    "section": "Service information",
+    "placeholder": "Check if this phase applies this month"
+  },
+  {
+    "key": "s1start",
+    "label": "Career Development and Placement — Start Date",
+    "type": "date",
+    "section": "Service information"
+  },
+  {
+    "key": "s1complete",
+    "label": "Career Development and Placement — Completion Date",
+    "type": "date",
+    "section": "Service information"
+  },
+  {
+    "key": "service5check",
+    "label": "90 Day Stabilization",
+    "type": "boolean",
+    "section": "Service information",
+    "placeholder": "Check if this phase applies this month"
+  },
+  {
+    "key": "s5complete",
+    "label": "90 Day Stabilization — Completion Date",
+    "type": "date",
+    "section": "Service information"
+  },
+  {
+    "key": "service2check",
+    "label": "Job Stabilization",
+    "type": "boolean",
+    "section": "Service information",
+    "placeholder": "Check if this phase applies this month"
+  },
+  {
+    "key": "s2start",
+    "label": "Job Stabilization — Start Date",
+    "type": "date",
+    "section": "Service information"
+  },
+  {
+    "key": "s2complete",
+    "label": "Job Stabilization — Completion Date",
+    "type": "date",
+    "section": "Service information"
+  },
+  {
+    "key": "service3check",
+    "label": "30 Day Stabilization & Maintenance",
+    "type": "boolean",
+    "section": "Service information",
+    "placeholder": "Check if this phase applies this month"
+  },
+  {
+    "key": "s3start",
+    "label": "30 Day Stabilization & Maintenance — Start Date",
+    "type": "date",
+    "section": "Service information"
+  },
+  {
+    "key": "s3complete",
+    "label": "30 Day Stabilization & Maintenance — Completion Date",
+    "type": "date",
+    "section": "Service information"
+  },
+  {
+    "key": "service6check",
+    "label": "Re-Engaging with Individual",
+    "type": "boolean",
+    "section": "Service information",
+    "placeholder": "Check if this phase applies this month"
+  },
+  {
+    "key": "s6start",
+    "label": "Re-Engaging with Individual — Start Date",
+    "type": "date",
+    "section": "Service information"
+  },
+  {
+    "key": "s6complete",
+    "label": "Re-Engaging with Individual — Completion Date",
+    "type": "date",
+    "section": "Service information",
+    "help": "Should coincide with start date of another phase when applicable."
+  },
+  {
+    "key": "service4check",
+    "label": "60 Day Stabilization & Maintenance",
+    "type": "boolean",
+    "section": "Service information",
+    "placeholder": "Check if this phase applies this month"
+  },
+  {
+    "key": "s4start",
+    "label": "60 Day Stabilization & Maintenance — Start Date",
+    "type": "date",
+    "section": "Service information"
+  },
+  {
+    "key": "s4complete",
+    "label": "60 Day Stabilization & Maintenance — Completion Date",
+    "type": "date",
+    "section": "Service information"
+  },
+  {
+    "key": "barriers",
+    "label": "Progress, services, barriers, and issues",
+    "type": "textarea",
+    "section": "Monthly narrative",
+    "help": "Identify and explain progress, services, barriers addressed and/or ongoing issues to resolve.",
+    "required": true
+  },
+  {
+    "key": "jdcontactcheck",
+    "label": "Job Development Contact(s) Attached",
+    "type": "boolean",
+    "section": "Attachments",
+    "placeholder": "Check if job development contacts are attached"
+  },
+  {
+    "key": "hrcontactcheck",
+    "label": "Hire Report Attached",
+    "type": "boolean",
+    "section": "Attachments",
+    "placeholder": "Check if hire report is attached"
+  },
+  {
+    "key": "othercheck",
+    "label": "Other attachment",
+    "type": "boolean",
+    "section": "Attachments",
+    "placeholder": "Check if other attachment applies"
+  },
+  {
+    "key": "otherattached",
+    "label": "Other attachment description",
+    "type": "text",
+    "section": "Attachments",
+    "placeholder": "Describe other attachment if checked"
+  },
+  {
+    "key": "esName",
+    "label": "Employment Specialist Name",
+    "type": "text",
+    "section": "Certification",
+    "prefill": "esName",
+    "required": true
+  },
+  {
+    "key": "date",
+    "label": "Certification Date",
+    "type": "date",
+    "section": "Certification",
+    "required": true
+  },
+  {
+    "key": "jobspecifications",
+    "label": "Job Specifications (needs, preferences)",
+    "type": "textarea",
+    "section": "Job search planning"
+  },
+  {
+    "key": "jobsearchideas",
+    "label": "Job Search Ideas",
+    "type": "textarea",
+    "section": "Job search planning"
+  },
+  {
+    "key": "jd_row_1",
+    "label": "Job development contact 1",
+    "type": "jd_contact_row",
+    "section": "Record of Job Development Contacts",
+    "rowIndex": 1,
+    "dateKey": "rdate1",
+    "initialKey": "initial1",
+    "businessKey": "business1",
+    "contactKey": "contact1",
+    "resultsKey": "results1"
+  },
+  {
+    "key": "jd_row_2",
+    "label": "Job development contact 2",
+    "type": "jd_contact_row",
+    "section": "Record of Job Development Contacts",
+    "rowIndex": 2,
+    "dateKey": "rdate2",
+    "initialKey": "initial2",
+    "businessKey": "business2",
+    "contactKey": "contact2",
+    "resultsKey": "results2"
+  },
+  {
+    "key": "jd_row_3",
+    "label": "Job development contact 3",
+    "type": "jd_contact_row",
+    "section": "Record of Job Development Contacts",
+    "rowIndex": 3,
+    "dateKey": "rdate3",
+    "initialKey": "initial3",
+    "businessKey": "business3",
+    "contactKey": "contact3",
+    "resultsKey": "results3"
+  },
+  {
+    "key": "jd_row_4",
+    "label": "Job development contact 4",
+    "type": "jd_contact_row",
+    "section": "Record of Job Development Contacts",
+    "rowIndex": 4,
+    "dateKey": "rdate4",
+    "initialKey": "initial4",
+    "businessKey": "business4",
+    "contactKey": "contact4",
+    "resultsKey": "results4"
+  },
+  {
+    "key": "jd_row_5",
+    "label": "Job development contact 5",
+    "type": "jd_contact_row",
+    "section": "Record of Job Development Contacts",
+    "rowIndex": 5,
+    "dateKey": "rdate5",
+    "initialKey": "initial5",
+    "businessKey": "business5",
+    "contactKey": "contact5",
+    "resultsKey": "results5"
+  },
+  {
+    "key": "jd_row_6",
+    "label": "Job development contact 6",
+    "type": "jd_contact_row",
+    "section": "Record of Job Development Contacts",
+    "rowIndex": 6,
+    "dateKey": "rdate6",
+    "initialKey": "initial6",
+    "businessKey": "business6",
+    "contactKey": "contact6",
+    "resultsKey": "results6"
+  },
+  {
+    "key": "jd_row_7",
+    "label": "Job development contact 7",
+    "type": "jd_contact_row",
+    "section": "Record of Job Development Contacts",
+    "rowIndex": 7,
+    "dateKey": "rdate7",
+    "initialKey": "initial7",
+    "businessKey": "business7",
+    "contactKey": "contact7",
+    "resultsKey": "results7"
+  },
+  {
+    "key": "continuation",
+    "label": "Continuation Page",
+    "type": "textarea",
+    "section": "Continuation",
+    "help": "Use for additional job development contacts or narrative if needed."
+  }
+]
