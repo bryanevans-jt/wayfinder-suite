@@ -110,6 +110,10 @@ export default async function ClientDashboardPage({
         <p className="text-brand-black/85">
           Signed in as{" "}
           <span className="font-medium text-brand-green">{displayEmail}</span>
+          {" · "}
+          <a href="/quick-start" className="font-medium text-brand-green hover:underline">
+            Quick start guide
+          </a>
         </p>
       </header>
       {support && supportClients.length > 1 ? (

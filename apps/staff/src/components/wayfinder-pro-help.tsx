@@ -164,6 +164,14 @@ function sectionsForRole(role: string | null): Section[] {
           "If something looks wrong, contact the client’s Employment Specialist or your program supervisor.",
         ],
       },
+      {
+        title: "Quick start guide",
+        body: "A one-page printable summary lives in the app — open it from My clients or use the link below.",
+        steps: [
+          "My clients → Quick start guide (top of the page).",
+          "Or bookmark: wayfinder-pro.thejoshuatree.org/dashboard/counselor/quick-start (sign in required).",
+        ],
+      },
     ];
   }
 
@@ -218,6 +226,35 @@ export function WayfinderProHelp({ role }: Props) {
             </a>
             . Include what you were doing when it happened.
           </p>
+        </section>
+      ) : null}
+
+      {!isCounselorRole(role) ? (
+        <section className="rounded-xl border border-neutral-200 bg-white p-5">
+          <h2 className="text-base font-semibold text-brand-black">Training manuals & conference</h2>
+          <p className="mt-2 text-sm text-brand-black/80">
+            Full PDF manuals and GA training workbooks live in the team Google Drive folder (ask your
+            supervisor or Bryan Evans). In-repo copies for IT:{" "}
+            <code className="text-xs">docs/training/</code> in the Wayfinder suite repository.
+          </p>
+          <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-brand-black/85">
+            {isEsRole(role) ? (
+              <li>
+                Share the client quick start:{" "}
+                <a
+                  href="https://wayfinder.thejoshuatree.org/quick-start"
+                  className="text-brand-green hover:underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  wayfinder.thejoshuatree.org/quick-start
+                </a>
+              </li>
+            ) : null}
+            {isEsRole(role) || isSupervisorRole(role) ? (
+              <li>Employer outreach script — Community Partners folder in training materials</li>
+            ) : null}
+          </ul>
         </section>
       ) : null}
     </div>

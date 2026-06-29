@@ -165,6 +165,15 @@ export default async function CounselorPortalPage({
         <Suspense fallback={null}>
           <ViewArchivedToggle className="mt-4" />
         </Suspense>
+        <p className="mt-3 text-sm">
+          <Link href="/dashboard/counselor/quick-start" className="font-medium text-brand-green hover:underline">
+            Quick start guide
+          </Link>
+          {" · "}
+          <Link href="/dashboard/help" className="font-medium text-brand-green hover:underline">
+            Help
+          </Link>
+        </p>
       </header>
 
       {clientsLoadError ? (
