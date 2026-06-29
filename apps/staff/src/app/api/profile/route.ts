@@ -28,6 +28,18 @@ function composeFullName(first: string, last: string): string | null {
   return name || null;
 }
 
+function errorMessage(err: { message?: string } | null | undefined): string {
+  return err?.message ?? "";
+}
+
+function isMissingColumnError(err: { message?: string } | null | undefined): boolean {
+  return /column/i.test(errorMessage(err));
+}
+
+function mentionsUpdatedAt(err: { message?: string } | null | undefined): boolean {
+  return errorMessage(err).includes("updated_at");
+}
+
 async function loadProfileRow(
   admin: SupabaseClient,
   userId: string
@@ -142,31 +154,41 @@ export async function PATCH(request: Request) {
     const bio = (body.bio ?? "").trim();
     const full_name = composeFullName(first_name, last_name);
 
-    const patch = {
+    const patchBase = {
       first_name: first_name || null,
       last_name: last_name || null,
       full_name,
       phone: phone || null,
       home_city: home_city || null,
       bio: bio || null,
+    };
+
+    const patchWithTimestamp = {
+      ...patchBase,
       updated_at: new Date().toISOString(),
     };
 
     let profile: Record<string, unknown> | null = null;
     let { data: updated, error } = await admin
       .from("profiles")
-      .update(patch)
+      .update(patchWithTimestamp)
       .eq("id", user.id)
       .select(PROFILE_SELECT)
       .maybeSingle();
 
-    if (error?.message.includes("column")) {
+    if (error && mentionsUpdatedAt(error)) {
+      ({ data: updated, error } = await admin
+        .from("profiles")
+        .update(patchBase)
+        .eq("id", user.id)
+        .select(PROFILE_SELECT)
+        .maybeSingle());
+    }
+
+    if (error && isMissingColumnError(error)) {
       const basic = await admin
         .from("profiles")
-        .update({
-          full_name,
-          updated_at: patch.updated_at,
-        })
+        .update({ full_name })
         .eq("id", user.id)
         .select(PROFILE_SELECT_FALLBACK)
         .maybeSingle();

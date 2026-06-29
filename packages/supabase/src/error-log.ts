@@ -150,14 +150,34 @@ export async function resolveErrorActor(
   };
 }
 
+function technicalErrorMessage(err: unknown): string {
+  if (err instanceof Error) {
+    return err.message;
+  }
+  if (err && typeof err === "object" && "message" in err) {
+    const message = (err as { message: unknown }).message;
+    if (typeof message === "string" && message.trim()) {
+      return message;
+    }
+  }
+  return String(err);
+}
+
+function technicalStackTrace(err: unknown): string | null {
+  if (err instanceof Error) {
+    return err.stack ?? null;
+  }
+  return null;
+}
+
 export async function logSystemError(
   admin: SupabaseClient,
   context: ErrorLogContext,
   err: unknown
 ): Promise<string> {
   const errorCode = generateErrorCode();
-  const technicalMessage = err instanceof Error ? err.message : String(err);
-  const stackTrace = err instanceof Error ? err.stack ?? null : null;
+  const technicalMessage = technicalErrorMessage(err);
+  const stackTrace = technicalStackTrace(err);
 
   const roleLabel =
     context.userRoleLabel ??
