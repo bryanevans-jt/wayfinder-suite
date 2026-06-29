@@ -7,41 +7,112 @@ type Props = {
   defaultTeamMemberName: string;
 };
 
+type PhotoEntry = {
+  id: string;
+  file: File;
+  previewUrl: string | null;
+};
+
+const MAX_PHOTOS = 5;
+
+function photoId(file: File): string {
+  return `${file.name}-${file.size}-${file.lastModified}`;
+}
+
+function isLikelyImage(file: File): boolean {
+  if (file.type.startsWith("image/")) return true;
+  return /\.(jpe?g|png|gif|webp|heic|heif|bmp|tif?f)$/i.test(file.name);
+}
+
 export function ShareMomentForm({ defaultTeamMemberName }: Props) {
   const [clientName, setClientName] = useState("");
   const [teamMemberName, setTeamMemberName] = useState(defaultTeamMemberName);
   const [notes, setNotes] = useState("");
-  const [photos, setPhotos] = useState<File[]>([]);
-  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<PhotoEntry[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const photosRef = useRef<PhotoEntry[]>([]);
 
   useEffect(() => {
     setTeamMemberName(defaultTeamMemberName);
   }, [defaultTeamMemberName]);
 
   useEffect(() => {
-    const urls = photos.map((file) => URL.createObjectURL(file));
-    setPreviewUrls(urls);
-    return () => {
-      urls.forEach((url) => URL.revokeObjectURL(url));
-    };
+    photosRef.current = photos;
   }, [photos]);
 
-  function onFilesSelected(list: FileList | null) {
-    if (!list?.length) return;
-    setError(null);
-    setSuccess(false);
-    setPhotos((prev) => [...prev, ...Array.from(list)].slice(0, 5));
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+  useEffect(() => {
+    return () => {
+      photosRef.current.forEach((entry) => {
+        if (entry.previewUrl) {
+          URL.revokeObjectURL(entry.previewUrl);
+        }
+      });
+    };
+  }, []);
+
+  function revokePreview(entry: PhotoEntry) {
+    if (entry.previewUrl) {
+      URL.revokeObjectURL(entry.previewUrl);
     }
   }
 
-  function removePhoto(index: number) {
-    setPhotos((prev) => prev.filter((_, i) => i !== index));
+  function onFilesSelected(list: FileList | null) {
+    setError(null);
+    setSuccess(false);
+
+    const picked = list ? Array.from(list) : [];
+    if (picked.length === 0) {
+      setError(
+        "No photos were added. If this keeps happening, try saving the image as JPEG or PNG and select it again."
+      );
+      return;
+    }
+
+    const valid = picked.filter((file) => file.size > 0 && isLikelyImage(file));
+    if (valid.length === 0) {
+      setError("Those files could not be used. Please choose JPEG, PNG, or WebP photos.");
+      return;
+    }
+
+    setPhotos((prev) => {
+      const existing = new Set(prev.map((entry) => entry.id));
+      const next = [...prev];
+
+      for (const file of valid) {
+        if (next.length >= MAX_PHOTOS) break;
+        const id = photoId(file);
+        if (existing.has(id)) continue;
+        existing.add(id);
+
+        let previewUrl: string | null = null;
+        try {
+          previewUrl = URL.createObjectURL(file);
+        } catch {
+          previewUrl = null;
+        }
+
+        next.push({ id, file, previewUrl });
+      }
+
+      return next;
+    });
+
+    window.setTimeout(() => {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }, 0);
+  }
+
+  function removePhoto(id: string) {
+    setPhotos((prev) => {
+      const entry = prev.find((photo) => photo.id === id);
+      if (entry) revokePreview(entry);
+      return prev.filter((photo) => photo.id !== id);
+    });
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -54,7 +125,7 @@ export function ShareMomentForm({ defaultTeamMemberName }: Props) {
       body.set("clientName", clientName.trim());
       body.set("teamMemberName", teamMemberName.trim());
       body.set("notes", notes.trim());
-      photos.forEach((photo) => body.append("photos", photo));
+      photos.forEach((entry) => body.append("photos", entry.file));
 
       const res = await fetch("/api/team-moments/share", {
         method: "POST",
@@ -68,7 +139,10 @@ export function ShareMomentForm({ defaultTeamMemberName }: Props) {
       setSuccess(true);
       setClientName("");
       setNotes("");
-      setPhotos([]);
+      setPhotos((prev) => {
+        prev.forEach(revokePreview);
+        return [];
+      });
     } catch (err) {
       setError(friendlyClientError(err));
     } finally {
@@ -124,30 +198,57 @@ export function ShareMomentForm({ defaultTeamMemberName }: Props) {
             type="button"
             onClick={() => fileInputRef.current?.click()}
             className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-semibold text-brand-black hover:bg-neutral-50"
-            disabled={busy || photos.length >= 5}
+            disabled={busy || photos.length >= MAX_PHOTOS}
           >
             Add photos
           </button>
-          <span className="text-xs text-brand-black/60">Up to 5 photos, 4 MB each</span>
+          <span className="text-xs text-brand-black/60">
+            {photos.length > 0
+              ? `${photos.length} of ${MAX_PHOTOS} selected`
+              : `Up to ${MAX_PHOTOS} photos, 4 MB each`}
+          </span>
         </div>
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+          accept="image/*"
           multiple
-          className="hidden"
+          className="sr-only"
           onChange={(e) => onFilesSelected(e.target.files)}
           disabled={busy}
         />
-        {previewUrls.length > 0 ? (
+        {photos.length > 0 ? (
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {previewUrls.map((url, index) => (
-              <li key={url} className="relative overflow-hidden rounded-lg border border-neutral-200">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt="" className="aspect-square w-full object-cover" />
+            {photos.map((entry) => (
+              <li
+                key={entry.id}
+                className="relative overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50"
+              >
+                {entry.previewUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={entry.previewUrl}
+                    alt={entry.file.name}
+                    className="aspect-square w-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                      const fallback = e.currentTarget.nextElementSibling;
+                      if (fallback instanceof HTMLElement) {
+                        fallback.style.display = "flex";
+                      }
+                    }}
+                  />
+                ) : null}
+                <div
+                  className="flex aspect-square w-full flex-col items-center justify-center px-3 text-center text-xs text-brand-black/70"
+                  style={{ display: entry.previewUrl ? "none" : "flex" }}
+                >
+                  <span className="font-semibold text-brand-black">Photo added</span>
+                  <span className="mt-1 break-all">{entry.file.name}</span>
+                </div>
                 <button
                   type="button"
-                  onClick={() => removePhoto(index)}
+                  onClick={() => removePhoto(entry.id)}
                   className="absolute right-2 top-2 rounded bg-black/70 px-2 py-0.5 text-xs font-semibold text-white"
                   disabled={busy}
                 >

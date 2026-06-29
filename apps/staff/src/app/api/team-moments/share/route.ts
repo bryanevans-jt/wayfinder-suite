@@ -16,6 +16,19 @@ const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 12 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
 
+function resolvePhotoMime(photo: File): string | null {
+  if (ALLOWED_TYPES.has(photo.type)) {
+    return photo.type;
+  }
+  const lower = photo.name.toLowerCase();
+  if (/\.jpe?g$/.test(lower)) return "image/jpeg";
+  if (/\.png$/.test(lower)) return "image/png";
+  if (/\.webp$/.test(lower)) return "image/webp";
+  if (/\.heic$/.test(lower)) return "image/heic";
+  if (/\.heif$/.test(lower)) return "image/heif";
+  return null;
+}
+
 export async function POST(request: Request) {
   const route = "api/team-moments/share";
   try {
@@ -69,8 +82,8 @@ export async function POST(request: Request) {
 
     for (let i = 0; i < photos.length; i++) {
       const photo = photos[i];
-      const mime = photo.type || "application/octet-stream";
-      if (!ALLOWED_TYPES.has(mime)) {
+      const mime = resolvePhotoMime(photo);
+      if (!mime) {
         return NextResponse.json(
           { error: "Photos must be JPEG, PNG, or WebP images." },
           { status: 400 }
