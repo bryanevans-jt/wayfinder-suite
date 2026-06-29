@@ -53,7 +53,7 @@ export function StaffDashboardShell({ staffRole, showAuditLink = false, children
         </div>
         <div className="min-w-0 flex-1 bg-white">
           <div className="mx-4 mt-3 lg:mx-6">
-            <PwaInstallPrompt />
+            <PwaInstallPrompt productName="Wayfinder Pro" storageKey="staff-pwa-install-dismissed" />
           </div>
           <PushNotificationPrompt className="mx-4 mt-3 lg:mx-6" />
           <ReportAlertsBanner staffRole={staffRole} />

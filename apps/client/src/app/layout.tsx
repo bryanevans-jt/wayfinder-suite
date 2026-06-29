@@ -1,6 +1,7 @@
 import {
   CLIENT_APP_PRODUCT_NAME,
   WAYFINDER_FAVICON_PATH,
+  WAYFINDER_PWA_ICON_PATH,
   WayfinderFooter,
   WayfinderTopNav,
 } from "@wayfinder/branding";
@@ -25,9 +26,14 @@ export const metadata: Metadata = {
   description: "Joshua Tree Wayfinder — your employment success path",
   icons: {
     icon: [{ url: WAYFINDER_FAVICON_PATH, type: "image/png" }],
-    apple: [{ url: WAYFINDER_FAVICON_PATH, type: "image/png" }],
+    apple: [{ url: WAYFINDER_PWA_ICON_PATH, sizes: "512x512", type: "image/png" }],
   },
   manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    title: CLIENT_APP_PRODUCT_NAME,
+    statusBarStyle: "default",
+  },
 };
 
 export default async function RootLayout({

@@ -1,5 +1,5 @@
 function resolveNotificationUrl(rawUrl) {
-  const fallback = self.location.origin + "/dashboard";
+  const fallback = self.location.origin + "/";
   if (!rawUrl) {
     return fallback;
   }
@@ -23,7 +23,7 @@ function urlPath(url) {
 }
 
 self.addEventListener("push", (event) => {
-  let data = { title: "Wayfinder", body: "", url: "/dashboard" };
+  let data = { title: "Joshua Tree Reports", body: "", url: "/" };
   try {
     if (event.data) {
       data = { ...data, ...event.data.json() };

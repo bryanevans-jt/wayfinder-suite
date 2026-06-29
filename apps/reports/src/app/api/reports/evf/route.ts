@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getGoogleAuth, sendEmail } from '@/lib/google';
 import { generateEVFPdf } from '@/lib/pdf-generator';
 import { recordFormalSubmission } from '@/lib/record-submission';
+import { reportApiLoggedError } from "@/lib/api-error";
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
@@ -69,10 +70,6 @@ export async function POST(request: Request) {
       message: 'Form submitted! You will receive an email with the final PDF shortly.',
     });
   } catch (e) {
-    console.error('EVF submission error:', e);
-    return NextResponse.json(
-      { error: (e as Error).message || 'Submission failed' },
-      { status: 500 }
-    );
+    return reportApiLoggedError("api/reports/evf", e);
   }
 }

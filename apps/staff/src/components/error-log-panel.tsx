@@ -22,6 +22,7 @@ type ErrorLogSummary = {
   total7d: number;
   staff7d: number;
   client7d: number;
+  reports7d: number;
 };
 
 export function ErrorLogPanel() {
@@ -84,7 +85,7 @@ export function ErrorLogPanel() {
       </div>
 
       {summary ? (
-        <div className="grid gap-3 sm:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div className="rounded-lg border border-neutral-200 bg-white px-4 py-3">
             <p className="text-xs font-medium uppercase tracking-wide text-brand-black/55">Last 24 hours</p>
             <p className="mt-1 text-2xl font-semibold text-brand-black">{summary.total24h}</p>
@@ -100,6 +101,10 @@ export function ErrorLogPanel() {
           <div className="rounded-lg border border-neutral-200 bg-white px-4 py-3">
             <p className="text-xs font-medium uppercase tracking-wide text-brand-black/55">Wayfinder (7d)</p>
             <p className="mt-1 text-2xl font-semibold text-brand-black">{summary.client7d}</p>
+          </div>
+          <div className="rounded-lg border border-neutral-200 bg-white px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-brand-black/55">Reports (7d)</p>
+            <p className="mt-1 text-2xl font-semibold text-brand-black">{summary.reports7d}</p>
           </div>
         </div>
       ) : null}
@@ -125,6 +130,7 @@ export function ErrorLogPanel() {
             <option value="">All</option>
             <option value="staff">Staff</option>
             <option value="client">Client</option>
+            <option value="reports">Reports</option>
           </select>
         </label>
         <button

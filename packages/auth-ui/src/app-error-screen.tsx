@@ -14,7 +14,7 @@ import {
 type Props = {
   error: Error & { digest?: string };
   reset: () => void;
-  app: "staff" | "client";
+  app: "staff" | "client" | "reports";
 };
 
 export function AppErrorScreen({ error, reset, app }: Props) {

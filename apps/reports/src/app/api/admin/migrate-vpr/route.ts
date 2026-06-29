@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getGoogleAuth } from '@/lib/google';
+import { reportApiLoggedError } from "@/lib/api-error";
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { isReportSuperadmin } from '@/lib/report-access';
@@ -69,10 +70,6 @@ export async function POST() {
       skipped: rows.length - toInsert.length,
     });
   } catch (e) {
-    console.error('VPR migration error:', e);
-    return NextResponse.json(
-      { error: (e as Error).message || 'Migration failed' },
-      { status: 500 }
-    );
+    return reportApiLoggedError("api/admin/migrate-vpr", e);
   }
 }

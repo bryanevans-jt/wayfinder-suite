@@ -6,6 +6,7 @@ import { generateSEMonthlyPdf } from '@/lib/pdf-generator';
 import { recordFormalSubmission } from '@/lib/record-submission';
 import { resolveSeMonthlyAlerts } from '@/lib/resolve-report-alerts';
 import { generateClientId } from '@/lib/utils';
+import { reportApiLoggedError } from "@/lib/api-error";
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
@@ -118,10 +119,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, driveFileId });
   } catch (e) {
-    console.error('SE Monthly submission error:', e);
-    return NextResponse.json(
-      { error: (e as Error).message || 'Submission failed' },
-      { status: 500 }
-    );
+    return reportApiLoggedError("api/reports/se-monthly", e);
   }
 }

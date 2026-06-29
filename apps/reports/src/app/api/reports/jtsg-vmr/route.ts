@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getGoogleAuth, sendEmail } from '@/lib/google';
 import { generateJTSGVMRPdf } from '@/lib/pdf-generator';
 import { recordFormalSubmission } from '@/lib/record-submission';
+import { reportApiLoggedError } from "@/lib/api-error";
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
@@ -72,10 +73,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (e) {
-    console.error('JTSG VMR submission error:', e);
-    return NextResponse.json(
-      { error: (e as Error).message || 'Submission failed' },
-      { status: 500 }
-    );
+    return reportApiLoggedError("api/reports/jtsg-vmr", e);
   }
 }

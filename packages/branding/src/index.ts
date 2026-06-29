@@ -5,6 +5,7 @@ export {
   CONFIDENTIALITY_NOTICE,
   DEVELOPER_BADGE_LOGO_PATH,
   LEGAL_ENTITY,
+  REPORTS_APP_PRODUCT_NAME,
   STAFF_APP_PRODUCT_NAME,
   JT_VOCATIONAL_REPORTS_URL,
   WAYFINDER_REPORTS_URL,
@@ -14,6 +15,7 @@ export {
   SUPPORT_CONTACT_MAILTO,
   SUPPORT_CONTACT_NAME,
   WAYFINDER_FAVICON_PATH,
+  WAYFINDER_PWA_ICON_PATH,
   WAYFINDER_LOGO_PATH,
   CONTACT_LOG_INTERNAL_NOTES_LABEL,
   CONTACT_LOG_NOTES_LABEL,
@@ -65,7 +67,7 @@ export {
 } from "./person-display-name";
 export { MEETING_TIMEZONES } from "./meeting-timezones";
 export { WayfinderFooter } from "./wayfinder-footer";
-export { PwaInstallPrompt } from "./pwa-install-prompt";
+export { PwaInstallPrompt, type PwaInstallPromptProps } from "./pwa-install-prompt";
 export { WayfinderTopNav, type WayfinderNavBadge } from "./wayfinder-top-nav";
 export { wayfinderSecurityHeaders } from "./security-headers";
 export {

@@ -1,3 +1,6 @@
+/** Formal reporting product name (reports app / PWA). */
+export const REPORTS_APP_PRODUCT_NAME = "Joshua Tree Reports";
+
 /** Client-facing product name (App Store / client app). */
 export const CLIENT_APP_PRODUCT_NAME = "Wayfinder";
 
@@ -24,6 +27,9 @@ export const WAYFINDER_LOGO_PATH = "/wayfinder-logo.png";
 
 /** Browser tab / PWA favicon — RGBA PNG with transparent background (`public/favicon.png`). */
 export const WAYFINDER_FAVICON_PATH = "/favicon.png";
+
+/** Home screen / PWA install icon (`public/icon-512.png`). */
+export const WAYFINDER_PWA_ICON_PATH = "/icon-512.png";
 
 /** Joshua Tree mark — developer badge only (typically existing `logo.png`). */
 export const DEVELOPER_BADGE_LOGO_PATH = "/logo.png";

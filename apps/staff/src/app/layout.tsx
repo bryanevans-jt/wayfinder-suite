@@ -1,6 +1,7 @@
 import {
   STAFF_APP_PRODUCT_NAME,
   WAYFINDER_FAVICON_PATH,
+  WAYFINDER_PWA_ICON_PATH,
   WayfinderFooter,
   WayfinderTopNav,
 } from "@wayfinder/branding";
@@ -26,9 +27,14 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
   icons: {
     icon: [{ url: WAYFINDER_FAVICON_PATH, type: "image/png" }],
-    apple: [{ url: WAYFINDER_FAVICON_PATH, type: "image/png" }],
+    apple: [{ url: WAYFINDER_PWA_ICON_PATH, sizes: "512x512", type: "image/png" }],
   },
   manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    title: STAFF_APP_PRODUCT_NAME,
+    statusBarStyle: "default",
+  },
 };
 
 export default async function RootLayout({

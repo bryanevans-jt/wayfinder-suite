@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getGoogleAuth, sendEmail } from '@/lib/google';
 import { recordFormalSubmission } from '@/lib/record-submission';
+import { reportApiLoggedError } from "@/lib/api-error";
 import { NextResponse } from 'next/server';
 
 const FILE_MIME_MAP: Record<string, string> = {
@@ -135,10 +136,6 @@ export async function POST(request: Request) {
       message: 'Time sheet submitted successfully! You will receive a confirmation email with your document attached.',
     });
   } catch (e) {
-    console.error('JTSG TSVS submission error:', e);
-    return NextResponse.json(
-      { error: (e as Error).message || 'Submission failed' },
-      { status: 500 }
-    );
+    return reportApiLoggedError("api/reports/jtsg-tsvs", e);
   }
 }

@@ -1,11 +1,11 @@
 {
-  "name": "Wayfinder Pro",
-  "short_name": "Wayfinder Pro",
-  "description": "Joshua Tree Wayfinder Pro — staff employment services",
-  "start_url": "/dashboard",
+  "name": "Joshua Tree Reports",
+  "short_name": "JT Reports",
+  "description": "Joshua Tree formal reporting — submit client reports",
+  "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#2d6a4f",
+  "background_color": "#f9fafb",
+  "theme_color": "#15803d",
   "icons": [
     {
       "src": "/icon-512.png",

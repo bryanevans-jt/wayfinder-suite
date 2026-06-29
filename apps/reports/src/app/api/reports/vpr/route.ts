@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getGoogleAuth, sendEmail } from '@/lib/google';
 import { generateVPRPdf } from '@/lib/pdf-generator';
 import { recordFormalSubmission } from '@/lib/record-submission';
+import { reportApiLoggedError } from "@/lib/api-error";
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
@@ -81,10 +82,6 @@ export async function POST(request: Request) {
       message: `Report for ${reportData.ClientName} submitted successfully!`,
     });
   } catch (e) {
-    console.error('VPR submission error:', e);
-    return NextResponse.json(
-      { error: (e as Error).message || 'Submission failed' },
-      { status: 500 }
-    );
+    return reportApiLoggedError("api/reports/vpr", e);
   }
 }

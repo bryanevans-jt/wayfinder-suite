@@ -100,7 +100,7 @@ export default async function ClientDashboardPage({
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-6 bg-brand-white px-4 py-8 sm:gap-8 sm:px-6 sm:py-16">
-      <PwaInstallPrompt />
+      <PwaInstallPrompt productName="Wayfinder" storageKey="client-pwa-install-dismissed" />
       <ClientOnboardingTour />
       <header className="space-y-2">
         <p className="text-xs font-medium uppercase tracking-wide text-brand-green sm:text-sm">

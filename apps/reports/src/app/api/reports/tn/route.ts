@@ -6,6 +6,7 @@ import { generateTnGoogleDocPdf } from "@/lib/pdf-generator";
 import { recordFormalSubmission } from "@/lib/record-submission";
 import { resolveTnClientName } from "@/lib/tn-prefill";
 import { loadTnReportDefinition } from "@/lib/tn-report-definition";
+import { reportApiLoggedError } from "@/lib/api-error";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -114,10 +115,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, driveFileId });
   } catch (e) {
-    console.error("TN report submission error:", e);
-    return NextResponse.json(
-      { error: (e as Error).message || "Submission failed" },
-      { status: 500 }
-    );
+    return reportApiLoggedError("api/reports/tn", e);
   }
 }

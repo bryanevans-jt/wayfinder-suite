@@ -24,8 +24,10 @@ export type ActionFailure = { ok: false; error: string; errorCode?: string };
 export type ActionResult = ActionSuccess | ActionFailure;
 
 /** Log a failed server action and return a safe message (avoids Next.js production throw redaction). */
+export type WayfinderErrorApp = "staff" | "client" | "reports";
+
 export async function finishActionFailure(
-  app: "staff" | "client",
+  app: WayfinderErrorApp,
   route: string,
   err: unknown,
   actor: ApiErrorActor = {},
@@ -112,7 +114,7 @@ export function generateErrorCode(): string {
 }
 
 export type ErrorLogContext = {
-  app: "staff" | "client";
+  app: WayfinderErrorApp;
   route: string;
   userId?: string | null;
   userName?: string | null;
@@ -187,7 +189,7 @@ export async function logSystemError(
 }
 
 export async function respondWithLoggedError(
-  app: "staff" | "client",
+  app: WayfinderErrorApp,
   route: string,
   err: unknown,
   actor: ApiErrorActor = {},
@@ -242,7 +244,7 @@ export function userFacingAccessMessage(error: AccessErrorLike): string | null {
 }
 
 export async function respondWithAccessOrLoggedError(
-  app: "staff" | "client",
+  app: WayfinderErrorApp,
   route: string,
   error: unknown,
   actor: ApiErrorActor = {}
@@ -284,7 +286,7 @@ export function friendlyClientError(raw: unknown, errorCode?: string | null): st
 
 /** Log a server-action failure and throw a safe message the client can display (with WF code when logged). */
 export async function throwLoggedUserError(
-  app: "staff" | "client",
+  app: WayfinderErrorApp,
   route: string,
   err: unknown,
   actor: ApiErrorActor = {},
