@@ -1,6 +1,5 @@
-import { LoginFormShell } from "@wayfinder/auth-ui";
 import { ReportSupportNote } from "@/components/ReportSupportNote";
-import { createClient } from "@/lib/supabase/client";
+import { ReportsLoginForm } from "@/components/ReportsLoginForm";
 
 type SearchParams = Promise<{ error?: string; next?: string }>;
 
@@ -41,12 +40,11 @@ export default async function LoginPage({
         </p>
       ) : null}
 
-      <LoginFormShell
+      <ReportsLoginForm
         productName="Joshua Tree Reports"
         shouldCreateUser={false}
         termsHref={staffTermsUrl()}
         redirectAfterSignIn={redirectAfterSignIn}
-        createSupabaseClient={createClient}
       />
 
       <ReportSupportNote className="mt-8 max-w-md text-center" />
