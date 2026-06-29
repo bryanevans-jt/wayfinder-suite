@@ -163,6 +163,40 @@ function technicalErrorMessage(err: unknown): string {
   return String(err);
 }
 
+/** Safe message extraction for logging and route handlers. */
+export function errorTechnicalMessage(err: unknown): string {
+  return technicalErrorMessage(err);
+}
+
+/** True when an error represents auth/forbidden — should not get a WF system code. */
+export function isAccessDenialError(err: unknown): boolean {
+  const message = technicalErrorMessage(err).toLowerCase();
+  return (
+    message === "forbidden" ||
+    message === "unauthorized" ||
+    message.includes("not authorized") ||
+    message.includes("access denied") ||
+    message.includes("account inactive") ||
+    message.includes("admin access required") ||
+    message.includes("superadmin only")
+  );
+}
+
+export async function respondWithCronLoggedError(
+  app: WayfinderErrorApp,
+  route: string,
+  err: unknown,
+  status = 500
+): Promise<Response> {
+  return respondWithLoggedError(
+    app,
+    route,
+    err,
+    {},
+    status
+  );
+}
+
 function technicalStackTrace(err: unknown): string | null {
   if (err instanceof Error) {
     return err.stack ?? null;

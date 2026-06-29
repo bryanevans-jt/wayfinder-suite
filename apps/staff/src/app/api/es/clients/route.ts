@@ -1,9 +1,9 @@
 import { createClientWithInvite, isEsRole } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
+  respondWithLoggedError,
   USER_FACING_AUTH_REQUIRED,
   USER_FACING_FORBIDDEN,
-  USER_FACING_SYSTEM_ERROR,
 } from "@wayfinder/supabase/error-log";
 import { assertNotPreviewMutation, getAppSession } from "@wayfinder/supabase/preview-server";
 import { NextResponse } from "next/server";
@@ -17,6 +17,7 @@ type Body = {
 };
 
 export async function POST(request: Request) {
+  const route = "api/es/clients";
   await assertNotPreviewMutation();
 
   const session = await getAppSession();
@@ -28,33 +29,34 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: USER_FACING_FORBIDDEN }, { status: 403 });
   }
 
-  let admin;
+  const actor = { userId: session.effectiveUserId, userRole: session.effectiveRole };
+
   try {
-    admin = createServiceRoleClient();
-  } catch {
-    return NextResponse.json({ error: USER_FACING_SYSTEM_ERROR }, { status: 503 });
+    const admin = createServiceRoleClient();
+
+    let body: Body;
+    try {
+      body = (await request.json()) as Body;
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+
+    const result = await createClientWithInvite(admin, {
+      name: body.name ?? "",
+      email: body.email ?? "",
+      serviceId: body.serviceId ?? "",
+      officeId: body.officeId ?? "",
+      counselorId: body.counselorId ?? "",
+      esUserId: session.effectiveUserId,
+    });
+
+    if ("error" in result) {
+      const status = result.error.toLowerCase().includes("already") ? 409 : 400;
+      return NextResponse.json({ error: result.error }, { status });
+    }
+
+    return NextResponse.json({ ok: true, clientId: result.clientId });
+  } catch (err) {
+    return respondWithLoggedError("staff", route, err, actor);
   }
-
-  let body: Body;
-  try {
-    body = (await request.json()) as Body;
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
-
-  const result = await createClientWithInvite(admin, {
-    name: body.name ?? "",
-    email: body.email ?? "",
-    serviceId: body.serviceId ?? "",
-    officeId: body.officeId ?? "",
-    counselorId: body.counselorId ?? "",
-    esUserId: session.effectiveUserId,
-  });
-
-  if ("error" in result) {
-    const status = result.error.toLowerCase().includes("already") ? 409 : 400;
-    return NextResponse.json({ error: result.error }, { status });
-  }
-
-  return NextResponse.json({ ok: true, clientId: result.clientId });
 }

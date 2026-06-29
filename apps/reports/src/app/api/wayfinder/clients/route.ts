@@ -1,11 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { reportApiCatchError } from "@/lib/api-error";
 import {
   assertReportingUser,
   getCaseloadClientById,
   searchCaseloadClients,
   type ReportingState,
 } from "@/lib/wayfinder-caseload";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
@@ -41,6 +42,6 @@ export async function GET(request: Request) {
     const clients = await searchCaseloadClients(admin, user.id, { state, query, limit: 30 });
     return NextResponse.json({ clients });
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 403 });
+    return reportApiCatchError("api/wayfinder/clients", e);
   }
 }

@@ -4,6 +4,7 @@ import { buildJobDevelopmentContactRows, buildJobDevelopmentFromContactLogs } fr
 import { resolveReportingEsName } from "@/lib/es-display-name";
 import { formatClientAddress } from "@/lib/tn-prefill";
 import { assertReportingUser, getCaseloadClientById } from "@/lib/wayfinder-caseload";
+import { reportApiCatchError } from "@/lib/api-error";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
@@ -62,6 +63,6 @@ export async function GET(request: Request) {
       jobDevelopmentContacts,
     });
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 403 });
+    return reportApiCatchError("api/wayfinder/prefill", e);
   }
 }

@@ -6,6 +6,7 @@ import {
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
+import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { NextResponse } from "next/server";
 import {
   esTimeEntriesToCsv,
@@ -13,6 +14,7 @@ import {
 } from "@/lib/es-time-data";
 
 export async function GET(request: Request) {
+  const route = "api/exports/time";
   const session = await getAppSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -43,46 +45,44 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "es query param required" }, { status: 400 });
   }
 
-  let admin;
+  const actor = { userId: session.effectiveUserId, userRole: role };
+
   try {
-    admin = createServiceRoleClient();
-  } catch {
-    return NextResponse.json(
-      { error: "Server is missing SUPABASE_SERVICE_ROLE_KEY." },
-      { status: 503 }
-    );
-  }
+    const admin = createServiceRoleClient();
 
-  if (isSupervisorRole(role) && !isAdminTierRole(role)) {
-    const { data: link } = await admin
-      .from("supervisor_es_assignments")
-      .select("es_user_id")
-      .eq("supervisor_user_id", session.effectiveUserId)
-      .eq("es_user_id", esUserId)
-      .maybeSingle();
-    if (!link) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (isSupervisorRole(role) && !isAdminTierRole(role)) {
+      const { data: link } = await admin
+        .from("supervisor_es_assignments")
+        .select("es_user_id")
+        .eq("supervisor_user_id", session.effectiveUserId)
+        .eq("es_user_id", esUserId)
+        .maybeSingle();
+      if (!link) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
     }
+
+    const entries = await loadEsTimeEntriesForWeek(admin, esUserId, weekStart);
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("full_name, email")
+      .eq("id", esUserId)
+      .maybeSingle();
+
+    const esName =
+      (profile?.full_name as string | null)?.trim() ||
+      (profile?.email as string | null) ||
+      "ES";
+
+    const csv = esTimeEntriesToCsv(entries, esName, weekStart);
+
+    return new NextResponse(csv, {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="wayfinder-timesheet-${weekStart}.csv"`,
+      },
+    });
+  } catch (err) {
+    return respondWithLoggedError("staff", route, err, actor);
   }
-
-  const entries = await loadEsTimeEntriesForWeek(admin, esUserId, weekStart);
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("full_name, email")
-    .eq("id", esUserId)
-    .maybeSingle();
-
-  const esName =
-    (profile?.full_name as string | null)?.trim() ||
-    (profile?.email as string | null) ||
-    "ES";
-
-  const csv = esTimeEntriesToCsv(entries, esName, weekStart);
-
-  return new NextResponse(csv, {
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="wayfinder-timesheet-${weekStart}.csv"`,
-    },
-  });
 }

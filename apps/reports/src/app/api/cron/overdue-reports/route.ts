@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { reportCronLoggedError } from "@/lib/api-error";
 import { runReportComplianceCron } from "@/lib/sync-report-alerts";
 
 export const dynamic = "force-dynamic";
@@ -14,11 +15,16 @@ function authorizeCron(request: Request): boolean {
 }
 
 export async function GET(request: Request) {
+  const route = "api/cron/overdue-reports";
   if (!authorizeCron(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const admin = createAdminClient();
-  const result = await runReportComplianceCron(admin, "overdue");
-  return NextResponse.json(result);
+  try {
+    const admin = createAdminClient();
+    const result = await runReportComplianceCron(admin, "overdue");
+    return NextResponse.json(result);
+  } catch (err) {
+    return reportCronLoggedError(route, err);
+  }
 }

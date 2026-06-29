@@ -7,11 +7,14 @@ import {
   previewCookieOptions,
 } from "@wayfinder/supabase/preview-cookies";
 import { createServerClient } from "@wayfinder/supabase";
+import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { isSuperAdminRole } from "@wayfinder/supabase/roles";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
-  const url = new URL(request.url);
+  const route = "api/preview/handoff";
+  try {
+    const url = new URL(request.url);
   const token = url.searchParams.get("token")?.trim();
   if (!token) {
     return new NextResponse("Missing preview token.", { status: 400 });
@@ -57,4 +60,7 @@ export async function GET(request: Request) {
   }
 
   return response;
+  } catch (err) {
+    return respondWithLoggedError("client", route, err);
+  }
 }

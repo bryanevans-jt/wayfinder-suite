@@ -2,11 +2,13 @@ import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { isAdminTierRole, isEsRole, isSupervisorRole } from "@wayfinder/supabase/roles";
 import { loadReportAlertsForStaffUser } from "@/lib/report-alerts-data";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
+import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const route = "api/report-alerts";
   const session = await getAppSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -17,14 +19,10 @@ export async function GET() {
     return NextResponse.json({ alerts: [] });
   }
 
-  let admin;
-  try {
-    admin = createServiceRoleClient();
-  } catch {
-    return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
-  }
+  const actor = { userId: session.effectiveUserId, userRole: role };
 
   try {
+    const admin = createServiceRoleClient();
     const alerts = await loadReportAlertsForStaffUser(
       admin,
       session.effectiveUserId,
@@ -32,6 +30,6 @@ export async function GET() {
     );
     return NextResponse.json({ alerts });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    return respondWithLoggedError("staff", route, err, actor);
   }
 }

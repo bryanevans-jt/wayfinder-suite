@@ -1,4 +1,5 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { respondWithCronLoggedError } from "@wayfinder/supabase/error-log";
 import { processCounselorWeeklyDigest } from "@wayfinder/supabase/counselor-digest";
 import { NextResponse } from "next/server";
 
@@ -12,6 +13,7 @@ function authorizeCron(request: Request): boolean {
 }
 
 export async function GET(request: Request) {
+  const route = "api/cron/counselor-digest";
   if (!authorizeCron(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -21,7 +23,6 @@ export async function GET(request: Request) {
     const result = await processCounselorWeeklyDigest(admin);
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
-    console.error("counselor-digest cron failed:", err);
-    return NextResponse.json({ error: "Cron failed" }, { status: 500 });
+    return respondWithCronLoggedError("staff", route, err);
   }
 }

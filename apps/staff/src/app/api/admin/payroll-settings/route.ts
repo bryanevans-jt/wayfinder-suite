@@ -5,7 +5,8 @@ import {
   type PayrollSettingsRow,
 } from "@wayfinder/supabase/payroll-period";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
-import { isAdminTierRole, isSuperAdminRole } from "@wayfinder/supabase/roles";
+import { isSuperAdminRole } from "@wayfinder/supabase/roles";
+import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { NextResponse } from "next/server";
 
 async function loadPayrollSettings(): Promise<PayrollSettingsRow> {
@@ -19,10 +20,13 @@ async function loadPayrollSettings(): Promise<PayrollSettingsRow> {
 }
 
 export async function GET(request: Request) {
+  const route = "api/admin/payroll-settings";
   const session = await getAppSession();
   if (!session || !isSuperAdminRole(session.effectiveRole)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  const actor = { userId: session.effectiveUserId, userRole: session.effectiveRole };
 
   try {
     const settings = await loadPayrollSettings();
@@ -34,36 +38,42 @@ export async function GET(request: Request) {
     }
     return NextResponse.json({ settings, period });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to load payroll settings";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respondWithLoggedError("staff", route, err, actor);
   }
 }
 
 export async function PATCH(request: Request) {
+  const route = "api/admin/payroll-settings";
   const session = await getAppSession();
   if (!session || !isSuperAdminRole(session.effectiveRole)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = (await request.json()) as Partial<PayrollSettingsRow>;
-  const admin = createServiceRoleClient();
-  const { data: row } = await admin.from("org_payroll_settings").select("id").limit(1).maybeSingle();
+  const actor = { userId: session.effectiveUserId, userRole: session.effectiveRole };
 
-  const patch = {
-    pay_period_frequency: body.pay_period_frequency,
-    period_start_date: body.period_start_date,
-    period_end_date: body.period_end_date ?? null,
-    updated_at: new Date().toISOString(),
-    updated_by: session.effectiveUserId,
-  };
+  try {
+    const body = (await request.json()) as Partial<PayrollSettingsRow>;
+    const admin = createServiceRoleClient();
+    const { data: row } = await admin.from("org_payroll_settings").select("id").limit(1).maybeSingle();
 
-  const { error } = row?.id
-    ? await admin.from("org_payroll_settings").update(patch).eq("id", row.id)
-    : await admin.from("org_payroll_settings").insert(patch);
+    const patch = {
+      pay_period_frequency: body.pay_period_frequency,
+      period_start_date: body.period_start_date,
+      period_end_date: body.period_end_date ?? null,
+      updated_at: new Date().toISOString(),
+      updated_by: session.effectiveUserId,
+    };
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const { error } = row?.id
+      ? await admin.from("org_payroll_settings").update(patch).eq("id", row.id)
+      : await admin.from("org_payroll_settings").insert(patch);
+
+    if (error) {
+      return respondWithLoggedError("staff", route, error, actor);
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    return respondWithLoggedError("staff", route, err, actor);
   }
-
-  return NextResponse.json({ ok: true });
 }

@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getGoogleAuth } from '@/lib/google';
-import { reportApiLoggedError } from "@/lib/api-error";
+import { reportApiLoggedError, resolveReportErrorActor } from "@/lib/api-error";
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { isReportSuperadmin } from '@/lib/report-access';
@@ -60,7 +60,7 @@ export async function POST() {
     if (toInsert.length > 0) {
       const { error } = await admin.from('vpr_submissions').insert(toInsert);
       if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return reportApiLoggedError("api/admin/migrate-vpr", error, await resolveReportErrorActor());
       }
     }
 

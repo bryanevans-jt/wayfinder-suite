@@ -8,9 +8,11 @@ import {
   isAdminTierRole,
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
+import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
+  const route = "api/analytics/benchmark";
   const auth = await assertAnalyticsSession();
   if ("error" in auth) {
     return auth.error;
@@ -29,6 +31,8 @@ export async function GET(request: Request) {
   if (!officeIdAllowed(auth.scope, officeId) || !esUserIdAllowed(auth.scope, esUserId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  const actor = { userId: auth.effectiveUserId, userRole: auth.role };
 
   try {
     const current = await loadAnalyticsSummary(auth.admin, auth.scope, {
@@ -74,7 +78,6 @@ export async function GET(request: Request) {
       },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Benchmark failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respondWithLoggedError("staff", route, err, actor);
   }
 }

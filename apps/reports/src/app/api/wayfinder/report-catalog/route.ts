@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertReportingUser } from "@/lib/wayfinder-caseload";
+import { reportApiCatchError } from "@/lib/api-error";
 import { NextResponse } from "next/server";
 
 type ReportingState = "GA" | "TN";
@@ -87,6 +88,6 @@ export async function GET(request: Request) {
       })),
     });
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 403 });
+    return reportApiCatchError("api/wayfinder/report-catalog", e);
   }
 }

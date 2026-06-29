@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { canAccessReportAdmin } from "@/lib/report-access";
+import { reportApiLoggedError, resolveReportErrorActor } from "@/lib/api-error";
 import { NextResponse } from "next/server";
 
 export type TnReportTypeRow = {
@@ -59,9 +60,11 @@ function mapReportType(row: Record<string, unknown>): TnReportTypeRow {
 }
 
 export async function GET() {
+  const route = "api/admin/tn-catalog";
   const auth = await requireAdmin();
   if ("error" in auth && auth.error) return auth.error;
 
+  const actor = await resolveReportErrorActor();
   const admin = createAdminClient();
   const [{ data: programs, error: programError }, { data: reportTypes, error: typeError }] =
     await Promise.all([
@@ -78,10 +81,10 @@ export async function GET() {
     ]);
 
   if (programError) {
-    return NextResponse.json({ error: programError.message }, { status: 500 });
+    return reportApiLoggedError(route, programError, actor);
   }
   if (typeError) {
-    return NextResponse.json({ error: typeError.message }, { status: 500 });
+    return reportApiLoggedError(route, typeError, actor);
   }
 
   const typesByProgram = new Map<string, TnReportTypeRow[]>();
@@ -129,9 +132,11 @@ type ReportTypePatch = {
 };
 
 export async function PATCH(request: Request) {
+  const route = "api/admin/tn-catalog";
   const auth = await requireAdmin();
   if ("error" in auth && auth.error) return auth.error;
 
+  const actor = await resolveReportErrorActor();
   const body = (await request.json()) as {
     programs?: ProgramPatch[];
     reportTypes?: ReportTypePatch[];
@@ -153,7 +158,7 @@ export async function PATCH(request: Request) {
       .eq("id", program.id)
       .eq("state", "TN");
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return reportApiLoggedError(route, error, actor);
     }
   }
 
@@ -188,7 +193,7 @@ export async function PATCH(request: Request) {
       .eq("id", reportType.id)
       .eq("state", "TN");
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return reportApiLoggedError(route, error, actor);
     }
   }
 
@@ -211,7 +216,7 @@ export async function PATCH(request: Request) {
       updated_at: now,
     });
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return reportApiLoggedError(route, error, actor);
     }
   }
 

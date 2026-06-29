@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertReportingUser, getAvailableReportingStates } from "@/lib/wayfinder-caseload";
+import { reportApiCatchError } from "@/lib/api-error";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -18,6 +19,6 @@ export async function GET() {
     const states = await getAvailableReportingStates(admin, user.id);
     return NextResponse.json({ states });
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 403 });
+    return reportApiCatchError("api/wayfinder/states", e);
   }
 }

@@ -18,10 +18,13 @@ Last updated: June 2026. Use this as a deployment and operations checklist acros
 
 ### 1. Run pending Supabase migrations (SQL Editor)
 
+**Source of truth:** `supabase/migrations/` at the monorepo root. Apply new files there only — do not use `apps/reports/supabase/migrations/` (legacy v2 folder, kept for reference).
+
 Apply these if not already applied:
 
 1. `supabase/migrations/20260627140000_offices_hidden_flag.sql` — `offices.is_hidden`
 2. `supabase/migrations/20260627150000_system_error_logs_reports_app.sql` — allow `app = 'reports'` in `system_error_logs`
+3. `supabase/migrations/20260629190000_profiles_updated_at_column.sql` — `profiles.updated_at` on legacy DBs
 
 Without (2), reports API errors will fail to persist and users will still see friendly messages but **no WF reference codes** in Wayfinder Pro → Settings → Error log.
 
@@ -74,7 +77,7 @@ Wayfinder Pro → **Settings → Error log** now includes:
 - Summary card: **Reports (7d)**
 - All reports API 500s log with `app = reports` and a `WF-XXXXXXXX` code
 
-Client and staff errors continue to log as before.
+Client and staff errors continue to log as before. Cron failures and remaining admin/export routes now log with WF codes as well.
 
 ### Office visibility
 

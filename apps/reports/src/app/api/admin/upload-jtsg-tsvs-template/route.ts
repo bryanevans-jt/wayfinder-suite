@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { canAccessReportAdmin } from '@/lib/report-access';
-import { reportApiLoggedError } from "@/lib/api-error";
+import { reportApiLoggedError, resolveReportErrorActor } from "@/lib/api-error";
 import { NextResponse } from 'next/server';
 
 const BUCKET = 'templates';
@@ -46,7 +46,11 @@ export async function POST(request: Request) {
 
     if (uploadError) {
       console.error('Template upload error:', uploadError);
-      return NextResponse.json({ error: uploadError.message || 'Upload failed' }, { status: 500 });
+      return reportApiLoggedError(
+        "api/admin/upload-jtsg-tsvs-template",
+        uploadError,
+        await resolveReportErrorActor()
+      );
     }
 
     const { data: config } = await admin.from('admin_config').select('id, doc_templates').limit(1).maybeSingle();
