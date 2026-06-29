@@ -240,7 +240,7 @@ export function TnDynamicForm({
         <div className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-lg mt-10 text-center">
           <p className="font-medium text-gray-900">This report type has no tag schema configured.</p>
           <p className="text-sm text-gray-600 mt-2">
-            Add field definitions in the reports admin portal before staff can complete this report.
+            Add field definitions in the reports admin portal before team members can complete this report.
           </p>
           {onBack ? (
             <button type="button" onClick={onBack} className="mt-4 text-sm text-green-700 hover:underline">
@@ -361,7 +361,7 @@ export function TnDynamicForm({
             <thead>
               <tr className="bg-green-50 text-left">
                 <th className="border border-gray-300 p-2 font-semibold w-[12%]">Date</th>
-                <th className="border border-gray-300 p-2 font-semibold w-[12%]">Staff Initials</th>
+                <th className="border border-gray-300 p-2 font-semibold w-[12%]">Team Member Initials</th>
                 <th className="border border-gray-300 p-2 font-semibold w-[18%]">Business</th>
                 <th className="border border-gray-300 p-2 font-semibold w-[16%]">Contact</th>
                 <th className="border border-gray-300 p-2 font-semibold">Results / Next Steps</th>

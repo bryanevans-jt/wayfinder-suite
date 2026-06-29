@@ -48,7 +48,7 @@ export default async function StaffLoginPage({
             >
               Open {CLIENT_APP_PRODUCT_NAME}
             </a>{" "}
-            or sign out below to use a staff account.
+            or sign out below to use a team member account.
           </p>
           <div className="flex justify-center pt-1">
             <SignOutButton />

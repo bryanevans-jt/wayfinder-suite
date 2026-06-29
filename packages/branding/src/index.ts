@@ -66,6 +66,7 @@ export {
   type PersonLabelInput,
 } from "./person-display-name";
 export { MEETING_TIMEZONES } from "./meeting-timezones";
+export { CORE_FOUR_VALUES, type CoreFourValue } from "./core-four-values";
 export { WayfinderFooter } from "./wayfinder-footer";
 export { PwaInstallPrompt, type PwaInstallPromptProps } from "./pwa-install-prompt";
 export { WayfinderTopNav, type WayfinderNavBadge } from "./wayfinder-top-nav";

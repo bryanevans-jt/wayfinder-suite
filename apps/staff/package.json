@@ -12,6 +12,7 @@
     "@wayfinder/auth-ui": "*",
     "@wayfinder/branding": "*",
     "@wayfinder/supabase": "*",
+    "googleapis": "^144.0.0",
     "mapbox-gl": "^3.24.1",
     "next": "^15.3.2",
     "react": "^19.1.0",

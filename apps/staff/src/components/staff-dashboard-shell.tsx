@@ -72,7 +72,7 @@ export function StaffDashboardShell({ staffRole, showAuditLink = false, children
           <aside
             id="staff-mobile-nav"
             className="absolute inset-y-0 left-0 flex w-[min(280px,85vw)] flex-col border-r border-neutral-200 bg-white shadow-xl"
-            aria-label="Staff navigation"
+            aria-label="Team navigation"
           >
             <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
               <span className="text-sm font-semibold text-brand-black">Navigation</span>

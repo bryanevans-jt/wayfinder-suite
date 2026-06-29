@@ -30,6 +30,8 @@ const COUNSELOR_BLOCKED_PREFIXES = [
   "/dashboard/compliance",
   "/dashboard/timesheet",
   "/dashboard/audit",
+  "/dashboard/share-moments",
+  "/dashboard/core-four",
 ];
 
 const PORTAL_PREFIXES = [
@@ -99,6 +101,27 @@ const helpNav: StaffNavItem = {
   match: (p) => p === "/dashboard/help",
 };
 
+const coreFourNav: StaffNavItem = {
+  href: "/dashboard/core-four",
+  label: "Core Four",
+  match: (p) => p === "/dashboard/core-four",
+};
+
+const shareMomentsNav: StaffNavItem = {
+  href: "/dashboard/share-moments",
+  label: "Share a Moment",
+  match: (p) => p === "/dashboard/share-moments",
+};
+
+const cultureNavSection: StaffNavSection = {
+  label: "Our Team",
+  items: [coreFourNav, shareMomentsNav],
+};
+
+function withCultureAndHelp(sections: StaffNavSection[]): StaffNavSection[] {
+  return withHelpSections([...sections, cultureNavSection]);
+}
+
 function withHelpSections(sections: StaffNavSection[]): StaffNavSection[] {
   if (sections.some((s) => s.items.some((i) => i.href === helpNav.href))) {
     return sections;
@@ -115,7 +138,7 @@ function withHelpAndProfile(sections: StaffNavSection[], role: string | null): S
   if (canEditStaffProfile(role)) {
     out = [...out, { label: "Account", items: [profileNav] }];
   }
-  return withHelpSections(out);
+  return withCultureAndHelp(out);
 }
 
 /** Sidebar navigation grouped for clarity — daily work first, then oversight tools. */
@@ -124,20 +147,17 @@ export function staffNavSectionsForRole(
   showAuditLink = false
 ): StaffNavSection[] {
   if (isCounselorRole(staffRole)) {
-    return withHelpAndProfile(
-      [
-        {
-          items: [
-            {
-              href: "/dashboard/counselor",
-              label: "My Clients",
-              match: (p) => p.startsWith("/dashboard/counselor"),
-            },
-          ],
-        },
-      ],
-      staffRole
-    );
+    return withHelpSections([
+      {
+        items: [
+          {
+            href: "/dashboard/counselor",
+            label: "My Clients",
+            match: (p) => p.startsWith("/dashboard/counselor"),
+          },
+        ],
+      },
+    ]);
   }
 
   if (isSuperAdminRole(staffRole)) {
@@ -157,16 +177,16 @@ export function staffNavSectionsForRole(
     }
     return withHelpAndProfile(
       [
-      { label: "Portal", items },
-      {
-        label: "Oversight",
-        items: [operationsNav, complianceNav, analyticsNav],
-      },
-      {
-        label: "Tools",
-        items: [reportingNav, communityPartnersNav],
-      },
-    ],
+        { label: "Portal", items },
+        {
+          label: "Oversight",
+          items: [operationsNav, complianceNav, analyticsNav],
+        },
+        {
+          label: "Tools",
+          items: [reportingNav, communityPartnersNav],
+        },
+      ],
       staffRole
     );
   }
@@ -174,25 +194,25 @@ export function staffNavSectionsForRole(
   if (staffRole === "admin") {
     return withHelpAndProfile(
       [
-      {
-        label: "Portal",
-        items: [
-          {
-            href: "/dashboard/admin",
-            label: "Admin Portal",
-            match: (p) => p.startsWith("/dashboard/admin"),
-          },
-        ],
-      },
-      {
-        label: "Oversight",
-        items: [operationsNav, complianceNav, analyticsNav],
-      },
-      {
-        label: "Tools",
-        items: [reportingNav, communityPartnersNav],
-      },
-    ],
+        {
+          label: "Portal",
+          items: [
+            {
+              href: "/dashboard/admin",
+              label: "Admin Portal",
+              match: (p) => p.startsWith("/dashboard/admin"),
+            },
+          ],
+        },
+        {
+          label: "Oversight",
+          items: [operationsNav, complianceNav, analyticsNav],
+        },
+        {
+          label: "Tools",
+          items: [reportingNav, communityPartnersNav],
+        },
+      ],
       staffRole
     );
   }
@@ -200,41 +220,41 @@ export function staffNavSectionsForRole(
   if (isSupervisorRole(staffRole)) {
     return withHelpAndProfile(
       [
-      {
-        label: "Daily Work",
-        items: [
-          {
-            href: "/dashboard/supervisor",
-            label: "Supervisor Portal",
-            match: (p) => p.startsWith("/dashboard/supervisor"),
-          },
-          {
-            href: "/dashboard/messages",
-            label: "Messages",
-            match: (p) => p === "/dashboard/messages",
-          },
-          {
-            href: "/dashboard/timesheet",
-            label: "Timesheet",
-            match: (p) => p.startsWith("/dashboard/timesheet"),
-          },
-        ],
-      },
-      {
-        label: "Oversight",
-        items: [operationsNav, complianceNav, reportingNav, analyticsNav],
-      },
-      {
-        label: "Tools",
-        items: [dataExportsNav, communityPartnersNav],
-      },
-    ],
+        {
+          label: "Daily Work",
+          items: [
+            {
+              href: "/dashboard/supervisor",
+              label: "Supervisor Portal",
+              match: (p) => p.startsWith("/dashboard/supervisor"),
+            },
+            {
+              href: "/dashboard/messages",
+              label: "Messages",
+              match: (p) => p === "/dashboard/messages",
+            },
+            {
+              href: "/dashboard/timesheet",
+              label: "Timesheet",
+              match: (p) => p.startsWith("/dashboard/timesheet"),
+            },
+          ],
+        },
+        {
+          label: "Oversight",
+          items: [operationsNav, complianceNav, reportingNav, analyticsNav],
+        },
+        {
+          label: "Tools",
+          items: [dataExportsNav, communityPartnersNav],
+        },
+      ],
       staffRole
     );
   }
 
   if (staffRole === "accountant") {
-    return withHelpSections([
+    return withCultureAndHelp([
       {
         label: "Payroll",
         items: [
@@ -256,37 +276,37 @@ export function staffNavSectionsForRole(
   if (isEsRole(staffRole)) {
     return withHelpAndProfile(
       [
-      {
-        label: "Daily Work",
-        items: [
-          {
-            href: "/dashboard/clients",
-            label: "Clients",
-            match: (p) => p.startsWith("/dashboard/clients"),
-          },
-          {
-            href: "/dashboard/messages",
-            label: "Messages",
-            match: (p) => p === "/dashboard/messages",
-          },
-          {
-            href: "/dashboard/timesheet",
-            label: "Timesheet",
-            match: (p) => p.startsWith("/dashboard/timesheet"),
-          },
-          reportingNav,
-        ],
-      },
-      {
-        label: "Resources",
-        items: [communityPartnersNav, analyticsNav, dataExportsNav],
-      },
-    ],
+        {
+          label: "Daily Work",
+          items: [
+            {
+              href: "/dashboard/clients",
+              label: "Clients",
+              match: (p) => p.startsWith("/dashboard/clients"),
+            },
+            {
+              href: "/dashboard/messages",
+              label: "Messages",
+              match: (p) => p === "/dashboard/messages",
+            },
+            {
+              href: "/dashboard/timesheet",
+              label: "Timesheet",
+              match: (p) => p.startsWith("/dashboard/timesheet"),
+            },
+            reportingNav,
+          ],
+        },
+        {
+          label: "Resources",
+          items: [communityPartnersNav, analyticsNav, dataExportsNav],
+        },
+      ],
       staffRole
     );
   }
 
-  return withHelpSections([
+  return withCultureAndHelp([
     {
       items: [
         {
@@ -367,5 +387,5 @@ export function staffWorkspaceLabel(staffRole: string | null): string {
   if (isSupervisorRole(staffRole)) return "Supervisor Workspace";
   if (isEsRole(staffRole)) return "Employment Specialist";
   if (staffRole === "accountant") return "Accountant";
-  return "Staff Workspace";
+  return "Team Member Workspace";
 }

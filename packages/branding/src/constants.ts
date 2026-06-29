@@ -4,7 +4,7 @@ export const REPORTS_APP_PRODUCT_NAME = "Joshua Tree Reports";
 /** Client-facing product name (App Store / client app). */
 export const CLIENT_APP_PRODUCT_NAME = "Wayfinder";
 
-/** Staff-facing product name (App Store / staff app). */
+/** Team-member-facing product name (App Store / Wayfinder Pro app). */
 export const STAFF_APP_PRODUCT_NAME = "Wayfinder Pro";
 
 /** Logo alt text in the shared header (logo is the visible brand mark). */
@@ -41,7 +41,7 @@ export const DEVELOPER_BADGE_LOGO_PATH = "/logo.png";
  */
 export const EMAIL_LOGO_PATH = WAYFINDER_LOGO_PATH;
 
-export const APP_VERSION = "0.10.0";
+export const APP_VERSION = "0.11.0";
 
 /** Primary technical contact while Wayfinder is in rollout. */
 export const SUPPORT_CONTACT_NAME = "Bryan Evans";

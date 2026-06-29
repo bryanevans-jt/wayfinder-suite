@@ -113,7 +113,7 @@ export function TnCatalogAdmin({ onMessage }: Props) {
     <section className="bg-white rounded-xl shadow p-6 mb-6">
       <h2 className="text-lg font-semibold mb-2">Tennessee VR Programs</h2>
       <p className="text-sm text-gray-600 mb-4">
-        Enable programs and configure report types for Tennessee offices. Programs stay hidden from staff until enabled and at least one report type is configured.
+        Enable programs and configure report types for Tennessee offices. Programs stay hidden from team members until enabled and at least one report type is configured.
       </p>
 
       <div className="space-y-4">

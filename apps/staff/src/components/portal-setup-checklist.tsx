@@ -44,7 +44,7 @@ export function PortalSetupChecklist({ bootstrap, canManage, onNavigate }: Props
         label: "Add employment specialists",
         done: bootstrap.esStaff.length > 0,
         nav: { primary: "team", team: "es" },
-        hint: "Staff who manage client caseloads",
+        hint: "Team members who manage client caseloads",
       },
       {
         id: "counselors",

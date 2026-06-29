@@ -134,7 +134,7 @@ export function ExportsWorkspace({ role, readOnly = false }: Props) {
         </div>
         {isSupervisorRole(role) ? (
           <p className="text-xs text-brand-black/60">
-            As a supervisor, applications include every client assigned to ES staff in your scope.
+            As a supervisor, applications include every client assigned to team members in your scope.
           </p>
         ) : null}
       </section>

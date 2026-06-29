@@ -23,7 +23,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: STAFF_APP_PRODUCT_NAME,
-  description: "Joshua Tree Wayfinder Pro — staff workspace for employment specialists and administrators",
+  description: "Joshua Tree Wayfinder Pro — team member workspace for employment specialists and administrators",
   robots: { index: false, follow: false },
   icons: {
     icon: [{ url: WAYFINDER_FAVICON_PATH, type: "image/png" }],

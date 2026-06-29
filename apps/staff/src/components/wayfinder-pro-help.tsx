@@ -31,10 +31,10 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Super admin portal",
         body:
-          "The portal is your control center for organization setup, staff roles, integrations, and system health.",
+          "The portal is your control center for organization setup, team member roles, integrations, and system health.",
         steps: [
           "Portal → Organization for offices, services, and branding.",
-          "Portal → Staff for roles, assignments, and invitations.",
+          "Portal → Team for roles, assignments, and invitations.",
           "Portal → Settings → Error log for WF reference codes and stack traces.",
           "Portal → Settings → Payroll for pay-period configuration used by accountant exports.",
           "Portal → Reports → Activity logs for org-wide audit CSV exports (not the same as sidebar Data exports).",
@@ -59,7 +59,7 @@ function sectionsForRole(role: string | null): Section[] {
         body:
           "Daily configuration lives in the Admin portal. Oversight pages show team capacity, compliance gaps, and analytics. Notifications alert you to message SLA issues and employment milestones.",
         steps: [
-          "Portal → Admin portal for offices, services, and staff.",
+          "Portal → Admin portal for offices, services, and team members.",
           "Oversight → Team operations, Compliance, Analytics.",
           "Tools → Reporting, Community Partners.",
         ],

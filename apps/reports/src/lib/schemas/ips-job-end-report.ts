@@ -131,7 +131,7 @@ export const IPS_JOB_END_TAG_SCHEMA: TagSchemaField[] = [
   },
   {
     key: "staffcomments",
-    label: "Staff comments regarding job end",
+    label: "Team member comments regarding job end",
     type: "textarea",
     section: "Comments",
   },

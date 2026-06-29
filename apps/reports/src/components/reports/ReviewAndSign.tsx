@@ -243,7 +243,7 @@ export function ReviewAndSign({
                 <li>I personally provided services recorded on this form...</li>
                 <li>I documented the information on the form...</li>
                 <li>I signed the report below; and</li>
-                <li>I maintain all staff qualifications...</li>
+                <li>I maintain all team member qualifications...</li>
               </ul>
             </div>
           </div>

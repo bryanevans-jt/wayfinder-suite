@@ -46,7 +46,7 @@ export default function CommunityPartnersJoinPage() {
         <section className="rounded-xl border border-neutral-200 bg-neutral-50/80 p-5">
           <h2 className="text-base font-semibold text-brand-black">How we use your information</h2>
           <p className="mt-3">
-            Information you submit is used by Joshua Tree Service Group staff to contact you about
+            Information you submit is used by Joshua Tree Service Group team members to contact you about
             the {COMMUNITY_PARTNERS_NETWORK_NAME} and relevant hiring opportunities. It is not sold.
             Access is limited to authorized JTSG team members involved in employer relations and
             workforce programs. We retain it only as long as needed for program operations, reporting,

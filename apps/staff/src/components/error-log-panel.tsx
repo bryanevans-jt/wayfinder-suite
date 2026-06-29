@@ -128,7 +128,7 @@ export function ErrorLogPanel() {
             className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none ring-brand-green focus:ring-2"
           >
             <option value="">All</option>
-            <option value="staff">Staff</option>
+            <option value="staff">Team Member</option>
             <option value="client">Client</option>
             <option value="reports">Reports</option>
           </select>

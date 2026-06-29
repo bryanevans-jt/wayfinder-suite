@@ -613,7 +613,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
         <section className="mt-6 max-w-4xl space-y-6">
           <p className="text-sm text-brand-black/70">
             Counselors are external partners with <strong>view-only</strong> access to their
-            assigned clients and activity timelines. They cannot edit records or use staff tools.
+            assigned clients and activity timelines. They cannot edit records or use team member tools.
           </p>
           <form
             className="space-y-4 rounded-xl border border-neutral-200 bg-white p-4"
@@ -738,7 +738,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
       ) : isTeamSupervisorsNav(nav) && canManageOrg ? (
         <section className="mt-6 max-w-4xl space-y-6">
           <p className="text-sm text-brand-black/70">
-            Supervisors oversee employment specialists — not counselors. Link supervisors to Employment Specialist staff
+            Supervisors oversee employment specialists — not counselors. Link supervisors to Employment Specialist team members
             under Settings → Advanced connections, or when editing a team member.
           </p>
           <form
@@ -802,7 +802,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 <tr>
                   <th className="px-3 py-2">Name</th>
                   <th className="px-3 py-2">Offices</th>
-                  <th className="px-3 py-2">Employment Specialist staff</th>
+                  <th className="px-3 py-2">Employment Specialist team members</th>
                   <th className="px-3 py-2">Status</th>
                   <th className="px-3 py-2">Actions</th>
                 </tr>
@@ -837,7 +837,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                         run(async () => {
                           if (s.es_count > 0) {
                             throw new Error(
-                              `${s.display_name} still supervises ${s.es_count} Employment Specialist staff member(s). Remove those links first.`
+                              `${s.display_name} still supervises ${s.es_count} Employment Specialist team member(s). Remove those links first.`
                             );
                           }
                           if (
@@ -874,7 +874,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
             </div>
           ) : (
             <p className="text-sm text-brand-black/70">
-              Staff and client connections in your scope. Contact an admin to make changes.
+              Team member and client connections in your scope. Contact an admin to make changes.
             </p>
           )}
           <div className="grid gap-8 lg:grid-cols-2">
@@ -1051,7 +1051,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                   id: l.id,
                   label: `${staffLabel(l.supervisor_user_id)} → ${staffLabel(l.es_user_id)}`,
                 }))}
-                empty="No Employment Specialist staff linked to you yet."
+                empty="No Employment Specialist team members linked to you yet."
               />
               <ReadOnlyLinkList
                 title="Client ↔ Employment Specialist"
