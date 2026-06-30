@@ -11,44 +11,45 @@ Capture these PNGs into `docs/training/assets/screenshots/` for Google Docs impo
 
 ## Wayfinder Pro — ES
 
-- [ ] `es-sidebar-daily-work.png` — `/dashboard/clients`
-- [ ] `es-clients-list.png`
-- [ ] `es-client-profile-contacts.png`
-- [ ] `es-client-applications.png`
-- [ ] `es-messages-inbox.png`
-- [ ] `es-timesheet-week.png`
-- [ ] `es-reporting-sidebar.png`
-- [ ] `es-community-partners-map.png`
+- [x] `es-sidebar-daily-work.png` — `/dashboard/clients`
+- [x] `es-clients-list.png`
+- [x] `es-client-profile-contacts.png`
+- [x] `es-client-applications.png`
+- [x] `es-messages-inbox.png`
+- [x] `es-timesheet-week.png`
+- [x] `es-reporting-sidebar.png`
+- [x] `es-community-partners-map.png`
+- [x] `es-community-partners-list.png`
 
 ## Wayfinder Pro — Supervisor
 
 - [ ] `supervisor-sidebar.png`
-- [ ] `supervisor-portal.png`
-- [ ] `supervisor-team-operations.png`
-- [ ] `supervisor-compliance.png`
-- [ ] `supervisor-timesheet-approve.png`
-- [ ] `supervisor-analytics.png`
+- [x] `supervisor-portal.png`
+- [x] `supervisor-team-operations.png`
+- [x] `supervisor-compliance.png`
+- [x] `supervisor-timesheet-approve.png`
+- [x] `supervisor-analytics.png`
 
 ## Wayfinder Pro — Admin
 
-- [ ] `admin-portal-home.png`
-- [ ] `admin-offices.png`
+- [x] `admin-portal-home.png`
+- [x] `admin-offices.png`
 - [ ] `admin-team-invite.png`
-- [ ] `admin-assignments.png`
+- [x] `admin-assignments.png`
 
 ## Wayfinder Pro — Counselor
 
-- [ ] `counselor-my-clients.png` — `/dashboard/counselor`
-- [ ] `counselor-client-timeline.png`
+- [x] `counselor.png` — `/dashboard/counselor` (alias: counselor-my-clients)
+- [x] `counselor-client-timeline.png`
 
 ## Wayfinder (client)
 
-- [ ] `client-dashboard.png` — `/dashboard`
+- [x] `client-dashboard.png` — `/dashboard`
 
 ## Joshua Tree Reports
 
 - [ ] `joshua-tree-reports-login.png`
-- [ ] `reports-ga-home.png` — `/reports`
+- [x] `reports-ga-home.png` — `/reports`
 - [ ] `reports-se-monthly-form.png`
 - [ ] `reports-submit-success.png`
 - [ ] `reports-admin-config.png` — `/admin`
