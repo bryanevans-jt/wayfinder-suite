@@ -167,7 +167,7 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Quick start guide",
         body:
-          "A one-page summary for vocational counselors (GVRA / Tennessee VR). Sign in with your agency work email — not Google.",
+          "A one-page summary on the counselor portal. Sign in with your agency work email and the magic link on the login page.",
         steps: [
           "My clients → Quick start guide (top of the page).",
           "Or bookmark: wayfinder-pro.thejoshuatree.org/dashboard/counselor/quick-start (sign in required).",
