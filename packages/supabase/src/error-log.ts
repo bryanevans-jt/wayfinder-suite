@@ -401,8 +401,17 @@ export function friendlyApplicationSaveError(message: string): string {
 export const USER_FACING_AUTH_ERROR =
   "We couldn't complete sign-in. Please try again or request a new magic link.";
 
+/** Shown when magic link is requested for an email with no auth account yet. */
+export function accountNotSetUpMessage(productName: string): string {
+  return `No ${productName} account is set up for this email yet. Ask your employment specialist or administrator to finish your setup, then try again.`;
+}
+
 /** Maps Supabase auth errors to safe copy; keeps actionable hints where helpful. */
-export function friendlyAuthError(message: string, redirectHint?: string): string {
+export function friendlyAuthError(
+  message: string,
+  redirectHint?: string,
+  productName?: string
+): string {
   if (/rate limit|too many requests|429/i.test(message)) {
     return "Email rate limit reached. Wait a few minutes and try again. For production traffic, configure custom SMTP in Supabase.";
   }
@@ -417,6 +426,14 @@ export function friendlyAuthError(message: string, redirectHint?: string): strin
       "set Relying Party ID to your shared domain (e.g. thejoshuatree.org) and add every app URL " +
       "(Wayfinder and Wayfinder Pro) under Relying Party Origins. Until then, use a magic link to sign in."
     );
+  }
+  if (
+    productName &&
+    /signups not allowed|user not found|invalid login credentials|email not confirmed/i.test(
+      message
+    )
+  ) {
+    return accountNotSetUpMessage(productName);
   }
   if (looksTechnical(message)) {
     return USER_FACING_AUTH_ERROR;

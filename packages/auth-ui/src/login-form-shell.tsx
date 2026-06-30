@@ -7,6 +7,7 @@ type Props = {
   productName: string;
   variantLabel?: string;
   shouldCreateUser?: boolean;
+  requireExistingAccount?: boolean;
   termsHref?: string;
   redirectAfterSignIn?: string;
   createSupabaseClient?: () => SupabaseClient;
@@ -17,6 +18,7 @@ export function LoginFormShell({
   productName,
   variantLabel,
   shouldCreateUser,
+  requireExistingAccount,
   termsHref,
   redirectAfterSignIn,
   createSupabaseClient,
@@ -26,6 +28,7 @@ export function LoginFormShell({
       productName={productName}
       variantLabel={variantLabel}
       shouldCreateUser={shouldCreateUser}
+      requireExistingAccount={requireExistingAccount}
       termsHref={termsHref}
       redirectAfterSignIn={redirectAfterSignIn}
       createSupabaseClient={createSupabaseClient}

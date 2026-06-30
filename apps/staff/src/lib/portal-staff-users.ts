@@ -22,8 +22,13 @@ export async function findAuthUserIdByEmail(
   admin: AdminClient,
   email: string
 ): Promise<string | null> {
-  const { data: listed } = await admin.auth.admin.listUsers({ perPage: 1000 });
-  return listed.users?.find((u) => (u.email ?? "").toLowerCase() === email)?.id ?? null;
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return null;
+  const { data, error } = await admin.auth.admin.listUsers({ perPage: 1000 });
+  if (error) return null;
+  return (
+    data.users?.find((u) => (u.email ?? "").trim().toLowerCase() === normalized)?.id ?? null
+  );
 }
 
 export function staffInviteRedirectUrl(): string {

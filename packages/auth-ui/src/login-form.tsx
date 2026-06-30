@@ -2,7 +2,7 @@
 
 import { createClient } from "@wayfinder/supabase/client";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { friendlyAuthError } from "@wayfinder/supabase/error-log";
+import { friendlyAuthError, accountNotSetUpMessage } from "@wayfinder/supabase/error-log";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -13,6 +13,8 @@ type LoginFormProps = {
   variantLabel?: string;
   /** Staff login should not auto-create client accounts. */
   shouldCreateUser?: boolean;
+  /** When true, only emails already in Supabase Auth can request a magic link. */
+  requireExistingAccount?: boolean;
   /** Link to Terms of Use (shown above sign-in actions). */
   termsHref?: string;
   /** Where to send the browser after passkey sign-in succeeds. */
@@ -24,7 +26,8 @@ type LoginFormProps = {
 export function LoginForm({
   productName,
   variantLabel,
-  shouldCreateUser = true,
+  shouldCreateUser = false,
+  requireExistingAccount = true,
   termsHref,
   redirectAfterSignIn = "/dashboard",
   createSupabaseClient = createClient,
@@ -46,17 +49,41 @@ export function LoginForm({
     /** Keep this an exact path Supabase can allowlist (`/auth/callback` only — no `?next=`). */
     const emailRedirectTo = `${origin}/auth/callback`;
 
+    if (requireExistingAccount) {
+      try {
+        const checkRes = await fetch("/api/auth/check-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email.trim() }),
+        });
+        if (checkRes.status === 404) {
+          setBusy(null);
+          setNotice(accountNotSetUpMessage(productName));
+          return;
+        }
+        if (!checkRes.ok) {
+          setBusy(null);
+          setNotice("We could not verify this email. Please try again in a moment.");
+          return;
+        }
+      } catch {
+        setBusy(null);
+        setNotice("We could not verify this email. Please try again in a moment.");
+        return;
+      }
+    }
+
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
       options: {
-        shouldCreateUser,
+        shouldCreateUser: requireExistingAccount ? false : shouldCreateUser,
         emailRedirectTo,
       },
     });
     setBusy(null);
     if (error) {
       setNotice(
-        friendlyAuthError(error.message, emailRedirectTo)
+        friendlyAuthError(error.message, emailRedirectTo, productName)
       );
       return;
     }
