@@ -35,7 +35,7 @@ Walk through opening the link. Troubleshoot spam folder.
 | Messages | “Message me here anytime — I’ll respond within a couple of business days.” |
 | Applications | “When you apply for jobs, we’ll track them here together.” |
 
-> **Screenshot placeholder:** `assets/screenshots/client-dashboard.png`
+> **Screenshot reference:** `assets/screenshots/client-dashboard.png`
 
 ### 4. Mobile install (optional)
 

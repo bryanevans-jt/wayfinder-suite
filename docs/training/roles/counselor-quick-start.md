@@ -29,13 +29,9 @@ Counselors have a **focused view**:
 
 You **cannot** edit client records or send messages in Wayfinder Pro.
 
-> **Screenshot placeholder — Counselor My clients**  
-> File: `assets/screenshots/counselor-my-clients.png`  
-> URL: `/dashboard/counselor`
+> **Screenshot:** `assets/screenshots/counselor.png` (captured — My clients, `/dashboard/counselor`)
 
-> **Screenshot placeholder — Client activity timeline**  
-> File: `assets/screenshots/counselor-client-timeline.png`  
-> URL: `/dashboard/counselor/clients/[id]`
+> **Screenshot:** `assets/screenshots/counselor-client-timeline.png` (captured)
 
 ---
 

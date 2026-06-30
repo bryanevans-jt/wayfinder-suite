@@ -25,8 +25,7 @@
 | **Meetings** | Upcoming appointments |
 | **Accessibility** | Larger text / high contrast |
 
-> **Screenshot placeholder — Client dashboard**  
-> File: `assets/screenshots/client-dashboard.png`  
+> **Screenshot:** `assets/screenshots/client-dashboard.png` (captured)  
 > URL: `/dashboard` (signed in as client)
 
 ---

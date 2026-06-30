@@ -18,11 +18,11 @@ Joshua Tree Reports is separate from Wayfinder Pro day-to-day casework. It gener
 - Roles: ES, supervisor, admin, super_admin.
 - Use [Getting signed in](../shared/getting-signed-in.md) — Reports uses its **own** sign-in session (don’t rely on Pro cookie).
 
-> **Screenshot placeholder — Reports login**  
-> File: `assets/screenshots/joshua-tree-reports-login.png`
+> **Screenshot:** Reports login  
+> File: `assets/screenshots/joshua-tree-reports-login.png` (captured)
 
-> **Screenshot placeholder — Reports GA home**  
-> File: `assets/screenshots/reports-ga-home.png`  
+> **Screenshot:** Reports GA home  
+> File: `assets/screenshots/reports-ga-home.png` (captured)  
 > URL: `/reports` with GA selected
 
 ---
@@ -59,11 +59,11 @@ Opens Reports with client context when possible (prefill client name).
 5. Complete remaining fields; capture **signature** when required.
 6. Submit → PDF generated → email + Drive.
 
-> **Screenshot placeholder — SE Monthly form**  
-> File: `assets/screenshots/reports-se-monthly-form.png`
+> **Screenshot:** SE Monthly form  
+> File: `assets/screenshots/reports-se-monthly-form.png` (captured)
 
-> **Screenshot placeholder — Submission success**  
-> File: `assets/screenshots/reports-submit-success.png`
+> **Screenshot:** Submission success  
+> File: `assets/screenshots/reports-submit-success.png` (captured)
 
 ---
 
@@ -96,10 +96,6 @@ See [Supervisor Manual](../roles/supervisor-manual.md).
 ## 9. Admin configuration (reference)
 
 Drive folders and doc templates are set in **Reports → Admin** (admin users). ESs do not change templates.
-
-> **Screenshot placeholder — Reports admin config**  
-> File: `assets/screenshots/reports-admin-config.png`  
-> URL: `/admin` (admin only)
 
 ---
 

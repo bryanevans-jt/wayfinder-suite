@@ -21,7 +21,7 @@ Training materials for **Wayfinder** (client app), **Wayfinder Pro** (team membe
 | [reports/joshua-tree-reports-es-quick-reference.md](./reports/joshua-tree-reports-es-quick-reference.md) | ES | Condensed reporting cheat sheet |
 | [scripts/](./scripts/) | ES, supervisors | Conversation guides (employers, clients, counselors) |
 | [conference/](./conference/) | GA training day | Agenda, facilitator guide, workbook, slides |
-| [assets/screenshots/](./assets/screenshots/) | — | Captured images + placeholders list |
+| [assets/screenshots/](./assets/screenshots/) | — | Production screenshots for Google Docs import |
 
 ---
 

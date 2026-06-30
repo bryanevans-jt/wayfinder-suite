@@ -71,8 +71,8 @@ If you see “account not set up,” contact the participant’s **Employment Sp
 > File: `assets/screenshots/wayfinder-client-login.png` (captured)  
 > Path: Login page — same layout, product name “Wayfinder”
 
-> **Screenshot placeholder — Joshua Tree Reports sign-in**  
-> File: `assets/screenshots/joshua-tree-reports-login.png`  
+> **Screenshot:** Joshua Tree Reports sign-in  
+> File: `assets/screenshots/joshua-tree-reports-login.png` (captured)  
 > URL: `https://wayfinder-reports.thejoshuatree.org/login`  
 > Show: Google + magic link (@thejoshuatree.org only)
 

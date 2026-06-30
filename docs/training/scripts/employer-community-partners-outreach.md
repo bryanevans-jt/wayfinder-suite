@@ -60,9 +60,6 @@ Goal: invite employers to join the **Community Partners** network so participant
 Production: `https://wayfinder-pro.thejoshuatree.org/community-partners/join`  
 (Use tokenized link from app when generating invites.)
 
-> **Screenshot placeholder — Community Partners join form (public)**  
-> File: `assets/screenshots/community-partners-join-public.png`
-
 ---
 
 *Internal use · Joshua Tree Service Group*

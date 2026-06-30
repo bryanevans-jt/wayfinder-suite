@@ -34,11 +34,4 @@ GA casework in Wayfinder Pro is assumed trained. This session covers **TN-specif
 
 ---
 
-## Screenshot placeholders (capture at TN training)
-
-- `assets/screenshots/reports-tn-program-picker.png`
-- `assets/screenshots/reports-tn-form-example.png`
-
----
-
 *Planning outline · schedule after GA rollout stabilizes*

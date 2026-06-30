@@ -65,9 +65,6 @@ Requires **admin** role (@thejoshuatree.org).
 3. User receives invite / signs in via magic link on first day.
 4. Share [Getting signed in](../shared/getting-signed-in.md).
 
-> **Screenshot placeholder — Team member invite**  
-> File: `assets/screenshots/admin-team-invite.png`
-
 ---
 
 ## 5. Assignments

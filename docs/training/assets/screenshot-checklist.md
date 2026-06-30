@@ -30,6 +30,8 @@ Capture these PNGs into `docs/training/assets/screenshots/` for Google Docs impo
 - [x] `supervisor-timesheet-approve.png`
 - [x] `supervisor-analytics.png`
 
+
+
 ## Wayfinder Pro — Admin
 
 - [x] `admin-portal-home.png`
@@ -37,22 +39,30 @@ Capture these PNGs into `docs/training/assets/screenshots/` for Google Docs impo
 - [ ] `admin-team-invite.png`
 - [x] `admin-assignments.png`
 
+
+
 ## Wayfinder Pro — Counselor
 
-- [x] `counselor.png` — `/dashboard/counselor` (alias: counselor-my-clients)
+- [x] `counselor.png` — `/dashboard/counselor` (My clients)
 - [x] `counselor-client-timeline.png`
+
+
 
 ## Wayfinder (client)
 
 - [x] `client-dashboard.png` — `/dashboard`
 
+
+
 ## Joshua Tree Reports
 
-- [ ] `joshua-tree-reports-login.png`
+- [x] `joshua-tree-reports-login.png`
 - [x] `reports-ga-home.png` — `/reports`
-- [ ] `reports-se-monthly-form.png`
-- [ ] `reports-submit-success.png`
+- [x] `reports-se-monthly-form.png`
+- [x] `reports-submit-success.png`
 - [ ] `reports-admin-config.png` — `/admin`
+
+
 
 ## Public
 
@@ -60,8 +70,11 @@ Capture these PNGs into `docs/training/assets/screenshots/` for Google Docs impo
 
 ---
 
+
+
 ## Capture tips
 
 - Hide or blur real participant PII — use demo clients where possible.
 - 1440px wide browser window; include sidebar when relevant.
 - Dark mode off for print consistency.
+

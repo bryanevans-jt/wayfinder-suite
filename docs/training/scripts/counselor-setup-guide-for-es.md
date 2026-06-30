@@ -39,7 +39,7 @@ If they see **“account not set up”** on login, escalate to admin before trai
 
 > “Open **My clients**. Click a name to see their timeline — what the Employment Specialist logged.”
 
-> **Screenshot placeholder:** `assets/screenshots/counselor-my-clients.png`
+> **Screenshot reference:** `assets/screenshots/counselor.png` (My clients)
 
 ### 4. Notifications
 

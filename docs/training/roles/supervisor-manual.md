@@ -24,10 +24,6 @@ Team oversight, coaching queue, compliance, reporting support, and helping ESs, 
 **Tools:** Data exports · Community Partners  
 **Account:** My Profile · Our Team · Help
 
-> **Screenshot placeholder — Supervisor sidebar**  
-> File: `assets/screenshots/supervisor-sidebar.png`  
-> URL: `/dashboard/supervisor` or `/dashboard/clients`
-
 ---
 
 ## 3. Supervisor portal
