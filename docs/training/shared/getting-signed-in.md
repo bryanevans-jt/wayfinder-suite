@@ -33,6 +33,17 @@ Counselors and team members both sign in to **Wayfinder Pro** — counselors see
 
 ---
 
+## Sign in with Google (team @thejoshuatree.org only)
+
+On **Wayfinder Pro** and **Joshua Tree Reports**, Joshua Tree staff can choose **Sign in with Google** using their **@thejoshuatree.org** Workspace account — no magic link needed.
+
+- **Counselors** and anyone with a **non-Joshua Tree email** on file: use the **magic link** with your assigned email (not Google).
+- **Participants (clients):** use magic link or passkey only — no Google button on the client app.
+
+If Google sign-in says your account is not set up, ask an administrator to add you first (same as magic link).
+
+---
+
 ## Sign in with a magic link (recommended first time)
 
 1. Open the correct URL for your role (table above).
@@ -83,7 +94,7 @@ This gives a full-screen app experience without browser tabs.
 | “Link expired” | Request a new magic link; use it within a few minutes |
 | Opens wrong app | Check URL — Pro vs client vs Reports |
 | Passkey not offered | Use magic link; confirm you’re on HTTPS site |
-| Signed in but “no access” | Contact your supervisor or Bryan — role may need setup |
+| Signed in but “no access” / account not set up | Your email must be added by an administrator before you can sign in |
 | Error with **WF-** code | Screenshot the code + email bryan.evans@thejoshuatree.org |
 
 ---

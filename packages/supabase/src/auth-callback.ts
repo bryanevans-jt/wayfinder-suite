@@ -1,14 +1,21 @@
 import { createServerClient } from "@supabase/ssr";
 import type { EmailOtpType, SupabaseClient } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
+import { createServiceRoleClient } from "./admin-server";
 import { wayfinderServerAuthOptions } from "./auth-client-options";
 import type { SupabaseCookieToSet } from "./cookie-types";
 import { getSupabaseAnonKey, getSupabaseUrl } from "./env";
 
-function redirectToLogin(origin: string) {
+function redirectToLogin(origin: string, error = "auth") {
   const login = new URL("/login", origin);
-  login.searchParams.set("error", "auth");
+  login.searchParams.set("error", error);
   return NextResponse.redirect(login);
+}
+
+function isInviteOnlyAuthError(message: string): boolean {
+  return /signups not allowed|user not found|invalid login credentials|email not confirmed/i.test(
+    message
+  );
 }
 
 async function verifyOtpWithFallback(
@@ -42,6 +49,30 @@ async function verifyOtpWithFallback(
   return { error: lastError };
 }
 
+async function rejectAuthenticatedSession(
+  supabase: ReturnType<typeof createServerClient>,
+  origin: string,
+  error: string,
+  setRedirect: (url: URL) => void
+): Promise<void> {
+  const login = new URL("/login", origin);
+  login.searchParams.set("error", error);
+  setRedirect(login);
+  await supabase.auth.signOut();
+}
+
+export type WayfinderAuthCallbackOptions = {
+  onAuthenticated?: (ctx: {
+    userId: string;
+    email: string | null;
+  }) => Promise<void>;
+  serverAuthOptions?: typeof wayfinderServerAuthOptions;
+  /** Sign out when no profiles row exists (invite-only). */
+  requireProvisionedProfile?: boolean;
+  /** Reject sign-in unless email is @{domain} (e.g. reports). */
+  allowedEmailDomain?: string;
+};
+
 /**
  * Completes magic-link / OAuth sign-in for Next.js route handlers.
  * Supports PKCE (`code`) and direct OTP verify (`token_hash` + `type`) — the latter
@@ -49,13 +80,7 @@ async function verifyOtpWithFallback(
  */
 export async function handleWayfinderAuthCallback(
   request: NextRequest,
-  options?: {
-    onAuthenticated?: (ctx: {
-      userId: string;
-      email: string | null;
-    }) => Promise<void>;
-    serverAuthOptions?: typeof wayfinderServerAuthOptions;
-  }
+  options?: WayfinderAuthCallbackOptions
 ): Promise<NextResponse> {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
@@ -75,6 +100,12 @@ export async function handleWayfinderAuthCallback(
 
   const redirectTarget = new URL(next, url.origin);
   let response = NextResponse.redirect(redirectTarget);
+  let activeRedirect = redirectTarget;
+
+  const redirectTo = (target: URL) => {
+    activeRedirect = target;
+    response = NextResponse.redirect(activeRedirect);
+  };
 
   const supabase = createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
     ...(options?.serverAuthOptions ?? wayfinderServerAuthOptions),
@@ -84,9 +115,9 @@ export async function handleWayfinderAuthCallback(
       },
       setAll(cookiesToSet: SupabaseCookieToSet[]) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.redirect(redirectTarget);
-        cookiesToSet.forEach(({ name, value, options }) =>
-          response.cookies.set(name, value, options)
+        response = NextResponse.redirect(activeRedirect);
+        cookiesToSet.forEach(({ name, value, options: cookieOptions }) =>
+          response.cookies.set(name, value, cookieOptions)
         );
       },
     },
@@ -97,19 +128,49 @@ export async function handleWayfinderAuthCallback(
     : await verifyOtpWithFallback(supabase, tokenHash!, type!);
 
   if (error) {
+    return redirectToLogin(
+      url.origin,
+      isInviteOnlyAuthError(error.message) ? "not_set_up" : "auth"
+    );
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
     return redirectToLogin(url.origin);
   }
 
-  if (options?.onAuthenticated) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
-      await options.onAuthenticated({
-        userId: user.id,
-        email: user.email ?? null,
-      });
+  const email = user.email?.trim().toLowerCase() ?? null;
+
+  if (options?.allowedEmailDomain) {
+    const domain = options.allowedEmailDomain.toLowerCase().replace(/^@/, "");
+    if (!email?.endsWith(`@${domain}`)) {
+      await rejectAuthenticatedSession(supabase, url.origin, "org_only", redirectTo);
+      return response;
     }
+  }
+
+  if (options?.requireProvisionedProfile) {
+    const admin = createServiceRoleClient();
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!profile) {
+      await rejectAuthenticatedSession(supabase, url.origin, "not_set_up", redirectTo);
+      return response;
+    }
+  }
+
+  if (options?.onAuthenticated) {
+    await options.onAuthenticated({
+      userId: user.id,
+      email: user.email ?? null,
+    });
   }
 
   return response;

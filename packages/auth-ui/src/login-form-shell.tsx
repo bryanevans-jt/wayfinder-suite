@@ -8,6 +8,7 @@ type Props = {
   variantLabel?: string;
   shouldCreateUser?: boolean;
   requireExistingAccount?: boolean;
+  googleHostedDomain?: string;
   termsHref?: string;
   redirectAfterSignIn?: string;
   createSupabaseClient?: () => SupabaseClient;
@@ -19,6 +20,7 @@ export function LoginFormShell({
   variantLabel,
   shouldCreateUser,
   requireExistingAccount,
+  googleHostedDomain,
   termsHref,
   redirectAfterSignIn,
   createSupabaseClient,
@@ -29,6 +31,7 @@ export function LoginFormShell({
       variantLabel={variantLabel}
       shouldCreateUser={shouldCreateUser}
       requireExistingAccount={requireExistingAccount}
+      googleHostedDomain={googleHostedDomain}
       termsHref={termsHref}
       redirectAfterSignIn={redirectAfterSignIn}
       createSupabaseClient={createSupabaseClient}

@@ -1,9 +1,11 @@
 import { LoginFormShell, SignOutButton } from "@wayfinder/auth-ui";
 import {
   CLIENT_APP_PRODUCT_NAME,
+  JOSHUA_TREE_ORG_EMAIL_DOMAIN,
   STAFF_APP_PRODUCT_NAME,
 } from "@wayfinder/branding";
 import { createServerClient, isClientRole } from "@wayfinder/supabase";
+import { accountNotSetUpMessage } from "@wayfinder/supabase/error-log";
 
 type SearchParams = Promise<{ error?: string; reason?: string }>;
 
@@ -55,6 +57,11 @@ export default async function StaffLoginPage({
           </div>
         </div>
       ) : null}
+      {error === "not_set_up" ? (
+        <p className="mb-6 max-w-md rounded-lg border border-brand-black/15 bg-brand-white px-4 py-3 text-center text-sm text-brand-black">
+          {accountNotSetUpMessage(STAFF_APP_PRODUCT_NAME)}
+        </p>
+      ) : null}
       {error === "no_profile" ? (
         <div className="mb-6 max-w-md space-y-2 rounded-lg border border-brand-black/15 bg-brand-white px-4 py-3 text-center text-sm text-brand-black">
           <p>
@@ -68,13 +75,14 @@ export default async function StaffLoginPage({
       ) : null}
       {error === "auth" ? (
         <p className="mb-6 max-w-md rounded-lg border border-brand-gold/40 bg-brand-white px-4 py-3 text-center text-sm text-brand-black">
-          Sign-in could not be completed. Request a new magic link or use your
+          Sign-in could not be completed. Request a new magic link, try Google sign-in, or use your
           passkey again.
         </p>
       ) : null}
       <LoginFormShell
         productName={STAFF_APP_PRODUCT_NAME}
         shouldCreateUser={false}
+        googleHostedDomain={JOSHUA_TREE_ORG_EMAIL_DOMAIN}
         termsHref="/terms"
       />
     </main>

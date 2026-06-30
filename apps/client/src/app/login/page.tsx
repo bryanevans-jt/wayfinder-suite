@@ -1,5 +1,6 @@
 import { LoginFormShell } from "@wayfinder/auth-ui";
 import { CLIENT_APP_PRODUCT_NAME } from "@wayfinder/branding";
+import { accountNotSetUpMessage } from "@wayfinder/supabase/error-log";
 
 type SearchParams = Promise<{ error?: string }>;
 
@@ -12,6 +13,11 @@ export default async function ClientLoginPage({
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-brand-white px-4 py-16">
+      {error === "not_set_up" ? (
+        <p className="mb-6 max-w-md rounded-lg border border-brand-black/15 bg-brand-white px-4 py-3 text-center text-sm text-brand-black">
+          {accountNotSetUpMessage(CLIENT_APP_PRODUCT_NAME)}
+        </p>
+      ) : null}
       {error === "no_profile" ? (
         <p className="mb-6 max-w-md rounded-lg border border-brand-black/15 bg-brand-white px-4 py-3 text-center text-sm text-brand-black">
           No {CLIENT_APP_PRODUCT_NAME} profile is linked to this account. Ask your employment

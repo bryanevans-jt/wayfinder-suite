@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 type Props = {
   productName: string;
   shouldCreateUser?: boolean;
+  googleHostedDomain?: string;
   termsHref?: string;
   redirectAfterSignIn?: string;
 };
@@ -14,6 +15,7 @@ type Props = {
 export function ReportsLoginForm({
   productName,
   shouldCreateUser,
+  googleHostedDomain,
   termsHref,
   redirectAfterSignIn,
 }: Props) {
@@ -21,6 +23,7 @@ export function ReportsLoginForm({
     <LoginFormShell
       productName={productName}
       shouldCreateUser={shouldCreateUser}
+      googleHostedDomain={googleHostedDomain}
       termsHref={termsHref}
       redirectAfterSignIn={redirectAfterSignIn}
       createSupabaseClient={createClient}

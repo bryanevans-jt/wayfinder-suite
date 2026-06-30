@@ -7,6 +7,9 @@ export const CLIENT_APP_PRODUCT_NAME = "Wayfinder";
 /** Team-member-facing product name (App Store / Wayfinder Pro app). */
 export const STAFF_APP_PRODUCT_NAME = "Wayfinder Pro";
 
+/** Google Workspace domain for Joshua Tree staff (magic link + Google sign-in). */
+export const JOSHUA_TREE_ORG_EMAIL_DOMAIN = "thejoshuatree.org";
+
 /** Logo alt text in the shared header (logo is the visible brand mark). */
 export const WAYFINDER_LOGO_ALT = "Wayfinder";
 

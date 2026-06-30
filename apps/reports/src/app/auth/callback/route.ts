@@ -42,6 +42,8 @@ export async function GET(request: NextRequest) {
 
   return handleWayfinderAuthCallback(callbackRequest, {
     serverAuthOptions: reportsServerAuthOptions,
+    requireProvisionedProfile: true,
+    allowedEmailDomain: ORG_DOMAIN,
     onAuthenticated: async ({ userId, email }) => {
       await seedReportRoles(userId, email);
     },
