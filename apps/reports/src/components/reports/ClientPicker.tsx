@@ -8,6 +8,7 @@ export type ClientSelection = {
   wayfinderClientId: string | null;
   clientName: string;
   adHoc: boolean;
+  esSpecialistName: string;
   counselorName?: string;
   employmentGoal?: string;
 };
@@ -36,6 +37,7 @@ export function ClientPicker({
   onContinue,
   onBack,
 }: Props) {
+  const [specialistName, setSpecialistName] = useState(esName);
   const [query, setQuery] = useState(initialClientName);
   const [results, setResults] = useState<SearchClient[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(initialClientId ?? null);
@@ -68,6 +70,10 @@ export function ClientPicker({
   }, [query, state, adHoc]);
 
   useEffect(() => {
+    setSpecialistName(esName);
+  }, [esName]);
+
+  useEffect(() => {
     if (initialClientId && initialClientName) {
       setSelectedId(initialClientId);
       setQuery(initialClientName);
@@ -79,7 +85,12 @@ export function ClientPicker({
     if (adHoc) {
       const name = manualName.trim();
       if (!name) return;
-      onContinue({ wayfinderClientId: null, clientName: name, adHoc: true });
+      onContinue({
+        wayfinderClientId: null,
+        clientName: name,
+        adHoc: true,
+        esSpecialistName: specialistName.trim(),
+      });
       return;
     }
 
@@ -89,6 +100,7 @@ export function ClientPicker({
       wayfinderClientId: picked.id,
       clientName: picked.name,
       adHoc: false,
+      esSpecialistName: specialistName.trim(),
     });
   }
 
@@ -106,12 +118,14 @@ export function ClientPicker({
           not in Wayfinder.
         </p>
 
+        <label className="block text-gray-700 font-semibold mb-1">Employment Specialist Name</label>
         <input
           type="text"
-          value={esName}
-          readOnly
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 mb-4"
+          value={specialistName}
+          onChange={(e) => setSpecialistName(e.target.value)}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 mb-4"
           aria-label="Employment specialist name"
+          required
         />
 
         <label className="flex items-center gap-2 mb-4 text-sm">

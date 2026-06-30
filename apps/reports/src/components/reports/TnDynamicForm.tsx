@@ -35,6 +35,18 @@ function defaultForType(type: TagSchemaField['type']): string | boolean {
   return '';
 }
 
+const EMPLOYMENT_SPECIALIST_FIELD_KEYS = new Set([
+  'esName',
+  'ESName',
+  'EmploymentSpecialistName',
+  'seSpecialistName',
+  'employmentSpecialistName',
+]);
+
+function isEmploymentSpecialistField(field: TagSchemaField): boolean {
+  return EMPLOYMENT_SPECIALIST_FIELD_KEYS.has(field.key) || field.prefill === 'esName';
+}
+
 function applyJdContactPrefill(
   fields: TagSchemaField[],
   values: Record<string, string | boolean>,
@@ -474,6 +486,8 @@ export function TnDynamicForm({
       );
     }
 
+    const fieldReadOnly = Boolean(field.readOnly) && !isEmploymentSpecialistField(field);
+
     return (
       <div key={field.key}>
         <label htmlFor={field.key} className="block text-gray-700 font-semibold mb-1">
@@ -487,11 +501,11 @@ export function TnDynamicForm({
             name={field.key}
             rows={4}
             required={field.required}
-            readOnly={field.readOnly}
+            readOnly={fieldReadOnly}
             placeholder={field.placeholder}
             defaultValue={String(values[field.key] ?? '')}
             className={`w-full px-4 py-2 border border-gray-300 rounded-lg ${
-              field.readOnly ? 'bg-gray-100' : ''
+              fieldReadOnly ? 'bg-gray-100' : ''
             }`}
           />
         ) : field.type === 'select' ? (
@@ -557,12 +571,12 @@ export function TnDynamicForm({
                     : 'text'
             }
             required={field.required}
-            readOnly={field.readOnly}
+            readOnly={fieldReadOnly}
             placeholder={field.placeholder}
             defaultValue={String(values[field.key] ?? '')}
             step={field.type === 'number' ? 'any' : undefined}
             className={`w-full px-4 py-2 border border-gray-300 rounded-lg ${
-              field.readOnly ? 'bg-gray-100' : ''
+              fieldReadOnly ? 'bg-gray-100' : ''
             }`}
           />
         )}

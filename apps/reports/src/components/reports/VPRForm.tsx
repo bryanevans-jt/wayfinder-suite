@@ -1,9 +1,10 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface Props {
   user: { email: string; displayName: string };
+  esName?: string;
   onSuccess: (msg: string) => void;
   onError: (msg: string) => void;
 }
@@ -18,9 +19,16 @@ const VPR_SERVICE_STAGE_OPTIONS = [
   { value: 'Job Coaching', label: 'Job Coaching (Service)' },
 ];
 
-export function VPRForm({ user, onSuccess, onError }: Props) {
+export function VPRForm({ user, esName = '', onSuccess, onError }: Props) {
   const formRef = useRef<HTMLFormElement>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [employmentSpecialistName, setEmploymentSpecialistName] = useState(
+    esName || user.displayName
+  );
+
+  useEffect(() => {
+    setEmploymentSpecialistName(esName || user.displayName);
+  }, [esName, user.displayName]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,9 +98,10 @@ export function VPRForm({ user, onSuccess, onError }: Props) {
             <input
               type="text"
               name="EmploymentSpecialistName"
-              value={user.displayName}
-              readOnly
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100"
+              value={employmentSpecialistName}
+              onChange={(e) => setEmploymentSpecialistName(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+              required
             />
           </div>
           <div>

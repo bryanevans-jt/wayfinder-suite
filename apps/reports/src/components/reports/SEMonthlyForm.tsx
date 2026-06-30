@@ -201,9 +201,12 @@ export function SEMonthlyForm({
             <input
               type="text"
               name="seSpecialistName"
-              value={esName}
-              readOnly
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100"
+              value={(data.seSpecialistName as string) || esName}
+              onChange={(e) =>
+                setData((prev) => ({ ...prev, seSpecialistName: e.target.value }))
+              }
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+              required
             />
           </div>
           <div>

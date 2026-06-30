@@ -155,6 +155,8 @@ function ReportsWorkspace() {
   }, [loading, deepLinkHandled, searchParams]);
 
   function afterClientSelected(selection: ClientSelection) {
+    const specialistName = selection.esSpecialistName.trim() || esName;
+    setEsName(specialistName);
     setClientName(selection.clientName);
     setWayfinderClientId(selection.wayfinderClientId);
     setAdHocClient(selection.adHoc);
@@ -168,7 +170,7 @@ function ReportsWorkspace() {
     if (reportType === 'seMonthly') {
       setReportData({
         jobSeekerName: selection.clientName,
-        seSpecialistName: esName,
+        seSpecialistName: specialistName,
         seProviderName: 'Joshua Tree Service Group',
         counselorName: selection.counselorName ?? '',
         employmentGoal: selection.employmentGoal ?? '',
@@ -177,8 +179,8 @@ function ReportsWorkspace() {
     } else if (reportType === 'jtsgvmr') {
       setReportData({
         ClientName: selection.clientName,
-        ESName: esName,
-        EmploymentSpecialistName: esName,
+        ESName: specialistName,
+        EmploymentSpecialistName: specialistName,
       });
       setScreen('JTSG_VMR_FORM');
     }
@@ -404,6 +406,7 @@ function ReportsWorkspace() {
       {screen === 'VPR_FORM' && (
         <VPRForm
           user={user}
+          esName={esName}
           onSuccess={(msg) => {
             setMessage(msg);
             setScreen('SUBMISSION_STATUS');

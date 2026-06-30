@@ -62,9 +62,13 @@ export function JTSGVMRForm({ initialData, onReview }: Props) {
             <input
               type="text"
               name="EmploymentSpecialistName"
-              value={(initialData.ESName as string) || ''}
-              readOnly
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100"
+              defaultValue={
+                (initialData.EmploymentSpecialistName as string) ||
+                (initialData.ESName as string) ||
+                ''
+              }
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+              required
             />
           </div>
           <div>

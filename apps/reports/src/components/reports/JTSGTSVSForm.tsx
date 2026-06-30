@@ -23,6 +23,7 @@ export function JTSGTSVSForm({
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [clientName, setClientName] = useState(initialClientName);
+  const [specialistName, setSpecialistName] = useState(esName || user.displayName);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [templateUrl, setTemplateUrl] = useState<string | null>(null);
@@ -32,6 +33,10 @@ export function JTSGTSVSForm({
       setClientName(initialClientName);
     }
   }, [initialClientName]);
+
+  useEffect(() => {
+    setSpecialistName(esName || user.displayName);
+  }, [esName, user.displayName]);
 
   useEffect(() => {
     fetch('/api/reports/jtsg-tsvs')
@@ -71,7 +76,7 @@ export function JTSGTSVSForm({
     setSubmitting(true);
     try {
       const formData = new FormData();
-      formData.append('employmentSpecialistName', esName || user.displayName);
+      formData.append('employmentSpecialistName', specialistName.trim() || user.displayName);
       formData.append('clientName', clientName.trim());
       if (wayfinderClientId) {
         formData.append('wayfinderClientId', wayfinderClientId);
@@ -106,9 +111,10 @@ export function JTSGTSVSForm({
             <label className="block text-gray-700 font-semibold mb-1">Employment Specialist Name</label>
             <input
               type="text"
-              value={esName || user.displayName}
-              readOnly
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100"
+              value={specialistName}
+              onChange={(e) => setSpecialistName(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+              required
             />
           </div>
           <div>
