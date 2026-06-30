@@ -179,7 +179,7 @@ Give participants: [Client quick start](../roles/client-quick-start.md) (PDF or 
 Use: [Counselor setup guide](../scripts/counselor-setup-guide-for-es.md)  
 Give counselors: [Counselor quick start](../roles/counselor-quick-start.md)
 
-Counselors sign in to **Wayfinder Pro** but only see **My clients** — read-only activity for assigned participants.
+Counselors sign in to **Wayfinder Pro** with their **GVRA or Tennessee VR work email** (not `@thejoshuatree.org`) and only see **My clients** — read-only activity for assigned participants.
 
 ---
 

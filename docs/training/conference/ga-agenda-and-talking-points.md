@@ -22,7 +22,7 @@ Planned as a **full workday** — modules below ~6–7 hours of content; extend 
 
 - Why Wayfinder: one caseload system, client app, formal reports, counselor visibility
 - Three apps, one mission — Pro, client Wayfinder, Joshua Tree Reports
-- Confidentiality & @thejoshuatree.org accounts
+- Confidentiality — JTSG staff use `@thejoshuatree.org`; counselors use **GVRA / Tennessee VR agency emails**
 - Support: Bryan Evans, WF- error codes
 
 **Activity:** Distribute [Getting signed in](../shared/getting-signed-in.md) — everyone signs in to Wayfinder Pro.

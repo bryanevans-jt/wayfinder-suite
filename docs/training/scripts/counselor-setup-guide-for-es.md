@@ -2,15 +2,17 @@
 
 **Wayfinder Pro · Counselor portal**
 
+Counselors are **GVRA or Tennessee VR employees**, not Joshua Tree staff. They sign in with their **agency work email** (not `@thejoshuatree.org`).
+
 ---
 
 ## Prerequisites (admin/ES coordinate)
 
-- [ ] Counselor has **@thejoshuatree.org** account with **counselor** role  
-- [ ] Counselor record exists in system  
-- [ ] Each participant **assigned** to this counselor on client record  
+- [ ] Counselor’s **agency work email** is on file (confirm spelling with the counselor)  
+- [ ] Admin created auth account + **counselor** role and counselor record  
+- [ ] Each participant **assigned** to this counselor on the client record  
 
-If they see **“Setup needed”** on login, escalate to admin before training.
+If they see **“account not set up”** on login, escalate to admin before training.
 
 ---
 
@@ -29,9 +31,9 @@ If they see **“Setup needed”** on login, escalate to admin before training.
 
 ### 2. Sign in
 
-> “Go to **wayfinder-pro.thejoshuatree.org** — same login as other JTSG staff: magic link or passkey.”
+> “Go to **wayfinder-pro.thejoshuatree.org**. Enter your **work email** — the one we registered with Joshua Tree, usually your GVRA or Tennessee VR address. Tap **Email me a magic link**. Do **not** use Sign in with Google; that’s for Joshua Tree employees.”
 
-> **Screenshot reference:** `assets/screenshots/wayfinder-pro-login.png`
+> **Screenshot reference:** `assets/screenshots/wayfinder-pro-login.png` (email field)
 
 ### 3. My clients
 
@@ -53,6 +55,7 @@ If they see **“Setup needed”** on login, escalate to admin before training.
 
 - Keep contact logs current — counselors see **Notes** field only.  
 - Set **job start date** on hire for celebration alerts.  
+- When a counselor’s agency email changes, notify admin to update their account.
 
 ---
 

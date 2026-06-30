@@ -2,7 +2,7 @@
 
 **Wayfinder · Wayfinder Pro · Joshua Tree Reports**
 
-One guide for all team members. Share this sheet at onboarding and at the GA training conference.
+Share the sections that match each person’s role. **Joshua Tree Service Group (JTSG) staff** use `@thejoshuatree.org`. **Vocational counselors** are agency employees (GVRA or Tennessee VR) and use their **agency work email**. **Participants** use the personal email on file with their Employment Specialist.
 
 ---
 
@@ -15,36 +15,48 @@ One guide for all team members. Share this sheet at onboarding and at the GA tra
 
 ## Who uses which app
 
-| Role | App | URL |
-|------|-----|-----|
-| Employment Specialist, Supervisor, Admin, Counselor | **Wayfinder Pro** | wayfinder-pro.thejoshuatree.org |
-| Participant (client) | **Wayfinder** | wayfinder.thejoshuatree.org |
-| Formal monthly reports (GA/TN) | **Joshua Tree Reports** | wayfinder-reports.thejoshuatree.org |
+| Who | Role | App | URL |
+|-----|------|-----|-----|
+| **JTSG staff** | Employment Specialist, Supervisor, Admin | **Wayfinder Pro** | wayfinder-pro.thejoshuatree.org |
+| **Agency counselors** | GVRA or Tennessee VR vocational counselor | **Wayfinder Pro** (counselor portal only) | wayfinder-pro.thejoshuatree.org |
+| **Participants** | Client | **Wayfinder** | wayfinder.thejoshuatree.org |
+| **JTSG staff** | Formal reporting (GA/TN) | **Joshua Tree Reports** | wayfinder-reports.thejoshuatree.org |
 
-Counselors and team members both sign in to **Wayfinder Pro** — counselors see **My clients** only.
+Counselors are **not** Joshua Tree employees. They sign in to the same Wayfinder Pro URL but see **My clients** only — not the ES caseload tools.
 
 ---
 
 ## Before you start
 
-1. Use a **@thejoshuatree.org** email for team apps and Joshua Tree Reports.
-2. Participants use the **personal email** on file with their Employment Specialist.
-3. Use **Chrome or Safari** on phone or computer (Edge also works on desktop).
+1. **JTSG staff:** `@thejoshuatree.org` email for Wayfinder Pro and Joshua Tree Reports.
+2. **Counselors:** **Agency work email** (e.g. Georgia Vocational Rehabilitation Agency or Tennessee Department of Human Services) — the address your ES registered with admin.
+3. **Participants:** Personal email on file with their Employment Specialist.
+4. Use **Chrome or Safari** on phone or computer (Edge also works on desktop).
 
 ---
 
-## Sign in with Google (team @thejoshuatree.org only)
+## Sign in with Google (JTSG staff @thejoshuatree.org only)
 
-On **Wayfinder Pro** and **Joshua Tree Reports**, Joshua Tree staff can choose **Sign in with Google** using their **@thejoshuatree.org** Workspace account — no magic link needed.
+On **Wayfinder Pro** and **Joshua Tree Reports**, **Joshua Tree employees** can choose **Sign in with Google** using their **@thejoshuatree.org** Google Workspace account.
 
-- **Counselors** and anyone with a **non-Joshua Tree email** on file: use the **magic link** with your assigned email (not Google).
-- **Participants (clients):** use magic link or passkey only — no Google button on the client app.
+**Not for counselors or participants** — counselors use agency email + magic link; participants use the Wayfinder client app.
 
-If Google sign-in says your account is not set up, ask an administrator to add you first (same as magic link).
+If Google sign-in says your account is not set up, ask your administrator to add you first (same as magic link).
 
 ---
 
-## Sign in with a magic link (recommended first time)
+## Vocational counselors (GVRA / Tennessee VR)
+
+1. Open **wayfinder-pro.thejoshuatree.org**
+2. Enter your **agency work email** (the one admin linked to your counselor record)
+3. **Email me a magic link** — do **not** use Sign in with Google
+4. Optional: **Sign in with passkey** after your first visit
+
+If you see “account not set up,” contact the participant’s **Employment Specialist** — your email must be added by JTSG admin before you can sign in.
+
+---
+
+## Sign in with a magic link (JTSG staff & participants)
 
 1. Open the correct URL for your role (table above).
 2. Enter your email → **Email me a magic link**.
@@ -53,7 +65,7 @@ If Google sign-in says your account is not set up, ask an administrator to add y
 
 > **Screenshot:** Wayfinder Pro sign-in  
 > File: `assets/screenshots/wayfinder-pro-login.png` (captured)  
-> Path: Login page — email field + “Email me a magic link” + “Sign in with passkey”
+> Path: Login page — Google (JTSG), email + magic link, passkey
 
 > **Screenshot:** Wayfinder (client) sign-in  
 > File: `assets/screenshots/wayfinder-client-login.png` (captured)  
@@ -62,7 +74,7 @@ If Google sign-in says your account is not set up, ask an administrator to add y
 > **Screenshot placeholder — Joshua Tree Reports sign-in**  
 > File: `assets/screenshots/joshua-tree-reports-login.png`  
 > URL: `https://wayfinder-reports.thejoshuatree.org/login`  
-> Show: Email + magic link (org email required)
+> Show: Google + magic link (@thejoshuatree.org only)
 
 ---
 
@@ -94,7 +106,8 @@ This gives a full-screen app experience without browser tabs.
 | “Link expired” | Request a new magic link; use it within a few minutes |
 | Opens wrong app | Check URL — Pro vs client vs Reports |
 | Passkey not offered | Use magic link; confirm you’re on HTTPS site |
-| Signed in but “no access” / account not set up | Your email must be added by an administrator before you can sign in |
+| Signed in but “no access” / account not set up | Your email must be added by JTSG admin (or your ES for counselors) before you can sign in |
+| Counselor used Google by mistake | Use magic link with your **agency** email, not @thejoshuatree.org |
 | Error with **WF-** code | Screenshot the code + email bryan.evans@thejoshuatree.org |
 
 ---

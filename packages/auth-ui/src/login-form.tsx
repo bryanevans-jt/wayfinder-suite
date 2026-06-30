@@ -213,8 +213,10 @@ export function LoginForm({
             {busy === "google" ? "Redirecting…" : "Sign in with Google"}
           </button>
           <p className="text-center text-xs text-brand-black/60">
-            For <strong>@{googleHostedDomain}</strong> team accounts. Counselors and others: use
-            your assigned email with the magic link below.
+            For <strong>Joshua Tree staff</strong> (@{googleHostedDomain}).{" "}
+            <strong>Vocational counselors</strong> (GVRA / Tennessee VR) are not Joshua Tree
+            employees — use your <strong>agency work email</strong> with the magic link below, not
+            Google.
           </p>
         </div>
       ) : null}

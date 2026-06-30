@@ -2,15 +2,18 @@
 
 **Wayfinder Pro · Counselor portal · One page**
 
+Vocational counselors work for **Georgia Vocational Rehabilitation Agency (GVRA)** or **Tennessee Department of Human Services (VR)** — not Joshua Tree Service Group. You use your **agency work email** to sign in.
+
 ---
 
 ## Sign in
 
 1. Go to **wayfinder-pro.thejoshuatree.org**
-2. Use your **@thejoshuatree.org** email
-3. **Email me a magic link** (first time) or **Sign in with passkey**
+2. Enter your **agency work email** (the address your Employment Specialist registered with Joshua Tree)
+3. Tap **Email me a magic link** (first time) or **Sign in with passkey**
+4. Do **not** use **Sign in with Google** — that is for Joshua Tree employees only
 
-> **Screenshot:** `assets/screenshots/wayfinder-pro-login.png` (captured — same login as team members)
+> **Screenshot:** `assets/screenshots/wayfinder-pro-login.png` (captured — use the email field, not Google)
 
 ---
 
@@ -49,10 +52,10 @@ Tap an alert to open that client’s timeline.
 
 ## If something looks wrong
 
-Contact the participant’s **Employment Specialist** or your program supervisor — do not expect to change data in this portal.
+Contact the participant’s **Employment Specialist** — do not expect to change data in this portal. If you cannot sign in, your agency email may not be set up yet; ask the ES to confirm with Joshua Tree admin.
 
 ---
 
-*Wayfinder Pro · Joshua Tree Service Group*
+*Wayfinder Pro · Joshua Tree Service Group (portal host)*
 
 **In-app:** wayfinder-pro.thejoshuatree.org/dashboard/counselor/quick-start

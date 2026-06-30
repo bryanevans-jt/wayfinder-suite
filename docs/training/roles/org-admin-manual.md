@@ -87,13 +87,15 @@ Wrong assignments = wrong data in analytics and counselor views. Verify after ev
 
 ## 6. Counselors
 
+Counselors are **vocational rehabilitation agency staff** (GVRA in Georgia, Tennessee DHS VR in Tennessee) — **not** Joshua Tree employees. They sign in with their **agency work email**, not `@thejoshuatree.org`.
+
 Counselors need:
 
-1. **counselor** role on profile.
+1. Auth account created with their **agency email** and **counselor** role on profile.
 2. Row in **counselors** table (linked to auth user) — usually created via admin workflow.
 3. **Client ↔ counselor** link on each participant they should see.
 
-If counselor sees “Setup needed,” complete counselor record and assignments.
+If counselor sees “account not set up,” verify the email matches what they type at login and complete counselor record and assignments.
 
 ---
 

@@ -27,9 +27,13 @@ export default async function CounselorQuickStartPage() {
           <li>
             Go to <strong>wayfinder-pro.thejoshuatree.org</strong>
           </li>
-          <li>Use your <strong>@thejoshuatree.org</strong> email</li>
           <li>
-            <strong>Email me a magic link</strong> or <strong>Sign in with passkey</strong>
+            Use the <strong>work email</strong> your Employment Specialist registered for you
+            (Georgia VR / Tennessee VR — not a Joshua Tree email)
+          </li>
+          <li>
+            <strong>Email me a magic link</strong> or <strong>Sign in with passkey</strong> — do not
+            use Sign in with Google
           </li>
         </ol>
 
