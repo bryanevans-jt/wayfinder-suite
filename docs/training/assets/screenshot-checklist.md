@@ -1,4 +1,4 @@
-# Screenshot capture checklist
+# Screenshot Capture Checklist
 
 Capture these PNGs into `docs/training/assets/screenshots/` for Google Docs import.
 
@@ -48,7 +48,7 @@ Capture these PNGs into `docs/training/assets/screenshots/` for Google Docs impo
 
 
 
-## Wayfinder (client)
+## Wayfinder (Client)
 
 - [x] `client-dashboard.png` — `/dashboard`
 
@@ -72,9 +72,11 @@ Capture these PNGs into `docs/training/assets/screenshots/` for Google Docs impo
 
 
 
-## Capture tips
+## Capture Tips
 
 - Hide or blur real participant PII — use demo clients where possible.
 - 1440px wide browser window; include sidebar when relevant.
 - Dark mode off for print consistency.
+
+
 

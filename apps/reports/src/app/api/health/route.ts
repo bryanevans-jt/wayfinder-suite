@@ -1,3 +1,4 @@
+import { APP_VERSION } from "@wayfinder/branding";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +21,7 @@ export async function GET() {
     {
       ok,
       app: "wayfinder-reports",
-      version: "2.0.0",
+      version: APP_VERSION,
       checks,
     },
     { status: ok ? 200 : 503 }

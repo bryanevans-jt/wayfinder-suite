@@ -1,4 +1,4 @@
-# Getting signed in
+# Getting Signed In
 
 **Wayfinder · Wayfinder Pro · Joshua Tree Reports**
 
@@ -6,14 +6,14 @@ Share the sections that match each person’s role. **Joshua Tree Service Group 
 
 ---
 
-## Cover branding (for Google Docs)
+## Cover Branding (for Google Docs)
 
 - **Cover logo:** Wayfinder logo (`wayfinder-logo.png`)
-- **Footer on each page:** © Joshua Tree Service Group · Wayfinder Pro v0.11.0 (or matching app name)
+- **Footer on each page:** © Joshua Tree Service Group · Wayfinder Pro v1.0.1 (or matching app name)
 
 ---
 
-## Who uses which app
+## Who Uses Which App
 
 | Who | Role | App | URL |
 |-----|------|-----|-----|
@@ -26,7 +26,7 @@ Counselors are **not** Joshua Tree employees. They sign in to the same Wayfinder
 
 ---
 
-## Before you start
+## Before You Start
 
 1. **JTSG staff:** `@thejoshuatree.org` email for Wayfinder Pro and Joshua Tree Reports.
 2. **Counselors:** **Agency work email** (e.g. Georgia Vocational Rehabilitation Agency or Tennessee Department of Human Services) — the address your ES registered with admin.
@@ -35,7 +35,7 @@ Counselors are **not** Joshua Tree employees. They sign in to the same Wayfinder
 
 ---
 
-## Sign in with Google (JTSG staff @thejoshuatree.org only)
+## Sign In With Google (JTSG Staff @thejoshuatree.org Only)
 
 On **Wayfinder Pro** and **Joshua Tree Reports**, **Joshua Tree employees** can choose **Sign in with Google** using their **@thejoshuatree.org** Google Workspace account.
 
@@ -45,7 +45,7 @@ If Google sign-in says your account is not set up, ask your administrator to add
 
 ---
 
-## Vocational counselors (GVRA / Tennessee VR)
+## Vocational Counselors (GVRA / Tennessee VR)
 
 1. Open **wayfinder-pro.thejoshuatree.org**
 2. Enter your **agency work email** (the one admin linked to your counselor record)
@@ -56,7 +56,7 @@ If you see “account not set up,” contact the participant’s **Employment Sp
 
 ---
 
-## Sign in with a magic link (JTSG staff & participants)
+## Sign In With a Magic Link (JTSG Staff & Participants)
 
 1. Open the correct URL for your role (table above).
 2. Enter your email → **Email me a magic link**.
@@ -78,7 +78,7 @@ If you see “account not set up,” contact the participant’s **Employment Sp
 
 ---
 
-## Sign in with a passkey (optional, faster later)
+## Sign In With a Passkey (Optional, Faster Later)
 
 1. After your first magic-link sign-in, stay signed in.
 2. On the login page, choose **Sign in with passkey**.
@@ -90,7 +90,7 @@ If passkey fails, use a magic link again and contact Bryan Evans.
 
 ---
 
-## Add to home screen (mobile)
+## Add to Home Screen (Mobile)
 
 **iPhone (Safari):** Share → **Add to Home Screen** → open from the icon.  
 **Android (Chrome):** Menu → **Install app** or **Add to Home screen** when prompted.
@@ -119,3 +119,5 @@ The information in these applications is confidential and may not be shared outs
 ---
 
 *Joshua Tree Service Group · Developer of Wayfinder*
+
+

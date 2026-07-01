@@ -1,17 +1,17 @@
-# Joshua Tree Reports — ES quick reference (GA)
+# Joshua Tree Reports — ES Quick Reference (GA)
 
 **Print this one page · keep at desk**
 
 ---
 
-## Open reports
+## Open Reports
 
 Wayfinder Pro → **Reporting**  
 Or: **wayfinder-reports.thejoshuatree.org**
 
 ---
 
-## Each month (every active GA client)
+## Each Month (Every Active GA Client)
 
 1. **SE Monthly** — select client → review prefill → sign → submit  
 2. Confirm PDF in email / Drive  
@@ -19,7 +19,7 @@ Or: **wayfinder-reports.thejoshuatree.org**
 
 ---
 
-## Other GA forms (as required)
+## Other GA Forms (As Required)
 
 | Form | When |
 |------|------|
@@ -30,7 +30,7 @@ Or: **wayfinder-reports.thejoshuatree.org**
 
 ---
 
-## Before you submit
+## Before You Submit
 
 - [ ] Correct **client** selected  
 - [ ] Correct **reporting month**  
@@ -44,3 +44,5 @@ Or: **wayfinder-reports.thejoshuatree.org**
 WF- code on screen → **bryan.evans@thejoshuatree.org**
 
 Full manual: [Joshua Tree Reports Guide (GA)](./joshua-tree-reports-guide.md)
+
+

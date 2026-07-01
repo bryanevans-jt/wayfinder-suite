@@ -1,4 +1,4 @@
-# GA training — Agenda & talking points
+# GA Training — Agenda & Talking Points
 
 **Wayfinder suite · Georgia · ES + Supervisors + Admins**
 
@@ -16,7 +16,7 @@ Planned as a **full workday** — modules below ~6–7 hours of content; extend 
 
 ---
 
-## Module 0 — Welcome (30 min)
+## Module 0 — Welcome (30 Min)
 
 **Talking points:**
 
@@ -29,7 +29,7 @@ Planned as a **full workday** — modules below ~6–7 hours of content; extend 
 
 ---
 
-## Module 1 — Sign-in & mobile (45 min)
+## Module 1 — Sign-In & Mobile (45 Min)
 
 **Talking points:**
 
@@ -41,7 +41,7 @@ Planned as a **full workday** — modules below ~6–7 hours of content; extend 
 
 ---
 
-## Module 2 — ES casework core (90 min)
+## Module 2 — ES Casework Core (90 Min)
 
 **Talking points:**
 
@@ -56,7 +56,7 @@ Planned as a **full workday** — modules below ~6–7 hours of content; extend 
 
 ---
 
-## Module 3 — Community Partners & employer outreach (60 min)
+## Module 3 — Community Partners & Employer Outreach (60 Min)
 
 **Talking points:**
 
@@ -68,7 +68,7 @@ Planned as a **full workday** — modules below ~6–7 hours of content; extend 
 
 ---
 
-## Module 4 — Timesheet & exports (45 min)
+## Module 4 — Timesheet & Exports (45 Min)
 
 **Talking points:**
 
@@ -79,7 +79,7 @@ Planned as a **full workday** — modules below ~6–7 hours of content; extend 
 
 ---
 
-## Module 5 — Joshua Tree Reports GA (90 min)
+## Module 5 — Joshua Tree Reports GA (90 Min)
 
 **Talking points:**
 
@@ -93,7 +93,7 @@ Planned as a **full workday** — modules below ~6–7 hours of content; extend 
 
 ---
 
-## Module 6 — Supervisor oversight (60 min)
+## Module 6 — Supervisor Oversight (60 Min)
 
 **Audience:** Supervisors (+ ESs listen)
 
@@ -108,7 +108,7 @@ Planned as a **full workday** — modules below ~6–7 hours of content; extend 
 
 ---
 
-## Module 7 — Admin breakout (60 min)
+## Module 7 — Admin Breakout (60 Min)
 
 **Audience:** Admins only (others practice or Q&A)
 
@@ -122,7 +122,7 @@ Planned as a **full workday** — modules below ~6–7 hours of content; extend 
 
 ---
 
-## Module 8 — Onboarding others (45 min)
+## Module 8 — Onboarding Others (45 Min)
 
 **Talking points:**
 
@@ -132,7 +132,7 @@ Planned as a **full workday** — modules below ~6–7 hours of content; extend 
 
 ---
 
-## Module 9 — Culture & close (30 min)
+## Module 9 — Culture & Close (30 Min)
 
 **Talking points:**
 
@@ -145,7 +145,7 @@ Planned as a **full workday** — modules below ~6–7 hours of content; extend 
 
 ---
 
-## Optional buffer
+## Optional Buffer
 
 - Open lab / 1:1 troubleshooting
 - Preview mobile install on personal devices
@@ -154,3 +154,5 @@ Planned as a **full workday** — modules below ~6–7 hours of content; extend 
 ---
 
 *Facilitator copy · Joshua Tree Service Group*
+
+

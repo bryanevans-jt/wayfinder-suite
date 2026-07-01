@@ -6,7 +6,7 @@ For **admin** role users who configure offices, services, team members, and assi
 
 ---
 
-## 1. What org admins do
+## 1. What Org Admins Do
 
 | Task | Where |
 |------|--------|
@@ -18,7 +18,7 @@ For **admin** role users who configure offices, services, team members, and assi
 
 ---
 
-## 2. Accessing the admin portal
+## 2. Accessing the Admin Portal
 
 **Path:** Sidebar → **Admin portal** (`/dashboard/admin`)
 
@@ -29,7 +29,7 @@ Requires **admin** role (@thejoshuatree.org).
 
 ---
 
-## 3. Organization setup
+## 3. Organization Setup
 
 ### Offices
 
@@ -39,14 +39,14 @@ Requires **admin** role (@thejoshuatree.org).
 > **Screenshot placeholder — Offices list**  
 > File: `assets/screenshots/admin-offices.png`
 
-### Services & success path
+### Services & Success Path
 
 - Services define the client **success path** milestones in the Wayfinder client app.
 - Coordinate changes with program leadership before editing production services.
 
 ---
 
-## 4. Team members
+## 4. Team Members
 
 **Path:** Admin portal → **Team**
 
@@ -96,13 +96,13 @@ If counselor sees “account not set up,” verify the email matches what they t
 
 ---
 
-## 7. Clients (admin visibility)
+## 7. Clients (Admin Visibility)
 
 Admins can import or review clients depending on portal tabs enabled. ESs create most day-to-day records; admins fix **wrong office**, **wrong counselor**, or **duplicate** issues.
 
 ---
 
-## 8. What admins don’t manage here
+## 8. What Admins Don’t Manage Here
 
 | Item | Who |
 |------|-----|
@@ -113,7 +113,7 @@ Admins can import or review clients depending on portal tabs enabled. ESs create
 
 ---
 
-## 9. GA training conference note
+## 9. GA Training Conference Note
 
 Admins attend the **same GA conference** as ESs and supervisors for context, then stay for the **admin breakout** (see [GA facilitator guide](../conference/ga-facilitator-guide.md)).
 
@@ -125,4 +125,6 @@ Admins attend the **same GA conference** as ESs and supervisors for context, the
 
 ---
 
-*Wayfinder Pro · Joshua Tree Service Group · v0.11.0*
+*Wayfinder Pro · Joshua Tree Service Group · v1.0.1*
+
+

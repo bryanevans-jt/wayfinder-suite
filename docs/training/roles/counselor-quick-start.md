@@ -1,4 +1,4 @@
-# Counselor — Quick start
+# Counselor — Quick Start
 
 **Wayfinder Pro · Counselor portal · One page**
 
@@ -6,7 +6,7 @@ Vocational counselors work for **Georgia Vocational Rehabilitation Agency (GVRA)
 
 ---
 
-## Sign in
+## Sign In
 
 1. Go to **wayfinder-pro.thejoshuatree.org**
 2. Enter your **agency work email** (the address your Employment Specialist registered with Joshua Tree)
@@ -17,7 +17,7 @@ Vocational counselors work for **Georgia Vocational Rehabilitation Agency (GVRA)
 
 ---
 
-## What you see
+## What You See
 
 Counselors have a **focused view**:
 
@@ -46,7 +46,7 @@ Tap an alert to open that client’s timeline.
 
 ---
 
-## If something looks wrong
+## If Something Looks Wrong
 
 Contact the participant’s **Employment Specialist** — do not expect to change data in this portal. If you cannot sign in, your agency email may not be set up yet; ask the ES to confirm with Joshua Tree admin.
 
@@ -55,3 +55,5 @@ Contact the participant’s **Employment Specialist** — do not expect to chang
 *Wayfinder Pro · Joshua Tree Service Group (portal host)*
 
 **In-app:** wayfinder-pro.thejoshuatree.org/dashboard/counselor/quick-start
+
+

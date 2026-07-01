@@ -1,14 +1,16 @@
 # Supervisor Manual
 
-**Wayfinder Pro · Georgia program**
+**Wayfinder Pro · Georgia Program**
 
 Team oversight, coaching queue, compliance, reporting support, and helping ESs, clients, and counselors succeed.
 
+**Conference binder (all-in-one):** [GA Supervisor Conference Binder](../conference/ga-supervisor-conference-binder.md)
+
 ---
 
-## 1. Your role in the system
+## 1. Your Role in the System
 
-| You can | You typically don’t |
+| You Can | You Typically Don’t |
 |---------|---------------------|
 | View team caseload signals | Edit another ES’s contact logs |
 | Read client message threads (coaching) | Send messages as the ES |
@@ -17,7 +19,7 @@ Team oversight, coaching queue, compliance, reporting support, and helping ESs, 
 
 ---
 
-## 2. Sidebar layout
+## 2. Sidebar Layout
 
 **Daily work:** Supervisor portal · Messages · Timesheet  
 **Oversight:** Team operations · Compliance · Reporting · Analytics  
@@ -26,7 +28,7 @@ Team oversight, coaching queue, compliance, reporting support, and helping ESs, 
 
 ---
 
-## 3. Supervisor portal
+## 3. Supervisor Portal
 
 **Path:** Sidebar → **Supervisor portal** (`/dashboard/supervisor`)
 
@@ -34,12 +36,11 @@ Team oversight, coaching queue, compliance, reporting support, and helping ESs, 
 - High-level caseload and activity signals.
 - Starting point for coaching conversations.
 
-> **Screenshot placeholder — Supervisor portal overview**  
-> File: `assets/screenshots/supervisor-portal.png`
+> **Screenshot:** `assets/screenshots/supervisor-portal.png`
 
 ---
 
-## 4. Team operations & coaching queue
+## 4. Team Operations & Coaching Queue
 
 **Path:** Sidebar → **Team operations** (`/dashboard/operations`)
 
@@ -48,8 +49,7 @@ Team oversight, coaching queue, compliance, reporting support, and helping ESs, 
 
 Use this page in weekly 1:1s with ESs.
 
-> **Screenshot placeholder — Team operations / coaching queue**  
-> File: `assets/screenshots/supervisor-team-operations.png`
+> **Screenshot:** `assets/screenshots/supervisor-team-operations.png`
 
 ---
 
@@ -60,12 +60,11 @@ Use this page in weekly 1:1s with ESs.
 - **SE Monthly** report gaps for your team.
 - Timesheets awaiting approval.
 
-> **Screenshot placeholder — Compliance dashboard**  
-> File: `assets/screenshots/supervisor-compliance.png`
+> **Screenshot:** `assets/screenshots/supervisor-compliance.png`
 
 ---
 
-## 6. Messages (read-only coaching)
+## 6. Messages (Read-Only Coaching)
 
 **Path:** Sidebar → **Messages**
 
@@ -73,14 +72,13 @@ Use this page in weekly 1:1s with ESs.
 
 ---
 
-## 7. Timesheet approval
+## 7. Timesheet Approval
 
 **Path:** Sidebar → **Timesheet**
 
 - Review and approve ES weekly submissions for your assigned specialists.
 
-> **Screenshot placeholder — Timesheet approval view**  
-> File: `assets/screenshots/supervisor-timesheet-approve.png`
+> **Screenshot:** `assets/screenshots/supervisor-timesheet-approve.png`
 
 ---
 
@@ -91,7 +89,7 @@ Use this page in weekly 1:1s with ESs.
 Supervisors submit or review official reports when appropriate; primary submitters are ESs.
 
 - Full guide: [Joshua Tree Reports Guide (GA)](../reports/joshua-tree-reports-guide.md)
-- Condensed ES reference (share with team): [ES quick reference](../reports/joshua-tree-reports-es-quick-reference.md)
+- Condensed ES reference (share with team): [ES Quick Reference](../reports/joshua-tree-reports-es-quick-reference.md)
 
 **Your compliance focus:** SE Monthly submitted on time per active GA client.
 
@@ -103,12 +101,11 @@ Supervisors submit or review official reports when appropriate; primary submitte
 
 - Hire rates, days-to-hire, benchmarking vs prior period for **your scope** (offices/ESs assigned to you).
 
-> **Screenshot placeholder — Analytics summary**  
-> File: `assets/screenshots/supervisor-analytics.png`
+> **Screenshot:** `assets/screenshots/supervisor-analytics.png`
 
 ---
 
-## 10. Data exports
+## 10. Data Exports
 
 **Path:** Sidebar → **Data exports**
 
@@ -116,14 +113,23 @@ Supervisors submit or review official reports when appropriate; primary submitte
 
 ---
 
-## 11. Helping your ESs
+## 11. Community Partners (Coaching ESs)
+
+**Path:** Sidebar → **Community Partners**
+
+Coach ESs on employer outreach. Full scripts and objection handling: [Community Partners Field Guide](../shared/community-partners-field-guide.md)
+
+---
+
+## 12. Helping Your ESs
 
 | Topic | Resource |
 |-------|----------|
 | Casework basics | [ES Manual](./employment-specialist-manual.md) |
-| Client onboarding | [Client setup script](../scripts/client-setup-guide-for-es.md) |
-| Counselor onboarding | [Counselor setup script](../scripts/counselor-setup-guide-for-es.md) |
-| Sign-in issues | [Getting signed in](../shared/getting-signed-in.md) |
+| Conference binder | [GA ES Conference Binder](../conference/ga-es-conference-binder.md) |
+| Client onboarding | [Client Setup Script](../scripts/client-setup-guide-for-es.md) |
+| Counselor onboarding | [Counselor Setup Script](../scripts/counselor-setup-guide-for-es.md) |
+| Sign-in issues | [Getting Signed In](../shared/getting-signed-in.md) |
 
 **Coaching prompts:**
 
@@ -133,18 +139,18 @@ Supervisors submit or review official reports when appropriate; primary submitte
 
 ---
 
-## 12. Helping clients & counselors
+## 13. Helping Clients & Counselors
 
 Distribute one-pagers:
 
-- [Client quick start](./client-quick-start.md)
-- [Counselor quick start](./counselor-quick-start.md)
+- [Client Quick Start](./client-quick-start.md)
+- [Counselor Quick Start](./counselor-quick-start.md)
 
 Confirm counselors are **assigned to clients** in admin portal (admin task — you escalate if missing).
 
 ---
 
-## 13. Escalation
+## 14. Escalation
 
 - **WF-** error codes → Bryan Evans, bryan.evans@thejoshuatree.org
 - **User access / role issues** → org admin or Bryan
@@ -152,4 +158,4 @@ Confirm counselors are **assigned to clients** in admin portal (admin task — y
 
 ---
 
-*Wayfinder Pro · Joshua Tree Service Group · v0.11.0*
+*Wayfinder Pro · Joshua Tree Service Group · v1.0.1*

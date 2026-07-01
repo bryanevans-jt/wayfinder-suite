@@ -1,14 +1,18 @@
-# GA training — Participant workbook
+# GA Training — Participant Workbook
 
 **Employment Specialists & Supervisors**
 
 Write answers in this workbook or in your notes app. Exercises use **production** or **demo** data as instructed by your facilitator.
 
+**Field guides (print or PDF):**  
+- **ES:** [GA ES Conference Binder](./ga-es-conference-binder.md)  
+- **Supervisor:** [GA Supervisor Conference Binder](./ga-supervisor-conference-binder.md)
+
 **Name:** ______________________ **Role:** ______________________ **Date:** __________
 
 ---
 
-## Exercise 0 — Sign in
+## Exercise 0 — Sign In
 
 - [ ] Signed in to Wayfinder Pro: wayfinder-pro.thejoshuatree.org  
 - [ ] Optional: added passkey  
@@ -20,7 +24,7 @@ _____________________________________________
 
 ---
 
-## Exercise 1 — Find a client & log contact
+## Exercise 1 — Find a Client & Log Contact
 
 1. Sidebar → **Clients**
 2. Open a client assigned to you
@@ -33,7 +37,7 @@ _____________________________________________
 
 ---
 
-## Exercise 2 — Application pipeline
+## Exercise 2 — Application Pipeline
 
 1. On same client, add or update a **job application**
 2. Change status to **Interview** (or next stage)
@@ -90,7 +94,7 @@ _____________________________________________
 
 ---
 
-## Exercise 7 — Supervisor (supervisors only)
+## Exercise 7 — Supervisor (Supervisors Only)
 
 1. **Team operations** — who appears in coaching queue?
 2. **Compliance** — any SE Monthly gaps?
@@ -102,7 +106,7 @@ _____________________________________________
 
 ---
 
-## Exercise 8 — Onboarding others
+## Exercise 8 — Onboarding Others
 
 Plan who you will onboard this month:
 
@@ -114,7 +118,7 @@ Plan who you will onboard this month:
 
 ---
 
-## Quick reference — my URLs
+## Quick Reference — My URLs
 
 | App | URL |
 |-----|-----|
@@ -127,3 +131,5 @@ Plan who you will onboard this month:
 ---
 
 *Participant workbook · Joshua Tree Service Group*
+
+

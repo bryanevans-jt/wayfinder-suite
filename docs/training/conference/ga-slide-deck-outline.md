@@ -1,4 +1,4 @@
-# GA training — Slide deck outline
+# GA Training — Slide Deck Outline
 
 **Build in Google Slides or PowerPoint · Wayfinder logo on title slide · Joshua Tree logo on closing “About” slide**
 
@@ -16,7 +16,7 @@ Joshua Tree Service Group · [Date]
 
 ---
 
-## Slide 2 — Why we built this
+## Slide 2 — Why We Built This
 
 - One caseload truth in Wayfinder Pro  
 - Participants engaged in Wayfinder app  
@@ -25,7 +25,7 @@ Joshua Tree Service Group · [Date]
 
 ---
 
-## Slide 3 — Three apps diagram
+## Slide 3 — Three Apps Diagram
 
 ```
 [Wayfinder Pro]  ← team daily work
@@ -37,7 +37,7 @@ Joshua Tree Service Group · [Date]
 
 ---
 
-## Slide 4 — Sign in (magic link + passkey)
+## Slide 4 — Sign In (Magic Link + Passkey)
 
 - @thejoshuatree.org for team & reports  
 - Personal email for participants  
@@ -45,14 +45,14 @@ Joshua Tree Service Group · [Date]
 
 ---
 
-## Slide 5 — Wayfinder Pro sidebar (ES)
+## Slide 5 — Wayfinder Pro Sidebar (ES)
 
 Daily work · Resources · Account  
 Screenshot placeholder: ES sidebar
 
 ---
 
-## Slide 6 — Clients & attention
+## Slide 6 — Clients & Attention
 
 - Sort by follow-up need  
 - Contact log + applications  
@@ -75,7 +75,7 @@ Screenshot placeholder: ES sidebar
 
 ---
 
-## Slide 9 — Timesheet flow
+## Slide 9 — Timesheet Flow
 
 ES enters → Supervisor approves → Payroll export
 
@@ -89,7 +89,7 @@ ES enters → Supervisor approves → Payroll export
 
 ---
 
-## Slide 11 — SE Monthly walkthrough
+## Slide 11 — SE Monthly Walkthrough
 
 1. Select client  
 2. Prefill  
@@ -100,26 +100,26 @@ Screenshot placeholders
 
 ---
 
-## Slide 12 — Supervisor tools
+## Slide 12 — Supervisor Tools
 
 Team operations · Compliance · Analytics
 
 ---
 
-## Slide 13 — Admin portal (breakout)
+## Slide 13 — Admin Portal (Breakout)
 
 Team · Offices · Assignments · Counselors
 
 ---
 
-## Slide 14 — Onboarding clients & counselors
+## Slide 14 — Onboarding Clients & Counselors
 
 - Quick start one-pagers  
 - ES scripts  
 
 ---
 
-## Slide 15 — Help & support
+## Slide 15 — Help & Support
 
 - Sidebar → Help  
 - WF- codes → Bryan  
@@ -133,7 +133,7 @@ Team culture features (not counselors)
 
 ---
 
-## Slide 17 — TN preview
+## Slide 17 — TN Preview
 
 Separate session · TN program reports · ES only
 
@@ -146,3 +146,5 @@ Contact · Thank you · Joshua Tree logo
 ---
 
 *Slide outline · import bullets into your deck*
+
+

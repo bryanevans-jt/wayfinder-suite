@@ -1,4 +1,4 @@
-# Joshua Tree Reports — Georgia guide
+# Joshua Tree Reports — Georgia Guide
 
 **Formal reporting · Google Drive PDFs**
 
@@ -12,7 +12,7 @@ Joshua Tree Reports is separate from Wayfinder Pro day-to-day casework. It gener
 
 ---
 
-## 2. Sign in
+## 2. Sign In
 
 - **@thejoshuatree.org** email only.
 - Roles: ES, supervisor, admin, super_admin.
@@ -38,7 +38,7 @@ Opens Reports with client context when possible (prefill client name).
 
 ---
 
-## 4. Georgia report types
+## 4. Georgia Report Types
 
 | Slug | Name | Client required? | Signature? |
 |------|------|------------------|------------|
@@ -50,7 +50,7 @@ Opens Reports with client context when possible (prefill client name).
 
 ---
 
-## 5. SE Monthly (most common)
+## 5. SE Monthly (Most Common)
 
 1. Select **Georgia** state.
 2. Choose **SE Monthly**.
@@ -67,13 +67,13 @@ Opens Reports with client context when possible (prefill client name).
 
 ---
 
-## 6. Recall / prior month data
+## 6. Recall / Prior Month Data
 
 Reports may **recall** fields from prior SE Monthly submissions for the same client — review before submitting.
 
 ---
 
-## 7. Compliance calendar (supervisors)
+## 7. Compliance Calendar (Supervisors)
 
 - **Missing reports** cron — alerts for overdue SE Monthly.
 - Supervisors monitor **Compliance** in Wayfinder Pro.
@@ -93,10 +93,12 @@ See [Supervisor Manual](../roles/supervisor-manual.md).
 
 ---
 
-## 9. Admin configuration (reference)
+## 9. Admin Configuration (Reference)
 
 Drive folders and doc templates are set in **Reports → Admin** (admin users). ESs do not change templates.
 
 ---
 
-*Joshua Tree Reports · Joshua Tree Service Group · v0.11.0*
+*Joshua Tree Reports · Joshua Tree Service Group · v1.0.1*
+
+

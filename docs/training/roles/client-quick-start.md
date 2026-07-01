@@ -1,10 +1,10 @@
-# Wayfinder — Quick start
+# Wayfinder — Quick Start
 
 **For participants · One page**
 
 ---
 
-## Sign in
+## Sign In
 
 1. Go to **wayfinder.thejoshuatree.org**
 2. Enter the **email your Employment Specialist has on file**
@@ -15,7 +15,7 @@
 
 ---
 
-## Your dashboard
+## Your Dashboard
 
 | Area | What it’s for |
 |------|----------------|
@@ -47,3 +47,5 @@ Your information is confidential. Do not share your sign-in link with others.
 *Wayfinder · Joshua Tree Service Group*
 
 **In-app:** wayfinder.thejoshuatree.org/quick-start
+
+

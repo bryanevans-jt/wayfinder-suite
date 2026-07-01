@@ -1,4 +1,4 @@
-# GA training — Facilitator guide
+# GA Training — Facilitator Guide
 
 **For Bryan / lead trainer**
 
@@ -6,16 +6,18 @@ Companion to [Agenda & talking points](./ga-agenda-and-talking-points.md).
 
 ---
 
-## Room setup
+## Room Setup
 
 - Projector + stable Wi‑Fi
 - Whiteboard for three-app diagram
 - Printed: Getting signed in, ES quick reference (reports), employer script
+- **Role binders (primary handout):** [ES Conference Binder](./ga-es-conference-binder.md) · [Supervisor Conference Binder](./ga-supervisor-conference-binder.md)
+- [Participant Workbook](./ga-participant-workbook.md) for exercises
 - Optional: printed client & counselor one-pagers
 
 ---
 
-## Demo accounts
+## Demo Accounts
 
 Prepare before conference:
 
@@ -31,9 +33,9 @@ Use **demo clients** only if configured — do not pollute live metrics.
 
 ---
 
-## Module facilitation notes
+## Module Facilitation Notes
 
-### Sign-in (Module 1)
+### Sign-In (Module 1)
 
 - **Common failure:** magic link opened on different device — have them resend.
 - **Reports:** have everyone sign in separately once.
@@ -60,7 +62,7 @@ Use **demo clients** only if configured — do not pollute live metrics.
 
 ---
 
-## Timing flex
+## Timing Flex
 
 | If running long | Cut |
 |-----------------|-----|
@@ -70,7 +72,7 @@ Use **demo clients** only if configured — do not pollute live metrics.
 
 ---
 
-## Post-conference
+## Post-Conference
 
 - [ ] Upload Google Doc PDFs to shared Drive
 - [ ] Email links to Help + quick-start URLs
@@ -79,10 +81,12 @@ Use **demo clients** only if configured — do not pollute live metrics.
 
 ---
 
-## TN session (future)
+## TN Session (Future)
 
 See [TN ES training outline](./tn-es-training-outline.md) — half-day, reports-heavy.
 
 ---
 
 *Internal facilitator guide · Joshua Tree Service Group*
+
+

@@ -1,4 +1,4 @@
-# Tennessee — ES training outline (future session)
+# Tennessee — ES Training Outline (Future Session)
 
 **Half-day · Employment Specialists only · TN formal reporting focus**
 
@@ -6,7 +6,7 @@ GA casework in Wayfinder Pro is assumed trained. This session covers **TN-specif
 
 ---
 
-## Duration: ~3–4 hours
+## Duration: ~3–4 Hours
 
 | Block | Time | Content |
 |-------|------|---------|
@@ -35,3 +35,5 @@ GA casework in Wayfinder Pro is assumed trained. This session covers **TN-specif
 ---
 
 *Planning outline · schedule after GA rollout stabilizes*
+
+
