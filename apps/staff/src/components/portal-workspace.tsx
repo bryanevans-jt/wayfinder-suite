@@ -18,6 +18,14 @@ import { ErrorLogPanel } from "@/components/error-log-panel";
 import { ClientProfileModal } from "@/components/client-profile-modal";
 import { NaturalSupportModal } from "@/components/natural-support-modal";
 import { OfficeDirectoryList } from "@/components/office-directory-list";
+import { OfficeDistrictRegionSelect } from "@/components/office-district-region-select";
+import {
+  buildOfficeDisplayName,
+  coerceDistrictOrRegionForState,
+  defaultDistrictOrRegionForState,
+  inferDistrictOrRegionFromOffice,
+  officeBaseName,
+} from "@/lib/office-directory";
 import {
   PortalNav,
   isActivityLogsNav,
@@ -56,6 +64,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
   const [filterOffice, setFilterOffice] = useState("");
   const [newOfficeName, setNewOfficeName] = useState("");
   const [newOfficeState, setNewOfficeState] = useState("GA");
+  const [newOfficeDistrictOrRegion, setNewOfficeDistrictOrRegion] = useState("District 1");
   const [newOfficeCity, setNewOfficeCity] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [addClientOpen, setAddClientOpen] = useState(false);
@@ -89,6 +98,12 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
   const canEditLogs = config?.canEditLogs ?? false;
   const canAssignAdmins = config?.canAssignAdmins ?? false;
   const b = config?.bootstrap;
+
+  useEffect(() => {
+    setNewOfficeDistrictOrRegion((current) =>
+      coerceDistrictOrRegionForState(current, newOfficeState)
+    );
+  }, [newOfficeState]);
 
   const reload = useCallback(async () => {
     setError(null);
@@ -245,7 +260,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                      name: newOfficeName,
+                      name: buildOfficeDisplayName(newOfficeName, newOfficeDistrictOrRegion),
                       state: newOfficeState,
                       city: newOfficeCity.trim() || undefined,
                     }),
@@ -254,13 +269,15 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                   if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
                   setNewOfficeName("");
                   setNewOfficeCity("");
+                  setNewOfficeState("GA");
+                  setNewOfficeDistrictOrRegion(defaultDistrictOrRegionForState("GA"));
                 });
               }}
             >
               <input
                 value={newOfficeName}
                 onChange={(e) => setNewOfficeName(e.target.value)}
-                placeholder="Office name"
+                placeholder="Office location name"
                 className="min-w-[160px] flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm"
                 required
               />
@@ -273,6 +290,13 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 <option value="GA">GA</option>
                 <option value="TN">TN</option>
               </select>
+              <OfficeDistrictRegionSelect
+                state={newOfficeState}
+                value={newOfficeDistrictOrRegion}
+                onChange={setNewOfficeDistrictOrRegion}
+                disabled={busy}
+                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+              />
               <input
                 value={newOfficeCity}
                 onChange={(e) => setNewOfficeCity(e.target.value)}
@@ -2108,24 +2132,33 @@ function OfficeListItem({
   onDelete: () => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(office.name);
+  const [baseName, setBaseName] = useState(() => officeBaseName(office.name));
+  const [districtOrRegion, setDistrictOrRegion] = useState(() =>
+    inferDistrictOrRegionFromOffice(office)
+  );
   const [city, setCity] = useState(office.city ?? "");
-  const [state, setState] = useState(office.state ?? "");
+  const [state, setState] = useState(office.state ?? "GA");
 
   useEffect(() => {
-    setName(office.name);
+    setBaseName(officeBaseName(office.name));
+    setDistrictOrRegion(inferDistrictOrRegionFromOffice(office));
     setCity(office.city ?? "");
-    setState(office.state ?? "");
+    setState(office.state ?? "GA");
   }, [office]);
+
+  useEffect(() => {
+    if (!editing) return;
+    setDistrictOrRegion((current) => coerceDistrictOrRegionForState(current, state));
+  }, [editing, state]);
 
   if (editing && canManage) {
     return (
       <li className="space-y-2 px-4 py-3 text-sm">
         <div className="flex flex-wrap gap-2">
           <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Office name"
+            value={baseName}
+            onChange={(e) => setBaseName(e.target.value)}
+            placeholder="Office location name"
             className="min-w-[140px] flex-1 rounded-lg border border-neutral-300 px-3 py-1.5"
             disabled={busy}
           />
@@ -2136,10 +2169,15 @@ function OfficeListItem({
             aria-label="State"
             disabled={busy}
           >
-            <option value="">Select state</option>
             <option value="GA">GA</option>
             <option value="TN">TN</option>
           </select>
+          <OfficeDistrictRegionSelect
+            state={state}
+            value={districtOrRegion}
+            onChange={setDistrictOrRegion}
+            disabled={busy}
+          />
           <input
             value={city}
             onChange={(e) => setCity(e.target.value)}
@@ -2151,12 +2189,14 @@ function OfficeListItem({
         <div className="flex gap-3">
           <button
             type="button"
-            disabled={busy || !name.trim()}
+            disabled={busy || !baseName.trim() || !districtOrRegion}
             className="font-medium text-brand-green hover:underline disabled:opacity-60"
             onClick={() =>
-              void onSave({ name: name.trim(), city: city.trim(), state }).then(() =>
-                setEditing(false)
-              )
+              void onSave({
+                name: buildOfficeDisplayName(baseName, districtOrRegion),
+                city: city.trim(),
+                state,
+              }).then(() => setEditing(false))
             }
           >
             Save
@@ -2166,9 +2206,10 @@ function OfficeListItem({
             disabled={busy}
             className="text-brand-black/60 hover:underline disabled:opacity-60"
             onClick={() => {
-              setName(office.name);
+              setBaseName(officeBaseName(office.name));
+              setDistrictOrRegion(inferDistrictOrRegionFromOffice(office));
               setCity(office.city ?? "");
-              setState(office.state ?? "");
+              setState(office.state ?? "GA");
               setEditing(false);
             }}
           >
