@@ -9,7 +9,7 @@ Last updated: June 2026. Use this as a deployment and operations checklist acros
 | PWA manifest + SW | Yes | Yes | Yes (added) |
 | Mobile install prompt | Yes (Android + iOS) | Yes | Yes |
 | Error log bridging | Yes | Yes | Yes (added) |
-| Host-only auth cookies | Parent domain | Parent domain | **Host-only** (no shared cookie domain) |
+| Host-only auth cookies | Parent domain | Parent domain | Parent domain |
 | Service role on Vercel | Yes | As needed | Yes |
 
 ---
@@ -39,11 +39,11 @@ Without (2), reports API errors will fail to persist and users will still see fr
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Error logging + admin APIs |
 | Google OAuth vars | Yes | PDF generation / Drive |
 | `CRON_SECRET` | Yes | If using cron endpoints |
-| `NEXT_PUBLIC_SUPABASE_COOKIE_DOMAIN` | **Remove** | Host-only cookies avoid PKCE collision with staff |
+| `NEXT_PUBLIC_SUPABASE_COOKIE_DOMAIN` | Yes | `.thejoshuatree.org` — same as staff for seamless sign-in |
 
-**Staff** — keep `NEXT_PUBLIC_SUPABASE_COOKIE_DOMAIN=.thejoshuatree.org` if you want shared session across staff subdomains.
+**Staff and Reports** — set `NEXT_PUBLIC_SUPABASE_COOKIE_DOMAIN=.thejoshuatree.org` on both Vercel projects so sessions carry across subdomains. The login form clears stale PKCE verifier cookies before Google or magic-link sign-in to avoid cross-app OAuth collisions.
 
-**Client** — same parent-domain cookie pattern as staff if clients use subdomains.
+**Client** — same parent-domain cookie pattern if clients use subdomains.
 
 ### 3. Supabase Auth redirect URLs
 
@@ -65,9 +65,9 @@ After migrations and env changes, redeploy staff, client, and reports.
 
 ### Auth and cookies
 
-- Reports uses **host-only** Supabase cookies so magic links and passkeys on reports do not fight staff sessions on `.thejoshuatree.org`.
-- Staff and client may share parent-domain cookies for a smoother handoff between subdomains.
-- After deploy, test: sign in on reports alone, then staff alone, then both in separate tabs.
+- Staff, client, and reports share parent-domain Supabase cookies (`.thejoshuatree.org`) for seamless handoff between Wayfinder Pro and Official Reporting.
+- Before OAuth or magic link, the login form clears stale PKCE verifier cookies so cross-app sign-in does not fail.
+- After deploy, test: sign in on Wayfinder Pro, open Reports in a new tab (should skip login), then sign out on one app and confirm the other behaves as expected.
 
 ### Error log (super admin)
 

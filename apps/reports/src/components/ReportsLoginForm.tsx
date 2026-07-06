@@ -11,7 +11,7 @@ type Props = {
   redirectAfterSignIn?: string;
 };
 
-/** Host-only Supabase client must be wired inside a Client Component (not passed from RSC). */
+/** Reports Supabase client must be wired inside a Client Component (not passed from RSC). */
 export function ReportsLoginForm({
   productName,
   shouldCreateUser,

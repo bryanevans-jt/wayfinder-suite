@@ -3,8 +3,9 @@
 import { createClient } from "@wayfinder/supabase/client";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { friendlyAuthError, accountNotSetUpMessage } from "@wayfinder/supabase/error-log";
+import { clearSupabasePkceVerifierCookies } from "@wayfinder/supabase/auth-pkce-cookies";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type LoginFormProps = {
   /** Public product name (e.g. Wayfinder, Wayfinder Pro). */
@@ -63,6 +64,21 @@ export function LoginForm({
   const [busy, setBusy] = useState<null | "magic" | "passkey" | "google">(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!cancelled && session) {
+        window.location.assign(redirectAfterSignIn);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, redirectAfterSignIn]);
+
   async function sendMagicLink(e: React.FormEvent) {
     e.preventDefault();
     setNotice(null);
@@ -71,6 +87,7 @@ export function LoginForm({
       return;
     }
     setBusy("magic");
+    clearSupabasePkceVerifierCookies();
     const origin = window.location.origin;
     /** Keep this an exact path Supabase can allowlist (`/auth/callback` only — no `?next=`). */
     const emailRedirectTo = `${origin}/auth/callback`;
@@ -121,6 +138,16 @@ export function LoginForm({
   async function signInWithGoogle() {
     setNotice(null);
     setBusy("google");
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (session) {
+      window.location.assign(redirectAfterSignIn);
+      return;
+    }
+
+    clearSupabasePkceVerifierCookies();
     const origin = window.location.origin;
     const redirectTo = `${origin}/auth/callback`;
 
