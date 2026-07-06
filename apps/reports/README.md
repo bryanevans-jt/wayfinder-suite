@@ -84,7 +84,7 @@ Both apps use the same Supabase project and PKCE auth. In production, configure 
 - [ ] ES + supervisor see dashboard alert banner when reports are missing/overdue
 - [ ] In-app notifications fire for missing/overdue SE Monthly
 - [ ] Supervisor scoped alerts (only their ES / offices)
-- [ ] Launch formal reporting from client profile deep link
+- [ ] Launch Official Reporting from client profile deep link
 
 ### Tennessee (as templates are added)
 

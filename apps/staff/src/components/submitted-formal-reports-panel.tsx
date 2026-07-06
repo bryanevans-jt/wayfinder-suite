@@ -48,17 +48,17 @@ export function SubmittedFormalReportsPanel({ clientId }: Props) {
   return (
     <div className="rounded-xl border border-neutral-200 bg-white p-4">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-brand-black/60">
-        Submitted formal reports
+        Submitted Official Reports
       </h2>
       <p className="mt-1 text-xs text-brand-black/60">
-        PDFs filed through formal reporting. Links open in Google Drive when available.
+        PDFs filed through Official Reporting. Links open in Google Drive when available.
       </p>
 
       {loading ? <p className="mt-3 text-sm text-brand-black/60">Loading…</p> : null}
       {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
 
       {!loading && !error && rows.length === 0 ? (
-        <p className="mt-3 text-sm text-brand-black/60">No formal reports submitted yet for this client.</p>
+        <p className="mt-3 text-sm text-brand-black/60">No official reports submitted yet for this client.</p>
       ) : null}
 
       {rows.length > 0 ? (

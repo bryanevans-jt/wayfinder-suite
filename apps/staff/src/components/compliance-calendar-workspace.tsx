@@ -14,7 +14,7 @@ export function ComplianceCalendarWorkspace({ reports, timesheets }: Props) {
   return (
     <div className="mt-8 max-w-5xl space-y-8">
       <section className="rounded-xl border border-neutral-200 bg-white p-5">
-        <h2 className="text-base font-semibold text-brand-black">Formal reports</h2>
+        <h2 className="text-base font-semibold text-brand-black">Official Reports</h2>
         {reports.length === 0 ? (
           <p className="mt-3 text-sm text-brand-black/65">No open report alerts in your scope.</p>
         ) : (

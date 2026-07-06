@@ -303,7 +303,6 @@ export default async function EsClientDetailPage({ params }: PageProps) {
             clientId={client.id}
             milestones={milestoneOptions}
             currentStageId={client.current_stage_id}
-            activities={activities}
           />
         ) : !readOnly ? (
           <p className="text-sm text-brand-black/75">

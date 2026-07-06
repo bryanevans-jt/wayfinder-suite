@@ -55,7 +55,7 @@ export function StateSelector({ user, onSelect }: Props) {
   return (
     <div className="flex flex-col items-center min-h-screen bg-gray-50 p-4">
       <div className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-lg mt-10">
-        <h1 className="text-3xl font-bold mb-4 text-center text-green-800">Formal reporting</h1>
+        <h1 className="text-3xl font-bold mb-4 text-center text-green-800">Official Reporting</h1>
         <p className="text-gray-600 mb-6 text-center">
           Welcome, {user.displayName}! Choose the state for this report based on the client&apos;s
           assigned office.

@@ -27,8 +27,8 @@ export function FormalReportingWorkspace({ readOnly = false, showAdminLink = fal
         <h2 className="text-base font-semibold text-brand-black">Fastest path</h2>
         <ol className="mt-3 list-decimal space-y-3 pl-5 text-sm text-brand-black/80">
           <li>
-            Open a <strong>client profile</strong> and use <strong>Monthly activity report</strong>{" "}
-            if you want a draft summary — then choose <strong>Formal reporting</strong> in that
+            Open a <strong>client profile</strong> and use <strong>Generate Activity Report</strong>{" "}
+            if you want a draft summary — then choose <strong>Official Reporting</strong> in that
             section so the client name is pre-filled.
           </li>
           <li>

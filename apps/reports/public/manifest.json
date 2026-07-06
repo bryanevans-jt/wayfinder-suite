@@ -1,7 +1,7 @@
 {
   "name": "Joshua Tree Reports",
   "short_name": "JT Reports",
-  "description": "Joshua Tree formal reporting — submit client reports",
+  "description": "Joshua Tree Official Reporting — submit client reports",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f9fafb",

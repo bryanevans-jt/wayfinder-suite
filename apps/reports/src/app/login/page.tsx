@@ -32,12 +32,12 @@ export default async function LoginPage({
       ) : null}
       {error === "org_only" ? (
         <p className="mb-6 max-w-md rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-center text-sm text-red-900">
-          Only @thejoshuatree.org accounts can access formal reporting.
+          Only @thejoshuatree.org accounts can access Official Reporting.
         </p>
       ) : null}
       {error === "forbidden" ? (
         <p className="mb-6 max-w-md rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-950">
-          Your Wayfinder Pro role does not include formal reporting. Open Wayfinder Pro for your
+          Your Wayfinder Pro role does not include Official Reporting. Open Wayfinder Pro for your
           usual workspace.
         </p>
       ) : null}

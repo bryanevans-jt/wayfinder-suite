@@ -27,7 +27,7 @@ export function FormalReportLaunchLink({
         "inline-flex rounded-lg border border-brand-gold/50 bg-brand-gold/10 px-4 py-2 text-sm font-semibold text-brand-black hover:bg-brand-gold/20"
       }
     >
-      Open formal reporting for this client
+      Open Official Reporting for this client
     </a>
   );
 }

@@ -66,11 +66,11 @@ export function ClientActivityReportPanel({
   return (
     <div className="rounded-xl border border-neutral-200 bg-white p-4">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-brand-black/60">
-        Monthly activity report
+        Generate Activity Report
       </h2>
       <p className="mt-1 text-xs text-brand-black/60">
-        Build a summary for {clientName} that you can copy into official monthly reports. Includes
-        contacts, applications, stage updates, and meetings.
+        Build a summary for {clientName} that you can copy when completing official reports.
+        Includes contacts, applications, stage updates, and meetings.
       </p>
       <div className="mt-3">
         <FormalReportLaunchLink clientName={clientName} esName={esName} wayfinderClientId={clientId} />

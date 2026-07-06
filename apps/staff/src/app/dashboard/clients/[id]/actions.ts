@@ -85,13 +85,9 @@ export async function addClientContactLog(
   }
 }
 
-export async function updateClientCurrentStage(
-  clientId: string,
-  milestoneId: string,
-  time?: TimeInput
-) {
+export async function updateClientCurrentStage(clientId: string, milestoneId: string) {
   await assertNotPreviewMutation();
-  const { admin, userId } = await assertStaffClientWriteAccess(clientId);
+  const { admin } = await assertStaffClientWriteAccess(clientId);
 
   const { data: client, error: clientErr } = await admin
     .from("clients")
@@ -121,32 +117,6 @@ export async function updateClientCurrentStage(
 
   if (updErr) {
     throw new Error(updErr.message ?? "Update failed");
-  }
-
-  if (time?.activityTypeId && time.durationMinutes > 0) {
-    const fkIds = [clientId];
-    const { data: stageEvent } = await admin
-      .from("client_stage_events")
-      .select("id")
-      .in("client_id", fkIds)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const narrative =
-      time.narrative?.trim() ||
-      `Stage updated to ${(milestone.title as string) ?? "milestone"}`;
-
-    await insertEsTimeEntry(admin, {
-      esUserId: userId,
-      clientId,
-      activityTypeId: time.activityTypeId,
-      serviceDate: time.serviceDate ?? todayLocalDate(),
-      durationMinutes: time.durationMinutes,
-      narrative,
-      linkedSourceType: "stage_event",
-      linkedSourceId: (stageEvent?.id as string | undefined) ?? null,
-    });
   }
 
   revalidateClientPaths(clientId);
