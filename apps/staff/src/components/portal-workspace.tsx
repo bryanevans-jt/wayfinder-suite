@@ -74,12 +74,14 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
   const [newEsName, setNewEsName] = useState("");
   const [newEsEmail, setNewEsEmail] = useState("");
   const [newEsOfficeIds, setNewEsOfficeIds] = useState<string[]>([]);
+  const [newEsSilentAdd, setNewEsSilentAdd] = useState(false);
   const [newCounselorName, setNewCounselorName] = useState("");
   const [newCounselorEmail, setNewCounselorEmail] = useState("");
   const [newCounselorOfficeIds, setNewCounselorOfficeIds] = useState<string[]>([]);
   const [newSupervisorName, setNewSupervisorName] = useState("");
   const [newSupervisorEmail, setNewSupervisorEmail] = useState("");
   const [newSupervisorOfficeIds, setNewSupervisorOfficeIds] = useState<string[]>([]);
+  const [newSupervisorSilentAdd, setNewSupervisorSilentAdd] = useState(false);
   const [supportModalClient, setSupportModalClient] = useState<{
     id: string;
     label: string;
@@ -538,6 +540,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                       full_name: newEsName,
                       email: newEsEmail,
                       office_ids: newEsOfficeIds,
+                      silent_add: newEsSilentAdd,
                     }),
                   });
                   const data = (await res.json()) as { error?: string };
@@ -545,13 +548,14 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                   setNewEsName("");
                   setNewEsEmail("");
                   setNewEsOfficeIds([]);
+                  setNewEsSilentAdd(false);
                 });
               }}
             >
               <h2 className="text-lg font-semibold text-brand-black">Add Employment Specialist</h2>
               <p className="text-sm text-brand-black/70">
-                We&apos;ll email them a login link if they&apos;re new to Wayfinder, then grant
-                employment specialist access.
+                By default we email new users a login link. Use silent add while staging the
+                rollout — they stay inactive until you activate them and send a login email.
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <input
@@ -577,6 +581,18 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 disabled={busy}
                 onChange={setNewEsOfficeIds}
               />
+              <label className="flex items-start gap-2 text-sm text-brand-black/80">
+                <input
+                  type="checkbox"
+                  checked={newEsSilentAdd}
+                  disabled={busy}
+                  onChange={(e) => setNewEsSilentAdd(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  Add without sending email (creates login as <strong>Inactive</strong>)
+                </span>
+              </label>
               <button
                 type="submit"
                 disabled={busy}
@@ -628,6 +644,22 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                           const data = (await res.json()) as { error?: string };
                           if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
                         })
+                      }
+                      onSendLoginEmail={
+                        es.email
+                          ? () =>
+                              run(async () => {
+                                const res = await fetch("/api/portal/staff-users/send-login-email", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ user_id: es.id, role: "es" }),
+                                });
+                                const data = (await res.json()) as { error?: string };
+                                if (!res.ok) {
+                                  throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                                }
+                              })
+                          : undefined
                       }
                       onDelete={() =>
                         run(async () => {
@@ -821,21 +853,26 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 const res = await fetch("/api/portal/supervisors", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    full_name: newSupervisorName,
-                    email: newSupervisorEmail,
-                    office_ids: newSupervisorOfficeIds,
-                  }),
-                });
-                const data = (await res.json()) as { error?: string };
-                if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
-                setNewSupervisorName("");
-                setNewSupervisorEmail("");
-                setNewSupervisorOfficeIds([]);
+                    body: JSON.stringify({
+                      full_name: newSupervisorName,
+                      email: newSupervisorEmail,
+                      office_ids: newSupervisorOfficeIds,
+                      silent_add: newSupervisorSilentAdd,
+                    }),
+                  });
+                  const data = (await res.json()) as { error?: string };
+                  if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                  setNewSupervisorName("");
+                  setNewSupervisorEmail("");
+                  setNewSupervisorOfficeIds([]);
+                  setNewSupervisorSilentAdd(false);
               });
             }}
           >
             <h2 className="text-lg font-semibold text-brand-black">Add supervisor</h2>
+            <p className="text-sm text-brand-black/70">
+              Silent add keeps them inactive with no email until you are ready to onboard them.
+            </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <input
                 value={newSupervisorName}
@@ -860,6 +897,18 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               disabled={busy}
               onChange={setNewSupervisorOfficeIds}
             />
+            <label className="flex items-start gap-2 text-sm text-brand-black/80">
+              <input
+                type="checkbox"
+                checked={newSupervisorSilentAdd}
+                disabled={busy}
+                onChange={(e) => setNewSupervisorSilentAdd(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span>
+                Add without sending email (creates login as <strong>Inactive</strong>)
+              </span>
+            </label>
             <button
               type="submit"
               disabled={busy}
@@ -904,6 +953,22 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                           const data = (await res.json()) as { error?: string };
                           if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
                         })
+                      }
+                      onSendLoginEmail={
+                        s.email
+                          ? () =>
+                              run(async () => {
+                                const res = await fetch("/api/portal/staff-users/send-login-email", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ user_id: s.id, role: "supervisor" }),
+                                });
+                                const data = (await res.json()) as { error?: string };
+                                if (!res.ok) {
+                                  throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                                }
+                              })
+                          : undefined
                       }
                       onDelete={() =>
                         run(async () => {
@@ -1653,6 +1718,7 @@ function EsStaffListItem({
   busy,
   officeName,
   onSave,
+  onSendLoginEmail,
   onDelete,
 }: {
   staff: EsStaffRow;
@@ -1664,6 +1730,7 @@ function EsStaffListItem({
     is_active: boolean;
     office_ids: string[];
   }) => Promise<void>;
+  onSendLoginEmail?: () => Promise<void>;
   onDelete: () => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
@@ -1774,6 +1841,16 @@ function EsStaffListItem({
         >
           Edit
         </button>
+        {onSendLoginEmail ? (
+          <button
+            type="button"
+            disabled={busy}
+            className="mr-3 font-medium text-brand-black/75 hover:underline disabled:opacity-60"
+            onClick={() => void onSendLoginEmail()}
+          >
+            Send login email
+          </button>
+        ) : null}
         <button
           type="button"
           disabled={busy}
@@ -1973,6 +2050,7 @@ function SupervisorStaffListItem({
   busy,
   officeName,
   onSave,
+  onSendLoginEmail,
   onDelete,
 }: {
   staff: SupervisorStaffRow;
@@ -1984,6 +2062,7 @@ function SupervisorStaffListItem({
     is_active: boolean;
     office_ids: string[];
   }) => Promise<void>;
+  onSendLoginEmail?: () => Promise<void>;
   onDelete: () => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
@@ -2093,6 +2172,16 @@ function SupervisorStaffListItem({
         >
           Edit
         </button>
+        {onSendLoginEmail ? (
+          <button
+            type="button"
+            disabled={busy}
+            className="mr-3 font-medium text-brand-black/75 hover:underline disabled:opacity-60"
+            onClick={() => void onSendLoginEmail()}
+          >
+            Send login email
+          </button>
+        ) : null}
         <button
           type="button"
           disabled={busy}

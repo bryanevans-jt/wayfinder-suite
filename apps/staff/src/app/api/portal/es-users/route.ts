@@ -2,7 +2,7 @@ import { assertPortalMutation, jsonPortalError } from "@/lib/portal-auth";
 import {
   assertStaffUserEditable,
   findAuthUserIdByEmail,
-  inviteStaffAuthUser,
+  provisionStaffAuthUser,
   replaceStaffOfficeAssignments,
   upsertStaffProfile,
 } from "@/lib/portal-staff-users";
@@ -12,6 +12,7 @@ type CreateBody = {
   email?: string;
   full_name?: string;
   office_ids?: string[];
+  silent_add?: boolean;
 };
 
 type PatchBody = {
@@ -29,6 +30,7 @@ export async function POST(request: NextRequest) {
     const email = (body.email ?? "").trim().toLowerCase();
     const fullName = (body.full_name ?? "").trim();
     const officeIds = (body.office_ids ?? []).map((id) => id.trim()).filter(Boolean);
+    const silentAdd = body.silent_add === true;
 
     if (!email || !fullName) {
       return Response.json({ error: "Email and full name are required" }, { status: 400 });
@@ -37,7 +39,12 @@ export async function POST(request: NextRequest) {
     let userId = await findAuthUserIdByEmail(admin, email);
 
     if (!userId) {
-      userId = await inviteStaffAuthUser(admin, email, { full_name: fullName });
+      userId = await provisionStaffAuthUser(
+        admin,
+        email,
+        { full_name: fullName },
+        { sendInvite: !silentAdd }
+      );
     } else {
       const blocked = await assertStaffUserEditable(admin, userId);
       if (blocked) {
@@ -62,7 +69,7 @@ export async function POST(request: NextRequest) {
     await upsertStaffProfile(admin, userId, {
       role: "es",
       full_name: fullName,
-      is_active: true,
+      is_active: silentAdd ? false : true,
     });
 
     if (officeIds.length > 0) {

@@ -1,4 +1,5 @@
 import type { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { getSupabaseUrl } from "@wayfinder/supabase";
 
 type AdminClient = ReturnType<typeof createServiceRoleClient>;
 
@@ -49,6 +50,78 @@ export async function inviteStaffAuthUser(
     throw new Error(inviteErr?.message ?? "Could not invite user");
   }
   return invited.user.id;
+}
+
+export async function createStaffAuthUserSilently(
+  admin: AdminClient,
+  email: string,
+  metadata?: { full_name?: string }
+): Promise<string> {
+  const { data: created, error: createErr } = await admin.auth.admin.createUser({
+    email: email.trim().toLowerCase(),
+    email_confirm: true,
+    user_metadata: metadata,
+  });
+  if (createErr || !created.user) {
+    const msg = createErr?.message ?? "Could not create user";
+    if (/already|registered|exists/i.test(msg)) {
+      throw new Error("Email already registered");
+    }
+    throw new Error(msg);
+  }
+  return created.user.id;
+}
+
+export async function provisionStaffAuthUser(
+  admin: AdminClient,
+  email: string,
+  metadata: { full_name?: string } | undefined,
+  options: { sendInvite: boolean }
+): Promise<string> {
+  if (options.sendInvite) {
+    return inviteStaffAuthUser(admin, email, metadata);
+  }
+  return createStaffAuthUserSilently(admin, email, metadata);
+}
+
+/** Sends a Wayfinder Pro magic-link email through Supabase (for silent or resend flows). */
+export async function sendStaffLoginEmail(admin: AdminClient, email: string): Promise<void> {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) {
+    throw new Error("Email is required");
+  }
+
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) {
+    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
+  }
+
+  const res = await fetch(`${getSupabaseUrl()}/auth/v1/otp`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: serviceRoleKey,
+      Authorization: `Bearer ${serviceRoleKey}`,
+    },
+    body: JSON.stringify({
+      email: normalized,
+      options: {
+        emailRedirectTo: staffInviteRedirectUrl(),
+        shouldCreateUser: false,
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(body || "Could not send login email");
+  }
+
+  // Ensure the auth user exists (silent provisioning should have created them already).
+  const userId = await findAuthUserIdByEmail(admin, normalized);
+  if (!userId) {
+    throw new Error("No Wayfinder login exists for that email yet");
+  }
 }
 
 export async function upsertStaffProfile(
