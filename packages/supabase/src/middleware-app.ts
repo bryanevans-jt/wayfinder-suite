@@ -126,6 +126,10 @@ export async function wayfinderAuthMiddleware(
 
   const { pathname } = request.nextUrl;
 
+  if (pathname.startsWith("/walkthrough")) {
+    return response;
+  }
+
   if (!user) {
     if (pathname === "/" || pathname.startsWith("/dashboard")) {
       const url = request.nextUrl.clone();
