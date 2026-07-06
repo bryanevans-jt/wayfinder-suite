@@ -17,6 +17,7 @@ import { ClientListRow } from "@/components/client-list-row";
 import { ErrorLogPanel } from "@/components/error-log-panel";
 import { ClientProfileModal } from "@/components/client-profile-modal";
 import { NaturalSupportModal } from "@/components/natural-support-modal";
+import { OfficeDirectoryList } from "@/components/office-directory-list";
 import {
   PortalNav,
   isActivityLogsNav,
@@ -287,49 +288,96 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               </button>
             </form>
           ) : null}
-          <ul className="divide-y divide-neutral-200 rounded-xl border border-neutral-200 bg-white">
-            {b.offices.map((o) => (
-              <OfficeListItem
-                key={o.id}
-                office={o}
-                canManage={canManageOrg}
-                canToggleVisibility={mode === "super_admin"}
-                busy={busy}
-                onSave={(payload) =>
-                  run(async () => {
-                    const res = await fetch("/api/portal/offices", {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ id: o.id, ...payload }),
-                    });
-                    const data = (await res.json()) as { error?: string };
-                    if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
-                  })
-                }
-                onToggleHidden={(isHidden) =>
-                  run(async () => {
-                    const res = await fetch("/api/portal/offices", {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ id: o.id, is_hidden: isHidden }),
-                    });
-                    const data = (await res.json()) as { error?: string };
-                    if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
-                  })
-                }
-                onDelete={() =>
-                  run(async () => {
-                    if (!confirm(`Delete office “${o.name}”?`)) return;
-                    const res = await fetch(`/api/portal/offices?id=${o.id}`, {
-                      method: "DELETE",
-                    });
-                    const data = (await res.json()) as { error?: string };
-                    if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
-                  })
-                }
-              />
-            ))}
-          </ul>
+          {mode === "admin" || mode === "super_admin" ? (
+            <OfficeDirectoryList
+              offices={b.offices}
+              renderOffice={(o) => (
+                <OfficeListItem
+                  key={o.id}
+                  office={o}
+                  canManage={canManageOrg}
+                  canToggleVisibility={mode === "super_admin"}
+                  busy={busy}
+                  onSave={(payload) =>
+                    run(async () => {
+                      const res = await fetch("/api/portal/offices", {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id: o.id, ...payload }),
+                      });
+                      const data = (await res.json()) as { error?: string };
+                      if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                    })
+                  }
+                  onToggleHidden={(isHidden) =>
+                    run(async () => {
+                      const res = await fetch("/api/portal/offices", {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id: o.id, is_hidden: isHidden }),
+                      });
+                      const data = (await res.json()) as { error?: string };
+                      if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                    })
+                  }
+                  onDelete={() =>
+                    run(async () => {
+                      if (!confirm(`Delete office “${o.name}”?`)) return;
+                      const res = await fetch(`/api/portal/offices?id=${o.id}`, {
+                        method: "DELETE",
+                      });
+                      const data = (await res.json()) as { error?: string };
+                      if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                    })
+                  }
+                />
+              )}
+            />
+          ) : (
+            <ul className="divide-y divide-neutral-200 rounded-xl border border-neutral-200 bg-white">
+              {b.offices.map((o) => (
+                <OfficeListItem
+                  key={o.id}
+                  office={o}
+                  canManage={canManageOrg}
+                  canToggleVisibility={false}
+                  busy={busy}
+                  onSave={(payload) =>
+                    run(async () => {
+                      const res = await fetch("/api/portal/offices", {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id: o.id, ...payload }),
+                      });
+                      const data = (await res.json()) as { error?: string };
+                      if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                    })
+                  }
+                  onToggleHidden={(isHidden) =>
+                    run(async () => {
+                      const res = await fetch("/api/portal/offices", {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id: o.id, is_hidden: isHidden }),
+                      });
+                      const data = (await res.json()) as { error?: string };
+                      if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                    })
+                  }
+                  onDelete={() =>
+                    run(async () => {
+                      if (!confirm(`Delete office “${o.name}”?`)) return;
+                      const res = await fetch(`/api/portal/offices?id=${o.id}`, {
+                        method: "DELETE",
+                      });
+                      const data = (await res.json()) as { error?: string };
+                      if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                    })
+                  }
+                />
+              ))}
+            </ul>
+          )}
         </section>
       ) : nav.primary === "clients" ? (
         <section className="mt-6 max-w-6xl space-y-4">
