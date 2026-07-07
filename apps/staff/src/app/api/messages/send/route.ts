@@ -1,5 +1,6 @@
 import { createServerClient, isEsRole } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { esIsAssignedToClient } from "@/lib/es-caseload-data";
 import {
   respondWithLoggedError,
   resolveErrorActor,
@@ -54,8 +55,15 @@ export async function POST(request: Request) {
 
     let senderRole: "es" | "supervisor" | null = null;
 
-    if (isEsRole(role) && thread.current_es_user_id === staffUserId) {
-      senderRole = "es";
+    if (thread.current_es_user_id === staffUserId) {
+      if (isEsRole(role)) {
+        senderRole = "es";
+      } else if (role === "supervisor") {
+        const assigned =
+          thread.client_id != null &&
+          (await esIsAssignedToClient(staffUserId, thread.client_id as string));
+        senderRole = assigned ? "es" : null;
+      }
     } else if (role === "supervisor") {
       const { data: link } = await admin
         .from("supervisor_es_assignments")

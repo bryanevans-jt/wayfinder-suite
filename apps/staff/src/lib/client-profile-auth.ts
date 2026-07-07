@@ -52,7 +52,10 @@ export async function assertClientProfileAccess(clientId: string, forMutation = 
   if (isEsRole(role)) {
     allowed = await esIsAssignedToClient(userId, clientId);
   } else if (isSupervisorTierRole(role)) {
-    allowed = await clientVisibleToSupervisor(clientId);
+    allowed = await esIsAssignedToClient(userId, clientId);
+    if (!allowed) {
+      allowed = await clientVisibleToSupervisor(clientId);
+    }
   } else if (isAdminTierRole(role)) {
     allowed = true;
   }

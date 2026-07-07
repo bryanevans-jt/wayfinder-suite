@@ -1,6 +1,6 @@
 "use server";
 
-import { isEsRole } from "@wayfinder/supabase/roles";
+import { staffActsAsEsForClient } from "@/lib/caseload-assignee";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
   USER_FACING_AUTH_REQUIRED,
@@ -11,7 +11,6 @@ import { notifyUser } from "@wayfinder/supabase/notify-user";
 import { formatMeetingWhen } from "@wayfinder/supabase/meeting-notify";
 import { assertNotPreviewMutation, getAppSession } from "@wayfinder/supabase/preview-server";
 import { revalidatePath } from "next/cache";
-import { esIsAssignedToClient } from "@/lib/es-caseload-data";
 
 type Input = {
   clientId: string;
@@ -39,10 +38,6 @@ export async function createMeetingRequest(input: Input) {
     throw new Error(USER_FACING_AUTH_REQUIRED);
   }
 
-  if (!isEsRole(session.effectiveRole)) {
-    throw new Error(USER_FACING_FORBIDDEN);
-  }
-
   let admin;
   try {
     admin = createServiceRoleClient();
@@ -50,9 +45,13 @@ export async function createMeetingRequest(input: Input) {
     throw new Error("Server configuration error");
   }
 
-  const assigned = await esIsAssignedToClient(session.effectiveUserId, input.clientId);
+  const assigned = await staffActsAsEsForClient(
+    session.effectiveUserId,
+    session.effectiveRole,
+    input.clientId
+  );
   if (!assigned) {
-    throw new Error("Client not assigned to you");
+    throw new Error(USER_FACING_FORBIDDEN);
   }
 
   const location = formatMeetingLocation(input.location, input.address);

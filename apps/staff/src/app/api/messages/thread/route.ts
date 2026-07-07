@@ -1,5 +1,6 @@
 import { createServerClient, isEsRole, isSupervisorTierRole } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { esIsAssignedToClient } from "@/lib/es-caseload-data";
 import {
   respondWithLoggedError,
   resolveErrorActor,
@@ -50,13 +51,28 @@ export async function GET(request: Request) {
     const isEs = isEsRole(role) && thread.current_es_user_id === effectiveUserId;
     let isSupervisor = false;
     if (isSupervisorTierRole(role) && role === "supervisor") {
-      const { data: link } = await admin
-        .from("supervisor_es_assignments")
-        .select("es_user_id")
-        .eq("supervisor_user_id", effectiveUserId)
-        .eq("es_user_id", thread.current_es_user_id)
-        .maybeSingle();
-      isSupervisor = Boolean(link);
+      if (thread.current_es_user_id === effectiveUserId) {
+        const { data: threadRow } = await admin
+          .from("client_message_threads")
+          .select("client_id")
+          .eq("id", threadId)
+          .maybeSingle();
+        if (threadRow?.client_id) {
+          isSupervisor = await esIsAssignedToClient(
+            effectiveUserId,
+            threadRow.client_id as string
+          );
+        }
+      }
+      if (!isSupervisor) {
+        const { data: link } = await admin
+          .from("supervisor_es_assignments")
+          .select("es_user_id")
+          .eq("supervisor_user_id", effectiveUserId)
+          .eq("es_user_id", thread.current_es_user_id)
+          .maybeSingle();
+        isSupervisor = Boolean(link);
+      }
     }
 
     if (!isEs && !isSupervisor && role !== "admin" && role !== "super_admin") {

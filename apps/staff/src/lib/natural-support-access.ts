@@ -54,6 +54,11 @@ export async function assertNaturalSupportClientAccess(
   }
 
   if (isSupervisorRole(role)) {
+    const directAssignee = await esIsAssignedToClient(user.id, clientId);
+    if (directAssignee) {
+      return { supabase, user, role };
+    }
+
     const { data: supLinks } = await supabase
       .from("supervisor_es_assignments")
       .select("es_user_id")

@@ -14,6 +14,7 @@ import {
   updateClientRecord,
 } from "@wayfinder/supabase";
 import { isAdminTierRole } from "@wayfinder/supabase/roles";
+import { isCaseloadAssigneeRole } from "@/lib/caseload-assignee";
 import { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -82,10 +83,29 @@ async function resolveEsUserId(
   esEmail?: string,
   clientId?: string
 ): Promise<{ esUserId?: string; error?: string }> {
+  async function validateCaseloadAssignee(userId: string): Promise<string | null> {
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("role, is_active")
+      .eq("id", userId)
+      .maybeSingle();
+    if (!profile || profile.is_active === false) {
+      return "That employment specialist account is inactive or not found.";
+    }
+    if (!isCaseloadAssigneeRole(profile.role as string)) {
+      return "Caseload can only be assigned to an employment specialist or supervisor.";
+    }
+    return null;
+  }
+
   if (esEmail?.trim()) {
     const resolved = await resolveAuthUserIdByEmail(admin, esEmail.trim());
     if (!resolved) {
       return { error: "No Wayfinder account found for that employment specialist email." };
+    }
+    const assigneeErr = await validateCaseloadAssignee(resolved);
+    if (assigneeErr) {
+      return { error: assigneeErr };
     }
     if (scope) {
       const allowed = clientId
@@ -100,6 +120,10 @@ async function resolveEsUserId(
 
   if (esUserId?.trim()) {
     const id = esUserId.trim();
+    const assigneeErr = await validateCaseloadAssignee(id);
+    if (assigneeErr) {
+      return { error: assigneeErr };
+    }
     if (scope) {
       const allowed = clientId
         ? await esUserAllowedForSupervisorClient(admin, scope, id, clientId)

@@ -1,5 +1,6 @@
 import { createServerClient, isEsRole, isEsReplyOverdue, isSupervisorTierRole } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { esIsAssignedToClient } from "@/lib/es-caseload-data";
 import {
   respondWithLoggedError,
   resolveErrorActor,
@@ -48,7 +49,12 @@ export async function GET() {
         .from("supervisor_es_assignments")
         .select("es_user_id")
         .eq("supervisor_user_id", effectiveUserId);
-      const esIds = (links ?? []).map((l) => l.es_user_id as string);
+      const esIds = [
+        ...new Set([
+          effectiveUserId,
+          ...(links ?? []).map((l) => l.es_user_id as string),
+        ]),
+      ];
       if (esIds.length === 0) {
         return NextResponse.json({ threads: [], role });
       }

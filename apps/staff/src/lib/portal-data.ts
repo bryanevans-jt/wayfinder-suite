@@ -78,6 +78,15 @@ export type PortalBootstrap = {
     display_name: string;
     office_ids: string[];
   }[];
+  /** ES and supervisors eligible for direct client caseload assignment. */
+  caseloadAssignees: {
+    id: string;
+    email: string;
+    full_name: string | null;
+    display_name: string;
+    office_ids: string[];
+    role: "es" | "supervisor";
+  }[];
   esStaff: {
     id: string;
     email: string;
@@ -302,6 +311,7 @@ export async function loadPortalBootstrap(
   if (scope?.supervisorUserId) {
     const officeSet = new Set(scope.officeIds ?? []);
     const esSet = new Set(scope.esUserIds ?? []);
+    esSet.add(scope.supervisorUserId);
     esProfiles = esProfiles.filter(
       (p) => esSet.has(p.id as string) || (staffOfficeByUser.get(p.id as string) ?? []).some((o) => officeSet.has(o))
     );
@@ -310,7 +320,8 @@ export async function loadPortalBootstrap(
       return (esClientLinks ?? []).some(
         (l) =>
           l.client_id === c.id &&
-          (esSet.has(l.es_user_id as string) ||
+          (l.es_user_id === scope.supervisorUserId ||
+            esSet.has(l.es_user_id as string) ||
             esProfiles.some((e) => e.id === l.es_user_id))
       );
     });
@@ -382,6 +393,7 @@ export async function loadPortalBootstrap(
     officesRows = officesRows.filter((o) => officeSet.has(o.id));
 
     const esSet = new Set(scope.esUserIds ?? []);
+    esSet.add(scope.supervisorUserId);
     for (const p of esProfiles) esSet.add(p.id as string);
 
     supervisorEsLinksOut = supervisorEsLinksOut.filter(
@@ -469,6 +481,63 @@ export async function loadPortalBootstrap(
             full_name: profile?.full_name ?? null,
             display_name: `${staffNameFor(supId)} (you)`,
             office_ids: staffOfficeByUser.get(supId) ?? [],
+          });
+        }
+      }
+
+      return mapped;
+    })(),
+    caseloadAssignees: (() => {
+      let assigneeProfiles = activeProfiles.filter(
+        (p) => p.role === "es" || p.role === "supervisor"
+      );
+
+      if (scope?.supervisorUserId) {
+        const officeSet = new Set(scope.officeIds ?? []);
+        const esSet = new Set(scope.esUserIds ?? []);
+        esSet.add(scope.supervisorUserId);
+        assigneeProfiles = assigneeProfiles.filter((p) => {
+          const id = p.id as string;
+          if (id === scope.supervisorUserId) return true;
+          if (p.role === "supervisor") return false;
+          return (
+            esSet.has(id) ||
+            (staffOfficeByUser.get(id) ?? []).some((officeId) => officeSet.has(officeId))
+          );
+        });
+      }
+
+      const mapped = assigneeProfiles
+        .map((p) => {
+          const id = p.id as string;
+          const profile = profileById.get(id);
+          const isSupervisor = p.role === "supervisor";
+          const name = staffNameFor(id);
+          return {
+            id,
+            email: emailById.get(id) ?? "",
+            full_name: profile?.full_name ?? null,
+            display_name: isSupervisor ? `${name} (Supervisor)` : name,
+            office_ids: staffOfficeByUser.get(id) ?? [],
+            role: p.role as "es" | "supervisor",
+          };
+        })
+        .sort((a, b) =>
+          a.display_name.localeCompare(b.display_name, undefined, { sensitivity: "base" })
+        );
+
+      if (scope?.supervisorUserId) {
+        const supId = scope.supervisorUserId;
+        if (!mapped.some((e) => e.id === supId)) {
+          const profile = profileById.get(supId);
+          const name = staffNameFor(supId);
+          mapped.unshift({
+            id: supId,
+            email: emailById.get(supId) ?? "",
+            full_name: profile?.full_name ?? null,
+            display_name: `${name} (you)`,
+            office_ids: staffOfficeByUser.get(supId) ?? [],
+            role: "supervisor",
           });
         }
       }

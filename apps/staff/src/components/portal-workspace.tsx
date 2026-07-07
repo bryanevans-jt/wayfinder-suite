@@ -455,7 +455,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
             >
               <option value="">All employment specialists</option>
-              {b.esUsers.map((e) => (
+              {b.caseloadAssignees.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.display_name}
                 </option>
@@ -516,7 +516,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               offices={b.offices.map((o) => ({ id: o.id, name: o.name }))}
               counselors={portalCounselors}
               createEndpoint="/api/portal/clients"
-              esUsers={b.esUsers.map((e) => ({
+              esUsers={b.caseloadAssignees.map((e) => ({
                 id: e.id,
                 label: e.display_name,
               }))}
@@ -1155,7 +1155,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                   })
                 }
                 links={b.esClientLinks}
-                leftOptions={b.esUsers.map((e) => ({
+                leftOptions={b.caseloadAssignees.map((e) => ({
                   id: e.id,
                   label: e.display_name,
                 }))}
@@ -1231,7 +1231,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
             >
               <option value="">All Employment Specialists</option>
-              {b.esUsers.map((e) => (
+              {b.caseloadAssignees.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.display_name}
                 </option>
@@ -1445,7 +1445,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
           open={drawerClient !== null}
           client={drawerClient}
           offices={b.offices}
-          esUsers={b.esUsers}
+          esUsers={b.caseloadAssignees}
           counselors={portalCounselors}
           serviceCatalog={b.serviceCatalog}
           serviceMilestones={b.serviceMilestones}

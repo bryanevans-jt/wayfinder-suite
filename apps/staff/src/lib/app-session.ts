@@ -71,6 +71,10 @@ export async function requireStaffClientAccess(session: AppSession, clientId: st
     return requireEsClientAccess(session, clientId);
   }
   if (isSupervisorRole(session.effectiveRole)) {
+    const directAssignee = await esIsAssignedToClient(session.effectiveUserId, clientId);
+    if (directAssignee) {
+      return true;
+    }
     return requireSupervisorClientAccess(session, clientId);
   }
   return false;

@@ -44,9 +44,13 @@ export async function assertStaffClientWriteAccess(
 
   if (isEsRole(session.effectiveRole)) {
     allowed = await esIsAssignedToClient(session.effectiveUserId, clientId);
-  } else if (!options.esOnly && isSupervisorRole(session.effectiveRole)) {
-    const scope = await loadSupervisorScope(admin, session.effectiveUserId);
-    allowed = await clientInSupervisorScope(admin, scope, clientId);
+  } else if (isSupervisorRole(session.effectiveRole)) {
+    if (options.esOnly) {
+      allowed = await esIsAssignedToClient(session.effectiveUserId, clientId);
+    } else {
+      const scope = await loadSupervisorScope(admin, session.effectiveUserId);
+      allowed = await clientInSupervisorScope(admin, scope, clientId);
+    }
   }
 
   if (!allowed) {
