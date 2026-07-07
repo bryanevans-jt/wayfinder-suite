@@ -11,6 +11,9 @@ comment on column public.clients.full_name is
 alter table public.clients
   alter column user_id drop not null;
 
+alter table public.clients
+  alter column profile_id drop not null;
+
 -- Sync trigger already leaves both null when neither is set.
 
 create index if not exists clients_roster_full_name_idx
