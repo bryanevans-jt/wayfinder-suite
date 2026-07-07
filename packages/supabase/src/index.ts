@@ -9,6 +9,7 @@ export * from "./client-activity-fk";
 export * from "./client-insert";
 export * from "./client-create";
 export * from "./client-bulk-import";
+export * from "./client-roster-import";
 export * from "./office-insert";
 export * from "./dashboard-client";
 export * from "./client-portal-data";

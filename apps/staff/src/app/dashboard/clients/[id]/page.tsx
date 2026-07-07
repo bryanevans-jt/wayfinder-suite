@@ -22,7 +22,7 @@ import { SubmittedFormalReportsPanel } from "@/components/submitted-formal-repor
 type PageProps = { params: Promise<{ id: string }> };
 
 const CLIENT_SELECT =
-  "id, user_id, profile_id, contact_email, current_service_id, current_stage_id, office_id, counselor_id, job_start_date, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other";
+  "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, office_id, counselor_id, job_start_date, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other";
 
 export default async function EsClientDetailPage({ params }: PageProps) {
   const { id: clientId } = await params;
@@ -83,7 +83,10 @@ export default async function EsClientDetailPage({ params }: PageProps) {
     : { data: null as { full_name: string | null } | null };
 
   const displayName = clientDisplayName({
-    full_name: clientProfile?.full_name ?? null,
+    full_name:
+      (client as { full_name?: string | null }).full_name ??
+      clientProfile?.full_name ??
+      null,
     contact_email: client.contact_email,
     id: client.id,
   });

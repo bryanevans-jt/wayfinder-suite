@@ -158,8 +158,13 @@ export async function loadPortalBootstrap(
   let clientsQuery = await admin
     .from("clients")
     .select(
+      "id, contact_email, office_id, user_id, profile_id, full_name, current_service_id, current_stage_id, counselor_id, archived_at"
+    );
+  if (clientsQuery.error?.message.includes("full_name")) {
+    clientsQuery = await admin.from("clients").select(
       "id, contact_email, office_id, user_id, profile_id, current_service_id, current_stage_id, counselor_id, archived_at"
     );
+  }
   if (clientsQuery.error?.message.includes("archived_at")) {
     clientsQuery = await admin
       .from("clients")
@@ -647,7 +652,9 @@ export async function loadPortalBootstrap(
         contact_email: c.contact_email as string | null,
         office_id: c.office_id as string | null,
         es_user_ids: esClientByClient.get(c.id as string) ?? [],
-        full_name: userId ? (profileNameById.get(userId) ?? null) : null,
+        full_name:
+          (c as { full_name?: string | null }).full_name ??
+          (userId ? (profileNameById.get(userId) ?? null) : null),
         user_id: userId,
         current_service_id: serviceId,
         service_name: serviceId ? (serviceNameById.get(serviceId) ?? null) : null,
