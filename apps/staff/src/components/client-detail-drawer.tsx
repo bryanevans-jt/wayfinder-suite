@@ -2,7 +2,12 @@
 
 import type { CounselorOption } from "@/app/dashboard/clients/add-client-modal";
 import type { PortalBootstrap } from "@/lib/portal-data";
-import { clientDisplayName, personDisplayName, servicesForClientEdit } from "@wayfinder/branding";
+import {
+  clientDisplayName,
+  personDisplayName,
+  resolveClientServiceIdForEdit,
+  servicesForClientEdit,
+} from "@wayfinder/branding";
 import { useEffect, useMemo, useState } from "react";
 
 type ClientRow = PortalBootstrap["clients"][number];
@@ -80,10 +85,13 @@ export function ClientDetailDrawer({
     setCounselorId(client.counselor_id ?? "");
     setEsUserId(client.es_user_ids[0] ?? "");
     setEsEmail("");
-    const nextServiceId = client.current_service_id ?? serviceOptions[0]?.id ?? "";
+    const nextServiceId =
+      resolveClientServiceIdForEdit(serviceCatalog, client.current_service_id) ??
+      serviceOptions[0]?.id ??
+      "";
     setServiceId(nextServiceId);
     setStageId(client.current_stage_id ?? "");
-  }, [client, offices, serviceOptions]);
+  }, [client, offices, serviceCatalog, serviceOptions]);
 
   const stagesForService = useMemo(
     () =>

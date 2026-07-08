@@ -33,6 +33,39 @@ export function formatServiceLabel(baseName: string, state: string | null): stri
   return state ? `${baseName} (${state})` : baseName;
 }
 
+/** Legacy TN TSE row superseded by "Supported Employment (TN)". */
+export function isDeprecatedTnTraditionalService(row: ServiceRowInput): boolean {
+  const { baseName, state } = parseServiceParts(row.name, row.state);
+  return baseName.toLowerCase() === "traditional supported employment" && state === "TN";
+}
+
+function findSupportedTnServiceId(rows: ServiceRowInput[]): string | null {
+  for (const row of rows) {
+    const { baseName, state } = parseServiceParts(row.name, row.state);
+    if (baseName.toLowerCase() === "supported employment" && state === "TN") {
+      return row.id;
+    }
+  }
+  return null;
+}
+
+/** Map a client's stored service id to the canonical TN supported employment row when needed. */
+export function resolveClientServiceIdForEdit(
+  rows: ServiceRowInput[],
+  currentServiceId: string | null
+): string | null {
+  if (!currentServiceId) return null;
+  const current = rows.find((r) => r.id === currentServiceId);
+  if (current && isDeprecatedTnTraditionalService(current)) {
+    return findSupportedTnServiceId(rows);
+  }
+  return currentServiceId;
+}
+
+function activeServicesForSelect(rows: ServiceRowInput[]): ServiceRowInput[] {
+  return rows.filter((r) => !isDeprecatedTnTraditionalService(r));
+}
+
 /** Display label for any service row (client tables, etc.). */
 export function serviceDisplayName(row: ServiceRowInput): string {
   const { baseName, state } = parseServiceParts(row.name, row.state);
@@ -69,7 +102,7 @@ export function dedupeServicesForSelect(rows: ServiceRowInput[]): ServiceSelectO
     Array<{ row: ServiceRowInput; parts: ReturnType<typeof parseServiceParts> }>
   >();
 
-  for (const row of rows) {
+  for (const row of activeServicesForSelect(rows)) {
     const parts = parseServiceParts(row.name, row.state);
     const key = parts.baseName.toLowerCase();
     const list = byBase.get(key) ?? [];
@@ -118,9 +151,10 @@ export function servicesForClientEdit(
   rows: ServiceRowInput[],
   currentServiceId: string | null
 ): ServiceSelectOption[] {
+  const effectiveCurrentId = resolveClientServiceIdForEdit(rows, currentServiceId);
   const options = dedupeServicesForSelect(rows);
-  if (currentServiceId && !options.some((o) => o.id === currentServiceId)) {
-    const row = rows.find((r) => r.id === currentServiceId);
+  if (effectiveCurrentId && !options.some((o) => o.id === effectiveCurrentId)) {
+    const row = activeServicesForSelect(rows).find((r) => r.id === effectiveCurrentId);
     if (row) {
       options.push({
         id: row.id,

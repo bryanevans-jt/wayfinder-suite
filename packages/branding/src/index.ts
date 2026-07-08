@@ -53,7 +53,9 @@ export { formatPortalDateTime } from "./portal-datetime";
 export {
   dedupeServicesForSelect,
   formatServiceLabel,
+  isDeprecatedTnTraditionalService,
   parseServiceParts,
+  resolveClientServiceIdForEdit,
   serviceDisplayName,
   servicesForClientEdit,
   type ServiceRowInput,
