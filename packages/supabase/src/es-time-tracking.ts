@@ -33,6 +33,16 @@ export const DEFAULT_ACTIVITY_CODES = {
   manual: "JT-ACT-040",
 } as const;
 
+const SIXTY_MINUTE_ACTIVITY_CODES = new Set(["JT-ACT-011", "JT-ACT-012"]);
+
+/** Default billable minutes for an activity (UI + server). */
+export function defaultActivityMinutes(activity: Pick<ServiceActivityType, "code" | "default_minutes">): number {
+  if (SIXTY_MINUTE_ACTIVITY_CODES.has(activity.code)) {
+    return 60;
+  }
+  return activity.default_minutes;
+}
+
 /** Activity types shown when logging client contact (excludes staff-only types). */
 export function filterClientContactActivityTypes(
   types: ServiceActivityType[]
@@ -157,6 +167,9 @@ export type InsertEsTimeEntryInput = {
   narrative: string | null;
   linkedSourceType?: EsTimeLinkedSource | null;
   linkedSourceId?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  recordedAt?: Date;
 };
 
 export async function insertEsTimeEntry(
@@ -182,6 +195,13 @@ export async function insertEsTimeEntry(
   }
 
   const flags = computeTimeEntryFlags(input.serviceDate);
+  const { service_start_at, service_end_at } = resolveServiceTimestamps({
+    serviceDate: input.serviceDate,
+    durationMinutes: input.durationMinutes,
+    startTime: input.startTime,
+    endTime: input.endTime,
+    recordedAt: input.recordedAt,
+  });
 
   const { data, error } = await supabase
     .from("es_time_entries")
@@ -191,6 +211,8 @@ export async function insertEsTimeEntry(
       activity_type_id: input.activityTypeId,
       service_date: input.serviceDate,
       duration_minutes: input.durationMinutes,
+      service_start_at,
+      service_end_at,
       narrative: input.narrative?.trim() || null,
       linked_source_type: input.linkedSourceType ?? null,
       linked_source_id: input.linkedSourceId ?? null,
@@ -221,4 +243,91 @@ export function groupActivityTypesByCategory(
 
 export function minutesToDecimalHours(minutes: number): string {
   return (minutes / 60).toFixed(2);
+}
+
+function pad2(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
+export function formatTimeInputValue(date: Date): string {
+  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+}
+
+export function combineServiceDateAndTime(serviceDate: string, timeValue: string): Date {
+  const [hours, minutes] = timeValue.split(":").map(Number);
+  const date = parseLocalDate(serviceDate);
+  date.setHours(hours, minutes ?? 0, 0, 0);
+  return date;
+}
+
+export function formatServiceTimeOfDay(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+export type ResolveServiceTimestampsInput = {
+  serviceDate: string;
+  durationMinutes: number;
+  startTime?: string | null;
+  endTime?: string | null;
+  recordedAt?: Date;
+};
+
+/** Resolve optional start/end times; default end is entry time, start is end minus duration. */
+export function resolveServiceTimestamps(input: ResolveServiceTimestampsInput): {
+  service_start_at: string;
+  service_end_at: string;
+} {
+  const startTime = input.startTime?.trim() || null;
+  const endTime = input.endTime?.trim() || null;
+
+  if (startTime && endTime) {
+    const start = combineServiceDateAndTime(input.serviceDate, startTime);
+    let end = combineServiceDateAndTime(input.serviceDate, endTime);
+    if (end.getTime() <= start.getTime()) {
+      end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+    }
+    return {
+      service_start_at: start.toISOString(),
+      service_end_at: end.toISOString(),
+    };
+  }
+
+  const end = input.recordedAt ?? new Date();
+  const start = new Date(end.getTime() - input.durationMinutes * 60 * 1000);
+  return {
+    service_start_at: start.toISOString(),
+    service_end_at: end.toISOString(),
+  };
+}
+
+export function displayServiceTimes(entry: {
+  service_start_at?: string | null;
+  service_end_at?: string | null;
+  created_at?: string | null;
+  duration_minutes: number;
+}): { start: string; end: string } {
+  if (entry.service_start_at && entry.service_end_at) {
+    return {
+      start: formatServiceTimeOfDay(entry.service_start_at),
+      end: formatServiceTimeOfDay(entry.service_end_at),
+    };
+  }
+
+  const endDate = entry.service_end_at
+    ? new Date(entry.service_end_at)
+    : entry.created_at
+      ? new Date(entry.created_at)
+      : null;
+  if (!endDate) {
+    return { start: "—", end: "—" };
+  }
+  const startDate = new Date(endDate.getTime() - entry.duration_minutes * 60 * 1000);
+  return {
+    start: formatServiceTimeOfDay(startDate.toISOString()),
+    end: formatServiceTimeOfDay(endDate.toISOString()),
+  };
 }

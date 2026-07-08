@@ -1,10 +1,10 @@
 "use client";
 
-import { personDisplayName, staffDisplayName } from "@wayfinder/branding";
-import { useMemo, useState } from "react";
+import { personDisplayName, servicesGroupedByState, flattenServiceGroups, type ServiceRowInput } from "@wayfinder/branding";
+import { useEffect, useMemo, useState } from "react";
+import { ServiceSelect } from "@/components/service-select";
 
-export type ServiceOption = { id: string; name: string };
-export type OfficeOption = { id: string; name: string };
+export type OfficeOption = { id: string; name: string; state?: string | null };
 export type CounselorOption = {
   id: string;
   full_name: string;
@@ -20,7 +20,7 @@ export type EsUserOption = { id: string; label: string };
 type AddClientModalProps = {
   open: boolean;
   onClose: () => void;
-  services: ServiceOption[];
+  serviceCatalog: ServiceRowInput[];
   offices: OfficeOption[];
   counselors: CounselorOption[];
   onCreated?: () => void;
@@ -32,7 +32,7 @@ type AddClientModalProps = {
 export function AddClientModal({
   open,
   onClose,
-  services,
+  serviceCatalog,
   offices,
   counselors,
   onCreated,
@@ -42,13 +42,25 @@ export function AddClientModal({
 }: AddClientModalProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [serviceId, setServiceId] = useState(services[0]?.id ?? "");
   const [officeId, setOfficeId] = useState(offices[0]?.id ?? "");
+  const [serviceId, setServiceId] = useState("");
   const [counselorId, setCounselorId] = useState("");
   const [esUserId, setEsUserId] = useState(esUsers?.[0]?.id ?? "");
   const [esEmail, setEsEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const selectedOffice = useMemo(
+    () => offices.find((office) => office.id === officeId) ?? null,
+    [offices, officeId]
+  );
+
+  const serviceGroups = useMemo(
+    () => servicesGroupedByState(serviceCatalog, selectedOffice?.state ?? null),
+    [serviceCatalog, selectedOffice?.state]
+  );
+
+  const serviceOptions = useMemo(() => flattenServiceGroups(serviceGroups), [serviceGroups]);
 
   const counselorsForOffice = useMemo(
     () =>
@@ -66,14 +78,30 @@ export function AddClientModal({
   function resetAndClose() {
     setName("");
     setEmail("");
-    setServiceId(services[0]?.id ?? "");
     setOfficeId(offices[0]?.id ?? "");
+    setServiceId("");
     setCounselorId("");
     setEsUserId(esUsers?.[0]?.id ?? "");
     setEsEmail("");
     setError(null);
     onClose();
   }
+
+  function handleOfficeChange(nextOfficeId: string) {
+    setOfficeId(nextOfficeId);
+    setCounselorId("");
+    const nextOffice = offices.find((office) => office.id === nextOfficeId);
+    const nextOptions = flattenServiceGroups(
+      servicesGroupedByState(serviceCatalog, nextOffice?.state ?? null)
+    );
+    setServiceId(nextOptions[0]?.id ?? "");
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    if (serviceId && serviceOptions.some((option) => option.id === serviceId)) return;
+    setServiceId(serviceOptions[0]?.id ?? "");
+  }, [open, serviceId, serviceOptions]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -168,28 +196,6 @@ export function AddClientModal({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-brand-black" htmlFor="service">
-              Service
-            </label>
-            <select
-              id="service"
-              className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-brand-black outline-none ring-brand-green focus:ring-2"
-              value={serviceId}
-              onChange={(ev) => setServiceId(ev.target.value)}
-              required
-            >
-              {services.length === 0 ? (
-                <option value="">No services available</option>
-              ) : (
-                services.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))
-              )}
-            </select>
-          </div>
-          <div>
             <label className="block text-sm font-medium text-brand-black" htmlFor="office">
               Office
             </label>
@@ -197,10 +203,7 @@ export function AddClientModal({
               id="office"
               className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-brand-black outline-none ring-brand-green focus:ring-2"
               value={officeId}
-              onChange={(ev) => {
-                setOfficeId(ev.target.value);
-                setCounselorId("");
-              }}
+              onChange={(ev) => handleOfficeChange(ev.target.value)}
               required
             >
               {offices.length === 0 ? (
@@ -213,6 +216,18 @@ export function AddClientModal({
                 ))
               )}
             </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-brand-black" htmlFor="service">
+              Service
+            </label>
+            <ServiceSelect
+              id="service"
+              groups={serviceGroups}
+              value={serviceId}
+              onChange={setServiceId}
+              className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-brand-black outline-none ring-brand-green focus:ring-2"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-brand-black" htmlFor="counselor">
@@ -300,7 +315,7 @@ export function AddClientModal({
             </button>
             <button
               type="submit"
-              disabled={submitting || services.length === 0 || offices.length === 0}
+              disabled={submitting || serviceOptions.length === 0 || offices.length === 0}
               className="rounded-lg bg-brand-gold px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-gold/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting ? "Saving…" : email.trim() ? "Create client" : "Create client (no login)"}

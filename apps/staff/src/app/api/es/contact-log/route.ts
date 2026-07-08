@@ -23,6 +23,8 @@ type Body = {
     activityTypeId?: string;
     durationMinutes?: number;
     serviceDate?: string;
+    startTime?: string;
+    endTime?: string;
   };
 };
 
@@ -104,6 +106,8 @@ export async function POST(request: Request) {
             activityTypeId: body.time.activityTypeId,
             durationMinutes: Number(body.time.durationMinutes),
             serviceDate: body.time.serviceDate,
+            startTime: body.time.startTime,
+            endTime: body.time.endTime,
           }
         : undefined;
 

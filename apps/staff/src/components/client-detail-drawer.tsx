@@ -6,9 +6,11 @@ import {
   clientDisplayName,
   personDisplayName,
   resolveClientServiceIdForEdit,
-  servicesForClientEdit,
+  servicesForClientEditGroups,
+  flattenServiceGroups,
 } from "@wayfinder/branding";
 import { useEffect, useMemo, useState } from "react";
+import { ServiceSelect } from "@/components/service-select";
 
 type ClientRow = PortalBootstrap["clients"][number];
 
@@ -60,14 +62,6 @@ export function ClientDetailDrawer({
   onOpenProfile,
   onOpenSupport,
 }: Props) {
-  const serviceOptions = useMemo(
-    () =>
-      client
-        ? servicesForClientEdit(serviceCatalog, client.current_service_id)
-        : [],
-    [serviceCatalog, client]
-  );
-
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [officeId, setOfficeId] = useState("");
@@ -76,6 +70,25 @@ export function ClientDetailDrawer({
   const [esEmail, setEsEmail] = useState("");
   const [serviceId, setServiceId] = useState("");
   const [stageId, setStageId] = useState("");
+
+  const selectedOffice = useMemo(
+    () => offices.find((office) => office.id === officeId) ?? null,
+    [offices, officeId]
+  );
+
+  const serviceGroups = useMemo(
+    () =>
+      client
+        ? servicesForClientEditGroups(
+            serviceCatalog,
+            client.current_service_id,
+            selectedOffice?.state ?? null
+          )
+        : [],
+    [serviceCatalog, client, selectedOffice?.state]
+  );
+
+  const serviceOptions = useMemo(() => flattenServiceGroups(serviceGroups), [serviceGroups]);
 
   useEffect(() => {
     if (!client) return;
@@ -92,6 +105,31 @@ export function ClientDetailDrawer({
     setServiceId(nextServiceId);
     setStageId(client.current_stage_id ?? "");
   }, [client, offices, serviceCatalog, serviceOptions]);
+
+  useEffect(() => {
+    if (!serviceId) return;
+    if (serviceOptions.some((option) => option.id === serviceId)) return;
+    setServiceId(serviceOptions[0]?.id ?? "");
+  }, [serviceId, serviceOptions]);
+
+  function handleOfficeChange(nextOfficeId: string) {
+    setOfficeId(nextOfficeId);
+    const nextOffice = offices.find((office) => office.id === nextOfficeId);
+    const nextGroups = servicesForClientEditGroups(
+      serviceCatalog,
+      serviceId || client?.current_service_id || null,
+      nextOffice?.state ?? null
+    );
+    const nextOptions = flattenServiceGroups(nextGroups);
+    if (!nextOptions.some((option) => option.id === serviceId)) {
+      const nextServiceId = nextOptions[0]?.id ?? "";
+      setServiceId(nextServiceId);
+      const nextStages = serviceMilestones
+        .filter((milestone) => milestone.service_id === nextServiceId)
+        .sort((a, b) => a.order_index - b.order_index);
+      setStageId(nextStages[0]?.id ?? "");
+    }
+  }
 
   const stagesForService = useMemo(
     () =>
@@ -208,7 +246,7 @@ export function ClientDetailDrawer({
             <span className="font-medium text-brand-black">Office</span>
             <select
               value={officeId}
-              onChange={(e) => setOfficeId(e.target.value)}
+              onChange={(e) => handleOfficeChange(e.target.value)}
               className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
               disabled={busy}
             >
@@ -286,19 +324,14 @@ export function ClientDetailDrawer({
 
           <label className="block text-sm">
             <span className="font-medium text-brand-black">Service</span>
-            <select
+            <ServiceSelect
+              groups={serviceGroups}
               value={serviceId}
-              onChange={(e) => handleServiceChange(e.target.value)}
+              onChange={handleServiceChange}
+              includeEmpty
+              disabled={busy}
               className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-              disabled={busy || serviceOptions.length === 0}
-            >
-              <option value="">Unassigned</option>
-              {serviceOptions.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+            />
           </label>
 
           <label className="block text-sm">

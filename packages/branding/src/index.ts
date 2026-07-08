@@ -52,13 +52,18 @@ export {
 export { formatPortalDateTime } from "./portal-datetime";
 export {
   dedupeServicesForSelect,
+  filterServicesForOfficeState,
+  flattenServiceGroups,
   formatServiceLabel,
   isDeprecatedTnTraditionalService,
   parseServiceParts,
   resolveClientServiceIdForEdit,
   serviceDisplayName,
   servicesForClientEdit,
+  servicesForClientEditGroups,
+  servicesGroupedByState,
   type ServiceRowInput,
+  type ServiceSelectGroup,
   type ServiceSelectOption,
 } from "./service-display";
 export {

@@ -6,16 +6,15 @@ import {
   AddClientModal,
   type CounselorOption,
   type OfficeOption,
-  type ServiceOption,
 } from "./add-client-modal";
 
 type LauncherProps = {
-  services: ServiceOption[];
+  serviceCatalog: Array<{ id: string; name: string; state?: string | null }>;
   offices: OfficeOption[];
   counselors: CounselorOption[];
 };
 
-export function AddClientLauncher({ services, offices, counselors }: LauncherProps) {
+export function AddClientLauncher({ serviceCatalog, offices, counselors }: LauncherProps) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
 
@@ -31,7 +30,7 @@ export function AddClientLauncher({ services, offices, counselors }: LauncherPro
       <AddClientModal
         open={open}
         onClose={() => setOpen(false)}
-        services={services}
+        serviceCatalog={serviceCatalog}
         offices={offices}
         counselors={counselors}
         onCreated={() => router.refresh()}

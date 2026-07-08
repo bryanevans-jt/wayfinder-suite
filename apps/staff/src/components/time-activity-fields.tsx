@@ -1,7 +1,12 @@
 "use client";
 
 import type { ServiceActivityType } from "@wayfinder/supabase/es-time-tracking";
-import { groupActivityTypesByCategory, todayLocalDate } from "@wayfinder/supabase/es-time-tracking";
+import {
+  combineServiceDateAndTime,
+  defaultActivityMinutes,
+  groupActivityTypesByCategory,
+  todayLocalDate,
+} from "@wayfinder/supabase/es-time-tracking";
 import { useEffect, useMemo } from "react";
 
 type Props = {
@@ -14,9 +19,23 @@ type Props = {
   serviceDate?: string;
   onServiceDateChange?: (date: string) => void;
   showServiceDate?: boolean;
+  startTime?: string;
+  endTime?: string;
+  onStartTimeChange?: (value: string) => void;
+  onEndTimeChange?: (value: string) => void;
   activityTypeLabel?: string;
   disabled?: boolean;
 };
+
+function minutesBetweenTimes(serviceDate: string, startTime: string, endTime: string): number | null {
+  const start = combineServiceDateAndTime(serviceDate, startTime);
+  let end = combineServiceDateAndTime(serviceDate, endTime);
+  if (end.getTime() <= start.getTime()) {
+    end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+  }
+  const diff = Math.round((end.getTime() - start.getTime()) / (60 * 1000));
+  return diff > 0 ? diff : null;
+}
 
 export function TimeActivityFields({
   activities,
@@ -28,11 +47,17 @@ export function TimeActivityFields({
   serviceDate,
   onServiceDateChange,
   showServiceDate = false,
+  startTime = "",
+  endTime = "",
+  onStartTimeChange,
+  onEndTimeChange,
   activityTypeLabel = "Activity type",
   disabled = false,
 }: Props) {
   const grouped = useMemo(() => groupActivityTypesByCategory(activities), [activities]);
   const selected = activities.find((a) => a.id === activityTypeId) ?? null;
+  const effectiveServiceDate = serviceDate ?? todayLocalDate();
+  const showTimeRange = Boolean(onStartTimeChange && onEndTimeChange);
 
   useEffect(() => {
     if (activityTypeId || activities.length === 0) {
@@ -42,7 +67,7 @@ export function TimeActivityFields({
       activities.find((a) => a.code === defaultCode) ?? activities[0] ?? null;
     if (fallback) {
       onActivityTypeIdChange(fallback.id);
-      onDurationMinutesChange(fallback.default_minutes);
+      onDurationMinutesChange(defaultActivityMinutes(fallback));
     }
   }, [
     activities,
@@ -52,12 +77,31 @@ export function TimeActivityFields({
     onDurationMinutesChange,
   ]);
 
+  useEffect(() => {
+    if (!showTimeRange || !startTime || !endTime) {
+      return;
+    }
+    const nextMinutes = minutesBetweenTimes(effectiveServiceDate, startTime, endTime);
+    if (nextMinutes && nextMinutes !== durationMinutes) {
+      onDurationMinutesChange(nextMinutes);
+    }
+  }, [
+    durationMinutes,
+    effectiveServiceDate,
+    endTime,
+    onDurationMinutesChange,
+    showTimeRange,
+    startTime,
+  ]);
+
   function onActivityChange(id: string) {
     onActivityTypeIdChange(id);
     const next = activities.find((a) => a.id === id);
     if (next) {
-      onDurationMinutesChange(next.default_minutes);
+      onDurationMinutesChange(defaultActivityMinutes(next));
     }
+    onStartTimeChange?.("");
+    onEndTimeChange?.("");
   }
 
   return (
@@ -100,7 +144,7 @@ export function TimeActivityFields({
           {selected ? (
             <span className="mt-1 block text-xs text-brand-black/55">
               Allowed: {selected.min_minutes}–{selected.max_minutes} min (default{" "}
-              {selected.default_minutes})
+              {defaultActivityMinutes(selected)})
             </span>
           ) : null}
         </label>
@@ -109,7 +153,7 @@ export function TimeActivityFields({
             Service date
             <input
               type="date"
-              value={serviceDate ?? todayLocalDate()}
+              value={effectiveServiceDate}
               onChange={(e) => onServiceDateChange(e.target.value)}
               className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-brand-black outline-none ring-brand-green focus:ring-2"
               disabled={disabled}
@@ -117,6 +161,36 @@ export function TimeActivityFields({
           </label>
         ) : null}
       </div>
+      {showTimeRange ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block text-sm font-medium text-brand-black">
+            Start time <span className="font-normal text-brand-black/55">(optional)</span>
+            <input
+              type="time"
+              value={startTime}
+              onChange={(e) => onStartTimeChange?.(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-brand-black outline-none ring-brand-green focus:ring-2"
+              disabled={disabled}
+            />
+          </label>
+          <label className="block text-sm font-medium text-brand-black">
+            End time <span className="font-normal text-brand-black/55">(optional)</span>
+            <input
+              type="time"
+              value={endTime}
+              onChange={(e) => onEndTimeChange?.(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-brand-black outline-none ring-brand-green focus:ring-2"
+              disabled={disabled}
+            />
+          </label>
+        </div>
+      ) : null}
+      {showTimeRange ? (
+        <p className="text-xs text-brand-black/55">
+          Leave start and end blank to use the time you submit this entry as the end time. Start time
+          will be calculated from duration.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -128,6 +202,6 @@ export function useTimeActivityDefaults(
   const match = activities.find((a) => a.code === defaultCode) ?? activities[0];
   return {
     activityTypeId: match?.id ?? "",
-    durationMinutes: match?.default_minutes ?? 30,
+    durationMinutes: match ? defaultActivityMinutes(match) : 30,
   };
 }

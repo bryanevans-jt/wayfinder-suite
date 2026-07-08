@@ -524,8 +524,12 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
             <AddClientModal
               open={addClientOpen}
               onClose={() => setAddClientOpen(false)}
-              services={b.services}
-              offices={b.offices.map((o) => ({ id: o.id, name: o.name }))}
+              serviceCatalog={b.serviceCatalog}
+              offices={b.offices.map((o) => ({
+                id: o.id,
+                name: o.name,
+                state: o.state ?? null,
+              }))}
               counselors={portalCounselors}
               createEndpoint="/api/portal/clients"
               esUsers={b.caseloadAssignees.map((e) => ({

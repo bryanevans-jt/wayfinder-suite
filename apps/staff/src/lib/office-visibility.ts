@@ -70,10 +70,11 @@ export async function queryAllOffices(admin: SupabaseClient): Promise<OfficeReco
 export async function fetchOfficesForPicker(
   client: SupabaseClient,
   options: { includeHidden?: boolean; alwaysIncludeIds?: Iterable<string | null | undefined> } = {}
-): Promise<Array<{ id: string; name: string }>> {
+): Promise<Array<{ id: string; name: string; state?: string | null }>> {
   const offices = await queryAllOffices(client);
   return filterOfficesForPicker(offices, options).map((office) => ({
     id: office.id,
     name: office.name,
+    state: office.state ?? null,
   }));
 }

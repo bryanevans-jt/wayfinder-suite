@@ -1,6 +1,6 @@
 import { createServerClient, isEsReplyOverdue, isEsRole } from "@wayfinder/supabase";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
-import { clientDisplayName, dedupeServicesForSelect, serviceDisplayName } from "@wayfinder/branding";
+import { clientDisplayName, serviceDisplayName } from "@wayfinder/branding";
 import { sortClientsByTriage } from "@wayfinder/supabase/caseload-triage";
 import { USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
 import Link from "next/link";
@@ -77,8 +77,6 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
       state?: string | null;
     }>;
   }
-
-  const services = dedupeServicesForSelect(servicesRaw);
 
   if (caseload.error) {
     return (
@@ -228,8 +226,12 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
           </Suspense>
           {!session.isPreviewing ? (
             <AddClientLauncher
-              services={services}
-              offices={(offices ?? []) as { id: string; name: string }[]}
+              serviceCatalog={servicesRaw}
+              offices={offices.map((office) => ({
+                id: office.id,
+                name: office.name,
+                state: office.state ?? null,
+              }))}
               counselors={counselors}
             />
           ) : null}

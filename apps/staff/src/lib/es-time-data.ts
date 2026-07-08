@@ -3,6 +3,7 @@ import {
   parseLocalDate,
   weekEndSaturday,
   weekStartSunday,
+  displayServiceTimes,
   type ServiceActivityType,
 } from "@wayfinder/supabase/es-time-tracking";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
@@ -20,6 +21,9 @@ export type EsTimeEntryRow = {
   service_date: string;
   duration_minutes: number;
   duration_hours: string;
+  service_start_at: string | null;
+  service_end_at: string | null;
+  created_at: string | null;
   narrative: string | null;
   linked_source_type: string | null;
   status: string;
@@ -56,6 +60,9 @@ export async function loadEsTimeEntriesForWeek(
       activity_type_id,
       service_date,
       duration_minutes,
+      service_start_at,
+      service_end_at,
+      created_at,
       narrative,
       linked_source_type,
       status,
@@ -144,6 +151,9 @@ export async function loadEsTimeEntriesForWeek(
       service_date: row.service_date as string,
       duration_minutes: minutes,
       duration_hours: minutesToDecimalHours(minutes),
+      service_start_at: (row.service_start_at as string | null) ?? null,
+      service_end_at: (row.service_end_at as string | null) ?? null,
+      created_at: (row.created_at as string | null) ?? null,
       narrative: (row.narrative as string | null) ?? null,
       linked_source_type: (row.linked_source_type as string | null) ?? null,
       status: row.status as string,
@@ -246,7 +256,10 @@ export async function loadPendingWeekSubmissionsForSupervisor(
 }
 
 export function summarizeTimeEntries(entries: EsTimeEntryRow[]) {
-  const byClient = new Map<string, { name: string; minutes: number; count: number }>();
+  const byClient = new Map<
+    string,
+    { clientId: string | null; name: string; minutes: number; count: number }
+  >();
   const byActivity = new Map<string, { name: string; minutes: number; count: number }>();
   let total = 0;
 
@@ -254,7 +267,12 @@ export function summarizeTimeEntries(entries: EsTimeEntryRow[]) {
     total += e.duration_minutes;
     const clientKey = e.client_id ?? "non-client";
     const clientName = e.client_name ?? "Non-client time";
-    const clientRow = byClient.get(clientKey) ?? { name: clientName, minutes: 0, count: 0 };
+    const clientRow = byClient.get(clientKey) ?? {
+      clientId: e.client_id,
+      name: clientName,
+      minutes: 0,
+      count: 0,
+    };
     clientRow.minutes += e.duration_minutes;
     clientRow.count += 1;
     byClient.set(clientKey, clientRow);
@@ -286,6 +304,8 @@ export function esTimeEntriesToCsv(entries: EsTimeEntryRow[], esName: string, we
     "activity_name",
     "duration_minutes",
     "duration_hours",
+    "start_time",
+    "end_time",
     "narrative",
     "status",
     "linked_source_type",
@@ -293,8 +313,9 @@ export function esTimeEntriesToCsv(entries: EsTimeEntryRow[], esName: string, we
   const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
   const lines = [
     header.join(","),
-    ...entries.map((e) =>
-      [
+    ...entries.map((e) => {
+      const times = displayServiceTimes(e);
+      return [
         weekStart,
         esName,
         e.service_date,
@@ -303,13 +324,15 @@ export function esTimeEntriesToCsv(entries: EsTimeEntryRow[], esName: string, we
         e.activity_name,
         String(e.duration_minutes),
         e.duration_hours,
+        times.start,
+        times.end,
         e.narrative ?? "",
         e.status,
         e.linked_source_type ?? "",
       ]
         .map((v) => escape(String(v)))
-        .join(",")
-    ),
+        .join(",");
+    }),
   ];
   return lines.join("\n");
 }

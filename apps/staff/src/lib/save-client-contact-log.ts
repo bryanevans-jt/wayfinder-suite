@@ -17,6 +17,8 @@ export type SaveClientContactLogInput = {
     activityTypeId: string;
     durationMinutes: number;
     serviceDate?: string;
+    startTime?: string;
+    endTime?: string;
   };
 };
 
@@ -72,6 +74,9 @@ export async function saveClientContactLog(
         activityTypeId: input.time.activityTypeId,
         serviceDate: input.time.serviceDate ?? todayLocalDate(),
         durationMinutes: input.time.durationMinutes,
+        startTime: input.time.startTime,
+        endTime: input.time.endTime,
+        recordedAt: new Date(),
         narrative,
         linkedSourceType: "contact_log",
         linkedSourceId: contactLogId,

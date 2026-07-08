@@ -6,6 +6,7 @@ import {
 } from "@wayfinder/branding/constants";
 import { DEFAULT_ACTIVITY_CODES } from "@wayfinder/supabase/es-time-tracking";
 import type { ServiceActivityType } from "@wayfinder/supabase/es-time-tracking";
+import { defaultActivityMinutes } from "@wayfinder/supabase/es-time-tracking";
 import type { ActionResult } from "@wayfinder/supabase/error-log";
 import { suggestContactLogFollowUps } from "@wayfinder/supabase/contact-log-suggestions";
 import { useRouter } from "next/navigation";
@@ -24,6 +25,8 @@ export function ClientContactLogForm({ clientId, activities }: Props) {
   const [internalNotes, setInternalNotes] = useState("");
   const [activityTypeId, setActivityTypeId] = useState(defaults.activityTypeId);
   const [durationMinutes, setDurationMinutes] = useState(defaults.durationMinutes);
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -38,7 +41,7 @@ export function ClientContactLogForm({ clientId, activities }: Props) {
     }
     if (activityTypeId !== match.id) {
       setActivityTypeId(match.id);
-      setDurationMinutes(match.default_minutes);
+      setDurationMinutes(defaultActivityMinutes(match));
     }
   }, [activities, activityTypeId]);
 
@@ -68,7 +71,12 @@ export function ClientContactLogForm({ clientId, activities }: Props) {
             internalNotes,
             time:
               activityTypeId && durationMinutes > 0
-                ? { activityTypeId, durationMinutes }
+                ? {
+                    activityTypeId,
+                    durationMinutes,
+                    ...(startTime ? { startTime } : {}),
+                    ...(endTime ? { endTime } : {}),
+                  }
                 : undefined,
           }),
         });
@@ -88,6 +96,8 @@ export function ClientContactLogForm({ clientId, activities }: Props) {
         }
         setContactNotes("");
         setInternalNotes("");
+        setStartTime("");
+        setEndTime("");
         try {
           router.refresh();
         } catch {
@@ -139,6 +149,10 @@ export function ClientContactLogForm({ clientId, activities }: Props) {
           onActivityTypeIdChange={setActivityTypeId}
           durationMinutes={durationMinutes}
           onDurationMinutesChange={setDurationMinutes}
+          startTime={startTime}
+          endTime={endTime}
+          onStartTimeChange={setStartTime}
+          onEndTimeChange={setEndTime}
           activityTypeLabel="Activity type"
           disabled={pending}
         />

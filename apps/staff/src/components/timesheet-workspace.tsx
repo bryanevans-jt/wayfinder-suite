@@ -1,6 +1,6 @@
 "use client";
 
-import { minutesToDecimalHours } from "@wayfinder/supabase/es-time-tracking";
+import { displayServiceTimes, minutesToDecimalHours } from "@wayfinder/supabase/es-time-tracking";
 import {
   isAdminTierRole,
   isEsRole,
@@ -60,6 +60,8 @@ export function TimesheetWorkspace({
 
   const weekStatus = weekSubmission?.status ?? "open";
   const csvHref = `/api/exports/time?week=${encodeURIComponent(weekStart)}&es=${encodeURIComponent(esUserId)}`;
+  const pdfHref = `/api/exports/time/pdf?week=${encodeURIComponent(weekStart)}&es=${encodeURIComponent(esUserId)}`;
+  const canDownloadPdf = weekStatus === "approved";
 
   function changeWeek(delta: number) {
     const params = new URLSearchParams(window.location.search);
@@ -200,6 +202,14 @@ export function TimesheetWorkspace({
             >
               Download CSV
             </a>
+            {canDownloadPdf ? (
+              <a
+                href={pdfHref}
+                className="rounded-lg border border-brand-green bg-brand-green px-3 py-2 text-sm font-semibold text-white"
+              >
+                Download PDFs
+              </a>
+            ) : null}
           </div>
         </div>
 
@@ -217,11 +227,26 @@ export function TimesheetWorkspace({
             <h3 className="text-sm font-semibold text-brand-black">By client</h3>
             <ul className="mt-2 space-y-1 text-sm text-brand-black/80">
               {summary.byClient.map((c) => (
-                <li key={c.name}>
-                  {c.name}: {minutesToDecimalHours(c.minutes)} hrs ({c.count} entries)
+                <li key={c.name} className="flex flex-wrap items-center gap-2">
+                  <span>
+                    {c.name}: {minutesToDecimalHours(c.minutes)} hrs ({c.count} entries)
+                  </span>
+                  {canDownloadPdf && c.clientId ? (
+                    <a
+                      href={`${pdfHref}&client=${encodeURIComponent(c.clientId)}`}
+                      className="text-xs font-semibold text-brand-green underline"
+                    >
+                      PDF
+                    </a>
+                  ) : null}
                 </li>
               ))}
             </ul>
+            {canDownloadPdf ? (
+              <p className="mt-2 text-xs text-brand-black/55">
+                One PDF per client with the Joshua Tree logo. Multiple clients download as a ZIP.
+              </p>
+            ) : null}
           </div>
         ) : null}
 
@@ -262,17 +287,23 @@ export function TimesheetWorkspace({
                   <th className="px-3 py-2">Client</th>
                   <th className="px-3 py-2">Activity</th>
                   <th className="px-3 py-2">Min</th>
+                  <th className="px-3 py-2">Start</th>
+                  <th className="px-3 py-2">End</th>
                   <th className="px-3 py-2">Status</th>
                   <th className="px-3 py-2">Narrative</th>
                 </tr>
               </thead>
               <tbody>
-                {entries.map((e) => (
+                {entries.map((e) => {
+                  const times = displayServiceTimes(e);
+                  return (
                   <tr key={e.id} className="border-t border-neutral-100">
                     <td className="px-3 py-2 whitespace-nowrap">{e.service_date}</td>
                     <td className="px-3 py-2">{e.client_name ?? "—"}</td>
                     <td className="px-3 py-2">{e.activity_name}</td>
                     <td className="px-3 py-2">{e.duration_minutes}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{times.start}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{times.end}</td>
                     <td className="px-3 py-2 capitalize">{e.status}</td>
                     <td className="max-w-xs px-3 py-2 text-brand-black/75">
                       {e.narrative ?? "—"}
@@ -281,7 +312,8 @@ export function TimesheetWorkspace({
                       ) : null}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

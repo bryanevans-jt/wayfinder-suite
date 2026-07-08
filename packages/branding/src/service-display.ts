@@ -9,6 +9,19 @@ export type ServiceSelectOption = {
   name: string;
 };
 
+export type ServiceSelectGroup = {
+  state: string | null;
+  label: string;
+  options: ServiceSelectOption[];
+};
+
+const STATE_GROUP_LABELS: Record<string, string> = {
+  GA: "Georgia",
+  TN: "Tennessee",
+};
+
+const STATE_GROUP_ORDER = ["GA", "TN"];
+
 const STATE_SUFFIX_RE = /\s+\(([A-Z]{2})\)\s*$/;
 
 /** Split a service name into base title and optional state code. */
@@ -146,24 +159,129 @@ export function dedupeServicesForSelect(rows: ServiceRowInput[]): ServiceSelectO
   );
 }
 
+function stateGroupLabel(state: string | null): string {
+  if (!state) return "General";
+  const name = STATE_GROUP_LABELS[state];
+  return name ? `${name} (${state})` : state;
+}
+
+function sortStateGroups(groups: ServiceSelectGroup[]): ServiceSelectGroup[] {
+  return groups.sort((a, b) => {
+    const ai = a.state ? STATE_GROUP_ORDER.indexOf(a.state) : 999;
+    const bi = b.state ? STATE_GROUP_ORDER.indexOf(b.state) : 999;
+    const aRank = ai >= 0 ? ai : 998;
+    const bRank = bi >= 0 ? bi : 998;
+    if (aRank !== bRank) return aRank - bRank;
+    return a.label.localeCompare(b.label, undefined, { sensitivity: "base" });
+  });
+}
+
+/** Keep services that match an office state (or have no state when office is unset). */
+export function filterServicesForOfficeState(
+  rows: ServiceRowInput[],
+  officeState: string | null | undefined
+): ServiceRowInput[] {
+  const normalizedOfficeState = officeState?.trim().toUpperCase() || null;
+  if (!normalizedOfficeState) {
+    return activeServicesForSelect(rows);
+  }
+
+  return activeServicesForSelect(rows).filter((row) => {
+    const { state } = parseServiceParts(row.name, row.state);
+    return state === normalizedOfficeState;
+  });
+}
+
+/** Service dropdown groups by state, optionally limited to one office state. */
+export function servicesGroupedByState(
+  rows: ServiceRowInput[],
+  officeState?: string | null
+): ServiceSelectGroup[] {
+  const filtered = filterServicesForOfficeState(rows, officeState);
+  const options = dedupeServicesForSelect(filtered);
+  const byState = new Map<string, ServiceSelectGroup>();
+
+  for (const option of options) {
+    const { state } = parseServiceParts(option.name, null);
+    const key = state ?? "";
+    const group =
+      byState.get(key) ??
+      ({
+        state,
+        label: stateGroupLabel(state),
+        options: [],
+      } satisfies ServiceSelectGroup);
+    group.options.push(option);
+    byState.set(key, group);
+  }
+
+  for (const group of byState.values()) {
+    group.options.sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+    );
+  }
+
+  return sortStateGroups([...byState.values()]);
+}
+
+function appendLegacyServiceGroup(
+  groups: ServiceSelectGroup[],
+  rows: ServiceRowInput[],
+  serviceId: string
+): ServiceSelectGroup[] {
+  const row = activeServicesForSelect(rows).find((r) => r.id === serviceId);
+  if (!row || groups.some((g) => g.options.some((o) => o.id === serviceId))) {
+    return groups;
+  }
+
+  const { state } = parseServiceParts(row.name, row.state);
+  const key = state ?? "";
+  const next = groups.map((g) => ({
+    ...g,
+    options: [...g.options],
+  }));
+  let group = next.find((g) => (g.state ?? "") === key);
+  if (!group) {
+    group = {
+      state,
+      label: stateGroupLabel(state),
+      options: [],
+    };
+    next.push(group);
+  }
+  group.options.push({
+    id: row.id,
+    name: serviceDisplayName(row),
+  });
+  group.options.sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+  );
+  return sortStateGroups(next);
+}
+
+/** Service dropdown groups for editing a client, including legacy service ids. */
+export function servicesForClientEditGroups(
+  rows: ServiceRowInput[],
+  currentServiceId: string | null,
+  officeState?: string | null
+): ServiceSelectGroup[] {
+  const effectiveCurrentId = resolveClientServiceIdForEdit(rows, currentServiceId);
+  let groups = servicesGroupedByState(rows, officeState);
+  if (effectiveCurrentId) {
+    groups = appendLegacyServiceGroup(groups, rows, effectiveCurrentId);
+  }
+  return groups;
+}
+
+export function flattenServiceGroups(groups: ServiceSelectGroup[]): ServiceSelectOption[] {
+  return groups.flatMap((group) => group.options);
+}
+
 /** Service dropdown options for editing a client, including legacy service ids. */
 export function servicesForClientEdit(
   rows: ServiceRowInput[],
-  currentServiceId: string | null
+  currentServiceId: string | null,
+  officeState?: string | null
 ): ServiceSelectOption[] {
-  const effectiveCurrentId = resolveClientServiceIdForEdit(rows, currentServiceId);
-  const options = dedupeServicesForSelect(rows);
-  if (effectiveCurrentId && !options.some((o) => o.id === effectiveCurrentId)) {
-    const row = activeServicesForSelect(rows).find((r) => r.id === effectiveCurrentId);
-    if (row) {
-      options.push({
-        id: row.id,
-        name: serviceDisplayName(row),
-      });
-      options.sort((a, b) =>
-        a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
-      );
-    }
-  }
-  return options;
+  return flattenServiceGroups(servicesForClientEditGroups(rows, currentServiceId, officeState));
 }
