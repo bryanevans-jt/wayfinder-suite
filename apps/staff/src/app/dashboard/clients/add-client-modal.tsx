@@ -71,6 +71,12 @@ export function AddClientModal({
     [counselors, officeId]
   );
 
+  useEffect(() => {
+    if (!open) return;
+    if (serviceId && serviceOptions.some((option) => option.id === serviceId)) return;
+    setServiceId(serviceOptions[0]?.id ?? "");
+  }, [open, serviceId, serviceOptions]);
+
   if (!open) {
     return null;
   }
@@ -96,12 +102,6 @@ export function AddClientModal({
     );
     setServiceId(nextOptions[0]?.id ?? "");
   }
-
-  useEffect(() => {
-    if (!open) return;
-    if (serviceId && serviceOptions.some((option) => option.id === serviceId)) return;
-    setServiceId(serviceOptions[0]?.id ?? "");
-  }, [open, serviceId, serviceOptions]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
