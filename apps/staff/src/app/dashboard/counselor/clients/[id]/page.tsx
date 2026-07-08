@@ -55,16 +55,18 @@ export default async function CounselorClientActivityPage({ params }: PageProps)
   const dataClient = admin ?? (await createServerClient());
   const activityFkIds = client.activityFkIds;
 
-  const clientProfileUserId = (client.user_id ?? client.profile_id) as string;
+  const clientProfileUserId = (client.user_id ?? client.profile_id) as string | null;
 
-  const { data: clientProfile } = await dataClient
-    .from("profiles")
-    .select("full_name, first_name, last_name")
-    .eq("id", clientProfileUserId)
-    .maybeSingle();
+  const { data: clientProfile } = clientProfileUserId
+    ? await dataClient
+        .from("profiles")
+        .select("full_name, first_name, last_name")
+        .eq("id", clientProfileUserId)
+        .maybeSingle()
+    : { data: null };
 
   const displayName = clientDisplayName({
-    full_name: clientProfile?.full_name ?? null,
+    full_name: clientProfile?.full_name ?? client.full_name ?? null,
     first_name: clientProfile?.first_name ?? null,
     last_name: clientProfile?.last_name ?? null,
     contact_email: client.contact_email,

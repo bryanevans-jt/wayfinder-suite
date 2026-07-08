@@ -712,9 +712,14 @@ export async function loadActivityLogs(
 
   let clientsQuery = await admin
     .from("clients")
-    .select("id, contact_email, office_id, user_id, profile_id");
+    .select("id, contact_email, office_id, user_id, profile_id, full_name");
   if (clientsQuery.error) {
-    clientsQuery = await admin.from("clients").select("id, contact_email, office_id");
+    clientsQuery = await admin
+      .from("clients")
+      .select("id, contact_email, office_id, user_id, profile_id");
+    if (clientsQuery.error) {
+      clientsQuery = await admin.from("clients").select("id, contact_email, office_id");
+    }
   }
 
   const [{ data: esLinks }, { data: contacts }, { data: apps }, { data: stages }, { data: meetings }] =
@@ -776,7 +781,10 @@ export async function loadActivityLogs(
         (c as { profile_id?: string | null }).profile_id) ??
       null;
     const label = clientDisplayName({
-      full_name: userId ? (profileNameById.get(userId) ?? null) : null,
+      full_name:
+        (userId ? (profileNameById.get(userId) ?? null) : null) ??
+        (c as { full_name?: string | null }).full_name ??
+        null,
       contact_email: c.contact_email as string | null,
       id,
     });

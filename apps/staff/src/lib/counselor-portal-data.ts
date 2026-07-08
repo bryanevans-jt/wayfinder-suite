@@ -11,6 +11,7 @@ export type CounselorPortalClient = {
   activityFkIds: string[];
   user_id: string | null;
   profile_id: string | null;
+  full_name: string | null;
   current_stage_id: string | null;
   counselor_id: string | null;
   contact_email: string | null;
@@ -21,6 +22,7 @@ function normalizeClient(row: {
   id: string | null;
   user_id: string | null;
   profile_id: string | null;
+  full_name?: string | null;
   current_stage_id: string | null;
   counselor_id: string | null;
   contact_email?: string | null;
@@ -37,6 +39,7 @@ function normalizeClient(row: {
     activityFkIds: buildClientActivityFkIds(row),
     user_id: row.user_id,
     profile_id: row.profile_id,
+    full_name: row.full_name ?? null,
     current_stage_id: row.current_stage_id,
     counselor_id: row.counselor_id,
     contact_email: row.contact_email ?? null,
@@ -52,9 +55,6 @@ export function getCounselorPortalAdmin() {
   }
 }
 
-const CLIENT_SELECT =
-  "id, user_id, profile_id, current_stage_id, counselor_id, contact_email, archived_at";
-
 /**
  * Legacy DBs: clients.counselor_id → profiles.id (counselor login uuid).
  * Wayfinder: clients.counselor_id → counselors.id. Match either when both are known.
@@ -64,37 +64,37 @@ async function queryAssignedClientRows(
   counselorRowId: string,
   authUserId?: string
 ) {
-  const base = admin.from("clients").select(CLIENT_SELECT);
-  const withLogin =
-    authUserId && authUserId !== counselorRowId
-      ? base.or(`counselor_id.eq.${authUserId},counselor_id.eq.${counselorRowId}`)
-      : base.eq("counselor_id", authUserId ?? counselorRowId);
+  const useLoginOr = Boolean(authUserId && authUserId !== counselorRowId);
+  const orFilter = `counselor_id.eq.${authUserId},counselor_id.eq.${counselorRowId}`;
+  const singleId = authUserId ?? counselorRowId;
 
-  const { data, error } = await withLogin;
+  const fullSelect = admin
+    .from("clients")
+    .select(
+      "id, user_id, profile_id, full_name, current_stage_id, counselor_id, contact_email, archived_at"
+    );
+  const { data, error } = await (useLoginOr
+    ? fullSelect.or(orFilter)
+    : fullSelect.eq("counselor_id", singleId));
   if (!error) {
     return { data, error: null as null };
   }
-  if (error.message.includes("archived_at")) {
-    const retrySelect =
-      "id, user_id, profile_id, current_stage_id, counselor_id, contact_email";
-    const retryBase = admin.from("clients").select(retrySelect);
-    const retryQuery =
-      authUserId && authUserId !== counselorRowId
-        ? retryBase.or(`counselor_id.eq.${authUserId},counselor_id.eq.${counselorRowId}`)
-        : retryBase.eq("counselor_id", authUserId ?? counselorRowId);
-    return retryQuery;
-  }
-  if (!error.message.includes("contact_email")) {
+
+  // Older DBs may lack the roster full_name, contact_email, or archived_at columns.
+  const missingOptionalColumn =
+    error.message.includes("full_name") ||
+    error.message.includes("archived_at") ||
+    error.message.includes("contact_email");
+  if (!missingOptionalColumn) {
     return { data: null, error };
   }
-  const retryBase = admin.from("clients").select(
-    "id, user_id, profile_id, current_stage_id, counselor_id"
-  );
-  const retryQuery =
-    authUserId && authUserId !== counselorRowId
-      ? retryBase.or(`counselor_id.eq.${authUserId},counselor_id.eq.${counselorRowId}`)
-      : retryBase.eq("counselor_id", authUserId ?? counselorRowId);
-  return retryQuery;
+
+  const minimalSelect = admin
+    .from("clients")
+    .select("id, user_id, profile_id, current_stage_id, counselor_id");
+  return useLoginOr
+    ? minimalSelect.or(orFilter)
+    : minimalSelect.eq("counselor_id", singleId);
 }
 
 /** Loads assigned clients for a counselor row (server-only; bypasses RLS). */

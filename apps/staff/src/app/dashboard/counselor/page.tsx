@@ -197,9 +197,9 @@ export default async function CounselorPortalPage({
       ) : (
         <ul className="mt-10 grid list-none gap-5 p-0 sm:grid-cols-2 lg:grid-cols-3">
           {clients.map((c) => {
-            const profileUserId = (c.user_id ?? c.profile_id) as string;
+            const profileUserId = (c.user_id ?? c.profile_id) as string | null;
             const displayName = clientDisplayName({
-              full_name: nameByUser.get(profileUserId) ?? null,
+              full_name: (profileUserId ? nameByUser.get(profileUserId) : null) ?? c.full_name ?? null,
               contact_email: c.contact_email,
               id: c.linkId,
             });

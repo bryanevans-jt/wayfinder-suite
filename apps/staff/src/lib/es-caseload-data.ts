@@ -4,6 +4,7 @@ export type EsCaseloadClientRow = {
   id: string;
   user_id: string | null;
   profile_id: string | null;
+  full_name: string | null;
   contact_email: string | null;
   current_service_id: string | null;
   current_stage_id: string | null;
@@ -65,11 +66,15 @@ export async function fetchEsCaseloadClients(
   const { data: clientRows, error: clientsErr } = await admin
     .from("clients")
     .select(
-      "id, user_id, profile_id, contact_email, current_service_id, current_stage_id, archived_at"
+      "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, archived_at"
     )
     .in("id", clientIds);
 
-  if (clientsErr?.message.includes("archived_at")) {
+  // Older databases may lack the roster full_name and/or archived_at columns; retry without them.
+  if (
+    clientsErr?.message.includes("archived_at") ||
+    clientsErr?.message.includes("full_name")
+  ) {
     const fallback = await admin
       .from("clients")
       .select("id, user_id, profile_id, contact_email, current_service_id, current_stage_id")
@@ -78,7 +83,8 @@ export async function fetchEsCaseloadClients(
       return { clients: [], error: fallback.error.message };
     }
     const rows = (fallback.data ?? []).map((c) => ({
-      ...(c as Omit<EsCaseloadClientRow, "archived_at">),
+      ...(c as Omit<EsCaseloadClientRow, "archived_at" | "full_name">),
+      full_name: null,
       archived_at: null,
     })) as EsCaseloadClientRow[];
     const clients = includeArchived ? rows : rows.filter((c) => c.archived_at == null);

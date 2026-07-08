@@ -176,7 +176,7 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
   const clientRows = clients.map((c) => {
     const profileId = c.user_id ?? c.profile_id;
     const name = clientDisplayName({
-      full_name: (profileId ? profileName.get(profileId) : null) ?? null,
+      full_name: (profileId ? profileName.get(profileId) : null) ?? c.full_name ?? null,
       contact_email: c.contact_email,
       id: c.id,
     });
