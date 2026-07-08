@@ -156,7 +156,7 @@ function resolveImportRow(
   const email = input.email.trim().toLowerCase();
 
   if (!client_name) return { ok: false, error: "client_name is required" };
-  if (!email || !email.includes("@")) return { ok: false, error: "Valid email is required" };
+  if (email && !email.includes("@")) return { ok: false, error: "Valid email is required when provided" };
 
   const office = lookups.officesByKey.get(normKey(input.office));
   if (!office) {
@@ -196,7 +196,7 @@ function resolveImportRow(
     ok: true,
     resolved: {
       client_name,
-      email,
+      email: email || null,
       officeId: office.id,
       serviceId: service.id,
       counselorId: counselor.id,
@@ -208,7 +208,7 @@ function resolveImportRow(
 
 type ResolvedImportRow = {
   client_name: string;
-  email: string;
+  email: string | null;
   officeId: string;
   serviceId: string;
   counselorId: string;
@@ -246,19 +246,19 @@ export async function importClientRows(
     const r = resolved.resolved;
     const created = await createClientAccount(admin, {
       name: r.client_name,
-      email: r.email,
+      ...(r.email ? { email: r.email } : {}),
       serviceId: r.serviceId,
       officeId: r.officeId,
       counselorId: r.counselorId,
       esUserId: r.esUserId,
-      sendInvite: r.sendInvite,
+      sendInvite: r.email ? r.sendInvite : false,
     });
 
     if ("error" in created) {
       failed++;
       results.push({
         row: rowNum,
-        email: r.email,
+        email: r.email ?? "",
         client_name: r.client_name,
         ok: false,
         error: created.error,
@@ -269,7 +269,7 @@ export async function importClientRows(
     imported++;
     results.push({
       row: rowNum,
-      email: r.email,
+      email: r.email ?? "",
       client_name: r.client_name,
       ok: true,
       clientId: created.clientId,
@@ -288,7 +288,7 @@ export function buildClientImportTemplateCsv(lookups: ClientImportLookupData): s
   const header = CLIENT_IMPORT_COLUMNS.join(",");
   const example = [
     "Jane Example",
-    "jane.example@email.com",
+    "",
     exampleOffice,
     exampleService,
     exampleCounselor,
@@ -314,7 +314,8 @@ export function buildClientImportTemplateCsv(lookups: ClientImportLookupData): s
       .map((c) => `# counselor: ${c.full_name}`) ),
     "# Reference — ES staff emails (optional es_email column)",
     ...( [...lookups.esByEmail.values()].map((e) => `# es_email: ${e.email}`) ),
-    "# send_invite: yes sends magic-link email; no creates account silently (recommended for bulk load)",
+    "# email: leave blank for no client login yet (roster mode); fill in to create/link a login",
+    "# send_invite: yes sends magic-link email; no creates account silently (ignored when email is blank)",
   ];
 
   return [header, example, ...referenceLines].join("\n");

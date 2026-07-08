@@ -1,9 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { insertClientRecord } from "./client-insert";
+import { insertRosterClientRecord } from "./client-roster-insert";
+import { resolveAuthUserIdByEmail } from "./link-client-auth";
 
 export type CreateClientParams = {
   name: string;
-  email: string;
+  /** Optional — when omitted the client is created without a login (roster mode). */
+  email?: string;
   serviceId: string;
   officeId: string;
   counselorId: string;
@@ -27,13 +30,13 @@ export async function createClientAccount(
   params: CreateClientAccountParams
 ): Promise<{ clientId: string } | { error: string }> {
   const name = params.name.trim();
-  const email = params.email.trim().toLowerCase();
+  const email = (params.email ?? "").trim().toLowerCase();
   const serviceId = params.serviceId.trim();
   const officeId = params.officeId.trim();
   const counselorId = params.counselorId.trim();
   const sendInvite = params.sendInvite !== false;
 
-  if (!name || !email || !serviceId || !officeId || !counselorId) {
+  if (!name || !serviceId || !officeId || !counselorId) {
     return { error: "Missing required fields" };
   }
 
@@ -74,6 +77,34 @@ export async function createClientAccount(
     return {
       error: "This service has no milestones yet. Add milestones before assigning clients.",
     };
+  }
+
+  if (!email) {
+    const clientResult = await insertRosterClientRecord(admin, {
+      fullName: name,
+      counselorId,
+      officeId,
+      serviceId,
+      stageId: firstMilestone.id as string,
+    });
+
+    if ("error" in clientResult) {
+      return { error: clientResult.error };
+    }
+
+    if (params.esUserId?.trim()) {
+      const { error: assignErr } = await admin.from("es_client_assignments").insert({
+        es_user_id: params.esUserId.trim(),
+        client_id: clientResult.id,
+      });
+
+      if (assignErr) {
+        await admin.from("clients").delete().eq("id", clientResult.id);
+        return { error: assignErr.message ?? "Could not assign client to ES" };
+      }
+    }
+
+    return { clientId: clientResult.id };
   }
 
   const authResult = await provisionClientAuthUser(admin, email, name, sendInvite);
@@ -174,6 +205,35 @@ async function provisionClientAuthUser(
   }
 
   return { userId: newUserId, created: true };
+}
+
+/** Creates or resolves a client login for an email (used when email is added to a roster client). */
+export async function ensureClientLoginForEmail(
+  admin: SupabaseClient,
+  email: string,
+  fullName: string,
+  options: { sendInvite?: boolean } = {}
+): Promise<{ userId: string; created: boolean } | { error: string }> {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) {
+    return { error: "Email is required" };
+  }
+
+  const existingId = await resolveAuthUserIdByEmail(admin, normalized);
+  if (existingId) {
+    const { error: profileErr } = await admin
+      .from("profiles")
+      .update({ full_name: fullName.trim(), role: "client", is_active: true })
+      .eq("id", existingId);
+
+    if (profileErr) {
+      return { error: profileErr.message ?? "Could not update profile" };
+    }
+
+    return { userId: existingId, created: false };
+  }
+
+  return provisionClientAuthUser(admin, normalized, fullName, options.sendInvite !== false);
 }
 
 async function counselorBelongsToOffice(

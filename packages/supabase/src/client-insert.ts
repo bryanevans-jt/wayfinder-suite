@@ -32,12 +32,14 @@ export function counselorFkIds(counselor: {
   ];
 }
 
-/** Updates a client row, retrying counselor_id when legacy FK targets auth user id. */
+/** Updates a client row, retrying counselor_id when legacy FK targets auth user id.
+ * Pass counselor `null` to clear counselor_id; omit to leave counselor unchanged.
+ */
 export async function updateClientRecord(
   admin: SupabaseClient,
   clientId: string,
   patch: Record<string, string | null>,
-  counselor?: { rowId: string; loginId?: string | null }
+  counselor?: { rowId: string; loginId?: string | null } | null
 ): Promise<{ ok: true } | { error: string }> {
   const { counselor_id: _ignored, ...withoutCounselor } = patch;
   const basePatch =
@@ -48,6 +50,13 @@ export async function updateClientRecord(
       return { ok: true };
     }
     const { error } = await admin.from("clients").update(basePatch).eq("id", clientId);
+    if (error) return { error: error.message };
+    return { ok: true };
+  }
+
+  if (counselor === null) {
+    const attempt = { ...basePatch, counselor_id: null };
+    const { error } = await admin.from("clients").update(attempt).eq("id", clientId);
     if (error) return { error: error.message };
     return { ok: true };
   }

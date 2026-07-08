@@ -175,12 +175,24 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
   const portalCounselors = useMemo((): CounselorOption[] => {
     if (!b) return [];
     const officeNameById = new Map(b.offices.map((o) => [o.id, o.name]));
-    return b.counselors.map((c) => ({
-      id: c.id,
-      full_name: c.full_name,
-      office_id: c.office_id ?? c.office_ids[0] ?? "",
-      offices: c.office_id ? { name: officeNameById.get(c.office_id) ?? "" } : null,
-    }));
+    const activeById = new Map(b.counselorStaff.map((c) => [c.id, c.is_active]));
+    return b.counselors.map((c) => {
+      const officeIds = [
+        ...new Set(
+          [c.office_id, ...(c.office_ids ?? [])].filter(
+            (id): id is string => typeof id === "string" && id.length > 0
+          )
+        ),
+      ];
+      return {
+        id: c.id,
+        full_name: c.full_name,
+        office_id: c.office_id ?? officeIds[0] ?? "",
+        office_ids: officeIds,
+        offices: c.office_id ? { name: officeNameById.get(c.office_id) ?? "" } : null,
+        is_active: activeById.get(c.id) !== false,
+      };
+    });
   }, [b]);
 
   const filteredClients = useMemo(() => {

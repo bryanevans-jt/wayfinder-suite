@@ -5,6 +5,9 @@ export type InsertRosterClientParams = {
   counselorId?: string | null;
   employmentGoalPrimary?: string | null;
   officeId?: string | null;
+  serviceId?: string | null;
+  stageId?: string | null;
+  contactEmail?: string | null;
 };
 
 /** Inserts a login-less client row (requires migration 20260707181500). */
@@ -24,9 +27,9 @@ export async function insertRosterClientRecord(
     employment_goal_primary: params.employmentGoalPrimary?.trim() || null,
     user_id: null,
     profile_id: null,
-    current_service_id: null,
-    current_stage_id: null,
-    contact_email: null,
+    current_service_id: params.serviceId?.trim() || null,
+    current_stage_id: params.stageId?.trim() || null,
+    contact_email: params.contactEmail?.trim().toLowerCase() || null,
   };
 
   const { data, error } = await admin.from("clients").insert(row).select("id").single();

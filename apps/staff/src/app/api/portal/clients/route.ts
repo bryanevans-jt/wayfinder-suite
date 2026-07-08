@@ -9,6 +9,7 @@ import {
 } from "@/lib/supervisor-client-scope";
 import {
   createClientWithInvite,
+  ensureClientLoginForEmail,
   linkClientAuthUserByEmail,
   resolveAuthUserIdByEmail,
   updateClientRecord,
@@ -190,7 +191,9 @@ export async function PATCH(request: NextRequest) {
 
     const { data: existing, error: loadErr } = await admin
       .from("clients")
-      .select("id, user_id, profile_id, contact_email, office_id, counselor_id, current_service_id, current_stage_id")
+      .select(
+        "id, user_id, profile_id, full_name, contact_email, office_id, counselor_id, current_service_id, current_stage_id"
+      )
       .eq("id", id)
       .maybeSingle();
 
@@ -203,6 +206,17 @@ export async function PATCH(request: NextRequest) {
       (existing.user_id as string | null) ?? (existing.profile_id as string | null) ?? null;
 
     const patch: Record<string, string | null> = {};
+    if (body.name !== undefined) {
+      const name = body.name.trim();
+      if (!name) {
+        return Response.json({ error: "Name cannot be empty" }, { status: 400 });
+      }
+      if (authUserId) {
+        // Profile name is synced after other updates when a login exists.
+      } else {
+        patch.full_name = name;
+      }
+    }
     if (body.contact_email !== undefined) {
       patch.contact_email = body.contact_email.trim().toLowerCase() || null;
     }
@@ -219,35 +233,45 @@ export async function PATCH(request: NextRequest) {
 
     const targetOfficeId = (patch.office_id ?? existing.office_id) as string | null;
 
-    let counselorForUpdate: { rowId: string; loginId?: string | null } | undefined;
+    let counselorForUpdate: { rowId: string; loginId?: string | null } | null | undefined;
 
     if (body.counselor_id !== undefined) {
       const counselorId = body.counselor_id.trim();
       if (!counselorId) {
-        return Response.json({ error: "counselor_id cannot be empty" }, { status: 400 });
-      }
-      const { data: counselor, error: counselorErr } = await admin
-        .from("counselors")
-        .select("id, office_id, user_id")
-        .eq("id", counselorId)
-        .maybeSingle();
+        // Allow unassigning counselor (roster / migration clients often have none).
+        counselorForUpdate = null;
+      } else {
+        const { data: counselor, error: counselorErr } = await admin
+          .from("counselors")
+          .select("id, office_id, user_id")
+          .eq("id", counselorId)
+          .maybeSingle();
 
-      if (counselorErr || !counselor) {
-        return Response.json({ error: "Invalid counselor" }, { status: 400 });
+        if (counselorErr || !counselor) {
+          return Response.json({ error: "Invalid counselor" }, { status: 400 });
+        }
+        if (
+          targetOfficeId &&
+          !(await counselorBelongsToOffice(admin, counselorId, targetOfficeId))
+        ) {
+          // Imported counselors may only sit on a staging office — link them to the
+          // client's office so staff can keep the assignment when updating office.
+          const { error: linkErr } = await admin.from("counselor_office_assignments").upsert(
+            { counselor_id: counselorId, office_id: targetOfficeId },
+            { onConflict: "counselor_id,office_id" }
+          );
+          if (linkErr) {
+            return Response.json(
+              { error: "Counselor must belong to the client's office" },
+              { status: 400 }
+            );
+          }
+        }
+        counselorForUpdate = {
+          rowId: counselorId,
+          loginId: counselor.user_id as string | null,
+        };
       }
-      if (
-        targetOfficeId &&
-        !(await counselorBelongsToOffice(admin, counselorId, targetOfficeId))
-      ) {
-        return Response.json(
-          { error: "Counselor must belong to the client's office" },
-          { status: 400 }
-        );
-      }
-      counselorForUpdate = {
-        rowId: counselorId,
-        loginId: counselor.user_id as string | null,
-      };
     }
 
     const targetServiceId =
@@ -331,23 +355,43 @@ export async function PATCH(request: NextRequest) {
     }
 
     let linkedAuthUserId = authUserId;
-    if (!linkedAuthUserId) {
-      const emailForLink =
-        patch.contact_email ?? (existing.contact_email as string | null);
-      if (emailForLink) {
-        const resolvedUserId = await resolveAuthUserIdByEmail(admin, emailForLink);
-        if (resolvedUserId) {
-          await linkClientAuthUserByEmail(admin, resolvedUserId, emailForLink);
-          linkedAuthUserId = resolvedUserId;
+    const emailForLink =
+      patch.contact_email !== undefined
+        ? patch.contact_email
+        : (existing.contact_email as string | null);
+
+    if (!linkedAuthUserId && emailForLink) {
+      const resolvedUserId = await resolveAuthUserIdByEmail(admin, emailForLink);
+      if (resolvedUserId) {
+        await linkClientAuthUserByEmail(admin, resolvedUserId, emailForLink);
+        linkedAuthUserId = resolvedUserId;
+      } else if (patch.contact_email) {
+        const displayName =
+          body.name?.trim() ||
+          (existing.full_name as string | null)?.trim() ||
+          "Client";
+        const provisioned = await ensureClientLoginForEmail(admin, emailForLink, displayName, {
+          sendInvite: false,
+        });
+        if ("error" in provisioned) {
+          return Response.json({ error: provisioned.error }, { status: 400 });
         }
+        const { error: linkErr } = await admin
+          .from("clients")
+          .update({
+            user_id: provisioned.userId,
+            profile_id: provisioned.userId,
+          })
+          .eq("id", id);
+        if (linkErr) {
+          throw new Error(linkErr.message);
+        }
+        linkedAuthUserId = provisioned.userId;
       }
     }
 
     if (body.name !== undefined && linkedAuthUserId) {
       const name = body.name.trim();
-      if (!name) {
-        return Response.json({ error: "Name cannot be empty" }, { status: 400 });
-      }
       const { error: profileErr } = await admin
         .from("profiles")
         .update({ full_name: name })

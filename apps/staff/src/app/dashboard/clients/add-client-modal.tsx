@@ -9,7 +9,10 @@ export type CounselorOption = {
   id: string;
   full_name: string;
   office_id: string;
+  /** All offices this counselor belongs to (primary + assignments). */
+  office_ids?: string[];
   offices: { name: string } | null;
+  is_active?: boolean;
 };
 
 export type EsUserOption = { id: string; label: string };
@@ -48,7 +51,11 @@ export function AddClientModal({
   const [error, setError] = useState<string | null>(null);
 
   const counselorsForOffice = useMemo(
-    () => counselors.filter((c) => c.office_id === officeId),
+    () =>
+      counselors.filter((c) => {
+        const ids = c.office_ids?.length ? c.office_ids : [c.office_id];
+        return ids.includes(officeId);
+      }),
     [counselors, officeId]
   );
 
@@ -78,7 +85,7 @@ export function AddClientModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
-          email,
+          ...(email.trim() ? { email: email.trim() } : {}),
           serviceId,
           officeId,
           counselorId,
@@ -128,7 +135,8 @@ export function AddClientModal({
           </button>
         </div>
         <p className="mt-1 text-sm text-brand-black/70">
-          We&apos;ll email the client a login link so they can sign in to their portal.
+          Add a client to your caseload. Email is optional — without it there is no client login,
+          messaging, or client dashboard until an email is added later.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -147,7 +155,7 @@ export function AddClientModal({
           </div>
           <div>
             <label className="block text-sm font-medium text-brand-black" htmlFor="client-email">
-              Email
+              Email <span className="font-normal text-brand-black/55">(optional)</span>
             </label>
             <input
               id="client-email"
@@ -156,7 +164,7 @@ export function AddClientModal({
               value={email}
               onChange={(ev) => setEmail(ev.target.value)}
               autoComplete="email"
-              required
+              placeholder="Leave blank for no client login yet"
             />
           </div>
           <div>
@@ -221,6 +229,7 @@ export function AddClientModal({
               {counselorsForOffice.map((c) => (
                 <option key={c.id} value={c.id}>
                   {personDisplayName({ full_name: c.full_name, id: c.id })}
+                  {c.is_active === false ? " (inactive)" : ""}
                   {c.offices?.name ? ` · ${c.offices.name}` : ""}
                 </option>
               ))}
@@ -294,7 +303,7 @@ export function AddClientModal({
               disabled={submitting || services.length === 0 || offices.length === 0}
               className="rounded-lg bg-brand-gold px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-gold/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {submitting ? "Saving…" : "Create client"}
+              {submitting ? "Saving…" : email.trim() ? "Create client" : "Create client (no login)"}
             </button>
           </div>
         </form>

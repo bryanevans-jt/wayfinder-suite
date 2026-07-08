@@ -14,8 +14,8 @@ type SavePayload = {
   counselor_id: string;
   es_user_id: string | null;
   es_email?: string | null;
-  current_service_id: string;
-  current_stage_id: string;
+  current_service_id?: string;
+  current_stage_id?: string;
 };
 
 type Props = {
@@ -99,10 +99,23 @@ export function ClientDetailDrawer({
     setStageId(stagesForService[0]?.id ?? "");
   }, [open, stagesForService, stageId]);
 
-  const counselorsForOffice = useMemo(
-    () => counselors.filter((c) => c.office_id === officeId),
-    [counselors, officeId]
-  );
+  const counselorsForOffice = useMemo(() => {
+    // Show all counselors on edit so imported / inactive / staging-office counselors remain selectable.
+    // Office-matched first, then others; keep current assignment visible at top when needed.
+    const rank = (c: CounselorOption) => {
+      const ids = c.office_ids?.length ? c.office_ids : [c.office_id].filter(Boolean);
+      if (c.id === counselorId) return 0;
+      if (ids.includes(officeId)) return 1;
+      if (c.is_active === false) return 3;
+      return 2;
+    };
+    return [...counselors].sort((a, b) => {
+      const ra = rank(a);
+      const rb = rank(b);
+      if (ra !== rb) return ra - rb;
+      return a.full_name.localeCompare(b.full_name, undefined, { sensitivity: "base" });
+    });
+  }, [counselors, officeId, counselorId]);
 
   if (!open || !client) {
     return null;
@@ -118,13 +131,8 @@ export function ClientDetailDrawer({
     setStageId(nextStages[0]?.id ?? "");
   }
 
-  const canSave =
-    !busy &&
-    name.trim().length > 0 &&
-    officeId.length > 0 &&
-    counselorId.length > 0 &&
-    serviceId.length > 0 &&
-    stageId.length > 0;
+  // Counselor / service / stage are optional on edit so roster clients can be updated.
+  const canSave = !busy && name.trim().length > 0 && officeId.length > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/40">
@@ -168,11 +176,14 @@ export function ClientDetailDrawer({
           </label>
 
           <label className="block text-sm">
-            <span className="font-medium text-brand-black">Email</span>
+            <span className="font-medium text-brand-black">
+              Email <span className="font-normal text-brand-black/55">(optional)</span>
+            </span>
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               type="email"
+              placeholder="Add later to enable client login"
               className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
               disabled={busy}
             />
@@ -182,10 +193,7 @@ export function ClientDetailDrawer({
             <span className="font-medium text-brand-black">Office</span>
             <select
               value={officeId}
-              onChange={(e) => {
-                setOfficeId(e.target.value);
-                setCounselorId("");
-              }}
+              onChange={(e) => setOfficeId(e.target.value)}
               className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
               disabled={busy}
             >
@@ -237,59 +245,67 @@ export function ClientDetailDrawer({
           ) : null}
 
           <label className="block text-sm">
-            <span className="font-medium text-brand-black">Counselor</span>
+            <span className="font-medium text-brand-black">
+              Counselor <span className="font-normal text-brand-black/55">(optional)</span>
+            </span>
             <select
               value={counselorId}
               onChange={(e) => setCounselorId(e.target.value)}
               className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
               disabled={busy}
             >
-              <option value="">Select counselor</option>
-              {counselorsForOffice.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {personDisplayName({ full_name: c.full_name, id: c.id })}
-                </option>
-              ))}
+              <option value="">Unassigned</option>
+              {counselorsForOffice.map((c) => {
+                const ids = c.office_ids?.length
+                  ? c.office_ids
+                  : [c.office_id].filter(Boolean);
+                const otherOffice = officeId && !ids.includes(officeId);
+                return (
+                  <option key={c.id} value={c.id}>
+                    {personDisplayName({ full_name: c.full_name, id: c.id })}
+                    {c.is_active === false ? " (inactive)" : ""}
+                    {otherOffice && c.offices?.name ? ` · ${c.offices.name}` : ""}
+                  </option>
+                );
+              })}
             </select>
           </label>
 
           <label className="block text-sm">
-            <span className="font-medium text-brand-black">Service</span>
+            <span className="font-medium text-brand-black">
+              Service <span className="font-normal text-brand-black/55">(optional)</span>
+            </span>
             <select
               value={serviceId}
               onChange={(e) => handleServiceChange(e.target.value)}
               className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
               disabled={busy || serviceOptions.length === 0}
             >
-              {serviceOptions.length === 0 ? (
-                <option value="">No services</option>
-              ) : (
-                serviceOptions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))
-              )}
+              <option value="">Unassigned</option>
+              {serviceOptions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
             </select>
           </label>
 
           <label className="block text-sm">
-            <span className="font-medium text-brand-black">Current stage</span>
+            <span className="font-medium text-brand-black">
+              Current stage <span className="font-normal text-brand-black/55">(optional)</span>
+            </span>
             <select
               value={stageId}
               onChange={(e) => setStageId(e.target.value)}
               className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
               disabled={busy || stagesForService.length === 0}
             >
-              {stagesForService.length === 0 ? (
-                <option value="">No stages</option>
-              ) : (
-                stagesForService.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.title}
-                  </option>
-                ))
-              )}
+              <option value="">Unassigned</option>
+              {stagesForService.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.title}
+                </option>
+              ))}
             </select>
           </label>
         </div>
@@ -307,8 +323,12 @@ export function ClientDetailDrawer({
                   counselor_id: counselorId,
                   es_user_id: esEmail.trim() ? null : esUserId || null,
                   es_email: esEmail.trim() || null,
-                  current_service_id: serviceId,
-                  current_stage_id: stageId,
+                  ...(serviceId
+                    ? {
+                        current_service_id: serviceId,
+                        ...(stageId ? { current_stage_id: stageId } : {}),
+                      }
+                    : {}),
                 })
               }
               className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"

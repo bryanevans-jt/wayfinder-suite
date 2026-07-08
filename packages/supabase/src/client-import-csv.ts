@@ -44,14 +44,14 @@ export function analyzeClientImportCsv(rows: ClientImportInputRow[]): ClientImpo
     if (!clientName) {
       rowIssues.push("Client name is required");
     }
-    if (!email) {
-      rowIssues.push("Email is required");
-    } else if (!isValidEmail(email)) {
-      rowIssues.push("Email does not look valid");
-    } else {
-      const existing = emailRows.get(email) ?? [];
-      existing.push(rowNum);
-      emailRows.set(email, existing);
+    if (email) {
+      if (!isValidEmail(email)) {
+        rowIssues.push("Email does not look valid");
+      } else {
+        const existing = emailRows.get(email) ?? [];
+        existing.push(rowNum);
+        emailRows.set(email, existing);
+      }
     }
     if (!row.office.trim()) {
       rowIssues.push("Office is required");

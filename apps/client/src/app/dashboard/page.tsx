@@ -66,7 +66,7 @@ export default async function ClientDashboardPage({
       if (clientIds.length > 0) {
         const { data: clients } = await admin
           .from("clients")
-          .select("id, contact_email, profile_id, user_id")
+          .select("id, contact_email, full_name, profile_id, user_id")
           .in("id", clientIds);
         const profileIds = [
           ...new Set(
@@ -86,7 +86,9 @@ export default async function ClientDashboardPage({
           return {
             id: c.id as string,
             label: clientDisplayName({
-              full_name: profileId ? (nameById.get(profileId) ?? null) : null,
+              full_name:
+                (c as { full_name?: string | null }).full_name ??
+                (profileId ? (nameById.get(profileId) ?? null) : null),
               contact_email: c.contact_email as string | null,
               id: c.id as string,
             }),

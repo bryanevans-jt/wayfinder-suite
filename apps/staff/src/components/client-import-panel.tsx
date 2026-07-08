@@ -172,11 +172,13 @@ export function ClientImportPanel({ disabled = false, onComplete }: Props) {
             <li>
               Required columns:{" "}
               <code className="rounded bg-neutral-100 px-1 text-xs">
-                {CLIENT_IMPORT_COLUMNS.slice(0, 5).join(", ")}
+                client_name, office, service, counselor
               </code>
             </li>
             <li>
-              Optional: <code className="rounded bg-neutral-100 px-1 text-xs">es_email</code>,{" "}
+              Optional: <code className="rounded bg-neutral-100 px-1 text-xs">email</code>{" "}
+              (blank = no client login),{" "}
+              <code className="rounded bg-neutral-100 px-1 text-xs">es_email</code>,{" "}
               <code className="rounded bg-neutral-100 px-1 text-xs">send_invite</code> (yes/no)
             </li>
             <li>Upload the completed CSV and run import.</li>

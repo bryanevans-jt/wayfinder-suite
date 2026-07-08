@@ -253,12 +253,16 @@ export async function setClientJobStartDate(
 
     const { data: clientRow } = await admin
       .from("clients")
-      .select("contact_email, user_id, profile_id")
+      .select("contact_email, full_name, user_id, profile_id")
       .eq("id", clientId)
       .maybeSingle();
 
     const profileId = (clientRow?.user_id ?? clientRow?.profile_id) as string | null;
-    let clientLabel = (clientRow?.contact_email as string | null) ?? "Client";
+    let clientLabel = clientDisplayName({
+      full_name: (clientRow?.full_name as string | null) ?? null,
+      contact_email: clientRow?.contact_email as string | null,
+      id: clientId,
+    });
     if (profileId) {
       const { data: profile } = await admin
         .from("profiles")
@@ -266,7 +270,10 @@ export async function setClientJobStartDate(
         .eq("id", profileId)
         .maybeSingle();
       clientLabel = clientDisplayName({
-        full_name: (profile?.full_name as string | null) ?? null,
+        full_name:
+          (profile?.full_name as string | null) ??
+          (clientRow?.full_name as string | null) ??
+          null,
         contact_email: clientRow?.contact_email as string | null,
         id: clientId,
       });
