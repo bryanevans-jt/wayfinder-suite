@@ -86,6 +86,7 @@ export type PortalBootstrap = {
     display_name: string;
     office_ids: string[];
     role: "es" | "supervisor";
+    is_active: boolean;
   }[];
   esStaff: {
     id: string;
@@ -493,7 +494,7 @@ export async function loadPortalBootstrap(
       return mapped;
     })(),
     caseloadAssignees: (() => {
-      let assigneeProfiles = activeProfiles.filter(
+      let assigneeProfiles = (profiles ?? []).filter(
         (p) => p.role === "es" || p.role === "supervisor"
       );
 
@@ -517,14 +518,17 @@ export async function loadPortalBootstrap(
           const id = p.id as string;
           const profile = profileById.get(id);
           const isSupervisor = p.role === "supervisor";
+          const isActive = p.is_active !== false;
           const name = staffNameFor(id);
+          const inactiveSuffix = isActive ? "" : " (inactive)";
           return {
             id,
             email: emailById.get(id) ?? "",
             full_name: profile?.full_name ?? null,
-            display_name: isSupervisor ? `${name} (Supervisor)` : name,
+            display_name: isSupervisor ? `${name} (Supervisor)${inactiveSuffix}` : `${name}${inactiveSuffix}`,
             office_ids: staffOfficeByUser.get(id) ?? [],
             role: p.role as "es" | "supervisor",
+            is_active: isActive,
           };
         })
         .sort((a, b) =>
@@ -536,13 +540,15 @@ export async function loadPortalBootstrap(
         if (!mapped.some((e) => e.id === supId)) {
           const profile = profileById.get(supId);
           const name = staffNameFor(supId);
+          const isActive = profile?.is_active !== false;
           mapped.unshift({
             id: supId,
             email: emailById.get(supId) ?? "",
             full_name: profile?.full_name ?? null,
-            display_name: `${name} (you)`,
+            display_name: `${name} (you)${isActive ? "" : " (inactive)"}`,
             office_ids: staffOfficeByUser.get(supId) ?? [],
             role: "supervisor",
+            is_active: isActive,
           });
         }
       }

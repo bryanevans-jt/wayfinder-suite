@@ -1457,7 +1457,23 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
           open={drawerClient !== null}
           client={drawerClient}
           offices={b.offices}
-          esUsers={b.caseloadAssignees}
+          esUsers={(() => {
+            const byId = new Map(b.caseloadAssignees.map((e) => [e.id, e]));
+            for (const id of drawerClient.es_user_ids) {
+              if (byId.has(id)) continue;
+              const name = b.staffNameById[id] ?? id;
+              byId.set(id, {
+                id,
+                email: "",
+                full_name: null,
+                display_name: name,
+                office_ids: [],
+                role: "es",
+                is_active: false,
+              });
+            }
+            return [...byId.values()];
+          })()}
           counselors={portalCounselors}
           serviceCatalog={b.serviceCatalog}
           serviceMilestones={b.serviceMilestones}

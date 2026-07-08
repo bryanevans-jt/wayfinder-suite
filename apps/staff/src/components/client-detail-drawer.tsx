@@ -22,7 +22,7 @@ type Props = {
   open: boolean;
   client: ClientRow | null;
   offices: PortalBootstrap["offices"];
-  esUsers: PortalBootstrap["esUsers"];
+  esUsers: PortalBootstrap["caseloadAssignees"];
   counselors: CounselorOption[];
   serviceCatalog: PortalBootstrap["serviceCatalog"];
   serviceMilestones: PortalBootstrap["serviceMilestones"];
@@ -98,6 +98,15 @@ export function ClientDetailDrawer({
     if (stagesForService.some((m) => m.id === stageId)) return;
     setStageId(stagesForService[0]?.id ?? "");
   }, [open, stagesForService, stageId]);
+
+  const esPickerOptions = useMemo(() => {
+    const currentId = client?.es_user_ids[0];
+    return [...esUsers].sort((a, b) => {
+      if (a.id === currentId) return -1;
+      if (b.id === currentId) return 1;
+      return a.display_name.localeCompare(b.display_name, undefined, { sensitivity: "base" });
+    });
+  }, [esUsers, client]);
 
   const counselorsForOffice = useMemo(() => {
     // Show all counselors on edit so imported / inactive / staging-office counselors remain selectable.
@@ -176,9 +185,7 @@ export function ClientDetailDrawer({
           </label>
 
           <label className="block text-sm">
-            <span className="font-medium text-brand-black">
-              Email <span className="font-normal text-brand-black/55">(optional)</span>
-            </span>
+            <span className="font-medium text-brand-black">Email</span>
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -217,7 +224,7 @@ export function ClientDetailDrawer({
               disabled={busy}
             >
               <option value="">Unassigned</option>
-              {esUsers.map((e) => (
+              {esPickerOptions.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.display_name}
                 </option>
@@ -245,9 +252,7 @@ export function ClientDetailDrawer({
           ) : null}
 
           <label className="block text-sm">
-            <span className="font-medium text-brand-black">
-              Counselor <span className="font-normal text-brand-black/55">(optional)</span>
-            </span>
+            <span className="font-medium text-brand-black">Counselor</span>
             <select
               value={counselorId}
               onChange={(e) => setCounselorId(e.target.value)}
@@ -272,9 +277,7 @@ export function ClientDetailDrawer({
           </label>
 
           <label className="block text-sm">
-            <span className="font-medium text-brand-black">
-              Service <span className="font-normal text-brand-black/55">(optional)</span>
-            </span>
+            <span className="font-medium text-brand-black">Service</span>
             <select
               value={serviceId}
               onChange={(e) => handleServiceChange(e.target.value)}
@@ -291,9 +294,7 @@ export function ClientDetailDrawer({
           </label>
 
           <label className="block text-sm">
-            <span className="font-medium text-brand-black">
-              Current stage <span className="font-normal text-brand-black/55">(optional)</span>
-            </span>
+            <span className="font-medium text-brand-black">Current stage</span>
             <select
               value={stageId}
               onChange={(e) => setStageId(e.target.value)}

@@ -90,8 +90,8 @@ async function resolveEsUserId(
       .select("role, is_active")
       .eq("id", userId)
       .maybeSingle();
-    if (!profile || profile.is_active === false) {
-      return "That employment specialist account is inactive or not found.";
+    if (!profile) {
+      return "That employment specialist account was not found.";
     }
     if (!isCaseloadAssigneeRole(profile.role as string)) {
       return "Caseload can only be assigned to an employment specialist or supervisor.";
