@@ -1,6 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClientAccount } from "./client-create";
 import {
+  findClientIdByName,
+  loadClientIdsByNormalizedName,
+  normalizeClientNameKey,
+} from "./client-name-dedupe";
+import {
   CLIENT_IMPORT_COLUMNS,
   type ClientImportInputRow,
 } from "./client-import-csv";
@@ -25,12 +30,14 @@ export type ClientImportRowResult = {
   email: string;
   client_name: string;
   ok: boolean;
+  skipped?: boolean;
   clientId?: string;
   error?: string;
 };
 
 export type ClientImportBatchResult = {
   imported: number;
+  skipped: number;
   failed: number;
   results: ClientImportRowResult[];
 };
@@ -224,7 +231,9 @@ export async function importClientRows(
 ): Promise<ClientImportBatchResult> {
   const results: ClientImportRowResult[] = [];
   let imported = 0;
+  let skipped = 0;
   let failed = 0;
+  const existingByName = await loadClientIdsByNormalizedName(admin);
 
   for (let i = 0; i < rows.length; i++) {
     const input = rows[i]!;
@@ -244,6 +253,23 @@ export async function importClientRows(
     }
 
     const r = resolved.resolved;
+
+    if (!r.email) {
+      const existingId = findClientIdByName(existingByName, r.client_name);
+      if (existingId) {
+        skipped++;
+        results.push({
+          row: rowNum,
+          email: "",
+          client_name: r.client_name,
+          ok: true,
+          skipped: true,
+          clientId: existingId,
+        });
+        continue;
+      }
+    }
+
     const created = await createClientAccount(admin, {
       name: r.client_name,
       ...(r.email ? { email: r.email } : {}),
@@ -274,9 +300,12 @@ export async function importClientRows(
       ok: true,
       clientId: created.clientId,
     });
+    if (!r.email) {
+      existingByName.set(normalizeClientNameKey(r.client_name), created.clientId);
+    }
   }
 
-  return { imported, failed, results };
+  return { imported, skipped, failed, results };
 }
 
 export function buildClientImportTemplateCsv(lookups: ClientImportLookupData): string {

@@ -77,8 +77,11 @@ export async function POST(request: NextRequest) {
     const email = (body.email ?? "").trim().toLowerCase();
     const officeIds = (body.office_ids ?? []).map((id) => id.trim()).filter(Boolean);
 
-    if (!fullName || !email) {
-      return Response.json({ error: "Full name and email are required" }, { status: 400 });
+    if (!fullName) {
+      return Response.json({ error: "Full name is required" }, { status: 400 });
+    }
+    if (email && !email.includes("@")) {
+      return Response.json({ error: "Enter a valid email or leave it blank" }, { status: 400 });
     }
     if (officeIds.length === 0) {
       return Response.json({ error: "At least one office is required" }, { status: 400 });
@@ -97,7 +100,9 @@ export async function POST(request: NextRequest) {
     const counselorId = counselor.id as string;
 
     try {
-      await linkCounselorLogin(admin, counselorId, email, fullName);
+      if (email) {
+        await linkCounselorLogin(admin, counselorId, email, fullName);
+      }
       await replaceCounselorOfficeAssignments(admin, counselorId, officeIds);
     } catch (error) {
       await admin.from("counselors").delete().eq("id", counselorId);

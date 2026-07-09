@@ -1,4 +1,9 @@
 // READ-ONLY extraction of the legacy JT Reports v2 roster.
+// RETIRED — initial migration complete; do not re-run.
+import { exitIfV2RosterRetired } from "./lib/v2-roster-retired.mjs";
+
+exitIfV2RosterRetired();
+
 // Loads credentials from .env.v2.local. Never writes to the v2 database.
 // Outputs analysis + roster CSVs into .tmp-jtsg-reports-v2/ (git-ignored).
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";

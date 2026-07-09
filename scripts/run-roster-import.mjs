@@ -1,10 +1,14 @@
 // Imports the roster CSV into Wayfinder Pro using the service-role key.
-// Idempotent: re-running skips clients that already exist (login-less, matched by full_name).
-// Requires migration 20260707181500_client_roster_without_login.sql to be applied first.
+// RETIRED — initial migration complete; do not re-run.
+import { exitIfV2RosterRetired } from "./lib/v2-roster-retired.mjs";
+
+exitIfV2RosterRetired();
+
 import { join } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import {
   canonicalCounselorName,
+  clean,
   loadEnvFile,
   norm,
   parseCsvFile,
@@ -64,11 +68,36 @@ for (const p of profiles) {
   if (email) esIdByEmail.set(email, p.id);
 }
 
-// Existing login-less roster clients (idempotency)
-const existing = await fetchAll("clients", "id, full_name, user_id", (q) => q.is("user_id", null));
+// Existing clients matched by normalized name (all roster + login clients).
+const allClients = await fetchAll("clients", "id, full_name, user_id, profile_id");
+const allProfiles = await fetchAll("profiles", "id, full_name");
+const profileNameById = new Map(
+  allProfiles.map((p) => [p.id, (p.full_name ?? "").trim()])
+);
+
+function nameKey(name) {
+  let n = clean(name);
+  if (n.includes(",")) {
+    const [last, first] = n.split(",").map((part) => part.trim());
+    if (first && last) n = `${first} ${last}`;
+  }
+  return norm(n);
+}
+
 const existingByName = new Map();
-for (const c of existing) {
-  if (c.full_name) existingByName.set(norm(c.full_name), c.id);
+for (const client of allClients) {
+  if (client.full_name) {
+    const key = nameKey(client.full_name);
+    if (key && !existingByName.has(key)) existingByName.set(key, client.id);
+  }
+  const authId = client.user_id ?? client.profile_id;
+  if (authId) {
+    const profileName = profileNameById.get(authId);
+    if (profileName) {
+      const key = nameKey(profileName);
+      if (key && !existingByName.has(key)) existingByName.set(key, client.id);
+    }
+  }
 }
 
 let created = 0;
@@ -90,7 +119,7 @@ for (const row of rows) {
     failures.push(`${name}: ES email "${row.es_email}" not found`);
   }
 
-  let clientId = existingByName.get(norm(name));
+  let clientId = existingByName.get(nameKey(name));
 
   if (clientId) {
     skipped++;
@@ -114,7 +143,7 @@ for (const row of rows) {
       continue;
     }
     clientId = data.id;
-    existingByName.set(norm(name), clientId);
+    existingByName.set(nameKey(name), clientId);
     created++;
     if (counselorId) counselorAttached++;
   }

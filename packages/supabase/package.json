@@ -32,6 +32,7 @@
     "./client-import-csv": "./src/client-import-csv.ts",
     "./client-roster-import": "./src/client-roster-import.ts",
     "./client-roster-import-csv": "./src/client-roster-import-csv.ts",
+    "./v2-roster-import-policy": "./src/v2-roster-import-policy.ts",
     "./es-time-tracking": "./src/es-time-tracking.ts",
     "./caseload-triage": "./src/caseload-triage.ts",
     "./employment-celebrations": "./src/employment-celebrations.ts",

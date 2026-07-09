@@ -1,4 +1,4 @@
-// Shared helpers for v2 → Wayfinder roster migration scripts.
+// Shared helpers for v2 → Wayfinder roster migration scripts (retired).
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 

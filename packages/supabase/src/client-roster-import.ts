@@ -1,4 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { assertV2RosterImportAllowed } from "./v2-roster-import-policy";
+import { findClientIdByName, loadClientIdsByNormalizedName, normalizeClientNameKey } from "./client-name-dedupe";
 import { insertRosterClientRecord } from "./client-roster-insert";
 import {
   ROSTER_IMPORT_COLUMNS,
@@ -25,12 +27,14 @@ export type RosterImportRowResult = {
   row: number;
   client_name: string;
   ok: boolean;
+  skipped?: boolean;
   clientId?: string;
   error?: string;
 };
 
 export type RosterImportBatchResult = {
   imported: number;
+  skipped: number;
   failed: number;
   results: RosterImportRowResult[];
 };
@@ -171,23 +175,18 @@ type ResolvedRosterRow = {
   employmentGoal: string | null;
 };
 
-async function findExistingRosterClient(
+async function upsertEsAssignment(
   admin: SupabaseClient,
-  fullName: string
+  esUserId: string,
+  clientId: string
 ): Promise<string | null> {
-  const { data } = await admin
-    .from("clients")
-    .select("id, full_name")
-    .is("user_id", null)
-    .not("full_name", "is", null);
-
-  const key = normKey(fullName);
-  for (const row of data ?? []) {
-    if (normKey((row.full_name as string) ?? "") === key) {
-      return row.id as string;
-    }
-  }
-  return null;
+  const { error } = await admin
+    .from("es_client_assignments")
+    .upsert(
+      { es_user_id: esUserId, client_id: clientId },
+      { onConflict: "es_user_id,client_id" }
+    );
+  return error?.message ?? null;
 }
 
 export async function importRosterClientBatch(
@@ -195,10 +194,13 @@ export async function importRosterClientBatch(
   rows: RosterImportInputRow[],
   options: { startRow?: number } = {}
 ): Promise<RosterImportBatchResult> {
+  assertV2RosterImportAllowed();
   const lookups = await loadRosterImportLookups(admin);
+  const existingByName = await loadClientIdsByNormalizedName(admin);
   const startRow = options.startRow ?? 2;
   const results: RosterImportRowResult[] = [];
   let imported = 0;
+  let skipped = 0;
   let failed = 0;
 
   for (let i = 0; i < rows.length; i++) {
@@ -218,13 +220,27 @@ export async function importRosterClientBatch(
 
     const { clientName, counselorId, esUserId, employmentGoal } = resolved.data;
 
-    const existingId = await findExistingRosterClient(admin, clientName);
+    const existingId = findClientIdByName(existingByName, clientName);
     if (existingId) {
-      imported++;
+      if (esUserId) {
+        const assignErr = await upsertEsAssignment(admin, esUserId, existingId);
+        if (assignErr) {
+          failed++;
+          results.push({
+            row: rowNum,
+            client_name: clientName,
+            ok: false,
+            error: assignErr,
+          });
+          continue;
+        }
+      }
+      skipped++;
       results.push({
         row: rowNum,
         client_name: clientName,
         ok: true,
+        skipped: true,
         clientId: existingId,
       });
       continue;
@@ -247,11 +263,10 @@ export async function importRosterClientBatch(
       continue;
     }
 
+    existingByName.set(normalizeClientNameKey(clientName), created.id);
+
     if (esUserId) {
-      const { error: assignErr } = await admin.from("es_client_assignments").insert({
-        es_user_id: esUserId,
-        client_id: created.id,
-      });
+      const assignErr = await upsertEsAssignment(admin, esUserId, created.id);
       if (assignErr) {
         await admin.from("clients").delete().eq("id", created.id);
         failed++;
@@ -259,7 +274,7 @@ export async function importRosterClientBatch(
           row: rowNum,
           client_name: clientName,
           ok: false,
-          error: assignErr.message,
+          error: assignErr,
         });
         continue;
       }
@@ -274,7 +289,7 @@ export async function importRosterClientBatch(
     });
   }
 
-  return { imported, failed, results };
+  return { imported, skipped, failed, results };
 }
 
 export function buildRosterImportTemplateCsv(lookups: RosterImportLookupData): string {

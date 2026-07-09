@@ -734,6 +734,8 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
           <p className="text-sm text-brand-black/70">
             Counselors are external partners with <strong>view-only</strong> access to their
             assigned clients and activity timelines. They cannot edit records or use team member tools.
+            Add a name and offices only to assign clients on the roster; add an email later when they
+            are ready for portal login.
           </p>
           <form
             className="space-y-4 rounded-xl border border-neutral-200 bg-white p-4"
@@ -770,9 +772,8 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 type="email"
                 value={newCounselorEmail}
                 onChange={(e) => setNewCounselorEmail(e.target.value)}
-                placeholder="Email for view-only login"
+                placeholder="Email for view-only login (optional)"
                 className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-                required
               />
             </div>
             <OfficeCheckboxGroup
@@ -1967,7 +1968,7 @@ function CounselorStaffListItem({
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full min-w-[140px] rounded border border-neutral-300 px-2 py-1 text-sm"
-            placeholder="Login email"
+            placeholder="Login email (optional)"
             disabled={busy || counselor.has_login}
           />
         </td>
@@ -1993,7 +1994,7 @@ function CounselorStaffListItem({
               Active login
             </label>
           ) : (
-            <span className="text-xs text-brand-black/60">Invite via email above</span>
+            <span className="text-xs text-brand-black/60">Roster only — add email to invite</span>
           )}
         </td>
         <td className="whitespace-nowrap px-3 py-3">

@@ -1,4 +1,9 @@
 // Builds wayfinder-roster-import.csv from v2 extraction output.
+// RETIRED — initial migration complete; do not re-run.
+import { exitIfV2RosterRetired } from "./lib/v2-roster-retired.mjs";
+
+exitIfV2RosterRetired();
+
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {

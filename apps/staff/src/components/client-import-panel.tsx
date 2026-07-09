@@ -24,6 +24,7 @@ type ClientImportRowResult = {
   email: string;
   client_name: string;
   ok: boolean;
+  skipped?: boolean;
   error?: string;
 };
 
@@ -41,7 +42,7 @@ export function ClientImportPanel({ disabled = false, onComplete }: Props) {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [results, setResults] = useState<ClientImportRowResult[]>([]);
-  const [summary, setSummary] = useState<{ imported: number; failed: number } | null>(null);
+  const [summary, setSummary] = useState<{ imported: number; skipped: number; failed: number } | null>(null);
 
   const loadTemplate = useCallback(async () => {
     const res = await fetch("/api/portal/clients/import");
@@ -111,6 +112,7 @@ export function ClientImportPanel({ disabled = false, onComplete }: Props) {
 
     const allResults: ClientImportRowResult[] = [];
     let imported = 0;
+    let skipped = 0;
     let failed = 0;
 
     try {
@@ -124,6 +126,7 @@ export function ClientImportPanel({ disabled = false, onComplete }: Props) {
         });
         const data = (await res.json()) as {
           imported?: number;
+          skipped?: number;
           failed?: number;
           results?: ClientImportRowResult[];
           error?: string;
@@ -132,12 +135,13 @@ export function ClientImportPanel({ disabled = false, onComplete }: Props) {
           throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
         }
         imported += data.imported ?? 0;
+        skipped += data.skipped ?? 0;
         failed += data.failed ?? 0;
         allResults.push(...(data.results ?? []));
         setProgress({ done: Math.min(offset + chunk.length, parsedRows.length), total: parsedRows.length });
         setResults([...allResults]);
       }
-      setSummary({ imported, failed });
+      setSummary({ imported, skipped, failed });
       onComplete?.();
     } catch (e) {
       setParseError(friendlyClientError(e));
@@ -304,7 +308,8 @@ export function ClientImportPanel({ disabled = false, onComplete }: Props) {
 
           {summary ? (
             <p className="text-sm font-medium text-brand-black">
-              Done: {summary.imported} imported, {summary.failed} failed.
+              Done: {summary.imported} imported, {summary.skipped} already existed, {summary.failed}{" "}
+              failed.
             </p>
           ) : null}
 
@@ -327,7 +332,11 @@ export function ClientImportPanel({ disabled = false, onComplete }: Props) {
                       <td className="px-2 py-1.5">{r.email}</td>
                       <td className="px-2 py-1.5">
                         {r.ok ? (
-                          <span className="text-brand-green">Imported</span>
+                          r.skipped ? (
+                            <span className="text-brand-black/70">Already exists</span>
+                          ) : (
+                            <span className="text-brand-green">Imported</span>
+                          )
                         ) : (
                           <span className="text-red-700">{r.error ?? "Failed"}</span>
                         )}
