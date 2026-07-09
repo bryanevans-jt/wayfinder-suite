@@ -14,7 +14,7 @@ export type ClientMessageApiContext = {
 };
 
 const CLIENT_PROFILE_MISSING =
-  "Your client profile is not set up yet. Ask your employment specialist to link your account.";
+  "Your client profile is not set up yet. Ask your Employment Specialist to link your account.";
 
 export async function requireClientMessageApiContext(
   supabase: SupabaseClient

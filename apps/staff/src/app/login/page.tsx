@@ -40,7 +40,7 @@ export default async function StaffLoginPage({
         <div className="mb-6 max-w-md space-y-3 rounded-lg border border-brand-gold/40 bg-brand-white px-4 py-3 text-center text-sm text-brand-black">
           <p>
             You&apos;re signed in with a <strong>client</strong> account.{" "}
-            {STAFF_APP_PRODUCT_NAME} is for employment specialists, supervisors, and
+            {STAFF_APP_PRODUCT_NAME} is for Employment Specialists, supervisors, and
             administrators.
           </p>
           <p className="text-brand-black/75">

@@ -99,7 +99,7 @@ export async function createMeetingRequest(input: Input) {
         userId: notifyUserId,
         kind: "meeting_request",
         title: "New meeting request",
-        body: `Your employment specialist invited you to meet on ${when} at ${location}.`,
+        body: `Your Employment Specialist invited you to meet on ${when} at ${location}.`,
         link_path: "/dashboard",
         metadata: { meeting_id: meeting.id },
         app: "client",

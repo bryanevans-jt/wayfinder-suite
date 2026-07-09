@@ -403,7 +403,7 @@ export const USER_FACING_AUTH_ERROR =
 
 /** Shown when magic link is requested for an email with no auth account yet. */
 export function accountNotSetUpMessage(productName: string): string {
-  return `No ${productName} account is set up for this email yet. Ask your employment specialist or administrator to finish your setup, then try again.`;
+  return `No ${productName} account is set up for this email yet. Ask your Employment Specialist or administrator to finish your setup, then try again.`;
 }
 
 /** Maps Supabase auth errors to safe copy; keeps actionable hints where helpful. */

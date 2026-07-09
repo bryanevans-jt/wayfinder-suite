@@ -41,7 +41,7 @@ export function PortalSetupChecklist({ bootstrap, canManage, onNavigate }: Props
       },
       {
         id: "es",
-        label: "Add employment specialists",
+        label: "Add Employment Specialists",
         done: bootstrap.esStaff.length > 0,
         nav: { primary: "team", team: "es" },
         hint: "Team members who manage client caseloads",
@@ -50,7 +50,7 @@ export function PortalSetupChecklist({ bootstrap, canManage, onNavigate }: Props
         id: "counselors",
         label: "Add counselors",
         done: bootstrap.counselorStaff.length > 0,
-        nav: { primary: "team", team: "counselors" },
+        nav: { primary: "offices", offices: "counselors" },
         hint: "External partners with view-only access",
       },
       {

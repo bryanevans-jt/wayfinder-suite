@@ -184,7 +184,7 @@ export default async function CounselorPortalPage({
       ) : clients.length === 0 ? (
         <div className="mt-10 max-w-xl space-y-3 text-brand-black/75">
           <p>
-            No clients are assigned to you yet. When an employment specialist assigns you on a
+            No clients are assigned to you yet. When an Employment Specialist assigns you on a
             client record, they will appear here.
           </p>
           {process.env.NODE_ENV === "development" && devHint ? (

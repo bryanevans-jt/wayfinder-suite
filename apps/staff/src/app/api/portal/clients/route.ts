@@ -91,10 +91,10 @@ async function resolveEsUserId(
       .eq("id", userId)
       .maybeSingle();
     if (!profile) {
-      return "That employment specialist account was not found.";
+      return "That Employment Specialist account was not found.";
     }
     if (!isCaseloadAssigneeRole(profile.role as string)) {
-      return "Caseload can only be assigned to an employment specialist or supervisor.";
+      return "Caseload can only be assigned to an Employment Specialist or supervisor.";
     }
     return null;
   }
@@ -102,7 +102,7 @@ async function resolveEsUserId(
   if (esEmail?.trim()) {
     const resolved = await resolveAuthUserIdByEmail(admin, esEmail.trim());
     if (!resolved) {
-      return { error: "No Wayfinder account found for that employment specialist email." };
+      return { error: "No Wayfinder account found for that Employment Specialist email." };
     }
     const assigneeErr = await validateCaseloadAssignee(resolved);
     if (assigneeErr) {
@@ -113,7 +113,7 @@ async function resolveEsUserId(
         ? await esUserAllowedForSupervisorClient(admin, scope, resolved, clientId)
         : esUserAllowedForSupervisor(scope, resolved);
       if (!allowed) {
-        return { error: "That employment specialist is outside your supervisor scope." };
+        return { error: "That Employment Specialist is outside your supervisor scope." };
       }
     }
     return { esUserId: resolved };
@@ -130,7 +130,7 @@ async function resolveEsUserId(
         ? await esUserAllowedForSupervisorClient(admin, scope, id, clientId)
         : esUserAllowedForSupervisor(scope, id);
       if (!allowed) {
-        return { error: "That employment specialist is outside your supervisor scope." };
+        return { error: "That Employment Specialist is outside your supervisor scope." };
       }
     }
     return { esUserId: id };

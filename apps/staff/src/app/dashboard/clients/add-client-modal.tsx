@@ -254,7 +254,7 @@ export function AddClientModal({
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-brand-black" htmlFor="es-user">
-                  Assign to employment specialist (optional)
+                  Assign to Employment Specialist (optional)
                 </label>
                 <select
                   id="es-user"

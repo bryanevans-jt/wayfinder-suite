@@ -102,7 +102,7 @@ export async function ClientActivity({ selectedClientId }: Props) {
     <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
       <h2 className="text-lg font-semibold text-brand-green">Your activity</h2>
       <p className="mt-1 text-sm text-brand-black/70">
-        Updates from your employment specialist team, including job applications.
+        Updates from your Employment Specialist team, including job applications.
       </p>
       <ClientActivityTimeline
         feed={feed}

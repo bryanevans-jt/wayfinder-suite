@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 
       if (!assignment?.es_user_id) {
         return NextResponse.json(
-          { error: "No employment specialist assigned yet" },
+          { error: "No Employment Specialist assigned yet" },
           { status: 400 }
         );
       }

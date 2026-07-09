@@ -155,7 +155,7 @@ export function AnalyticsWorkspace({ readOnly = false, showBenchmark = false }: 
           ) : null}
           {filters?.canFilterByEs && filters.esUsers.length > 0 ? (
             <label className="block text-sm">
-              <span className="font-medium text-brand-black/80">Employment specialist</span>
+              <span className="font-medium text-brand-black/80">Employment Specialist</span>
               <select
                 value={esUserId}
                 onChange={(e) => setEsUserId(e.target.value)}

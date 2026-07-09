@@ -259,7 +259,7 @@ export function ClientDetailDrawer({
           </label>
 
           <label className="block text-sm">
-            <span className="font-medium text-brand-black">Employment specialist</span>
+            <span className="font-medium text-brand-black">Employment Specialist</span>
             <select
               value={esUserId}
               onChange={(e) => {

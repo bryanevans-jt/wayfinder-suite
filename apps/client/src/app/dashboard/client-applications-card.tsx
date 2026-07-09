@@ -49,7 +49,7 @@ export async function ClientApplicationsCard({ selectedClientId }: Props) {
     <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
       <h2 className="text-lg font-semibold text-brand-green">Applications</h2>
       <p className="mt-1 text-sm text-brand-black/70">
-        Job applications your employment specialist has logged for you.
+        Job applications your Employment Specialist has logged for you.
       </p>
       {rows.length === 0 ? (
         <p className="mt-4 text-sm text-brand-black/60">No applications logged yet.</p>

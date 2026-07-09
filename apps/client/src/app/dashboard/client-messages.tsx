@@ -91,7 +91,7 @@ export function ClientMessagesPanel() {
       <p className="mt-1 text-sm text-brand-black/70">
         {thread?.esName
           ? `Conversation with ${thread.esName}. Replies typically arrive within two business days.`
-          : "Your employment specialist will appear here once assigned."}
+          : "Your Employment Specialist will appear here once assigned."}
       </p>
 
       <div className="mt-4 max-h-72 space-y-3 overflow-y-auto rounded-xl border border-neutral-100 bg-neutral-50/50 p-3">
@@ -112,7 +112,7 @@ export function ClientMessagesPanel() {
                   ? "You"
                   : m.sender_role === "supervisor"
                     ? `${m.sender_name ?? "Supervisor"} · Supervisor`
-                    : (m.sender_name ?? "Employment specialist")}
+                    : (m.sender_name ?? "Employment Specialist")}
               </p>
               <p className="mt-1 whitespace-pre-wrap">{m.body}</p>
               <time className="mt-1 block text-xs text-brand-black/45" dateTime={m.created_at}>

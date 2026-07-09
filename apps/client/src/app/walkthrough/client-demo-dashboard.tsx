@@ -178,7 +178,7 @@ export function ClientDemoDashboard() {
       <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-brand-green">Applications</h2>
         <p className="mt-1 text-sm text-brand-black/70">
-          Job applications your employment specialist has logged for you.
+          Job applications your Employment Specialist has logged for you.
         </p>
         <ul className="mt-4 space-y-3">
           {DEMO_APPLICATIONS.map((app) => {
@@ -234,7 +234,7 @@ export function ClientDemoDashboard() {
               }`}
             >
               <p className="text-xs font-semibold uppercase tracking-wide text-brand-black/50">
-                {m.sender_role === "client" ? "You" : (m.sender_name ?? "Employment specialist")}
+                {m.sender_role === "client" ? "You" : (m.sender_name ?? "Employment Specialist")}
               </p>
               <p className="mt-1 whitespace-pre-wrap">{m.body}</p>
               <time className="mt-1 block text-xs text-brand-black/45" dateTime={m.created_at}>

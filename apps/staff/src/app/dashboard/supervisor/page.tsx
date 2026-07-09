@@ -8,7 +8,7 @@ export default async function SupervisorPortalPage() {
     <PortalWorkspace
       mode="supervisor"
       title="Supervisor"
-      subtitle="View clients and employment specialists in your scope, review connections, and export activity logs."
+      subtitle="View clients and Employment Specialists in your scope, review connections, and export activity logs."
     />
   );
 }

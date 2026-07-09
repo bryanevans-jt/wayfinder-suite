@@ -124,7 +124,7 @@ export function ClientPicker({
           value={specialistName}
           onChange={(e) => setSpecialistName(e.target.value)}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 mb-4"
-          aria-label="Employment specialist name"
+          aria-label="Employment Specialist name"
           required
         />
 

@@ -8,13 +8,15 @@ export type PortalPrimaryNav =
   | "settings"
   | "connections";
 
-export type PortalTeamSubNav = "es" | "counselors" | "supervisors";
+export type PortalTeamSubNav = "es" | "supervisors";
+export type PortalOfficesSubNav = "directory" | "counselors";
 export type PortalReportsSubNav = "activity" | "messages";
 export type PortalSettingsSubNav = "users" | "advanced" | "errors";
 
 export type PortalNavState = {
   primary: PortalPrimaryNav;
   team?: PortalTeamSubNav;
+  offices?: PortalOfficesSubNav;
   reports?: PortalReportsSubNav;
   settings?: PortalSettingsSubNav;
 };
@@ -32,8 +34,12 @@ const PRIMARY_LABELS: Record<PortalPrimaryNav, string> = {
 
 const TEAM_LABELS: Record<PortalTeamSubNav, string> = {
   es: "Employment Specialists",
-  counselors: "Counselors",
   supervisors: "Supervisors",
+};
+
+const OFFICES_LABELS: Record<PortalOfficesSubNav, string> = {
+  directory: "Directory",
+  counselors: "Counselors",
 };
 
 const REPORTS_LABELS: Record<PortalReportsSubNav, string> = {
@@ -69,6 +75,10 @@ export function PortalNav({ mode, canManage, nav, onChange }: Props) {
       onChange({ primary, team: nav.team ?? "es" });
       return;
     }
+    if (primary === "offices") {
+      onChange({ primary, offices: nav.offices ?? "directory" });
+      return;
+    }
     if (primary === "reports") {
       onChange({ primary, reports: nav.reports ?? "activity" });
       return;
@@ -80,9 +90,9 @@ export function PortalNav({ mode, canManage, nav, onChange }: Props) {
     onChange({ primary });
   }
 
-  const teamSubs: PortalTeamSubNav[] = canManage
-    ? ["es", "counselors", "supervisors"]
-    : ["es"];
+  const teamSubs: PortalTeamSubNav[] = canManage ? ["es", "supervisors"] : ["es"];
+
+  const officesSubs: PortalOfficesSubNav[] = canManage ? ["directory", "counselors"] : [];
 
   const reportsSubs: PortalReportsSubNav[] = canManage
     ? ["activity", "messages"]
@@ -126,6 +136,25 @@ export function PortalNav({ mode, canManage, nav, onChange }: Props) {
               }`}
             >
               {TEAM_LABELS[id]}
+            </button>
+          ))}
+        </nav>
+      ) : null}
+
+      {nav.primary === "offices" && officesSubs.length > 1 ? (
+        <nav className="flex flex-wrap gap-2">
+          {officesSubs.map((id) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => onChange({ primary: "offices", offices: id })}
+              className={`rounded-lg px-2.5 py-1 text-xs font-medium ${
+                (nav.offices ?? "directory") === id
+                  ? "bg-neutral-200 text-brand-black"
+                  : "text-brand-black/60 hover:bg-neutral-100"
+              }`}
+            >
+              {OFFICES_LABELS[id]}
             </button>
           ))}
         </nav>
@@ -180,8 +209,8 @@ export function isTeamEsNav(nav: PortalNavState): boolean {
   return nav.primary === "team" && (nav.team ?? "es") === "es";
 }
 
-export function isTeamCounselorsNav(nav: PortalNavState): boolean {
-  return nav.primary === "team" && nav.team === "counselors";
+export function isOfficesCounselorsNav(nav: PortalNavState): boolean {
+  return nav.primary === "offices" && nav.offices === "counselors";
 }
 
 export function isTeamSupervisorsNav(nav: PortalNavState): boolean {

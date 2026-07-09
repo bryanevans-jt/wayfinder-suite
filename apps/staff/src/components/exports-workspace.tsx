@@ -102,7 +102,7 @@ export function ExportsWorkspace({ role, readOnly = false }: Props) {
         </p>
         {!canDownload && role !== "accountant" ? (
           <p className="text-sm text-brand-black/70">
-            CSV downloads on this page are for <strong>employment specialists</strong> and{" "}
+            CSV downloads on this page are for <strong>Employment Specialists</strong> and{" "}
             <strong>supervisors</strong>. Open the{" "}
             <a href="/dashboard/timesheet" className="font-medium text-brand-green hover:underline">
               Timesheet

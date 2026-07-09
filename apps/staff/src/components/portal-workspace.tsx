@@ -29,7 +29,7 @@ import {
 import {
   PortalNav,
   isActivityLogsNav,
-  isTeamCounselorsNav,
+  isOfficesCounselorsNav,
   isTeamEsNav,
   isTeamSupervisorsNav,
   type PortalNavState,
@@ -257,6 +257,128 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
       {!b ? (
         <p className="mt-6 text-sm text-brand-black/60">Loading…</p>
       ) : nav.primary === "offices" ? (
+        isOfficesCounselorsNav(nav) && canManageOrg ? (
+          <section className="mt-6 max-w-4xl space-y-6">
+            <form
+              className="space-y-4 rounded-xl border border-neutral-200 bg-white p-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void run(async () => {
+                  const res = await fetch("/api/portal/counselors", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      full_name: newCounselorName,
+                      email: newCounselorEmail,
+                      office_ids: newCounselorOfficeIds,
+                    }),
+                  });
+                  const data = (await res.json()) as { error?: string };
+                  if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                  setNewCounselorName("");
+                  setNewCounselorEmail("");
+                  setNewCounselorOfficeIds([]);
+                });
+              }}
+            >
+              <h2 className="text-lg font-semibold text-brand-black">Add counselor</h2>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input
+                  value={newCounselorName}
+                  onChange={(e) => setNewCounselorName(e.target.value)}
+                  placeholder="Full name"
+                  className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                  required
+                />
+                <input
+                  type="email"
+                  value={newCounselorEmail}
+                  onChange={(e) => setNewCounselorEmail(e.target.value)}
+                  placeholder="Email for view-only login (optional)"
+                  className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <OfficeCheckboxGroup
+                label="Offices"
+                offices={b.offices}
+                selected={newCounselorOfficeIds}
+                disabled={busy}
+                onChange={setNewCounselorOfficeIds}
+              />
+              <button
+                type="submit"
+                disabled={busy || newCounselorOfficeIds.length === 0}
+                className="rounded-lg bg-brand-gold px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                Add counselor
+              </button>
+            </form>
+            <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white">
+              <table className="min-w-full text-left text-sm">
+                <thead className="bg-neutral-50 text-brand-black/70">
+                  <tr>
+                    <th className="px-3 py-2">Name</th>
+                    <th className="px-3 py-2">Offices</th>
+                    <th className="px-3 py-2">Clients</th>
+                    <th className="px-3 py-2">Access</th>
+                    <th className="px-3 py-2">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {b.counselorStaff.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-3 py-8 text-center text-brand-black/60">
+                        No counselors yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    b.counselorStaff.map((c) => (
+                      <CounselorStaffListItem
+                        key={c.id}
+                        counselor={c}
+                        offices={b.offices}
+                        busy={busy}
+                        officeName={officeName}
+                        onSave={(payload) =>
+                          run(async () => {
+                            const res = await fetch("/api/portal/counselors", {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ id: c.id, ...payload }),
+                            });
+                            const data = (await res.json()) as { error?: string };
+                            if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                          })
+                        }
+                        onDelete={() =>
+                          run(async () => {
+                            if (c.client_count > 0) {
+                              throw new Error(
+                                `${c.full_name} still has ${c.client_count} assigned client(s). Reassign them first.`
+                              );
+                            }
+                            if (
+                              !confirm(
+                                `Remove counselor “${c.full_name}”? Their login will be deactivated if one exists.`
+                              )
+                            ) {
+                              return;
+                            }
+                            const res = await fetch(`/api/portal/counselors?id=${c.id}`, {
+                              method: "DELETE",
+                            });
+                            const data = (await res.json()) as { error?: string };
+                            if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                          })
+                        }
+                      />
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : (
         <section className="mt-6 max-w-3xl space-y-6">
           {mode === "super_admin" ? (
             <p className="text-sm text-brand-black/70">
@@ -417,6 +539,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
             </ul>
           )}
         </section>
+        )
       ) : nav.primary === "clients" ? (
         <section className="mt-6 max-w-6xl space-y-4">
           {canManageOrg ? (
@@ -466,7 +589,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               onChange={(e) => setClientFilterEs(e.target.value)}
               className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
             >
-              <option value="">All employment specialists</option>
+              <option value="">All Employment Specialists</option>
               {b.caseloadAssignees.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.display_name}
@@ -491,7 +614,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 <tr>
                   <th className="px-3 py-2">Client</th>
                   <th className="px-3 py-2">Office</th>
-                  <th className="px-3 py-2">Employment specialist</th>
+                  <th className="px-3 py-2">Employment Specialist</th>
                   <th className="px-3 py-2">Current stage</th>
                   <th className="px-3 py-2"> </th>
                 </tr>
@@ -729,137 +852,10 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
             </table>
           </div>
         </section>
-      ) : isTeamCounselorsNav(nav) && canManageOrg ? (
-        <section className="mt-6 max-w-4xl space-y-6">
-          <p className="text-sm text-brand-black/70">
-            Counselors are external partners with <strong>view-only</strong> access to their
-            assigned clients and activity timelines. They cannot edit records or use team member tools.
-            Add a name and offices only to assign clients on the roster; add an email later when they
-            are ready for portal login.
-          </p>
-          <form
-            className="space-y-4 rounded-xl border border-neutral-200 bg-white p-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void run(async () => {
-                const res = await fetch("/api/portal/counselors", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    full_name: newCounselorName,
-                    email: newCounselorEmail,
-                    office_ids: newCounselorOfficeIds,
-                  }),
-                });
-                const data = (await res.json()) as { error?: string };
-                if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
-                setNewCounselorName("");
-                setNewCounselorEmail("");
-                setNewCounselorOfficeIds([]);
-              });
-            }}
-          >
-            <h2 className="text-lg font-semibold text-brand-black">Add counselor</h2>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input
-                value={newCounselorName}
-                onChange={(e) => setNewCounselorName(e.target.value)}
-                placeholder="Full name"
-                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-                required
-              />
-              <input
-                type="email"
-                value={newCounselorEmail}
-                onChange={(e) => setNewCounselorEmail(e.target.value)}
-                placeholder="Email for view-only login (optional)"
-                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-              />
-            </div>
-            <OfficeCheckboxGroup
-              label="Offices"
-              offices={b.offices}
-              selected={newCounselorOfficeIds}
-              disabled={busy}
-              onChange={setNewCounselorOfficeIds}
-            />
-            <button
-              type="submit"
-              disabled={busy || newCounselorOfficeIds.length === 0}
-              className="rounded-lg bg-brand-gold px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-            >
-              Add counselor
-            </button>
-          </form>
-          <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-neutral-50 text-brand-black/70">
-                <tr>
-                  <th className="px-3 py-2">Name</th>
-                  <th className="px-3 py-2">Offices</th>
-                  <th className="px-3 py-2">Clients</th>
-                  <th className="px-3 py-2">Access</th>
-                  <th className="px-3 py-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {b.counselorStaff.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-3 py-8 text-center text-brand-black/60">
-                      No counselors yet.
-                    </td>
-                  </tr>
-                ) : (
-                  b.counselorStaff.map((c) => (
-                    <CounselorStaffListItem
-                      key={c.id}
-                      counselor={c}
-                      offices={b.offices}
-                      busy={busy}
-                      officeName={officeName}
-                      onSave={(payload) =>
-                        run(async () => {
-                          const res = await fetch("/api/portal/counselors", {
-                            method: "PATCH",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ id: c.id, ...payload }),
-                          });
-                          const data = (await res.json()) as { error?: string };
-                          if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
-                        })
-                      }
-                      onDelete={() =>
-                        run(async () => {
-                          if (c.client_count > 0) {
-                            throw new Error(
-                              `${c.full_name} still has ${c.client_count} assigned client(s). Reassign them first.`
-                            );
-                          }
-                          if (
-                            !confirm(
-                              `Remove counselor “${c.full_name}”? Their login will be deactivated if one exists.`
-                            )
-                          ) {
-                            return;
-                          }
-                          const res = await fetch(`/api/portal/counselors?id=${c.id}`, {
-                            method: "DELETE",
-                          });
-                          const data = (await res.json()) as { error?: string };
-                          if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
-                        })
-                      }
-                    />
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
       ) : isTeamSupervisorsNav(nav) && canManageOrg ? (
         <section className="mt-6 max-w-4xl space-y-6">
           <p className="text-sm text-brand-black/70">
-            Supervisors oversee employment specialists — not counselors. Link supervisors to Employment Specialist team members
+            Supervisors oversee Employment Specialists — not counselors. Link supervisors to Employment Specialist team members
             under Settings → Advanced connections, or when editing a team member.
           </p>
           <form
@@ -1075,7 +1071,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               />
               <AssignmentCard
                 title="Employment Specialist office coverage"
-                description="Offices each employment specialist can work from."
+                description="Offices each Employment Specialist can work from."
                 busy={busy}
                 onAdd={(userId, officeId) =>
                   run(async () => {
@@ -1113,7 +1109,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               />
               <AssignmentCard
                 title="Supervisor to Employment Specialist link"
-                description="Which employment specialists each supervisor oversees."
+                description="Which Employment Specialists each supervisor oversees."
                 busy={busy}
                 onAdd={(supervisorId, esId) =>
                   run(async () => {
@@ -1154,7 +1150,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               />
               <AssignmentCard
                 title="Client caseload"
-                description="Which employment specialist owns each client's caseload."
+                description="Which Employment Specialist owns each client's caseload."
                 busy={busy}
                 onAdd={(esId, clientId) =>
                   run(async () => {

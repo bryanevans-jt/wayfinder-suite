@@ -32,7 +32,7 @@ async function esDisplayName(
     .select("full_name")
     .eq("id", esUserId)
     .maybeSingle();
-  return (profile?.full_name as string | null)?.trim() || "An employment specialist";
+  return (profile?.full_name as string | null)?.trim() || "An Employment Specialist";
 }
 
 async function assertTimeAccess() {
@@ -56,7 +56,7 @@ export async function submitEsWeek(weekStartInput?: string) {
   await assertNotPreviewMutation();
   const session = await assertTimeAccess();
   if (!isEsRole(session.effectiveRole)) {
-    throw new Error("Only employment specialists can submit weeks");
+    throw new Error("Only Employment Specialists can submit weeks");
   }
 
   const admin = requireAdmin();
@@ -310,7 +310,7 @@ export async function addNonClientTimeEntry(
   await assertNotPreviewMutation();
   const session = await assertTimeAccess();
   if (!isEsRole(session.effectiveRole)) {
-    throw new Error("Only employment specialists can log time");
+    throw new Error("Only Employment Specialists can log time");
   }
 
   const admin = requireAdmin();

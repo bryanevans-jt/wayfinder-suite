@@ -15,7 +15,7 @@ export function SupervisorOperationsWorkspace({ capacity, coaching, showCoaching
       <section className="rounded-xl border border-neutral-200 bg-white p-5">
         <h2 className="text-base font-semibold text-brand-black">Capacity view</h2>
         <p className="mt-1 text-sm text-brand-black/65">
-          Active caseload and billable minutes (last 4 weeks) per employment specialist.
+          Active caseload and billable minutes (last 4 weeks) per Employment Specialist.
         </p>
         {capacity.length === 0 ? (
           <p className="mt-4 text-sm text-brand-black/60">No Employment Specialist data in scope.</p>
