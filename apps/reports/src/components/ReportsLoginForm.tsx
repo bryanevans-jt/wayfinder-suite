@@ -8,6 +8,7 @@ type Props = {
   shouldCreateUser?: boolean;
   googleHostedDomain?: string;
   termsHref?: string;
+  privacyHref?: string;
   redirectAfterSignIn?: string;
 };
 
@@ -17,6 +18,7 @@ export function ReportsLoginForm({
   shouldCreateUser,
   googleHostedDomain,
   termsHref,
+  privacyHref,
   redirectAfterSignIn,
 }: Props) {
   return (
@@ -25,6 +27,7 @@ export function ReportsLoginForm({
       shouldCreateUser={shouldCreateUser}
       googleHostedDomain={googleHostedDomain}
       termsHref={termsHref}
+      privacyHref={privacyHref}
       redirectAfterSignIn={redirectAfterSignIn}
       createSupabaseClient={createClient}
     />

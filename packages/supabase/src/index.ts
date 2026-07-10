@@ -1,3 +1,7 @@
+/**
+ * Copyright © 2024–2026 Joshua Tree Service Group. All rights reserved.
+ * Proprietary and confidential — see /PROPRIETARY.md in the repository root.
+ */
 export { createClient as createBrowserClient } from "./client";
 export { createClient as createServerClient } from "./server";
 export { updateSession } from "./middleware";

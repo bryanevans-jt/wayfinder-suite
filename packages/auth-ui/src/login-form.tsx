@@ -20,6 +20,8 @@ type LoginFormProps = {
   googleHostedDomain?: string;
   /** Link to Terms of Use (shown above sign-in actions). */
   termsHref?: string;
+  /** Link to Privacy Policy (shown above sign-in actions). */
+  privacyHref?: string;
   /** Where to send the browser after passkey sign-in succeeds. */
   redirectAfterSignIn?: string;
   /** Override Supabase browser client (e.g. reports host-only auth cookies). */
@@ -56,6 +58,7 @@ export function LoginForm({
   requireExistingAccount = true,
   googleHostedDomain,
   termsHref,
+  privacyHref,
   redirectAfterSignIn = "/dashboard",
   createSupabaseClient = createClient,
 }: LoginFormProps) {
@@ -215,15 +218,28 @@ export function LoginForm({
         </p>
       </header>
 
-      {termsHref ? (
+      {termsHref || privacyHref ? (
         <p className="text-center text-xs leading-relaxed text-brand-black/65">
           By signing in, you agree to our{" "}
-          <Link
-            href={termsHref}
-            className="font-medium text-brand-green underline underline-offset-2"
-          >
-            Terms of Use
-          </Link>
+          {termsHref ? (
+            <>
+              <Link
+                href={termsHref}
+                className="font-medium text-brand-green underline underline-offset-2"
+              >
+                Terms of Use
+              </Link>
+              {privacyHref ? " and " : ""}
+            </>
+          ) : null}
+          {privacyHref ? (
+            <Link
+              href={privacyHref}
+              className="font-medium text-brand-green underline underline-offset-2"
+            >
+              Privacy Policy
+            </Link>
+          ) : null}
           .
         </p>
       ) : null}

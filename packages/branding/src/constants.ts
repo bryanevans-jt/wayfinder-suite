@@ -1,3 +1,7 @@
+/**
+ * Copyright © 2024–2026 Joshua Tree Service Group. All rights reserved.
+ * Proprietary and confidential — see /PROPRIETARY.md in the repository root.
+ */
 /** Formal reporting product name (reports app / PWA). */
 export const REPORTS_APP_PRODUCT_NAME = "Joshua Tree Reports";
 
@@ -52,6 +56,11 @@ export const SUPPORT_CONTACT_EMAIL = "bryan.evans@thejoshuatree.org";
 export const SUPPORT_CONTACT_MAILTO = `mailto:${SUPPORT_CONTACT_EMAIL}`;
 
 export const LEGAL_ENTITY = "Joshua Tree Service Group";
+
+export const COPYRIGHT_NOTICE =
+  "Copyright © Joshua Tree Service Group. All rights reserved.";
+
+export const PRIVACY_POLICY_LAST_UPDATED = "July 10, 2026";
 
 export const CONFIDENTIALITY_NOTICE =
   "The information in this application is confidential and may not be shared, copied, or disclosed without the prior written express consent of Joshua Tree Service Group.";

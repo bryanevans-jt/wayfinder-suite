@@ -5,7 +5,7 @@ import {
   STAFF_APP_PRODUCT_NAME,
 } from "../constants";
 
-export const TERMS_OF_USE_LAST_UPDATED = "June 12, 2026";
+export const TERMS_OF_USE_LAST_UPDATED = "July 10, 2026";
 
 type Props = {
   /** Which app surface the user reached this page from. */
@@ -54,6 +54,10 @@ export function TermsOfUseContent({ app }: Props) {
           <li>Copy, scrape, export, or redistribute application content except as your job duties
             require and our policies allow</li>
           <li>Attempt to reverse engineer, probe, or circumvent security controls</li>
+          <li>
+            Clone, replicate, benchmark, or build a competing product using the service, its
+            workflows, designs, or documentation
+          </li>
           <li>Introduce malware, automated bots, or excessive load on the service</li>
           <li>Use the service for any unlawful purpose or in violation of participant privacy</li>
         </ul>
@@ -72,9 +76,15 @@ export function TermsOfUseContent({ app }: Props) {
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-brand-black">5. Intellectual property</h2>
         <p>
-          The {productName} software, branding, workflows, and documentation are owned by{" "}
-          {LEGAL_ENTITY} and its licensors. These Terms do not grant you any right to copy, resell,
-          or create derivative products based on the service.
+          The {productName} software, source code, user interface, branding, workflows, training
+          materials, and documentation are owned by {LEGAL_ENTITY} and its licensors and are
+          protected by copyright, trade secret, and other intellectual property laws. These Terms
+          grant you a limited, revocable, non-exclusive license to use the service solely for
+          authorized Joshua Tree program operations.
+        </p>
+        <p>
+          You may not copy, modify, distribute, sublicense, resell, white-label, or create
+          derivative works based on the service or any part of it without our prior written consent.
         </p>
       </section>
 
@@ -105,7 +115,17 @@ export function TermsOfUseContent({ app }: Props) {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-base font-semibold text-brand-black">9. Contact</h2>
+        <h2 className="text-base font-semibold text-brand-black">9. Governing law</h2>
+        <p>
+          These Terms are governed by the laws of the State of Georgia, without regard to conflict
+          of law principles. Exclusive venue for disputes arising from these Terms or use of the
+          service lies in the state or federal courts located in Georgia, unless applicable law
+          requires otherwise.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-base font-semibold text-brand-black">10. Contact</h2>
         <p>
           Questions about these Terms or acceptable use:{" "}
           <a

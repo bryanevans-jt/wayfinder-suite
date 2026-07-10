@@ -15,6 +15,11 @@ function staffTermsUrl(): string | undefined {
   return base ? `${base}/terms` : undefined;
 }
 
+function staffPrivacyUrl(): string | undefined {
+  const base = process.env.NEXT_PUBLIC_STAFF_APP_URL?.replace(/\/$/, "");
+  return base ? `${base}/privacy` : undefined;
+}
+
 export default async function LoginPage({
   searchParams,
 }: {
@@ -53,6 +58,7 @@ export default async function LoginPage({
         shouldCreateUser={false}
         googleHostedDomain={JOSHUA_TREE_ORG_EMAIL_DOMAIN}
         termsHref={staffTermsUrl()}
+        privacyHref={staffPrivacyUrl()}
         redirectAfterSignIn={redirectAfterSignIn}
       />
 

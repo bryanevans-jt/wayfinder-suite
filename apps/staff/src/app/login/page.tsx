@@ -84,6 +84,7 @@ export default async function StaffLoginPage({
         shouldCreateUser={false}
         googleHostedDomain={JOSHUA_TREE_ORG_EMAIL_DOMAIN}
         termsHref="/terms"
+        privacyHref="/privacy"
       />
     </main>
   );

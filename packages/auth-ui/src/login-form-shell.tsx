@@ -10,6 +10,7 @@ type Props = {
   requireExistingAccount?: boolean;
   googleHostedDomain?: string;
   termsHref?: string;
+  privacyHref?: string;
   redirectAfterSignIn?: string;
   createSupabaseClient?: () => SupabaseClient;
 };
@@ -22,6 +23,7 @@ export function LoginFormShell({
   requireExistingAccount,
   googleHostedDomain,
   termsHref,
+  privacyHref,
   redirectAfterSignIn,
   createSupabaseClient,
 }: Props) {
@@ -33,6 +35,7 @@ export function LoginFormShell({
       requireExistingAccount={requireExistingAccount}
       googleHostedDomain={googleHostedDomain}
       termsHref={termsHref}
+      privacyHref={privacyHref}
       redirectAfterSignIn={redirectAfterSignIn}
       createSupabaseClient={createSupabaseClient}
     />

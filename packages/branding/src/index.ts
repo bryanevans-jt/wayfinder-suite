@@ -3,8 +3,10 @@ export {
   CLIENT_APP_PRODUCT_NAME,
   CLIENT_APP_URL_SLUG,
   CONFIDENTIALITY_NOTICE,
+  COPYRIGHT_NOTICE,
   DEVELOPER_BADGE_LOGO_PATH,
   LEGAL_ENTITY,
+  PRIVACY_POLICY_LAST_UPDATED,
   REPORTS_APP_PRODUCT_NAME,
   STAFF_APP_PRODUCT_NAME,
   JOSHUA_TREE_ORG_EMAIL_DOMAIN,
@@ -83,3 +85,4 @@ export {
   TERMS_OF_USE_LAST_UPDATED,
   TermsOfUseContent,
 } from "./legal/terms-of-use-content";
+export { PrivacyPolicyContent } from "./legal/privacy-policy-content";

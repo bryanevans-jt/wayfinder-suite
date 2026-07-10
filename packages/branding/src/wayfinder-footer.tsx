@@ -1,6 +1,7 @@
 import {
   APP_VERSION,
   CONFIDENTIALITY_NOTICE,
+  COPYRIGHT_NOTICE,
   LEGAL_ENTITY,
 } from "./constants";
 import { WayfinderDeveloperBadge } from "./wayfinder-developer-badge";
@@ -23,7 +24,7 @@ export function WayfinderFooter({ productName = "Wayfinder" }: Props) {
         <div className="mt-5 space-y-2.5 border-t border-neutral-200/80 pt-5 sm:mt-6 sm:space-y-3 sm:pt-6">
           <WayfinderDeveloperBadge />
           <p className="text-xs text-brand-black/55 sm:text-sm lg:text-base">
-            © {year} {LEGAL_ENTITY}. {productName} v{APP_VERSION}.
+            © {year} {LEGAL_ENTITY}. {productName} v{APP_VERSION}. {COPYRIGHT_NOTICE}
           </p>
         </div>
       </div>
