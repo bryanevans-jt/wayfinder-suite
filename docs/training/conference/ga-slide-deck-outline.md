@@ -1,150 +1,141 @@
 # GA Training — Slide Deck Outline
 
-**Build in Google Slides or PowerPoint · Wayfinder logo on title slide · Joshua Tree logo on closing “About” slide**
+**Build in Google Slides or PowerPoint · Align slides to [GA ES Conference Binder](./ga-es-conference-binder.md) Parts A–I**
 
-Each slide = title + bullet speaker notes below.
+Each slide = title + bullet speaker notes. Teach straight through the binder; slides mirror part headers.
 
 ---
 
 ## Slide 1 — Title
 
-**Wayfinder GA Team Training**  
-Employment Specialists · Supervisors · Administrators  
-Joshua Tree Service Group · [Date]
-
-*Speaker notes:* Welcome, housekeeping, Wi‑Fi, confidentiality.
+**Wayfinder GA ES Training**  
+Joshua Tree Service Group · [Date]  
+*Speaker notes:* Distribute binder; 3-hour walkthrough Parts A–I.
 
 ---
 
-## Slide 2 — Why We Built This
+## Slide 2 — Part A: Quick Reference
 
-- One caseload truth in Wayfinder Pro  
-- Participants engaged in Wayfinder app  
-- Compliance reports in Joshua Tree Reports  
-- Counselors see progress without duplicate entry  
-
----
-
-## Slide 3 — Three Apps Diagram
-
-```
-[Wayfinder Pro]  ← team daily work
-[Wayfinder]      ← participants
-[Joshua Tree Reports] ← official PDFs → Drive
-```
-
-*Speaker notes:* Same Supabase users, different URLs.
+- Three URLs + who signs in with which email  
+- Toolkit table  
+- Sidebar: Daily work · Resources · Account  
+- Bryan + WF- codes  
 
 ---
 
-## Slide 4 — Sign In (Magic Link + Passkey)
+## Slide 3 — Part B: Who Uses Which App
 
-- @thejoshuatree.org for team & reports  
-- Personal email for participants  
-- Screenshot: login page  
-
----
-
-## Slide 5 — Wayfinder Pro Sidebar (ES)
-
-Daily work · Resources · Account  
-Screenshot placeholder: ES sidebar
+Table: JTSG staff · Participants · Reports · Counselors  
+*Speaker notes:* Counselors = agency email, not @thejoshuatree.org.
 
 ---
 
-## Slide 6 — Clients & Attention
+## Slide 4 — Part B: Sign-In Methods
 
-- Sort by follow-up need  
-- Contact log + applications  
-- Job start date → celebrations  
-
----
-
-## Slide 7 — Messages & SLA
-
-- 48 business hours  
-- Supervisors coach from read-only view  
+- Google (@thejoshuatree.org)  
+- Magic link (same device)  
+- Passkey optional  
+- Add to Home Screen  
+- Reports = separate session  
 
 ---
 
-## Slide 8 — Community Partners
+## Slide 5 — Part C: Clients & Profile
 
-- Map + directory  
-- Employer join link  
-- Role-play callout  
-
----
-
-## Slide 9 — Timesheet Flow
-
-ES enters → Supervisor approves → Payroll export
+- Attention sort · badges  
+- Contact log (Notes vs internal)  
+- Applications pipeline · job start date  
+- Screenshot: client list  
 
 ---
 
-## Slide 10 — Joshua Tree Reports
+## Slide 6 — Part C: Messages & Timesheet
 
-- Not the same as Pro exports  
-- GA form list  
-- SE Monthly highlight  
-
----
-
-## Slide 11 — SE Monthly Walkthrough
-
-1. Select client  
-2. Prefill  
-3. Sign  
-4. Submit → Drive  
-
-Screenshot placeholders
+- 24 business-hour message SLA  
+- Timesheet: log weekly · submit week  
+- Screenshots: messages · timesheet  
 
 ---
 
-## Slide 12 — Supervisor Tools
+## Slide 7 — Part D: Community Partners
 
-Team operations · Compliance · Analytics
-
----
-
-## Slide 13 — Admin Portal (Breakout)
-
-Team · Offices · Assignments · Counselors
+- Map · directory · join link  
+- Mindset: acknowledge → pivot  
+- Screenshots: map · list  
 
 ---
 
-## Slide 14 — Onboarding Clients & Counselors
+## Slide 8 — Part D: Employer Script
 
-- Quick start one-pagers  
-- ES scripts  
-
----
-
-## Slide 15 — Help & Support
-
-- Sidebar → Help  
-- WF- codes → Bryan  
-- Manuals in Google Drive  
+- Opening (30 sec)  
+- Value prop (1 min)  
+- The ask + join URL  
 
 ---
 
-## Slide 16 — Core Four & Share a Moment
+## Slide 9 — Part D: Objections
 
-Team culture features (not counselors)
-
----
-
-## Slide 17 — TN Preview
-
-Separate session · TN program reports · ES only
+Four objections + brush-offs table (binder summary)
 
 ---
 
-## Slide 18 — Close / Q&A
+## Slide 10 — Part E: Joshua Tree Reports
+
+- Separate from Pro casework  
+- GA report types table  
+- SE Monthly = monthly per Supported Employment client  
+
+---
+
+## Slide 11 — Part E: SE Monthly Workflow
+
+1. GA → SE Monthly  
+2. Client  
+3. Prefill  
+4. Complete · sign  
+5. Submit → Drive  
+
+Screenshots: form · success
+
+---
+
+## Slide 12 — Part F: Onboarding
+
+- Client setup checklist  
+- Counselor prerequisites (admin)  
+- Employer → Part D  
+
+---
+
+## Slide 13 — Part G: Analytics & Exports
+
+- Analytics · Data exports · My Profile (city only)
+
+---
+
+## Slide 14 — Part H: Culture & Team
+
+- Core Four (`/dashboard/core-four`) — see binder for full text  
+- Share a Moment → emailed to Bryan  
+- Help · Confidentiality  
+
+*Speaker notes:* Values covered in earlier culture session.
+
+---
+
+## Slide 15 — Part I & Appendix
+
+- Troubleshooting table  
+- SE Monthly cheat sheet  
+- 24-hour message SLA  
+- Employer one-liner  
+
+---
+
+## Slide 16 — Close / Q&A
 
 Contact · Thank you · Joshua Tree logo
 
 ---
 
-*Slide outline · import bullets into your deck*
-
-
+*Slide outline · binder Parts A–I · import bullets into your deck*

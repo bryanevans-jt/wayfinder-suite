@@ -460,16 +460,29 @@ export async function loadPortalBootstrap(
         (a.full_name ?? "").localeCompare(b.full_name ?? "", undefined, { sensitivity: "base" })
       ),
     esUsers: (() => {
-      const mapped = esProfiles
+      let sourceProfiles = allEsProfiles;
+      if (scope?.supervisorUserId) {
+        const officeSet = new Set(scope.officeIds ?? []);
+        const esSet = new Set(scope.esUserIds ?? []);
+        esSet.add(scope.supervisorUserId);
+        sourceProfiles = allEsProfiles.filter(
+          (p) =>
+            esSet.has(p.id as string) ||
+            (staffOfficeByUser.get(p.id as string) ?? []).some((o) => officeSet.has(o))
+        );
+      }
+
+      const mapped = sourceProfiles
         .map((p) => {
           const id = p.id as string;
           const email = emailById.get(id) ?? "";
           const profile = profileById.get(id);
+          const isActive = p.is_active !== false;
           return {
             id,
             email,
             full_name: profile?.full_name ?? null,
-            display_name: staffNameFor(id),
+            display_name: `${staffNameFor(id)}${isActive ? "" : " (inactive)"}`,
             office_ids: staffOfficeByUser.get(id) ?? [],
           };
         })
@@ -481,11 +494,12 @@ export async function loadPortalBootstrap(
         const supId = scope.supervisorUserId;
         if (!mapped.some((e) => e.id === supId)) {
           const profile = profileById.get(supId);
+          const isActive = profile?.is_active !== false;
           mapped.unshift({
             id: supId,
             email: emailById.get(supId) ?? "",
             full_name: profile?.full_name ?? null,
-            display_name: `${staffNameFor(supId)} (you)`,
+            display_name: `${staffNameFor(supId)} (you)${isActive ? "" : " (inactive)"}`,
             office_ids: staffOfficeByUser.get(supId) ?? [],
           });
         }

@@ -1,18 +1,14 @@
 # GA Training — Participant Workbook
 
-**Employment Specialists & Supervisors**
+**Employment Specialists**
 
-Write answers in this workbook or in your notes app. Exercises use **production** or **demo** data as instructed by your facilitator.
-
-**Field guides (print or PDF):**  
-- **ES:** [GA ES Conference Binder](./ga-es-conference-binder.md)  
-- **Supervisor:** [GA Supervisor Conference Binder](./ga-supervisor-conference-binder.md)
+Write answers in this workbook or in your notes app. Follow the [GA ES Conference Binder](./ga-es-conference-binder.md) part by part with your facilitator. Exercises map to binder parts as noted below.
 
 **Name:** ______________________ **Role:** ______________________ **Date:** __________
 
 ---
 
-## Exercise 0 — Sign In
+## Exercise 0 — Sign In (Binder Part B)
 
 - [ ] Signed in to Wayfinder Pro: wayfinder-pro.thejoshuatree.org  
 - [ ] Optional: added passkey  
@@ -24,7 +20,7 @@ _____________________________________________
 
 ---
 
-## Exercise 1 — Find a Client & Log Contact
+## Exercise 1 — Find a Client & Log Contact (Binder Part C)
 
 1. Sidebar → **Clients**
 2. Open a client assigned to you
@@ -37,7 +33,7 @@ _____________________________________________
 
 ---
 
-## Exercise 2 — Application Pipeline
+## Exercise 2 — Application Pipeline (Binder Part C)
 
 1. On same client, add or update a **job application**
 2. Change status to **Interview** (or next stage)
@@ -47,7 +43,7 @@ _____________________________________________
 
 ---
 
-## Exercise 3 — Messages
+## Exercise 3 — Messages (Binder Part C)
 
 1. Sidebar → **Messages**
 2. Open thread with a participant (or demo client)
@@ -57,7 +53,7 @@ _____________________________________________
 
 ---
 
-## Exercise 4 — Community Partners
+## Exercise 4 — Community Partners (Binder Part D)
 
 1. Sidebar → **Community Partners**
 2. Search for an employer
@@ -71,17 +67,17 @@ _____________________________________________
 
 ---
 
-## Exercise 5 — Timesheet
+## Exercise 5 — Timesheet (Binder Part C)
 
 1. Sidebar → **Timesheet**
 2. Add time for one client for today (or demo week)
-3. Supervisors: find pending approval and approve one entry
+3. Supervisors: skip — approval covered in pre-conference meeting.
 
 **Minutes logged:** __________
 
 ---
 
-## Exercise 6 — Joshua Tree Reports
+## Exercise 6 — Joshua Tree Reports (Binder Part E)
 
 1. Sidebar → **Reporting** (or open wayfinder-reports.thejoshuatree.org)
 2. Sign in with @thejoshuatree.org
@@ -94,19 +90,13 @@ _____________________________________________
 
 ---
 
-## Exercise 7 — Supervisor (Supervisors Only)
+## Exercise 7 — Supervisor (Skip at ES Conference)
 
-1. **Team operations** — who appears in coaching queue?
-2. **Compliance** — any SE Monthly gaps?
-3. **Analytics** — one metric you’ll watch weekly
-
-**One coaching action for your team:**
-
-_____________________________________________
+*Supervisors use the [Supervisor Conference Binder](./ga-supervisor-conference-binder.md) in their pre-conference meeting.*
 
 ---
 
-## Exercise 8 — Onboarding Others
+## Exercise 8 — Onboarding Others (Binder Part F)
 
 Plan who you will onboard this month:
 

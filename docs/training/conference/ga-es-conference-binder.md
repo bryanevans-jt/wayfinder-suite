@@ -4,7 +4,7 @@
 
 **Version:** 1.0.1 · **Joshua Tree Service Group**
 
-This binder is your **complete field guide** for the Georgia training conference and ongoing casework. It combines the Employment Specialist manual, conference workbook exercises, sign-in help, formal reporting, employer outreach, and onboarding scripts in one place. Use the [Participant Workbook](./ga-participant-workbook.md) for hands-on exercises during the session; keep this document as your desk reference afterward.
+This binder is your **complete field guide** for the Georgia training conference and ongoing casework. Walk through it in order during training (Parts A–I). Use the [Participant Workbook](./ga-participant-workbook.md) for hands-on exercises.
 
 **Name:** ______________________ **Region / Office:** ______________________ **Date:** __________
 
@@ -12,25 +12,24 @@ This binder is your **complete field guide** for the Georgia training conference
 
 ## Table of Contents
 
-1. [Quick Reference](#part-a-quick-reference)
-2. [Conference Day Overview](#part-b-conference-day-overview)
-3. [Getting Signed In](#part-c-getting-signed-in)
-4. [Wayfinder Pro — Daily Casework](#part-d-wayfinder-pro--daily-casework)
-5. [Community Partners & Employer Outreach](#part-e-community-partners--employer-outreach)
-6. [Joshua Tree Reports (Georgia)](#part-f-joshua-tree-reports-georgia)
-7. [Onboarding Participants & Counselors](#part-g-onboarding-participants--counselors)
-8. [Analytics, Exports & Profile](#part-h-analytics-exports--profile)
-9. [Culture & Team](#part-i-culture--team)
-10. [Conference Workbook Exercises](#part-j-conference-workbook-exercises)
-11. [Troubleshooting & Escalation](#part-k-troubleshooting--escalation)
-12. [Tennessee Preview](#part-l-tennessee-preview)
-13. [Appendix — One-Page Cheat Sheets](#appendix--one-page-cheat-sheets)
+1. [Part A: Quick Reference](#part-a-quick-reference)
+2. [Part B: Getting Signed In](#part-b-getting-signed-in)
+3. [Part C: Wayfinder Pro — Daily Casework](#part-c-wayfinder-pro--daily-casework)
+4. [Part D: Community Partners & Employer Outreach](#part-d-community-partners--employer-outreach)
+5. [Part E: Joshua Tree Reports](#part-e-joshua-tree-reports)
+6. [Part F: Onboarding Participants & Counselors](#part-f-onboarding-participants--counselors)
+7. [Part G: Analytics, Exports & Profile](#part-g-analytics-exports--profile)
+8. [Part H: Culture & Team](#part-h-culture--team)
+9. [Part I: Troubleshooting & Escalation](#part-i-troubleshooting--escalation)
+10. [Appendix — One-Page Cheat Sheets](#appendix--one-page-cheat-sheets)
+
+Facilitator timing: [GA Agenda & Talking Points](./ga-agenda-and-talking-points.md)
 
 ---
 
 ## Part A: Quick Reference
 
-### Production URLs
+### URLs
 
 | App | URL | Your Email |
 |-----|-----|------------|
@@ -44,7 +43,7 @@ This binder is your **complete field guide** for the Georgia training conference
 |------|---------|
 | **Wayfinder Pro** | Caseload, contacts, applications, messages, timesheet, Community Partners |
 | **Wayfinder** (client app) | Where participants see their success path and message you |
-| **Joshua Tree Reports** | Official GA monthly PDFs to Google Drive |
+| **Joshua Tree Reports** | Official GVRA monthly reports & progress notes. Replaces “JTSG Reports v2” |
 
 ### Support
 
@@ -59,25 +58,7 @@ Always include the **WF-** reference code from the screen when reporting errors.
 
 ---
 
-## Part B: Conference Day Overview
-
-| Module | Topic | Your Focus |
-|--------|-------|------------|
-| 0 | Welcome | Three apps, confidentiality, support |
-| 1 | Sign-in & mobile | Magic link, passkey, Home Screen, Reports sign-in |
-| 2 | ES casework core | Clients, contacts, applications, messages |
-| 3 | Community Partners | Map, join form, employer outreach & objections |
-| 4 | Timesheet & exports | Log time, supervisor approval |
-| 5 | Joshua Tree Reports | SE Monthly, prefill, other GA forms |
-| 6 | Supervisor oversight | Listen — your supervisor’s tools |
-| 8 | Onboarding others | Clients, counselors, employers |
-| 9 | Culture & close | Core Four, Help, TN preview |
-
-Full facilitator agenda: [GA Agenda & Talking Points](./ga-agenda-and-talking-points.md)
-
----
-
-## Part C: Getting Signed In
+## Part B: Getting Signed In
 
 ### Who Uses Which App
 
@@ -86,9 +67,7 @@ Full facilitator agenda: [GA Agenda & Talking Points](./ga-agenda-and-talking-po
 | **JTSG staff (you)** | Wayfinder Pro | wayfinder-pro.thejoshuatree.org |
 | **Participants** | Wayfinder | wayfinder.thejoshuatree.org |
 | **Formal reporting** | Joshua Tree Reports | wayfinder-reports.thejoshuatree.org |
-| **Counselors** | Wayfinder Pro (counselor portal only) | Agency work email — not @thejoshuatree.org |
-
-Counselors are **not** Joshua Tree employees. They see **My clients** only.
+| **Counselors** | Wayfinder Pro (counselor portal only) | wayfinder-pro.thejoshuatree.org — uses **agency work email** |
 
 ### Sign In With Google (JTSG Staff Only)
 
@@ -109,8 +88,8 @@ After your first magic-link sign-in, choose **Sign in with passkey** on the logi
 
 ### Add to Home Screen (Mobile)
 
-**iPhone (Safari):** Share → **Add to Home Screen**  
-**Android (Chrome):** Menu → **Install app** or **Add to Home Screen**
+- **iPhone (Safari):** Share → **Add to Home Screen**
+- **Android (Chrome):** Menu → **Install app** or **Add to Home Screen**
 
 ### Sign-In Troubleshooting
 
@@ -124,7 +103,7 @@ After your first magic-link sign-in, choose **Sign in with passkey** on the logi
 
 ---
 
-## Part D: Wayfinder Pro — Daily Casework
+## Part C: Wayfinder Pro — Daily Casework
 
 ### Clients — Your Home Base
 
@@ -132,9 +111,9 @@ After your first magic-link sign-in, choose **Sign in with passkey** on the logi
 
 - Clients who need follow-up sort toward the **top**.
 - **Attention badges** highlight stale contacts or applications.
-- Click a client name to open their **profile**.
+- Click a client name to open their profile.
 
-> **Screenshot:** `assets/screenshots/es-clients-list.png`
+> **Figure 4.1:** Client Dashboard — `assets/screenshots/es-clients-list.png`
 
 ### Client Profile Essentials
 
@@ -144,11 +123,12 @@ After your first magic-link sign-in, choose **Sign in with passkey** on the logi
 |------|------------|
 | **Contact log** | Log every call, visit, email — counselors see **Notes** (not internal notes) |
 | **Applications** | Track pipeline: Applied → Interview → Offer → Hired |
-| **Messages** | Thread with participant (48 business-hour response goal) |
+| **Messages** | Thread with participant (24 business-hour response goal) |
 | **Job start date** | Set when hired — triggers 30/60/90-day celebrations for counselors |
 | **Formal reports** | History of submitted Joshua Tree Reports |
 
-> **Screenshots:** `es-client-profile-contacts.png`, `es-client-applications.png`
+> **Figure 4.2:** Client Contact Log — `assets/screenshots/es-client-profile-contacts.png`  
+> **Figure 4.3:** Application Log — `assets/screenshots/es-client-applications.png`
 
 **Suggested contact chips:** Use quick chips when logging common activity types.
 
@@ -159,10 +139,10 @@ After your first magic-link sign-in, choose **Sign in with passkey** on the logi
 **Path:** Sidebar → **Messages** (`/dashboard/messages`)
 
 - Reply to participant threads from the Wayfinder client app.
-- **SLA:** Respond within **48 business hours** — supervisors see overdue alerts.
+- **SLA:** Respond within **24 business hours** — supervisors see overdue alerts.
 - Check **Notifications** for SLA reminders.
 
-> **Screenshot:** `assets/screenshots/es-messages-inbox.png`
+> **Figure 4.4:** Messages Inbox — `assets/screenshots/es-messages-inbox.png`
 
 ### Timesheet
 
@@ -172,13 +152,13 @@ After your first magic-link sign-in, choose **Sign in with passkey** on the logi
 - Submit weeks for supervisor approval.
 - Approved time feeds payroll exports.
 
-> **Screenshot:** `assets/screenshots/es-timesheet-week.png`
+> **Figure 4.5:** Timesheet — `assets/screenshots/es-timesheet-week.png`
 
 **Best practice:** Log time weekly; do not wait until month-end. Match time to the clients and services you actually provided.
 
 ---
 
-## Part E: Community Partners & Employer Outreach
+## Part D: Community Partners & Employer Outreach
 
 Full field guide: [Community Partners Field Guide](../shared/community-partners-field-guide.md)
 
@@ -188,15 +168,18 @@ Full field guide: [Community Partners Field Guide](../shared/community-partners-
 - Share the **public join link** with employers.
 - Log applications against employers from client profiles.
 
-> **Screenshots:** `es-community-partners-map.png`, `es-community-partners-list.png`
+> **Figure 5.1:** Community Partners Map — `assets/screenshots/es-community-partners-map.png`  
+> **Figure 5.2:** Community Partners List — `assets/screenshots/es-community-partners-list.png`
 
-### The JTSG Mindset
+### The Joshua Tree Mindset
 
-When an employer hesitates, they usually lack **information**, not empathy. **The Golden Rule:** treat their business concerns with respect.
+When an employer hesitates, they usually lack **information**, not empathy.
+
+**The Golden Rule:** treat their business concerns with respect.
 
 1. Do not argue.  
 2. Acknowledge and validate.  
-3. Pivot to the JTSG solution.
+3. Pivot to the Joshua Tree solution.
 
 ### Before a Visit or Call
 
@@ -210,41 +193,37 @@ When an employer hesitates, they usually lack **information**, not empathy. **Th
 
 ### Value Proposition (1 Minute)
 
-> “For you: a single contact at JTSG, pre-screened applicants, and follow-up support after hire. For us: we track applications fairly and celebrate placements. Partners appear on our **map** so specialists across the state see you when matching jobs.”
+> “For you: a single contact at Joshua Tree, pre-screened applicants, and follow-up support after hire. For us: we track applications fairly and celebrate placements. Partners appear on our **map** so specialists across the state see you when matching jobs.”
 
 ### The Ask
 
-> “Can I send you a **short online form** to join the network? It takes about five minutes — no fee.”
+> “Can I send you a **short online form** to join the network? It takes about five minutes — it’s all free, and there’s no obligation attached.”
 
-**Join URL:** `https://wayfinder-pro.thejoshuatree.org/community-partners/join` (use tokenized link from app when available)
+**Join URL:** `https://wayfinder-pro.thejoshuatree.org/community-partners/join`
 
-### Objection 1: “It Costs Too Much to Make Special Accommodations”
+### Common Objections
 
-**Acknowledge:** “I completely understand keeping an eye on the bottom line, especially right now.”
+**Objection 1: “It Costs Too Much to Make Special Accommodations”**
 
-**Pivot:** Job Accommodation Network data — nearly 50% of accommodations cost nothing; average cost about $300 when there is one.
+- **Acknowledge:** “I completely understand keeping an eye on the bottom line, especially right now.”
+- **Pivot:** Job Accommodation Network data — nearly 50% of accommodations cost nothing; average cost about $300 when there is one.
+- **Bonus:** Work Opportunity Tax Credit (WOTC) can return thousands to the business for inclusive hires.
 
-**Bonus:** Work Opportunity Tax Credit (WOTC) can return thousands to the business for inclusive hires.
+**Objection 2: “We Do Not Have Time or Staff for Extra Training”**
 
-### Objection 2: “We Do Not Have Time or Staff for Extra Training”
+- **Acknowledge:** “Turnover is tough, and I know your management team is stretched thin.”
+- **Pivot:** Supported Employment includes **on-site job coaching**. Employment Specialists help train, onboard, and ensure productivity — we take training off your plate.
 
-**Acknowledge:** “Turnover is tough, and I know your management team is stretched thin.”
+**Objection 3: “Safety or Liability Risks?”**
 
-**Pivot:** Supported Employment includes **on-site job coaching**. Employment Specialists help train, onboard, and ensure productivity — we take training off your plate.
+- **Acknowledge:** “Safety is the number one priority.”
+- **Pivot:** Employees with disabilities often have equal or better safety records; we only match candidates to roles they can perform safely.
+- **Bonus:** WEX/OJT may cover wages and workers’ comp for an initial training period.
 
-### Objection 3: “Safety or Liability Risks?”
+**Objection 4: “We Are Not Hiring Right Now”**
 
-**Acknowledge:** “Safety is the number one priority.”
-
-**Pivot:** Employees with disabilities often have equal or better safety records; we only match candidates to roles they can perform safely.
-
-**Bonus:** WEX/OJT may cover wages and workers’ comp for an initial training period.
-
-### Objection 4: “We Are Not Hiring Right Now”
-
-**Acknowledge:** “That is perfectly fine — that is why I am here today!”
-
-**Pivot:** Community Partners is a **long-term talent pipeline**, not a temp agency. Registration takes two minutes and is free — when you hire in three or six months, we may already have a trained candidate ready.
+- **Acknowledge:** “That is perfectly fine — that is why I am here today!”
+- **Pivot:** Community Partners is a **long-term talent pipeline**, not a temp agency. Registration takes two minutes and is free — when you hire in three or six months, we may already have a trained candidate ready.
 
 ### Quick Brush-Offs
 
@@ -264,39 +243,42 @@ When an employer hesitates, they usually lack **information**, not empathy. **Th
 
 ---
 
-## Part F: Joshua Tree Reports (Georgia)
+## Part E: Joshua Tree Reports
 
 Joshua Tree Reports is **separate** from Wayfinder Pro casework. It generates official PDFs, emails copies, and saves to Google Drive.
 
 **Open Reports:** Wayfinder Pro → **Reporting** OR wayfinder-reports.thejoshuatree.org
 
-> **Screenshots:** `joshua-tree-reports-login.png`, `reports-ga-home.png`, `es-reporting-sidebar.png`
+> **Figure 6.1:** Reports Sign In — `assets/screenshots/joshua-tree-reports-login.png`  
+> **Figure 6.2:** Reports Menu — `assets/screenshots/reports-ga-home.png`  
+> **Figure 6.3:** Reporting Sidebar — `assets/screenshots/es-reporting-sidebar.png`
 
 ### Georgia Report Types
 
-| Report | When | Client Required? | Signature? |
-|--------|------|------------------|--------------|
-| **SE Monthly** | Every month per active client | Yes | Yes |
-| **VPR** | Progress documentation | No | No |
-| **JTSG VMR** | Vocational monthly | Yes | Yes |
-| **EVF** | Employment verification | No | No |
-| **JTSG TSVS** | Vocational time sheet | No | No |
+| Report | When | Signature? |
+|--------|------|------------|
+| **SE Monthly** | GVRA report filed every month for each Supported Employment client | Yes |
+| **Vocational Progress Report** | Progress documentation. Copy and paste from Contact Log (provide as much detail as possible) | No |
+| **JTSG Vocational Monthly Report** | Vocational monthly report (non–Supported Employment) | Yes |
+| **Employment Verification Form** | Employment verification when client is hired | No |
+| **JTSG TSVS** | Vocational time sheet | No |
 
-### SE Monthly Workflow (Most Common)
+### Supported Employment Monthly Workflow
 
 1. Select **Georgia** → **SE Monthly**.  
 2. Select **client** from caseload.  
 3. Review **prefill** from contact logs (job development).  
-4. Complete remaining fields; **Employment Specialist name** is editable if needed.  
+4. Complete remaining fields.  
 5. Capture **signature** when required.  
 6. Submit → PDF → email + Drive.
 
-> **Screenshots:** `reports-se-monthly-form.png`, `reports-submit-success.png`
+> **Figure 6.4:** SE Monthly Reports (GVRA) — `assets/screenshots/reports-se-monthly-form.png`  
+> **Figure 6.5:** Report Submission Success — `assets/screenshots/reports-submit-success.png`
 
-### Monthly Checklist (Every Active GA Client)
+### Monthly Checklist (Every Active Client)
 
 - [ ] Correct client and reporting month  
-- [ ] Contact logs current in Pro **before** prefill  
+- [ ] Contact logs current in Wayfinder Pro **before** prefill  
 - [ ] Review recalled prior-month data  
 - [ ] Signature captured if required  
 - [ ] Confirm PDF in email / Drive  
@@ -314,21 +296,19 @@ Reports may pull fields from prior SE Monthly submissions — always review befo
 | Google / PDF error | WF- code → Bryan |
 | Sign-in fails | Clear cookies; separate Reports session |
 
-Drive folders and templates are configured in **Reports → Admin** (admin users only).
-
 ---
 
-## Part G: Onboarding Participants & Counselors
+## Part F: Onboarding Participants & Counselors
 
 ### Client Setup (10–15 Minutes)
 
-**Materials:** [Client Quick Start](../roles/client-quick-start.md) · `wayfinder.thejoshuatree.org/quick-start`
+**Materials:** [Client Quick Start](../roles/client-quick-start.md) · wayfinder.thejoshuatree.org/quick-start
 
 1. **Introduce:** “Wayfinder shows your program steps, lets you message me, and tracks applications.”  
 2. **Sign in together:** wayfinder.thejoshuatree.org → magic link on **their** email.  
 3. **Tour:** Success path · Messages · Applications.  
 4. **Optional:** Add to Home Screen.  
-5. **Test message** — confirm you receive it in Pro → Messages.
+5. **Test message** — confirm you receive it in Wayfinder Pro → Messages.
 
 **ES checklist:**
 
@@ -337,11 +317,12 @@ Drive folders and templates are configured in **Reports → Admin** (admin users
 - [ ] Participant signed in  
 - [ ] Test message received  
 
-> **Screenshots:** `wayfinder-client-login.png`, `client-dashboard.png`
+> **Figure 7.1:** Client Login Screen — `assets/screenshots/wayfinder-client-login.png`  
+> **Figure 7.2:** Client Dashboard — `assets/screenshots/client-dashboard.png`
 
 ### Counselor Setup (10 Minutes)
 
-Counselors use **agency work email** (GVRA / Tennessee VR) — **not** Google, **not** @thejoshuatree.org.
+Counselors use **agency work email** (GVRA / Tennessee VR).
 
 **Materials:** [Counselor Quick Start](../roles/counselor-quick-start.md)
 
@@ -356,15 +337,16 @@ Counselors use **agency work email** (GVRA / Tennessee VR) — **not** Google, *
 - [ ] Counselor role + record created  
 - [ ] Counselor assigned on each client  
 
-> **Screenshots:** `wayfinder-pro-login.png`, `counselor.png`
+> **Figure 7.3:** Counselor Login — `assets/screenshots/wayfinder-pro-login.png`  
+> **Figure 7.4:** Counselor Dashboard — `assets/screenshots/counselor.png`
 
 ### Employer Onboarding
 
-Use Community Partners join link — see [Part E](#part-e-community-partners--employer-outreach).
+Use Community Partners join link — see [Part D](#part-d-community-partners--employer-outreach).
 
 ---
 
-## Part H: Analytics, Exports & Profile
+## Part G: Analytics, Exports & Profile
 
 ### Analytics
 
@@ -387,12 +369,12 @@ CSV downloads for activity, applications, and caseload — useful for grant docu
 
 ---
 
-## Part I: Culture & Team
+## Part H: Culture & Team
 
 ### Our Team
 
-**Core Four** — JTSG values reference (sidebar → Our Team).  
-**Share a Moment** — Submit team photos (emailed to leadership). Not available to counselors.
+**Core Four** — JTSG values reference (sidebar → **Our Team** → `/dashboard/core-four`).  
+**Share a Moment** — Submit team photos (emailed to Bryan). Not available to counselors.
 
 ### Help
 
@@ -402,45 +384,40 @@ CSV downloads for activity, applications, and caseload — useful for grant docu
 
 Application data is confidential and may not be shared outside JTSG without written consent.
 
+### Core Four Reminder
+
+**1. Strive for Excellence**  
+*Colossians 3:23, Phil 4:8, Titus 2:7, Proverbs 22:29*
+
+We hold ourselves to the highest standards of quality and integrity in everything we do. For every team member, striving for excellence means bringing your best effort to work each day, maintaining meticulous attention to detail, and continuously seeking ways to elevate the level of care and service we deliver to our clients, partners, and communities.
+
+**2. Work with Confidence**  
+*Joshua 1:8-9, Ephesians 6:7-8, Phil 4:13, 2 Timothy 1:7*
+
+We approach our daily responsibilities with a strong sense of purpose, professionalism, and resilience. Working with confidence means taking full ownership of your assigned territory or role, trusting your training, making sound operational decisions, and remaining solution-oriented when navigating unexpected workplace challenges.
+
+**3. Practice Discipline**  
+*Hebrews 12:11, 1 Cor 9:24-27, Proverbs 12:1, 15:32, 25:28*
+
+Consistent, reliable execution is the foundation of our organizational impact. Practicing discipline company-wide means managing your schedule effectively, holding yourself personally accountable to your performance metrics, and strictly adhering to operational guidelines—including the prompt, accurate completion of all required documentation, tracking, and regulatory compliance timelines.
+
+**4. Lead with Love**  
+*John 13:35, 1 Cor 13, 1 Peter 4:8*
+
+Leadership is an action, not a job title; every team member is expected to lead by example through a servant-hearted approach. Leading with love means treating colleagues, clients, and community partners with deep empathy and respect, resolving internal conflicts through direct and constructive communication, and actively protecting a positive, gossip-free work environment.
+
 ---
 
-## Part J: Conference Workbook Exercises
-
-Complete during training; use [Participant Workbook](./ga-participant-workbook.md) for write-in space.
-
-| Exercise | Task |
-|----------|------|
-| **0** | Sign in to Pro; optional passkey & Home Screen |
-| **1** | Find client → log contact (counselor-visible notes) |
-| **2** | Add/update application; practice status changes |
-| **3** | Messages — send reply; confirm client receipt |
-| **4** | Community Partners search + outreach pitch (pair share) |
-| **5** | Timesheet entry for today |
-| **6** | Open Reports → SE Monthly → review prefill (submit only if facilitator says) |
-| **8** | Plan client, counselor, employer onboarding this month |
-
----
-
-## Part K: Troubleshooting & Escalation
+## Part I: Troubleshooting & Escalation
 
 | Situation | Action |
 |-----------|--------|
-| **WF-** error on screen | Screenshot + bryan.evans@thejoshuatree.org |
+| **WF-** error on screen | Screenshot sent to bryan.evans@thejoshuatree.org |
 | User access / role | Org admin or Bryan |
 | Employer not on map | Community Partners join flow + outreach |
 | Counselor cannot sign in | Verify agency email provisioned by admin |
-| Reports prefill empty | Log contacts in Pro first |
-| Google sign-in Reports | Clear cookies; incognito on Reports URL |
-
----
-
-## Part L: Tennessee Preview
-
-Tennessee formal reports use **program-specific** forms in Joshua Tree Reports. Attend the **TN ES training session** before submitting TN reports.
-
-GA workflows in this binder apply to **casework in Wayfinder Pro** for TN clients; only the **Reports** forms differ by state.
-
-Planning outline: [TN ES Training Outline](./tn-es-training-outline.md)
+| Reports prefill empty | Log contacts in Wayfinder Pro first |
+| Google sign-in on Reports | Clear cookies; incognito on Reports URL |
 
 ---
 
@@ -448,17 +425,17 @@ Planning outline: [TN ES Training Outline](./tn-es-training-outline.md)
 
 ### SE Monthly Quick Reference
 
-1. Pro → **Reporting** or wayfinder-reports.thejoshuatree.org  
+1. Wayfinder Pro → **Reporting** or wayfinder-reports.thejoshuatree.org  
 2. GA → SE Monthly → client → prefill → sign → submit  
-3. Log contacts in Pro **before** month-end prefill  
+3. Log contacts in Wayfinder Pro **before** month-end prefill  
 
 ### Employer Pitch (One Sentence)
 
 “We help employers hire supported, job-ready candidates — with free on-site coaching after hire — through our Community Partners network.”
 
-### 48-Hour Message SLA
+### 24-Hour Message SLA
 
-Respond to participant messages within **48 business hours**. Supervisors monitor overdue threads.
+Respond to participant messages within **24 business hours**. Supervisors monitor overdue threads.
 
 ---
 

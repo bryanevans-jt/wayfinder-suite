@@ -2,30 +2,26 @@
 
 **For Bryan / lead trainer**
 
-Companion to [Agenda & talking points](./ga-agenda-and-talking-points.md).
+Teach **straight through** the [GA ES Conference Binder](./ga-es-conference-binder.md) (Parts A–I). Timing and talking points: [Agenda & talking points](./ga-agenda-and-talking-points.md).
+
+**Audience at conference:** Employment Specialists only. Admins and supervisors meet **before** the conference.
 
 ---
 
 ## Room Setup
 
 - Projector + stable Wi‑Fi
-- Whiteboard for three-app diagram
-- Printed: Getting signed in, ES quick reference (reports), employer script
-- **Role binders (primary handout):** [ES Conference Binder](./ga-es-conference-binder.md) · [Supervisor Conference Binder](./ga-supervisor-conference-binder.md)
+- **Primary handout:** printed or PDF [ES Conference Binder](./ga-es-conference-binder.md) — everyone follows part by part
 - [Participant Workbook](./ga-participant-workbook.md) for exercises
-- Optional: printed client & counselor one-pagers
+- Optional: client & counselor one-pagers
 
 ---
 
 ## Demo Accounts
 
-Prepare before conference:
-
 | Role | Purpose |
 |------|---------|
 | ES | Primary hands-on |
-| Supervisor | Approval + compliance demo |
-| Admin | Breakout only |
 | Demo client | Messaging + reports prefill |
 | Test employer | Community Partners join |
 
@@ -33,32 +29,51 @@ Use **demo clients** only if configured — do not pollute live metrics.
 
 ---
 
-## Module Facilitation Notes
+## Binder Part — Facilitation Notes
 
-### Sign-In (Module 1)
+### Part A (5 min)
 
-- **Common failure:** magic link opened on different device — have them resend.
-- **Reports:** have everyone sign in separately once.
+- Quick orientation; do not linger — they will reference all session.
 
-### Casework (Module 2)
+### Part B (15 min)
 
-- Emphasize **counselors read contact notes** — professional tone.
-- **Job start date** — do it live on hire scenario.
+- **Common failure:** magic link on wrong device — resend on same phone/laptop.
+- Exercise 0: all signed in to Pro before Part C.
 
-### Employers (Module 3)
+### Part C (40 min)
 
-- Pair ES + supervisor for role-play.
-- Debrief: what felt awkward? refine script.
+- **Emphasize contact Notes vs internal** — counselors + SE Monthly prefill.
+- **24 business-hour** message SLA (binder + appendix).
+- Protect time for Exercises 1–3 and 5.
 
-### Reports (Module 5)
+### Part D (40 min)
 
-- If Reports login errors, use WF code process as teaching moment.
-- Show **prefill** only after contacts exist in Pro.
+- Pair role-play: opening + one objection from binder.
+- Join URL on binder — use tokenized link from app when possible.
 
-### Admin (Module 7)
+### Part E (35 min)
 
-- Keep admins in separate room if possible.
-- End with: “who do you call when stuck?” → Bryan.
+- Sign in to Reports separately once.
+- SE Monthly hands-on only **after** contacts exist in Pro.
+- WF- code process if Reports errors — tie to Part I.
+
+### Part F (12 min)
+
+- Compress if behind: read checklists, skip live counselor demo.
+- Exercise 8: written plan for month.
+
+### Part G (5 min)
+
+- Skim only unless ahead of schedule.
+
+### Part H (5 min)
+
+- **Do not** re-teach Core Four if culture session already ran — “binder Part H is your reference.”
+- Optional: one Share a Moment demo.
+
+### Part I (3 min)
+
+- Read escalation table; point to appendix cheat sheets.
 
 ---
 
@@ -66,27 +81,21 @@ Use **demo clients** only if configured — do not pollute live metrics.
 
 | If running long | Cut |
 |-----------------|-----|
-| | Module 4 exports (assign as homework) |
-| | Module 9 culture (email links instead) |
-| If running short | Add open lab |
+| | Part G to 2 min |
+| | Part H to Core Four location + Share a Moment only |
+| | Part F to checklists only |
+| If running short | Extra SE Monthly practice; open Q&A |
+
+**Never cut:** Part C contact logging, Part E SE Monthly walkthrough.
 
 ---
 
 ## Post-Conference
 
-- [ ] Upload Google Doc PDFs to shared Drive
-- [ ] Email links to Help + quick-start URLs
-- [ ] Schedule TN ES session (reports-only focus)
-- [ ] Capture missing screenshots from placeholder list
+- [ ] Email binder PDF + workbook link
+- [ ] Schedule TN ES session ([outline](./tn-es-training-outline.md))
+- [ ] Capture missing screenshots for figure placeholders
 
 ---
 
-## TN Session (Future)
-
-See [TN ES training outline](./tn-es-training-outline.md) — half-day, reports-heavy.
-
----
-
-*Internal facilitator guide · Joshua Tree Service Group*
-
-
+*Internal facilitator guide · Joshua Tree Service Group · binder-driven flow*
