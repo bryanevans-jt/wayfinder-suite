@@ -30,6 +30,7 @@ export function ClientListRow({ client, busy, officeName, esLabel, onManage }: P
           ? client.es_user_ids.map((id) => esLabel(id)).join(", ")
           : "—"}
       </td>
+      <td className="px-3 py-3">{client.service_name ?? "—"}</td>
       <td className="px-3 py-3">{client.stage_title ?? "—"}</td>
       <td className="px-3 py-3">
         <button

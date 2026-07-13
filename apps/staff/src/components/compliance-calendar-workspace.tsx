@@ -55,7 +55,10 @@ export function ComplianceCalendarWorkspace({ reports, timesheets }: Props) {
                     {t.status} · {Math.round(t.totalMinutes / 60)}h {t.totalMinutes % 60}m
                   </p>
                 </div>
-                <Link href="/dashboard/timesheet" className="text-brand-green hover:underline">
+                <Link
+                  href={`/dashboard/timesheet?es=${encodeURIComponent(t.esUserId)}&week=${encodeURIComponent(t.weekStart)}`}
+                  className="text-brand-green hover:underline"
+                >
                   Timesheet →
                 </Link>
               </li>

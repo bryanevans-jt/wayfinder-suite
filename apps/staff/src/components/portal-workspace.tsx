@@ -67,6 +67,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
   const [newOfficeDistrictOrRegion, setNewOfficeDistrictOrRegion] = useState("District 1");
   const [newOfficeCity, setNewOfficeCity] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
+  const [assignRole, setAssignRole] = useState("admin");
   const [addClientOpen, setAddClientOpen] = useState(false);
   const [clientFilterOffice, setClientFilterOffice] = useState("");
   const [clientFilterEs, setClientFilterEs] = useState("");
@@ -616,6 +617,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                   <th className="px-3 py-2">Client</th>
                   <th className="px-3 py-2">Office</th>
                   <th className="px-3 py-2">Employment Specialist</th>
+                  <th className="px-3 py-2">Service</th>
                   <th className="px-3 py-2">Current stage</th>
                   <th className="px-3 py-2"> </th>
                 </tr>
@@ -623,7 +625,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               <tbody>
                 {filteredClients.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-3 py-8 text-center text-brand-black/60">
+                    <td colSpan={6} className="px-3 py-8 text-center text-brand-black/60">
                       {b.clients.length === 0 && canManageOrg
                         ? "No clients yet. Add one above or use CSV import for bulk onboarding."
                         : "No clients match your filters."}
@@ -1441,14 +1443,17 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
           </div>
           {canAssignAdmins ? (
             <form
-              className="space-y-2"
+              className="space-y-3"
               onSubmit={(e) => {
                 e.preventDefault();
                 void run(async () => {
                   const res = await fetch("/api/portal/users", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email: adminEmail, role: "admin" }),
+                    body: JSON.stringify({
+                      email: adminEmail,
+                      role: assignRole || "admin",
+                    }),
                   });
                   const data = (await res.json()) as { error?: string };
                   if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
@@ -1456,9 +1461,9 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 });
               }}
             >
-              <h2 className="text-lg font-semibold text-brand-black">Assign admin by email</h2>
+              <h2 className="text-lg font-semibold text-brand-black">Assign staff role by email</h2>
               <p className="text-sm text-brand-black/70">
-                Invites the user if they do not exist yet, then sets their role to admin.
+                Invites the user if they do not exist yet, then sets their Wayfinder Pro role.
               </p>
               <div className="flex flex-wrap gap-2">
                 <input
@@ -1469,18 +1474,31 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                   className="min-w-[240px] flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm"
                   required
                 />
+                <select
+                  value={assignRole}
+                  onChange={(e) => setAssignRole(e.target.value)}
+                  className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                >
+                  <option value="admin">Admin</option>
+                  <option value="es">Employment Specialist</option>
+                  <option value="supervisor">Supervisor</option>
+                  <option value="counselor">Counselor</option>
+                  <option value="accountant">Accountant</option>
+                  <option value="hr">HR</option>
+                  <option value="hospitality_specialist">Hospitality Specialist</option>
+                </select>
                 <button
                   type="submit"
                   disabled={busy}
                   className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                 >
-                  Assign admin
+                  Assign role
                 </button>
               </div>
             </form>
           ) : (
             <p className="text-xs text-brand-black/60">
-              Only super admin can invite new administrators. You can edit non-protected admin
+              Only super admin can invite and assign staff roles. You can edit non-protected admin
               accounts above.
             </p>
           )}

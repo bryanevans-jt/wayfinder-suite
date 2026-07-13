@@ -9,6 +9,7 @@ import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { redirect } from "next/navigation";
 import { TimesheetWorkspace } from "@/components/timesheet-workspace";
 import {
+  loadEsCaseloadClientOptions,
   loadEsTimeEntriesForWeek,
   loadPendingWeekSubmissionsForSupervisor,
   loadStaffEsPickerOptions,
@@ -31,6 +32,7 @@ export default async function TimesheetPage({ searchParams }: PageProps) {
     isEsRole(role) ||
     isSupervisorRole(role) ||
     role === "accountant" ||
+    role === "hr" ||
     isAdminTierRole(role);
 
   if (!canAccess) {
@@ -49,7 +51,10 @@ export default async function TimesheetPage({ searchParams }: PageProps) {
   }
 
   const canPickEs =
-    isSupervisorRole(role) || isAdminTierRole(role) || role === "accountant";
+    isSupervisorRole(role) ||
+    isAdminTierRole(role) ||
+    role === "accountant" ||
+    role === "hr";
 
   const esPickerOptions =
     canPickEs && !isEsRole(role)
@@ -77,14 +82,18 @@ export default async function TimesheetPage({ searchParams }: PageProps) {
     }
   }
 
-  const [{ data: esProfile }, entries, weekSubmission, pendingApprovals] = await Promise.all([
-    admin.from("profiles").select("full_name, email").eq("id", esUserId).maybeSingle(),
-    loadEsTimeEntriesForWeek(admin, esUserId, weekStart),
-    loadWeekSubmission(admin, esUserId, weekStart),
-    isSupervisorRole(role) || isAdminTierRole(role)
-      ? loadPendingWeekSubmissionsForSupervisor(admin, session.effectiveUserId)
-      : Promise.resolve([]),
-  ]);
+  const [{ data: esProfile }, entries, weekSubmission, pendingApprovals, caseloadClients] =
+    await Promise.all([
+      admin.from("profiles").select("full_name, email").eq("id", esUserId).maybeSingle(),
+      loadEsTimeEntriesForWeek(admin, esUserId, weekStart),
+      loadWeekSubmission(admin, esUserId, weekStart),
+      isSupervisorRole(role) || isAdminTierRole(role)
+        ? loadPendingWeekSubmissionsForSupervisor(admin, session.effectiveUserId)
+        : Promise.resolve([]),
+      canPickEs && !isEsRole(role)
+        ? loadEsCaseloadClientOptions(admin, esUserId)
+        : Promise.resolve([]),
+    ]);
 
   const esName =
     (esProfile?.full_name as string | null)?.trim() ||
@@ -110,7 +119,9 @@ export default async function TimesheetPage({ searchParams }: PageProps) {
         pendingApprovals={pendingApprovals}
         readOnly={session.isPreviewing}
         supervisedEsOptions={esPickerOptions}
+        caseloadClients={caseloadClients}
         initialClientFilter={params.client ?? ""}
+        canPickEs={canPickEs && !isEsRole(role)}
       />
     </main>
   );

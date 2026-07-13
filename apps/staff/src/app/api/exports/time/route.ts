@@ -26,6 +26,7 @@ export async function GET(request: Request) {
     isEsRole(role) ||
     isSupervisorRole(role) ||
     role === "accountant" ||
+    role === "hr" ||
     isAdminTierRole(role);
 
   if (!canAccess) {
@@ -51,7 +52,7 @@ export async function GET(request: Request) {
   try {
     const admin = createServiceRoleClient();
 
-    if (isSupervisorRole(role) && !isAdminTierRole(role)) {
+    if (isSupervisorRole(role) && !isAdminTierRole(role) && role !== "hr" && role !== "accountant") {
       const scope = await loadSupervisorScope(admin, session.effectiveUserId);
       if (!esUserAllowedForSupervisor(scope, esUserId)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });

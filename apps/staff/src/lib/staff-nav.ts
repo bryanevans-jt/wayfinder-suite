@@ -3,6 +3,8 @@ import {
   isAdminTierRole,
   isCounselorRole,
   isEsRole,
+  isHospitalitySpecialistRole,
+  isHrRole,
   isSuperAdminRole,
   isSupervisorRole,
   isSupervisorTierRole,
@@ -269,6 +271,42 @@ export function staffNavSectionsForRole(
       {
         label: "Reference",
         items: [communityPartnersNav],
+      },
+    ]);
+  }
+
+  if (isHrRole(staffRole)) {
+    return withCultureAndHelp([
+      {
+        label: "HR",
+        items: [
+          {
+            href: "/dashboard/hr",
+            label: "HR Dashboard",
+            match: (p) => p.startsWith("/dashboard/hr"),
+          },
+          {
+            href: "/dashboard/timesheet",
+            label: "Timesheets",
+            match: (p) => p.startsWith("/dashboard/timesheet"),
+          },
+        ],
+      },
+    ]);
+  }
+
+  if (isHospitalitySpecialistRole(staffRole)) {
+    return withCultureAndHelp([
+      {
+        label: "Hospitality",
+        items: [
+          {
+            href: "/dashboard/hospitality",
+            label: "Hospitality Dashboard",
+            match: (p) => p.startsWith("/dashboard/hospitality"),
+          },
+          communityPartnersNav,
+        ],
       },
     ]);
   }

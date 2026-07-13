@@ -343,6 +343,78 @@ export function shiftWeekStart(weekStart: string, deltaWeeks: number): string {
 
 export type SupervisedEsOption = { id: string; name: string };
 
+export type TimesheetClientOption = { id: string; name: string };
+
+/** Caseload clients for an ES (for timesheet client filter). */
+export async function loadEsCaseloadClientOptions(
+  admin: ReturnType<typeof createServiceRoleClient>,
+  esUserId: string
+): Promise<TimesheetClientOption[]> {
+  const { data: links } = await admin
+    .from("es_client_assignments")
+    .select("client_id")
+    .eq("es_user_id", esUserId);
+
+  const clientIds = [...new Set((links ?? []).map((l) => l.client_id as string))];
+  if (clientIds.length === 0) {
+    return [];
+  }
+
+  let clientRows: Array<{
+    id: string;
+    contact_email: string | null;
+    user_id?: string | null;
+    profile_id?: string | null;
+    full_name?: string | null;
+  }> = [];
+
+  {
+    const withName = await admin
+      .from("clients")
+      .select("id, contact_email, user_id, profile_id, full_name")
+      .in("id", clientIds);
+    if (withName.error) {
+      const fallback = await admin
+        .from("clients")
+        .select("id, contact_email, user_id, profile_id")
+        .in("id", clientIds);
+      clientRows = (fallback.data ?? []) as typeof clientRows;
+    } else {
+      clientRows = (withName.data ?? []) as typeof clientRows;
+    }
+  }
+
+  const authIds = [
+    ...new Set(
+      clientRows
+        .flatMap((c) => [c.user_id, c.profile_id])
+        .filter((v): v is string => typeof v === "string" && v.length > 0)
+    ),
+  ];
+
+  const { data: profiles } = authIds.length
+    ? await admin.from("profiles").select("id, full_name").in("id", authIds)
+    : { data: [] as { id: string; full_name: string | null }[] };
+
+  const nameByAuth = new Map(
+    (profiles ?? []).map((p) => [p.id as string, p.full_name as string | null])
+  );
+
+  return clientRows
+    .map((c) => {
+      const authId = (c.user_id ?? c.profile_id) ?? null;
+      return {
+        id: c.id,
+        name: clientDisplayName({
+          full_name: (authId ? nameByAuth.get(authId) ?? null : null) ?? (c.full_name ?? null),
+          contact_email: c.contact_email,
+          id: c.id,
+        }),
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+}
+
 export async function loadSupervisedEsOptions(
   admin: ReturnType<typeof createServiceRoleClient>,
   supervisorUserId: string
@@ -381,7 +453,7 @@ export async function loadStaffEsPickerOptions(
     return loadSupervisedEsOptions(admin, userId);
   }
 
-  if (isAdminTierRole(role) || role === "accountant") {
+  if (isAdminTierRole(role) || role === "accountant" || role === "hr") {
     const { data: profiles } = await admin
       .from("profiles")
       .select("id, full_name, email, is_active")

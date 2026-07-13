@@ -10,7 +10,7 @@ import { friendlyClientError } from "@wayfinder/supabase/error-log";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import type { EsTimeEntryRow, EsWeekSubmissionRow, SupervisedEsOption } from "@/lib/es-time-data";
+import type { EsTimeEntryRow, EsWeekSubmissionRow, SupervisedEsOption, TimesheetClientOption } from "@/lib/es-time-data";
 import { shiftWeekStart, summarizeTimeEntries } from "@/lib/es-time-data";
 import {
   approveEsWeek,
@@ -29,7 +29,9 @@ type Props = {
   pendingApprovals: EsWeekSubmissionRow[];
   readOnly?: boolean;
   supervisedEsOptions?: SupervisedEsOption[];
+  caseloadClients?: TimesheetClientOption[];
   initialClientFilter?: string;
+  canPickEs?: boolean;
 };
 
 function formatWeekLabel(start: string, end: string): string {
@@ -48,7 +50,9 @@ export function TimesheetWorkspace({
   pendingApprovals,
   readOnly = false,
   supervisedEsOptions = [],
+  caseloadClients = [],
   initialClientFilter = "",
+  canPickEs = false,
 }: Props) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -65,15 +69,18 @@ export function TimesheetWorkspace({
 
   const clientOptions = useMemo(() => {
     const map = new Map<string, string>();
+    for (const c of caseloadClients) {
+      map.set(c.id, c.name);
+    }
     for (const e of entries) {
-      if (e.client_id && e.client_name) {
+      if (e.client_id && e.client_name && !map.has(e.client_id)) {
         map.set(e.client_id, e.client_name);
       }
     }
     return [...map.entries()]
       .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
-  }, [entries]);
+  }, [caseloadClients, entries]);
 
   const summary = summarizeTimeEntries(visibleEntries);
   const canSubmit =
@@ -219,29 +226,35 @@ export function TimesheetWorkspace({
       ) : null}
 
       <section className="rounded-xl border border-neutral-200 bg-white p-5">
-        {!isEsRole(role) && supervisedEsOptions.length > 0 ? (
-          <div className="mb-4 flex flex-wrap items-end gap-3">
-            <label className="block text-sm font-medium text-brand-black">
-              Employment Specialist
-              <select
-                value={esUserId}
-                onChange={(e) => onEsChange(e.target.value)}
-                className="mt-1 block min-w-[220px] rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-              >
-                {supervisedEsOptions.map((opt) => (
-                  <option key={opt.id} value={opt.id}>
-                    {opt.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {clientOptions.length > 0 ? (
+        {canPickEs ? (
+          <div className="mb-4 space-y-3">
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="block text-sm font-medium text-brand-black">
+                Employment Specialist
+                <select
+                  value={esUserId}
+                  onChange={(e) => onEsChange(e.target.value)}
+                  className="mt-1 block min-w-[220px] rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                  disabled={supervisedEsOptions.length === 0}
+                >
+                  {supervisedEsOptions.length === 0 ? (
+                    <option value="">No Employment Specialists in your scope</option>
+                  ) : (
+                    supervisedEsOptions.map((opt) => (
+                      <option key={opt.id} value={opt.id}>
+                        {opt.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </label>
               <label className="block text-sm font-medium text-brand-black">
                 Client
                 <select
                   value={clientFilter}
                   onChange={(e) => onClientFilterChange(e.target.value)}
                   className="mt-1 block min-w-[200px] rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                  disabled={supervisedEsOptions.length === 0}
                 >
                   <option value="">All clients</option>
                   {clientOptions.map((c) => (
@@ -251,6 +264,12 @@ export function TimesheetWorkspace({
                   ))}
                 </select>
               </label>
+            </div>
+            {supervisedEsOptions.length === 0 ? (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                No Employment Specialists are linked to you yet. Ask an admin to add Supervisor ↔ ES
+                links on the Connections tab, then refresh this page.
+              </p>
             ) : null}
           </div>
         ) : null}

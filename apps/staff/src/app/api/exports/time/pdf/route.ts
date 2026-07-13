@@ -30,6 +30,7 @@ async function assertTimesheetExportAccess(
     isEsRole(role) ||
     isSupervisorRole(role) ||
     role === "accountant" ||
+    role === "hr" ||
     isAdminTierRole(role);
 
   if (!canAccess) {

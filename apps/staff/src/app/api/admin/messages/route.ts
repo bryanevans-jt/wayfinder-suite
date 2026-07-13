@@ -66,11 +66,23 @@ export async function GET(request: Request) {
   try {
     const auth = await assertAdminTier();
     if (auth.error) return auth.error;
-    const { supabase, actor } = auth;
+    const { actor } = auth;
+
+    let admin;
+    try {
+      admin = createServiceRoleClient();
+    } catch {
+      return respondWithLoggedError(
+        "staff",
+        route,
+        new Error("Missing SUPABASE_SERVICE_ROLE_KEY on the staff app server"),
+        actor
+      );
+    }
 
     const url = new URL(request.url);
     if (url.searchParams.get("purgeRuns") === "1") {
-      const { data: runs, error } = await supabase
+      const { data: runs, error } = await admin
         .from("message_retention_purge_runs")
         .select("id, purged_before, message_count, trigger_kind, created_at, triggered_by")
         .order("created_at", { ascending: false })
@@ -84,7 +96,7 @@ export async function GET(request: Request) {
         ...new Set((runs ?? []).map((r) => r.triggered_by as string | null).filter(Boolean)),
       ] as string[];
       const { data: profiles } = triggerIds.length
-        ? await supabase.from("profiles").select("id, full_name").in("id", triggerIds)
+        ? await admin.from("profiles").select("id, full_name").in("id", triggerIds)
         : { data: [] as { id: string; full_name: string | null }[] };
       const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));
 
@@ -107,7 +119,7 @@ export async function GET(request: Request) {
     const to = url.searchParams.get("to");
     const format = url.searchParams.get("format");
 
-    let query = supabase
+    let query = admin
       .from("client_messages")
       .select(
         "id, body, sender_role, sender_user_id, created_at, thread_id, client_message_threads(client_id, client_label)"
@@ -138,7 +150,7 @@ export async function GET(request: Request) {
       ...new Set(filtered.map((row) => row.sender_user_id).filter(Boolean)),
     ] as string[];
     const { data: profiles } = senderIds.length
-      ? await supabase.from("profiles").select("id, full_name").in("id", senderIds)
+      ? await admin.from("profiles").select("id, full_name").in("id", senderIds)
       : { data: [] as { id: string; full_name: string | null }[] };
     const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));
 

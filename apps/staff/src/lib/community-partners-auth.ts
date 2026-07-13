@@ -14,7 +14,9 @@ export function isCommunityPartnersRole(role: string | null | undefined): boolea
     isEsRole(r) ||
     isAdminTierRole(r) ||
     isSupervisorRole(r) ||
-    r === "accountant"
+    r === "accountant" ||
+    r === "hospitality_specialist" ||
+    r === "hr"
   );
 }
 

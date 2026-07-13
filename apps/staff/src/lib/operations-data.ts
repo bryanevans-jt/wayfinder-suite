@@ -15,6 +15,7 @@ export type ComplianceReportRow = {
 
 export type ComplianceTimesheetRow = {
   id: string;
+  esUserId: string;
   esName: string;
   weekStart: string;
   status: string;
@@ -134,6 +135,7 @@ export async function loadComplianceCalendar(
 
   const timesheets: ComplianceTimesheetRow[] = (weeks ?? []).map((w) => ({
     id: w.id as string,
+    esUserId: w.es_user_id as string,
     esName: weekEsName.get(w.es_user_id as string) ?? "ES",
     weekStart: w.week_start as string,
     status: w.status as string,

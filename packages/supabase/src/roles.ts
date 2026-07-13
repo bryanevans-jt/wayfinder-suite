@@ -5,13 +5,27 @@ export const STAFF_ROLES = [
   "admin",
   "counselor",
   "super_admin",
+  "hr",
+  "hospitality_specialist",
 ] as const;
 
 export const CLIENT_ROLES = ["client", "support"] as const;
 
+/** Roles a super admin can assign from the Users settings screen. */
+export const ASSIGNABLE_STAFF_ROLES = [
+  "es",
+  "supervisor",
+  "accountant",
+  "admin",
+  "counselor",
+  "hr",
+  "hospitality_specialist",
+] as const;
+
 export type StaffRole = (typeof STAFF_ROLES)[number];
 export type ClientRole = (typeof CLIENT_ROLES)[number];
 export type ProfileRole = StaffRole | ClientRole;
+export type AssignableStaffRole = (typeof ASSIGNABLE_STAFF_ROLES)[number];
 
 export type PortalTier = "super_admin" | "admin" | "supervisor";
 
@@ -53,6 +67,21 @@ export function isSupervisorRole(role: string | null | undefined): boolean {
   return normalizeRole(role) === "supervisor";
 }
 
+export function isHrRole(role: string | null | undefined): boolean {
+  return normalizeRole(role) === "hr";
+}
+
+export function isHospitalitySpecialistRole(role: string | null | undefined): boolean {
+  return normalizeRole(role) === "hospitality_specialist";
+}
+
+export function isAssignableStaffRole(
+  role: string | null | undefined
+): role is AssignableStaffRole {
+  const r = normalizeRole(role);
+  return (ASSIGNABLE_STAFF_ROLES as readonly string[]).includes(r);
+}
+
 /** Super admin or org admin. */
 export function isAdminTierRole(role: string | null | undefined): boolean {
   const r = normalizeRole(role);
@@ -81,6 +110,8 @@ export function staffHomePath(role: string | null | undefined): string {
   if (r === "admin") return "/dashboard/admin";
   if (r === "supervisor") return "/dashboard/supervisor";
   if (r === "accountant") return "/dashboard/timesheet";
+  if (r === "hr") return "/dashboard/hr";
+  if (r === "hospitality_specialist") return "/dashboard/hospitality";
   return "/dashboard/clients";
 }
 
@@ -102,6 +133,8 @@ export function roleDisplayName(role: string | null | undefined): string {
     client: "Client",
     support: "Natural support",
     accountant: "Accountant",
+    hr: "HR",
+    hospitality_specialist: "Hospitality Specialist",
   };
   const key = normalizeRole(role);
   return labels[key] ?? key;

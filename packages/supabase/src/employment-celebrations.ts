@@ -189,7 +189,126 @@ export async function processEmploymentCelebration(
     });
   }
 
+  if (milestone === "hire") {
+    await notifyHospitalitySpecialistsOfHire(admin, {
+      clientId,
+      clientLabel,
+      jobStartDate,
+      staffClientLink,
+    });
+  }
+
   return true;
+}
+
+async function notifyHospitalitySpecialistsOfHire(
+  admin: AdminClient,
+  input: {
+    clientId: string;
+    clientLabel: string;
+    jobStartDate: string;
+    staffClientLink: string;
+  }
+): Promise<void> {
+  const { data: hospitalityUsers } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("role", "hospitality_specialist")
+    .eq("is_active", true);
+
+  if (!hospitalityUsers?.length) {
+    return;
+  }
+
+  const { data: clientRow } = await admin
+    .from("clients")
+    .select(
+      "office_id, current_service_id, current_stage_id, job_start_date"
+    )
+    .eq("id", input.clientId)
+    .maybeSingle();
+
+  const [{ data: office }, { data: service }, { data: stage }, { data: esLinks }, { data: apps }] =
+    await Promise.all([
+      clientRow?.office_id
+        ? admin.from("offices").select("name").eq("id", clientRow.office_id).maybeSingle()
+        : Promise.resolve({ data: null as { name: string } | null }),
+      clientRow?.current_service_id
+        ? admin.from("services").select("name").eq("id", clientRow.current_service_id).maybeSingle()
+        : Promise.resolve({ data: null as { name: string } | null }),
+      clientRow?.current_stage_id
+        ? admin
+            .from("service_milestones")
+            .select("title")
+            .eq("id", clientRow.current_stage_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null as { title: string } | null }),
+      admin.from("es_client_assignments").select("es_user_id").eq("client_id", input.clientId),
+      admin
+        .from("applications")
+        .select("company_name, status, employers(name)")
+        .eq("client_id", input.clientId)
+        .order("created_at", { ascending: false })
+        .limit(5),
+    ]);
+
+  const esIds = (esLinks ?? []).map((l) => l.es_user_id as string);
+  const { data: esProfiles } = esIds.length
+    ? await admin.from("profiles").select("id, full_name, email").in("id", esIds)
+    : { data: [] as { id: string; full_name: string | null; email?: string | null }[] };
+
+  const esNames =
+    (esProfiles ?? [])
+      .map((p) => (p.full_name as string | null)?.trim() || (p.email as string | null) || null)
+      .filter(Boolean)
+      .join(", ") || "—";
+
+  const hiredApp = (apps ?? []).find((a) =>
+    /hir|offer|plac/i.test(String(a.status ?? ""))
+  );
+  const employerEmbed = hiredApp?.employers as
+    | { name?: string }
+    | { name?: string }[]
+    | null
+    | undefined;
+  const employerName = Array.isArray(employerEmbed)
+    ? employerEmbed[0]?.name
+    : employerEmbed?.name;
+  const company =
+    employerName?.trim() ||
+    (hiredApp?.company_name as string | null)?.trim() ||
+    "—";
+
+  const details = [
+    `Client: ${input.clientLabel}`,
+    `Employment Specialist: ${esNames}`,
+    `Office: ${(office?.name as string | undefined) ?? "—"}`,
+    `Job start date: ${input.jobStartDate}`,
+    `Employer: ${company}`,
+    `Service: ${(service?.name as string | undefined) ?? "—"}`,
+    `Stage: ${(stage?.title as string | undefined) ?? "—"}`,
+    hiredApp?.status ? `Position/status: ${hiredApp.status}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const { notifyUser } = await import("./notify-user");
+  for (const user of hospitalityUsers) {
+    await notifyUser(admin, {
+      userId: user.id as string,
+      app: "staff",
+      kind: "employment_celebration",
+      title: `Client hired: ${input.clientLabel}`,
+      body: details,
+      link_path: "/dashboard/hospitality",
+      metadata: {
+        client_id: input.clientId,
+        client_label: input.clientLabel,
+        milestone: "hire",
+        job_start_date: input.jobStartDate,
+      },
+    });
+  }
 }
 
 export async function runDailyEmploymentCelebrations(
