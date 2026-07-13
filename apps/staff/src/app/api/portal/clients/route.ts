@@ -447,15 +447,10 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { admin, user, role } = await assertPortalMutation("supervisor");
+    const { admin } = await assertPortalMutation("admin");
     const id = request.nextUrl.searchParams.get("id")?.trim();
     if (!id) {
       return Response.json({ error: "id is required" }, { status: 400 });
-    }
-
-    const scope = await supervisorScopeForSession(admin, role, user.id);
-    if (scope && !(await clientInSupervisorScope(admin, scope, id))) {
-      return Response.json({ error: "Client not found in your supervisor scope." }, { status: 403 });
     }
 
     await admin.from("es_client_assignments").delete().eq("client_id", id);

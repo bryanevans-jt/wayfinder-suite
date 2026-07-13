@@ -95,7 +95,8 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
   );
 
   const canManageOrg = mode !== "supervisor";
-  const canManageClients = true;
+  const canEditClients = true;
+  const canDeleteClients = canManageOrg;
   const [showArchivedClients, setShowArchivedClients] = useState(false);
   const canEditLogs = config?.canEditLogs ?? false;
   const canAssignAdmins = config?.canAssignAdmins ?? false;
@@ -549,9 +550,9 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
             <p className="text-sm text-brand-black/70">
               {canManageOrg
                 ? "Search clients, add new ones, or import from CSV. Click a client to update their details."
-                : "Clients in your assigned offices or supervised Employment Specialist caseloads. Click a client to assign an Employment Specialist, change service, or update stage."}
+                : "Clients in your assigned offices or supervised Employment Specialist caseloads. Click Manage to update details, profile & goals, or Natural Support."}
             </p>
-            {canManageClients ? (
+            {canEditClients ? (
               <button
                 type="button"
                 disabled={busy}
@@ -643,7 +644,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               </tbody>
             </table>
           </div>
-          {canManageClients ? (
+          {canEditClients ? (
             <AddClientModal
               open={addClientOpen}
               onClose={() => setAddClientOpen(false)}
@@ -1024,7 +1025,8 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
             </div>
           ) : (
             <p className="text-sm text-brand-black/70">
-              Team member and client connections in your scope. Contact an admin to make changes.
+              Team member and client connections in your scope. You can reassign client caseloads for
+              Employment Specialists you supervise. Contact an admin for other link changes.
             </p>
           )}
           <div className="grid gap-8 lg:grid-cols-2">
@@ -1191,10 +1193,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               />
             </>
           ) : (
-            <div className="max-w-3xl space-y-6 text-sm">
-              <p className="text-brand-black/70">
-                Assignments in your scope. Contact an admin to change links.
-              </p>
+            <div className="max-w-3xl space-y-6 text-sm lg:col-span-2">
               <ReadOnlyLinkList
                 title="Supervisor ↔ Employment Specialist"
                 links={b.supervisorEsLinks.map((l) => ({
@@ -1203,13 +1202,48 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 }))}
                 empty="No Employment Specialist team members linked to you yet."
               />
-              <ReadOnlyLinkList
-                title="Client ↔ Employment Specialist"
-                links={b.esClientLinks.map((l) => ({
-                  id: l.id,
-                  label: `${staffLabel(l.es_user_id)} → ${clientLabel(l.client_id)}`,
+              <AssignmentCard
+                title="Client caseload"
+                description="Reassign clients to Employment Specialists you supervise. Adding a link replaces the client's current Employment Specialist."
+                busy={busy}
+                onAdd={(esId, clientId) =>
+                  run(async () => {
+                    const res = await fetch("/api/portal/assignments", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        type: "es_client",
+                        es_user_id: esId,
+                        client_id: clientId,
+                      }),
+                    });
+                    const data = (await res.json()) as { error?: string };
+                    if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                  })
+                }
+                links={b.esClientLinks}
+                leftOptions={b.caseloadAssignees
+                  .filter((e) => e.role === "es")
+                  .map((e) => ({
+                    id: e.id,
+                    label: e.display_name,
+                  }))}
+                rightOptions={b.clients.map((c) => ({
+                  id: c.id,
+                  label: clientDisplayName(c),
                 }))}
-                empty="No client caseloads in your scope."
+                onRemove={(id) =>
+                  run(async () => {
+                    const res = await fetch(`/api/portal/assignments?type=es_client&id=${id}`, {
+                      method: "DELETE",
+                    });
+                    const data = (await res.json()) as { error?: string };
+                    if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                  })
+                }
+                labelLink={(l) => {
+                  return `${staffLabel(l.es_user_id)} → ${clientLabel(l.client_id)}`;
+                }}
               />
               <ReadOnlyLinkList
                 title="Employment Specialist ↔ office"
@@ -1479,7 +1513,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
           serviceCatalog={b.serviceCatalog}
           serviceMilestones={b.serviceMilestones}
           busy={busy}
-          allowDelete={canManageClients}
+          allowDelete={canDeleteClients}
           allowEsEmail={mode === "supervisor"}
           caseworkHref={mode === "supervisor" ? `/dashboard/clients/${drawerClient.id}` : null}
           onClose={() => setDrawerClient(null)}
