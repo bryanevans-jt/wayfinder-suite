@@ -7,6 +7,7 @@ import {
   type ServiceActivityType,
 } from "@wayfinder/supabase/es-time-tracking";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { isAdminTierRole, isSupervisorRole } from "@wayfinder/supabase/roles";
 import { clientDisplayName } from "@wayfinder/branding";
 
 export type EsTimeEntryRow = {
@@ -208,12 +209,9 @@ export async function loadPendingWeekSubmissionsForSupervisor(
   admin: ReturnType<typeof createServiceRoleClient>,
   supervisorUserId: string
 ): Promise<EsWeekSubmissionRow[]> {
-  const { data: links } = await admin
-    .from("supervisor_es_assignments")
-    .select("es_user_id")
-    .eq("supervisor_user_id", supervisorUserId);
-
-  const esIds = (links ?? []).map((l) => l.es_user_id as string);
+  const { loadSupervisorScope } = await import("@/lib/supervisor-client-scope");
+  const scope = await loadSupervisorScope(admin, supervisorUserId);
+  const esIds = [...new Set(scope.esUserIds)].filter((id) => id !== supervisorUserId);
   if (esIds.length === 0) return [];
 
   const { data, error } = await admin
@@ -341,6 +339,66 @@ export function shiftWeekStart(weekStart: string, deltaWeeks: number): string {
   const d = parseLocalDate(weekStart);
   d.setDate(d.getDate() + deltaWeeks * 7);
   return weekStartSunday(d);
+}
+
+export type SupervisedEsOption = { id: string; name: string };
+
+export async function loadSupervisedEsOptions(
+  admin: ReturnType<typeof createServiceRoleClient>,
+  supervisorUserId: string
+): Promise<SupervisedEsOption[]> {
+  const { loadSupervisorScope } = await import("@/lib/supervisor-client-scope");
+  const scope = await loadSupervisorScope(admin, supervisorUserId);
+  const esIds = [...new Set(scope.esUserIds)].filter((id) => id !== supervisorUserId);
+  if (esIds.length === 0) {
+    return [];
+  }
+
+  const { data: profiles } = await admin
+    .from("profiles")
+    .select("id, full_name, email, role, is_active")
+    .in("id", esIds)
+    .eq("role", "es");
+
+  return (profiles ?? [])
+    .map((p) => {
+      const name =
+        (p.full_name as string | null)?.trim() ||
+        (p.email as string | null)?.trim() ||
+        "Employment Specialist";
+      const inactive = p.is_active === false ? " (inactive)" : "";
+      return { id: p.id as string, name: `${name}${inactive}` };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+}
+
+export async function loadStaffEsPickerOptions(
+  admin: ReturnType<typeof createServiceRoleClient>,
+  role: string,
+  userId: string
+): Promise<SupervisedEsOption[]> {
+  if (isSupervisorRole(role) && !isAdminTierRole(role)) {
+    return loadSupervisedEsOptions(admin, userId);
+  }
+
+  if (isAdminTierRole(role) || role === "accountant") {
+    const { data: profiles } = await admin
+      .from("profiles")
+      .select("id, full_name, email, is_active")
+      .eq("role", "es")
+      .order("full_name");
+
+    return (profiles ?? []).map((p) => {
+      const name =
+        (p.full_name as string | null)?.trim() ||
+        (p.email as string | null)?.trim() ||
+        "Employment Specialist";
+      const inactive = p.is_active === false ? " (inactive)" : "";
+      return { id: p.id as string, name: `${name}${inactive}` };
+    });
+  }
+
+  return [];
 }
 
 export type { ServiceActivityType };

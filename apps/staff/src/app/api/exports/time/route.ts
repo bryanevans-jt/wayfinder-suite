@@ -12,6 +12,7 @@ import {
   esTimeEntriesToCsv,
   loadEsTimeEntriesForWeek,
 } from "@/lib/es-time-data";
+import { esUserAllowedForSupervisor, loadSupervisorScope } from "@/lib/supervisor-client-scope";
 
 export async function GET(request: Request) {
   const route = "api/exports/time";
@@ -51,18 +52,17 @@ export async function GET(request: Request) {
     const admin = createServiceRoleClient();
 
     if (isSupervisorRole(role) && !isAdminTierRole(role)) {
-      const { data: link } = await admin
-        .from("supervisor_es_assignments")
-        .select("es_user_id")
-        .eq("supervisor_user_id", session.effectiveUserId)
-        .eq("es_user_id", esUserId)
-        .maybeSingle();
-      if (!link) {
+      const scope = await loadSupervisorScope(admin, session.effectiveUserId);
+      if (!esUserAllowedForSupervisor(scope, esUserId)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
     }
 
-    const entries = await loadEsTimeEntriesForWeek(admin, esUserId, weekStart);
+    let entries = await loadEsTimeEntriesForWeek(admin, esUserId, weekStart);
+    const clientFilter = url.searchParams.get("client")?.trim();
+    if (clientFilter) {
+      entries = entries.filter((e) => e.client_id === clientFilter);
+    }
     const { data: profile } = await admin
       .from("profiles")
       .select("full_name, email")

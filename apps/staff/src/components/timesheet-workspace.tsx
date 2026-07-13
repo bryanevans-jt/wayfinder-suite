@@ -9,8 +9,8 @@ import {
 import { friendlyClientError } from "@wayfinder/supabase/error-log";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import type { EsTimeEntryRow, EsWeekSubmissionRow } from "@/lib/es-time-data";
+import { useMemo, useState, useTransition } from "react";
+import type { EsTimeEntryRow, EsWeekSubmissionRow, SupervisedEsOption } from "@/lib/es-time-data";
 import { shiftWeekStart, summarizeTimeEntries } from "@/lib/es-time-data";
 import {
   approveEsWeek,
@@ -28,6 +28,8 @@ type Props = {
   weekSubmission: EsWeekSubmissionRow | null;
   pendingApprovals: EsWeekSubmissionRow[];
   readOnly?: boolean;
+  supervisedEsOptions?: SupervisedEsOption[];
+  initialClientFilter?: string;
 };
 
 function formatWeekLabel(start: string, end: string): string {
@@ -45,13 +47,35 @@ export function TimesheetWorkspace({
   weekSubmission,
   pendingApprovals,
   readOnly = false,
+  supervisedEsOptions = [],
+  initialClientFilter = "",
 }: Props) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [returnNotes, setReturnNotes] = useState<Record<string, string>>({});
+  const [clientFilter, setClientFilter] = useState(initialClientFilter);
   const [pending, startTransition] = useTransition();
 
-  const summary = summarizeTimeEntries(entries);
+  const visibleEntries = useMemo(() => {
+    if (!clientFilter) {
+      return entries;
+    }
+    return entries.filter((e) => e.client_id === clientFilter);
+  }, [entries, clientFilter]);
+
+  const clientOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const e of entries) {
+      if (e.client_id && e.client_name) {
+        map.set(e.client_id, e.client_name);
+      }
+    }
+    return [...map.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+  }, [entries]);
+
+  const summary = summarizeTimeEntries(visibleEntries);
   const canSubmit =
     isEsRole(role) &&
     !readOnly &&
@@ -59,14 +83,40 @@ export function TimesheetWorkspace({
     (!weekSubmission || weekSubmission.status === "open" || weekSubmission.status === "returned");
 
   const weekStatus = weekSubmission?.status ?? "open";
-  const csvHref = `/api/exports/time?week=${encodeURIComponent(weekStart)}&es=${encodeURIComponent(esUserId)}`;
-  const pdfHref = `/api/exports/time/pdf?week=${encodeURIComponent(weekStart)}&es=${encodeURIComponent(esUserId)}`;
+  const exportParams = new URLSearchParams({
+    week: weekStart,
+    es: esUserId,
+  });
+  if (clientFilter) {
+    exportParams.set("client", clientFilter);
+  }
+  const csvHref = `/api/exports/time?${exportParams.toString()}`;
+  const pdfHref = `/api/exports/time/pdf?${exportParams.toString()}`;
   const canDownloadPdf = weekStatus === "approved";
 
-  function changeWeek(delta: number) {
+  function pushTimesheetQuery(updates: Record<string, string | null>) {
     const params = new URLSearchParams(window.location.search);
-    params.set("week", shiftWeekStart(weekStart, delta));
+    for (const [key, value] of Object.entries(updates)) {
+      if (value) {
+        params.set(key, value);
+      } else {
+        params.delete(key);
+      }
+    }
     router.push(`/dashboard/timesheet?${params.toString()}`);
+  }
+
+  function changeWeek(delta: number) {
+    pushTimesheetQuery({ week: shiftWeekStart(weekStart, delta) });
+  }
+
+  function onEsChange(nextEsId: string) {
+    pushTimesheetQuery({ es: nextEsId });
+  }
+
+  function onClientFilterChange(nextClientId: string) {
+    setClientFilter(nextClientId);
+    pushTimesheetQuery({ client: nextClientId || null });
   }
 
   function onSubmitWeek() {
@@ -169,6 +219,41 @@ export function TimesheetWorkspace({
       ) : null}
 
       <section className="rounded-xl border border-neutral-200 bg-white p-5">
+        {!isEsRole(role) && supervisedEsOptions.length > 0 ? (
+          <div className="mb-4 flex flex-wrap items-end gap-3">
+            <label className="block text-sm font-medium text-brand-black">
+              Employment Specialist
+              <select
+                value={esUserId}
+                onChange={(e) => onEsChange(e.target.value)}
+                className="mt-1 block min-w-[220px] rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+              >
+                {supervisedEsOptions.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {clientOptions.length > 0 ? (
+              <label className="block text-sm font-medium text-brand-black">
+                Client
+                <select
+                  value={clientFilter}
+                  onChange={(e) => onClientFilterChange(e.target.value)}
+                  className="mt-1 block min-w-[200px] rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                >
+                  <option value="">All clients</option>
+                  {clientOptions.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-brand-black">
@@ -215,7 +300,7 @@ export function TimesheetWorkspace({
 
         <div className="mt-5 grid gap-4 sm:grid-cols-3">
           <Stat label="Total hours" value={minutesToDecimalHours(summary.totalMinutes)} />
-          <Stat label="Entries" value={String(entries.length)} />
+          <Stat label="Entries" value={String(visibleEntries.length)} />
           <Stat
             label="Clients served"
             value={String(summary.byClient.filter((c) => c.name !== "Non-client time").length)}
@@ -270,7 +355,7 @@ export function TimesheetWorkspace({
 
       <section>
         <h3 className="text-base font-semibold text-brand-black">Line items</h3>
-        {entries.length === 0 ? (
+        {visibleEntries.length === 0 ? (
           <p className="mt-2 text-sm text-brand-black/70">
             No time entries this week. Log contact, applications, meetings, or stage updates from a{" "}
             <Link href="/dashboard/clients" className="text-brand-green underline">
@@ -294,7 +379,7 @@ export function TimesheetWorkspace({
                 </tr>
               </thead>
               <tbody>
-                {entries.map((e) => {
+                {visibleEntries.map((e) => {
                   const times = displayServiceTimes(e);
                   return (
                   <tr key={e.id} className="border-t border-neutral-100">

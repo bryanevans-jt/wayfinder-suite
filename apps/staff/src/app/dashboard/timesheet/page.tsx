@@ -11,11 +11,13 @@ import { TimesheetWorkspace } from "@/components/timesheet-workspace";
 import {
   loadEsTimeEntriesForWeek,
   loadPendingWeekSubmissionsForSupervisor,
+  loadStaffEsPickerOptions,
   loadWeekSubmission,
 } from "@/lib/es-time-data";
+import { esUserAllowedForSupervisor, loadSupervisorScope } from "@/lib/supervisor-client-scope";
 
 type PageProps = {
-  searchParams: Promise<{ week?: string; es?: string }>;
+  searchParams: Promise<{ week?: string; es?: string; client?: string }>;
 };
 
 export default async function TimesheetPage({ searchParams }: PageProps) {
@@ -39,16 +41,40 @@ export default async function TimesheetPage({ searchParams }: PageProps) {
   const weekStart = weekStartSunday(params.week ?? new Date());
   const weekEnd = weekEndSaturday(weekStart);
 
-  let esUserId = session.effectiveUserId;
-  if ((isSupervisorRole(role) || isAdminTierRole(role) || role === "accountant") && params.es) {
-    esUserId = params.es;
-  }
-
   let admin;
   try {
     admin = createServiceRoleClient();
   } catch {
     redirect("/dashboard");
+  }
+
+  const canPickEs =
+    isSupervisorRole(role) || isAdminTierRole(role) || role === "accountant";
+
+  const esPickerOptions =
+    canPickEs && !isEsRole(role)
+      ? await loadStaffEsPickerOptions(admin, role ?? "", session.effectiveUserId)
+      : [];
+
+  let esUserId = session.effectiveUserId;
+
+  if (canPickEs && !isEsRole(role)) {
+    if (params.es) {
+      esUserId = params.es;
+    } else if (esPickerOptions.length > 0) {
+      const qs = new URLSearchParams({ es: esPickerOptions[0]!.id, week: weekStart });
+      if (params.client) {
+        qs.set("client", params.client);
+      }
+      redirect(`/dashboard/timesheet?${qs.toString()}`);
+    }
+  }
+
+  if (isSupervisorRole(role) && !isAdminTierRole(role) && params.es) {
+    const scope = await loadSupervisorScope(admin, session.effectiveUserId);
+    if (!esUserAllowedForSupervisor(scope, esUserId)) {
+      redirect("/dashboard/timesheet");
+    }
   }
 
   const [{ data: esProfile }, entries, weekSubmission, pendingApprovals] = await Promise.all([
@@ -83,6 +109,8 @@ export default async function TimesheetPage({ searchParams }: PageProps) {
         weekSubmission={weekSubmission}
         pendingApprovals={pendingApprovals}
         readOnly={session.isPreviewing}
+        supervisedEsOptions={esPickerOptions}
+        initialClientFilter={params.client ?? ""}
       />
     </main>
   );

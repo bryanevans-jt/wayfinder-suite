@@ -1,5 +1,6 @@
 import { clientDisplayName } from "@wayfinder/branding";
 import type { ActivityLogRow } from "@/lib/portal-data";
+import { PORTAL_DISPLAY_TIME_ZONE } from "@wayfinder/branding";
 
 const REPORT_DATE = new Intl.DateTimeFormat("en-US", {
   month: "long",
@@ -7,6 +8,7 @@ const REPORT_DATE = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
   hour: "numeric",
   minute: "2-digit",
+  timeZone: PORTAL_DISPLAY_TIME_ZONE,
 });
 
 const RANGE_DATE = new Intl.DateTimeFormat("en-US", {

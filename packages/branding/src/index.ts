@@ -51,7 +51,12 @@ export {
   type EmploymentCategory,
   type EmploymentGoalInput,
 } from "./employment-categories";
-export { formatPortalDateTime } from "./portal-datetime";
+export {
+  easternDateKey,
+  formatEasternTimeOfDay,
+  formatPortalDateTime,
+  PORTAL_DISPLAY_TIME_ZONE,
+} from "./portal-datetime";
 export {
   dedupeServicesForSelect,
   filterServicesForOfficeState,

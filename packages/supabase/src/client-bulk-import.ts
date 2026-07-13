@@ -1,9 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClientAccount } from "./client-create";
 import {
+  clientNameMatchKeys,
   findClientIdByName,
   loadClientIdsByNormalizedName,
-  normalizeClientNameKey,
+  loadClientIdByContactEmail,
 } from "./client-name-dedupe";
 import {
   CLIENT_IMPORT_COLUMNS,
@@ -254,17 +255,31 @@ export async function importClientRows(
 
     const r = resolved.resolved;
 
-    if (!r.email) {
-      const existingId = findClientIdByName(existingByName, r.client_name);
-      if (existingId) {
+    const existingId = findClientIdByName(existingByName, r.client_name);
+    if (existingId) {
+      skipped++;
+      results.push({
+        row: rowNum,
+        email: r.email ?? "",
+        client_name: r.client_name,
+        ok: true,
+        skipped: true,
+        clientId: existingId,
+      });
+      continue;
+    }
+
+    if (r.email) {
+      const existingEmailId = await loadClientIdByContactEmail(admin, r.email);
+      if (existingEmailId) {
         skipped++;
         results.push({
           row: rowNum,
-          email: "",
+          email: r.email,
           client_name: r.client_name,
           ok: true,
           skipped: true,
-          clientId: existingId,
+          clientId: existingEmailId,
         });
         continue;
       }
@@ -300,8 +315,8 @@ export async function importClientRows(
       ok: true,
       clientId: created.clientId,
     });
-    if (!r.email) {
-      existingByName.set(normalizeClientNameKey(r.client_name), created.clientId);
+    for (const key of clientNameMatchKeys(r.client_name)) {
+      existingByName.set(key, created.clientId);
     }
   }
 

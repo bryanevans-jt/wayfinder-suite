@@ -9,9 +9,15 @@ type ThreadSummary = {
   threadId: string;
   clientId: string | null;
   clientLabel: string | null;
+  esUserId?: string | null;
   esName: string | null;
   overdue: boolean;
   lastPreview: string | null;
+};
+
+type MessageFilters = {
+  esUsers: { id: string; name: string }[];
+  clients: { id: string; name: string }[];
 };
 
 type MessageRow = {
@@ -33,13 +39,21 @@ export function StaffMessagesWorkspace() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [filterEs, setFilterEs] = useState("");
+  const [filterClient, setFilterClient] = useState("");
+  const [filters, setFilters] = useState<MessageFilters | null>(null);
 
   const loadThreads = useCallback(async () => {
-    const res = await fetch("/api/messages/threads");
+    const params = new URLSearchParams();
+    if (filterEs) params.set("es", filterEs);
+    if (filterClient) params.set("client", filterClient);
+    const qs = params.toString();
+    const res = await fetch(`/api/messages/threads${qs ? `?${qs}` : ""}`);
     const data = (await res.json()) as {
       threads?: ThreadSummary[];
       role?: string;
       readOnly?: boolean;
+      filters?: MessageFilters;
       error?: string;
     };
     if (!res.ok) {
@@ -50,8 +64,9 @@ export function StaffMessagesWorkspace() {
     setThreads(data.threads ?? []);
     setRole(data.role ?? "es");
     setReadOnly(Boolean(data.readOnly));
+    setFilters(data.filters ?? null);
     setLoading(false);
-  }, []);
+  }, [filterEs, filterClient]);
 
   const loadMessages = useCallback(async (threadId: string) => {
     const res = await fetch(`/api/messages/thread?id=${encodeURIComponent(threadId)}`);
@@ -116,6 +131,46 @@ export function StaffMessagesWorkspace() {
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(240px,320px)_1fr]">
       <aside className="rounded-xl border border-neutral-200 bg-white p-3">
+        {role === "supervisor" && filters ? (
+          <div className="mb-3 space-y-2 border-b border-neutral-100 pb-3">
+            <label className="block text-xs font-medium text-brand-black/70">
+              Employment Specialist
+              <select
+                value={filterEs}
+                onChange={(e) => {
+                  setFilterEs(e.target.value);
+                  setActiveId(null);
+                }}
+                className="mt-1 w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm"
+              >
+                <option value="">All supervised ES</option>
+                {filters.esUsers.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-xs font-medium text-brand-black/70">
+              Client
+              <select
+                value={filterClient}
+                onChange={(e) => {
+                  setFilterClient(e.target.value);
+                  setActiveId(null);
+                }}
+                className="mt-1 w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm"
+              >
+                <option value="">All clients</option>
+                {filters.clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        ) : null}
         <h2 className="px-2 text-xs font-semibold uppercase tracking-wide text-brand-black/55">
           Conversations
         </h2>
@@ -133,6 +188,9 @@ export function StaffMessagesWorkspace() {
                   }`}
                 >
                   <span className="font-medium">{t.clientLabel ?? "Client"}</span>
+                  {role === "supervisor" && t.esName ? (
+                    <span className="ml-1 text-xs font-normal text-brand-black/50">· {t.esName}</span>
+                  ) : null}
                   {t.overdue ? (
                     <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-red-700">
                       Needs reply

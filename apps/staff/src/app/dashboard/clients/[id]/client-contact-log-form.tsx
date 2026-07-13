@@ -12,6 +12,7 @@ import { suggestContactLogFollowUps } from "@wayfinder/supabase/contact-log-sugg
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { TimeActivityFields, useTimeActivityDefaults } from "@/components/time-activity-fields";
+import { ContactLogDailyCopy } from "@/components/contact-log-daily-copy";
 
 type Props = {
   clientId: string;
@@ -180,6 +181,9 @@ export function ClientContactLogForm({ clientId, activities }: Props) {
       </div>
       {error ? <p className="mt-2 text-sm text-red-700">{error}</p> : null}
       {notice ? <p className="mt-2 text-sm text-amber-800">{notice}</p> : null}
+      <div className="mt-4">
+        <ContactLogDailyCopy clientId={clientId} />
+      </div>
     </div>
   );
 }

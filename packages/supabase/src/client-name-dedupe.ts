@@ -9,7 +9,29 @@ export function normalizeClientNameKey(name: string): string {
       trimmed = `${first} ${last}`;
     }
   }
+  trimmed = trimmed
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/['.`\-]/g, "")
+    .replace(/[^a-zA-Z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   return trimmed.toLowerCase();
+}
+
+/** Additional keys for first+last matching (drops middle names / initials). */
+export function clientNameMatchKeys(name: string): string[] {
+  const normalized = normalizeClientNameKey(name);
+  if (!normalized) {
+    return [];
+  }
+  const keys = new Set<string>([normalized, normalized.replace(/\s+/g, "")]);
+  const parts = normalized.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    keys.add(`${parts[0]} ${parts[parts.length - 1]}`);
+    keys.add(`${parts[0]}${parts[parts.length - 1]}`);
+  }
+  return [...keys];
 }
 
 /**
@@ -31,15 +53,19 @@ export async function loadClientIdsByNormalizedName(
 
   const profileIds = new Set<string>();
 
-  for (const client of clients ?? []) {
-    const clientId = client.id as string;
-    const fullName = (client.full_name as string | null)?.trim();
-    if (fullName) {
-      const key = normalizeClientNameKey(fullName);
+  function registerName(clientId: string, rawName: string | null | undefined) {
+    const fullName = rawName?.trim();
+    if (!fullName) return;
+    for (const key of clientNameMatchKeys(fullName)) {
       if (key && !map.has(key)) {
         map.set(key, clientId);
       }
     }
+  }
+
+  for (const client of clients ?? []) {
+    const clientId = client.id as string;
+    registerName(clientId, client.full_name as string | null);
 
     const authId =
       ((client.user_id as string | null) ?? (client.profile_id as string | null)) ?? null;
@@ -65,13 +91,9 @@ export async function loadClientIdsByNormalizedName(
     }
 
     for (const profile of profiles ?? []) {
-      const fullName = (profile.full_name as string | null)?.trim();
-      if (!fullName) continue;
-      const key = normalizeClientNameKey(fullName);
-      if (!key || map.has(key)) continue;
       const clientId = clientByAuthId.get(profile.id as string);
       if (clientId) {
-        map.set(key, clientId);
+        registerName(clientId, profile.full_name as string | null);
       }
     }
   }
@@ -79,11 +101,35 @@ export async function loadClientIdsByNormalizedName(
   return map;
 }
 
+export async function loadClientIdByContactEmail(
+  admin: SupabaseClient,
+  email: string
+): Promise<string | null> {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+
+  const { data } = await admin
+    .from("clients")
+    .select("id")
+    .ilike("contact_email", normalized)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  return (data?.id as string | undefined) ?? null;
+}
+
 export function findClientIdByName(
   existingByName: Map<string, string>,
   name: string
 ): string | null {
-  const key = normalizeClientNameKey(name);
-  if (!key) return null;
-  return existingByName.get(key) ?? null;
+  for (const key of clientNameMatchKeys(name)) {
+    const id = existingByName.get(key);
+    if (id) {
+      return id;
+    }
+  }
+  return null;
 }

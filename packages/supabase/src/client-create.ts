@@ -1,6 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { insertClientRecord } from "./client-insert";
 import { insertRosterClientRecord } from "./client-roster-insert";
+import {
+  findClientIdByName,
+  loadClientIdsByNormalizedName,
+  loadClientIdByContactEmail,
+} from "./client-name-dedupe";
 import { resolveAuthUserIdByEmail } from "./link-client-auth";
 
 export type CreateClientParams = {
@@ -77,6 +82,37 @@ export async function createClientAccount(
     return {
       error: "This service has no milestones yet. Add milestones before assigning clients.",
     };
+  }
+
+  const existingByName = await loadClientIdsByNormalizedName(admin);
+  const existingByNameId = findClientIdByName(existingByName, name);
+  if (existingByNameId) {
+    if (params.esUserId?.trim()) {
+      const { error: assignErr } = await admin.from("es_client_assignments").upsert(
+        { es_user_id: params.esUserId.trim(), client_id: existingByNameId },
+        { onConflict: "es_user_id,client_id" }
+      );
+      if (assignErr) {
+        return { error: assignErr.message ?? "Could not assign client to ES" };
+      }
+    }
+    return { clientId: existingByNameId };
+  }
+
+  if (email) {
+    const existingEmailId = await loadClientIdByContactEmail(admin, email);
+    if (existingEmailId) {
+      if (params.esUserId?.trim()) {
+        const { error: assignErr } = await admin.from("es_client_assignments").upsert(
+          { es_user_id: params.esUserId.trim(), client_id: existingEmailId },
+          { onConflict: "es_user_id,client_id" }
+        );
+        if (assignErr) {
+          return { error: assignErr.message ?? "Could not assign client to ES" };
+        }
+      }
+      return { clientId: existingEmailId };
+    }
   }
 
   if (!email) {

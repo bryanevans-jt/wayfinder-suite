@@ -1,5 +1,5 @@
 import { CONTACT_LOG_INTERNAL_NOTES_LABEL } from "./constants";
-import { formatPortalDateTime } from "./portal-datetime";
+import { formatPortalDateTime, PORTAL_DISPLAY_TIME_ZONE } from "./portal-datetime";
 
 export type ClientActivityFeedItem =
   | {
@@ -97,7 +97,11 @@ export function ClientActivityTimeline({
                 {item.es_name ? ` with ${item.es_name}` : ""}
               </p>
               <p className="mt-1 text-sm text-brand-black/80">
-                {formatPortalDateTime(item.starts_at)} · {item.location}
+                {formatPortalDateTime(
+                  item.starts_at,
+                  item.timezone?.trim() || PORTAL_DISPLAY_TIME_ZONE
+                )}{" "}
+                · {item.location}
               </p>
               <p className="mt-1 text-xs uppercase tracking-wide text-brand-black/55">
                 {item.status === "accepted" ? "Confirmed" : item.status}
