@@ -7,7 +7,7 @@ import {
   SHARE_MOMENT_MAX_PHOTOS,
   SHARE_MOMENT_MAX_TOTAL_BYTES,
 } from "@/lib/share-moment-limits";
-import { createBrowserClient } from "@wayfinder/supabase";
+import { createClient as createBrowserClient } from "@wayfinder/supabase/client";
 import {
   friendlyClientError,
   parseApiErrorResponse,
