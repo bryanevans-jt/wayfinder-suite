@@ -18,6 +18,10 @@ export async function getGoogleAuth() {
   return auth;
 }
 
+function foldBase64(value: string): string {
+  return value.replace(/.{1,76}/g, (line) => `${line}\r\n`).trimEnd();
+}
+
 export async function sendEmail(
   auth: Awaited<ReturnType<typeof getGoogleAuth>>,
   options: {
@@ -33,10 +37,12 @@ export async function sendEmail(
     `To: ${options.to}`,
     `From: ${FROM_EMAIL}`,
     `Subject: =?utf-8?B?${Buffer.from(options.subject).toString("base64")}?=`,
+    "MIME-Version: 1.0",
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
     "",
     `--${boundary}`,
     'Content-Type: text/plain; charset="UTF-8"',
+    "Content-Transfer-Encoding: 7bit",
     "",
     options.text,
     "",
@@ -49,11 +55,11 @@ export async function sendEmail(
       mailParts.push("Content-Transfer-Encoding: base64");
       mailParts.push(`Content-Disposition: attachment; filename="${att.filename}"`);
       mailParts.push("");
-      mailParts.push(att.content);
+      mailParts.push(foldBase64(att.content));
     }
   }
   mailParts.push(`--${boundary}--`);
-  const mail = mailParts.join("\n");
+  const mail = mailParts.join("\r\n");
   const rawMessage = Buffer.from(mail)
     .toString("base64")
     .replace(/\+/g, "-")

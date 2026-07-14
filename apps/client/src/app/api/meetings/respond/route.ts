@@ -7,7 +7,6 @@ import {
   USER_FACING_AUTH_REQUIRED,
   USER_FACING_FORBIDDEN,
   USER_FACING_NOT_FOUND,
-  USER_FACING_SYSTEM_ERROR,
 } from "@wayfinder/supabase/error-log";
 import { notifyUser } from "@wayfinder/supabase/notify-user";
 import { formatMeetingWhen, notifyMeetingConfirmed } from "@wayfinder/supabase/meeting-notify";
@@ -51,8 +50,14 @@ export async function POST(request: Request) {
     let admin;
     try {
       admin = createServiceRoleClient();
-    } catch {
-      return NextResponse.json({ error: USER_FACING_SYSTEM_ERROR }, { status: 503 });
+    } catch (err) {
+      return respondWithLoggedError(
+        "client",
+        route,
+        err instanceof Error ? err : new Error("Missing SUPABASE_SERVICE_ROLE_KEY"),
+        actor,
+        503
+      );
     }
 
     const clientId = await lookupClientIdForAuthUser(admin, user.id);

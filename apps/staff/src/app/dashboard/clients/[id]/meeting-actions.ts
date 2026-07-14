@@ -1,11 +1,14 @@
 "use server";
 
 import { staffActsAsEsForClient } from "@/lib/caseload-assignee";
+import { createServerClient } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
+  logSystemError,
+  resolveErrorActor,
+  throwLoggedUserError,
   USER_FACING_AUTH_REQUIRED,
   USER_FACING_FORBIDDEN,
-  USER_FACING_SYSTEM_ERROR,
 } from "@wayfinder/supabase/error-log";
 import { notifyUser } from "@wayfinder/supabase/notify-user";
 import { formatMeetingWhen } from "@wayfinder/supabase/meeting-notify";
@@ -32,18 +35,29 @@ function formatMeetingLocation(place: string, address?: string): string {
 }
 
 export async function createMeetingRequest(input: Input) {
+  const route = "server-action/createMeetingRequest";
   await assertNotPreviewMutation();
   const session = await getAppSession();
   if (!session) {
     throw new Error(USER_FACING_AUTH_REQUIRED);
   }
 
-  let admin;
+  const supabase = await createServerClient();
+  const actor = await resolveErrorActor(supabase, session.actorUserId);
+
+  let adminClient;
   try {
-    admin = createServiceRoleClient();
-  } catch {
-    throw new Error("Server configuration error");
+    adminClient = createServiceRoleClient();
+  } catch (err) {
+    await throwLoggedUserError(
+      "staff",
+      route,
+      err instanceof Error ? err : new Error("Missing SUPABASE_SERVICE_ROLE_KEY"),
+      actor,
+      "We couldn't create that meeting request right now. Please try again."
+    );
   }
+  const admin = adminClient!;
 
   const assigned = await staffActsAsEsForClient(
     session.effectiveUserId,
@@ -61,7 +75,7 @@ export async function createMeetingRequest(input: Input) {
 
   const startsAt = new Date(`${input.date}T${input.time}:00`);
 
-  const { data: meeting, error } = await admin
+  const { data: meetingRow, error } = await admin
     .from("client_meeting_requests")
     .insert({
       client_id: input.clientId,
@@ -75,10 +89,16 @@ export async function createMeetingRequest(input: Input) {
     .select("id")
     .maybeSingle();
 
-  if (error || !meeting) {
-    console.error("createMeetingRequest failed:", error);
-    throw new Error(USER_FACING_SYSTEM_ERROR);
+  if (error || !meetingRow) {
+    await throwLoggedUserError(
+      "staff",
+      route,
+      error ?? new Error("Meeting insert returned no row"),
+      actor,
+      "We couldn't create that meeting request. Please try again."
+    );
   }
+  const meeting = meetingRow!;
 
   const { data: client } = await admin
     .from("clients")
@@ -106,6 +126,23 @@ export async function createMeetingRequest(input: Input) {
       });
     } catch (notifyErr) {
       console.error("createMeetingRequest notify failed:", notifyErr);
+      try {
+        await logSystemError(
+          admin,
+          {
+            app: "staff",
+            route,
+            userId: actor.userId,
+            userName: actor.userName,
+            userRole: actor.userRole,
+            userRoleLabel: actor.userRoleLabel,
+            metadata: { stage: "notify_client", meeting_id: meeting.id },
+          },
+          notifyErr
+        );
+      } catch (logErr) {
+        console.error("createMeetingRequest notify error logging failed:", logErr);
+      }
     }
   }
 

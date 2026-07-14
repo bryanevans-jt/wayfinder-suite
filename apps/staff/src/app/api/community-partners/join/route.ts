@@ -9,8 +9,8 @@ import {
 } from "@/lib/public-form-guard";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
+  logSystemError,
   respondWithLoggedError,
-  USER_FACING_SYSTEM_ERROR,
 } from "@wayfinder/supabase/error-log";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -60,7 +60,13 @@ export async function POST(request: NextRequest) {
   try {
     admin = createServiceRoleClient();
   } catch (err) {
-    return NextResponse.json({ error: USER_FACING_SYSTEM_ERROR }, { status: 503 });
+    return respondWithLoggedError(
+      "staff",
+      "api/community-partners/join",
+      err instanceof Error ? err : new Error("Missing SUPABASE_SERVICE_ROLE_KEY"),
+      {},
+      503
+    );
   }
 
   if (await publicSubmissionRateLimited(admin, contactEmail)) {
@@ -140,6 +146,19 @@ export async function POST(request: NextRequest) {
     });
   } catch (notifyErr) {
     console.error("employer submission notify failed:", notifyErr);
+    try {
+      await logSystemError(
+        admin,
+        {
+          app: "staff",
+          route: "api/community-partners/join",
+          metadata: { stage: "notify_staff", employer_id: employer.id },
+        },
+        notifyErr
+      );
+    } catch (logErr) {
+      console.error("employer submission notify error logging failed:", logErr);
+    }
   }
 
   return NextResponse.json({ ok: true, id: employer.id });

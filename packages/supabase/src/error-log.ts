@@ -75,6 +75,15 @@ export type ApiErrorPayload = {
   errorCode?: string;
 };
 
+const WF_CODE_RE = /\bWF-[A-Z0-9]{8}\b/i;
+
+/** Pull a WF reference code from a user-facing message when present. */
+export function extractErrorCode(message?: string | null): string | undefined {
+  if (!message) return undefined;
+  const match = message.match(WF_CODE_RE);
+  return match ? match[0].toUpperCase() : undefined;
+}
+
 /** Parse a failed fetch response into a friendly message and optional reference code. */
 export async function parseApiErrorResponse(res: Response): Promise<{
   message: string;
@@ -86,12 +95,61 @@ export async function parseApiErrorResponse(res: Response): Promise<{
   } catch {
     payload = null;
   }
-  const errorCode = payload?.errorCode?.trim().toUpperCase();
-  const message =
-    payload?.error && !looksTechnical(payload.error)
-      ? payload.error
-      : userFacingSystemErrorWithCode(errorCode);
-  return { message, errorCode };
+  const errorCode =
+    payload?.errorCode?.trim().toUpperCase() || extractErrorCode(payload?.error);
+
+  if (payload?.error?.trim()) {
+    const apiMessage = payload.error.trim();
+    // Keep API copy that already includes a WF code, or any non-technical message.
+    if (errorCode || !looksTechnical(apiMessage)) {
+      if (errorCode && !WF_CODE_RE.test(apiMessage)) {
+        return {
+          message: `${apiMessage} Reference code: ${errorCode}. ${USER_FACING_SUPPORT_LINE}`,
+          errorCode,
+        };
+      }
+      return { message: apiMessage, errorCode };
+    }
+  }
+
+  return { message: userFacingSystemErrorWithCode(errorCode), errorCode };
+}
+
+/**
+ * Report a browser/client failure that never reached a logged API catch
+ * (e.g. Vercel 413 payload too large, network drop) so it still gets a WF code.
+ */
+export async function reportBrowserSystemError(input: {
+  app?: Exclude<WayfinderErrorApp, "reports">;
+  route: string;
+  message: string;
+  stack?: string | null;
+}): Promise<{ message: string; errorCode?: string }> {
+  try {
+    const res = await fetch("/api/system-error/report", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        app: input.app === "client" ? "client" : "staff",
+        route: input.route,
+        message: input.message,
+        stack: input.stack ?? null,
+      }),
+    });
+    const data = (await res.json().catch(() => null)) as {
+      errorCode?: string;
+      message?: string;
+    } | null;
+    if (data?.errorCode) {
+      return {
+        errorCode: data.errorCode,
+        message: data.message ?? userFacingSystemErrorWithCode(data.errorCode),
+      };
+    }
+  } catch {
+    // Fall through to uncoded message.
+  }
+  return { message: userFacingSystemErrorWithCode(null) };
 }
 
 export const USER_FACING_AUTH_REQUIRED = "Please sign in again to continue.";
@@ -247,7 +305,8 @@ export async function respondWithLoggedError(
   route: string,
   err: unknown,
   actor: ApiErrorActor = {},
-  status = 500
+  status = 500,
+  userMessage?: string
 ): Promise<Response> {
   let errorCode: string | undefined;
   try {
@@ -270,10 +329,15 @@ export async function respondWithLoggedError(
     console.error("[wayfinder] Error logging failed:", logErr);
   }
 
-  return Response.json(
-    { error: userFacingSystemErrorWithCode(errorCode), errorCode: errorCode ?? null },
-    { status }
-  );
+  const hint = userMessage?.trim();
+  const error =
+    hint && !looksTechnical(hint)
+      ? errorCode
+        ? `${hint} Reference code: ${errorCode}. ${USER_FACING_SUPPORT_LINE}`
+        : `${hint} ${USER_FACING_SUPPORT_LINE}`
+      : userFacingSystemErrorWithCode(errorCode);
+
+  return Response.json({ error, errorCode: errorCode ?? null }, { status });
 }
 
 export type AccessErrorLike = {
@@ -325,17 +389,32 @@ export async function respondWithAccessOrLoggedError(
 
 /** Use in client catch blocks when fetch fails outside API error payloads. */
 export function friendlyClientError(raw: unknown, errorCode?: string | null): string {
-  if (raw instanceof Error && raw.message && !looksTechnical(raw.message)) {
-    const code = errorCode ?? (raw as Error & { errorCode?: string }).errorCode;
-    if (code && !raw.message.includes(code)) {
-      return `${raw.message} Reference code: ${code.toUpperCase()}.`;
+  const attachedCode =
+    errorCode ??
+    (raw instanceof Error ? (raw as Error & { errorCode?: string }).errorCode : undefined) ??
+    (typeof raw === "string" ? extractErrorCode(raw) : undefined);
+
+  if (raw instanceof Error && raw.message) {
+    const code = attachedCode ?? extractErrorCode(raw.message);
+    if (!looksTechnical(raw.message)) {
+      if (code && !WF_CODE_RE.test(raw.message)) {
+        return `${raw.message} Reference code: ${code.toUpperCase()}.`;
+      }
+      return raw.message;
     }
-    return raw.message;
+    return userFacingSystemErrorWithCode(code);
   }
-  if (typeof raw === "string" && raw && !looksTechnical(raw)) {
-    return raw;
+  if (typeof raw === "string" && raw) {
+    const code = attachedCode ?? extractErrorCode(raw);
+    if (!looksTechnical(raw)) {
+      if (code && !WF_CODE_RE.test(raw)) {
+        return `${raw} Reference code: ${code.toUpperCase()}.`;
+      }
+      return raw;
+    }
+    return userFacingSystemErrorWithCode(code);
   }
-  return userFacingSystemErrorWithCode(errorCode);
+  return userFacingSystemErrorWithCode(attachedCode);
 }
 
 /** Log a server-action failure and throw a safe message the client can display (with WF code when logged). */
@@ -442,20 +521,23 @@ export function friendlyAuthError(
 }
 
 function looksTechnical(message: string): boolean {
+  // Do not treat "WF-XXXXXXXX" / "Reference code:" as technical — those are user-facing.
   const lower = message.toLowerCase();
   return (
-    lower.includes("wf-") ||
     lower.includes("supabase") ||
     lower.includes("postgres") ||
     lower.includes("jwt") ||
     lower.includes("fetch failed") ||
-    lower.includes("network") ||
+    lower.includes("failed to fetch") ||
+    lower.includes("networkerror") ||
+    lower.includes("network request failed") ||
     lower.includes("econnrefused") ||
     lower.includes("digest:") ||
     lower.includes("server components render") ||
     lower.includes("an error occurred in the server") ||
     lower.includes("server action") ||
     lower.includes("service_role") ||
+    lower.includes("function_payload_too_large") ||
     /^[a-z_]+:\s/.test(lower)
   );
 }

@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/employment-celebrations",
       "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/team-moments-cleanup",
+      "schedule": "15 * * * *"
     }
   ]
 }

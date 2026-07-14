@@ -9,7 +9,6 @@ import {
   resolveErrorActor,
   USER_FACING_AUTH_REQUIRED,
   USER_FACING_FORBIDDEN,
-  USER_FACING_SYSTEM_ERROR,
 } from "@wayfinder/supabase/error-log";
 import { assertNotPreviewMutation, getAppSession } from "@wayfinder/supabase/preview-server";
 import { revalidatePath } from "next/cache";
@@ -65,8 +64,15 @@ export async function POST(request: Request) {
   let admin;
   try {
     admin = createServiceRoleClient();
-  } catch {
-    return NextResponse.json({ ok: false, error: USER_FACING_SYSTEM_ERROR }, { status: 503 });
+  } catch (err) {
+    const failure = await finishActionFailure(
+      "staff",
+      route,
+      err instanceof Error ? err : new Error("Missing SUPABASE_SERVICE_ROLE_KEY"),
+      {},
+      "We could not save this contact log right now. Please try again."
+    );
+    return NextResponse.json(failure, { status: 503 });
   }
 
   let body: Body;
