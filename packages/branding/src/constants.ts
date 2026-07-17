@@ -48,7 +48,7 @@ export const DEVELOPER_BADGE_LOGO_PATH = "/logo.png";
  */
 export const EMAIL_LOGO_PATH = WAYFINDER_LOGO_PATH;
 
-export const APP_VERSION = "1.0.1";
+export const APP_VERSION = "1.0.3";
 
 /** Primary technical contact while Wayfinder is in rollout. */
 export const SUPPORT_CONTACT_NAME = "Bryan Evans";
@@ -57,8 +57,7 @@ export const SUPPORT_CONTACT_MAILTO = `mailto:${SUPPORT_CONTACT_EMAIL}`;
 
 export const LEGAL_ENTITY = "Joshua Tree Service Group";
 
-export const COPYRIGHT_NOTICE =
-  "Copyright © Joshua Tree Service Group. All rights reserved.";
+export const COPYRIGHT_NOTICE = "All rights reserved.";
 
 export const PRIVACY_POLICY_LAST_UPDATED = "July 10, 2026";
 

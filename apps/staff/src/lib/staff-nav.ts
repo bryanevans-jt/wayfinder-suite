@@ -237,7 +237,7 @@ export function staffNavSectionsForRole(
             },
             {
               href: "/dashboard/timesheet",
-              label: "Timesheet",
+              label: "Weekly Timesheet",
               match: (p) => p.startsWith("/dashboard/timesheet"),
             },
           ],
@@ -258,11 +258,11 @@ export function staffNavSectionsForRole(
   if (staffRole === "accountant") {
     return withCultureAndHelp([
       {
-        label: "Payroll",
+        label: "Weekly Timesheet",
         items: [
           {
             href: "/dashboard/timesheet",
-            label: "Timesheet",
+            label: "Weekly Timesheet",
             match: (p) => p.startsWith("/dashboard/timesheet"),
           },
           dataExportsNav,
@@ -287,7 +287,7 @@ export function staffNavSectionsForRole(
           },
           {
             href: "/dashboard/timesheet",
-            label: "Timesheets",
+            label: "Weekly Timesheet",
             match: (p) => p.startsWith("/dashboard/timesheet"),
           },
         ],
@@ -329,7 +329,7 @@ export function staffNavSectionsForRole(
             },
             {
               href: "/dashboard/timesheet",
-              label: "Timesheet",
+              label: "Weekly Timesheet",
               match: (p) => p.startsWith("/dashboard/timesheet"),
             },
             reportingNav,

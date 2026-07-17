@@ -14,6 +14,10 @@ import { AdminMessageAuditPanel } from "@/components/admin-message-audit-panel";
 import { ClientDetailDrawer } from "@/components/client-detail-drawer";
 import { ClientImportPanel } from "@/components/client-import-panel";
 import { ClientListRow } from "@/components/client-list-row";
+import {
+  ClientListPaginationControls,
+  useClientListPagination,
+} from "@/components/client-list-pagination";
 import { ErrorLogPanel } from "@/components/error-log-panel";
 import { ClientProfileModal } from "@/components/client-profile-modal";
 import { NaturalSupportModal } from "@/components/natural-support-modal";
@@ -218,6 +222,16 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
       return hay.includes(q);
     });
   }, [b, clientFilterOffice, clientFilterEs, clientSearch, mode, showArchivedClients]);
+
+  const {
+    pageSize: clientPageSize,
+    setPageSize: setClientPageSize,
+    page: clientPage,
+    setPage: setClientPage,
+    totalPages: clientTotalPages,
+    pageItems: pagedClients,
+    totalCount: clientTotalCount,
+  } = useClientListPagination(filteredClients);
 
   useEffect(() => {
     setDrawerClient((current) => {
@@ -610,6 +624,14 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               </label>
             ) : null}
           </div>
+          <ClientListPaginationControls
+            pageSize={clientPageSize}
+            onPageSizeChange={setClientPageSize}
+            page={clientPage}
+            totalPages={clientTotalPages}
+            totalCount={clientTotalCount}
+            onPageChange={setClientPage}
+          />
           <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white">
             <table className="min-w-full text-left text-sm">
               <thead className="bg-neutral-50 text-brand-black/70">
@@ -632,7 +654,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                     </td>
                   </tr>
                 ) : (
-                  filteredClients.map((c) => (
+                  pagedClients.map((c) => (
                     <ClientListRow
                       key={c.id}
                       client={c}
@@ -646,6 +668,14 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               </tbody>
             </table>
           </div>
+          <ClientListPaginationControls
+            pageSize={clientPageSize}
+            onPageSizeChange={setClientPageSize}
+            page={clientPage}
+            totalPages={clientTotalPages}
+            totalCount={clientTotalCount}
+            onPageChange={setClientPage}
+          />
           {canEditClients ? (
             <AddClientModal
               open={addClientOpen}

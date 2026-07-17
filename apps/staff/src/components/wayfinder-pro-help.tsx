@@ -133,17 +133,17 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Sidebar layout",
         body:
-          "Payroll tools are grouped at the top; Community Partners is reference data shared across the team.",
+          "Weekly Timesheet tools are grouped at the top; Community Partners is reference data shared across the team.",
         steps: [
-          "Payroll → Timesheet, Data exports.",
+          "Weekly Timesheet → review weeks and Data exports.",
           "Reference → Community Partners.",
         ],
       },
       {
-        title: "Timesheet and exports",
+        title: "Weekly Timesheet and exports",
         body: "Your account focuses on approved time and payroll exports — you do not manage client caseloads here.",
         steps: [
-          "Timesheet: review approved weeks as configured by super admin pay-period settings.",
+          "Weekly Timesheet: review approved weeks as configured by super admin pay-period settings.",
           "Data exports: download payroll CSV when you need numbers outside the app.",
           "Community Partners lists employer contacts shared across the team.",
         ],

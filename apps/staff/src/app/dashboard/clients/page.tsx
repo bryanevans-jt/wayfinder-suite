@@ -3,25 +3,19 @@ import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { clientDisplayName, serviceDisplayName } from "@wayfinder/branding";
 import { sortClientsByTriage } from "@wayfinder/supabase/caseload-triage";
 import { USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import {
-  RESPONSIVE_TABLE_CLASS,
-  ResponsiveTableShell,
-} from "@/components/responsive-table-shell";
 import { ViewArchivedToggle } from "@/components/view-archived-toggle";
 import { CaseloadTriageLegend } from "@/components/caseload-triage-legend";
-import { CaseloadTriageIcons } from "@/components/caseload-triage-icons";
 import {
   EsApplicationPipelineBoard,
   type PipelineApplication,
 } from "@/components/es-application-pipeline-board";
+import { EsClientsTable } from "@/components/es-clients-table";
 import { loadCaseloadTriageFlags } from "@/lib/caseload-operations";
 import { fetchEsCaseloadClients, getEsCaseloadAdmin } from "@/lib/es-caseload-data";
 import { fetchOfficesForPicker } from "@/lib/office-visibility";
 import { AddClientLauncher } from "./add-client-launcher";
-import { EsNaturalSupportButton } from "./es-natural-support-button";
 
 type PageProps = {
   searchParams: Promise<{ archived?: string }>;
@@ -245,79 +239,23 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
 
       <CaseloadTriageLegend />
 
-      <ResponsiveTableShell className="mt-8">
-        <table className={RESPONSIVE_TABLE_CLASS}>
-          <thead>
-            <tr className="border-b border-neutral-200 bg-neutral-50">
-              <th className="px-4 py-3 font-semibold text-brand-black">Name</th>
-              <th className="px-4 py-3 font-semibold text-brand-black">Current service</th>
-              <th className="px-4 py-3 font-semibold text-brand-black">Current stage</th>
-              <th className="px-4 py-3 font-semibold text-brand-black">Messages</th>
-              <th className="px-4 py-3 font-semibold text-brand-black">Support</th>
-            </tr>
-          </thead>
-          <tbody>
-            {clients.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-brand-black/70">
-                  {includeArchived
-                    ? "No archived clients assigned to you."
-                    : "No active clients assigned yet. Use Add client to create one, or turn on View archived."}
-                </td>
-              </tr>
-            ) : (
-              sortedClients.map((c) => {
-                const name = c.displayName;
-                const svc = c.current_service_id
-                  ? (serviceName.get(c.current_service_id) ?? "—")
-                  : "—";
-                const stage = c.current_stage_id
-                  ? (stageTitle.get(c.current_stage_id) ?? "—")
-                  : "—";
-                const overdue = overdueByClient.get(c.id);
-                const archived = c.archived_at != null;
-                const triageFlags = triageFlagsByClient.get(c.id) ?? [];
-                return (
-                  <tr key={c.id} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50/80">
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/dashboard/clients/${c.id}`}
-                        className="font-medium text-brand-black underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green"
-                      >
-                        {name}
-                      </Link>
-                      <CaseloadTriageIcons flags={triageFlags} />
-                      {archived ? (
-                        <span className="ml-2 rounded-full bg-neutral-200 px-2 py-0.5 text-xs font-semibold uppercase text-brand-black/60">
-                          Archived
-                        </span>
-                      ) : null}
-                    </td>
-                    <td className="px-4 py-3 text-brand-black">{svc}</td>
-                    <td className="px-4 py-3 text-brand-black">{stage}</td>
-                    <td className="px-4 py-3">
-                      {overdue ? (
-                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold uppercase text-red-700">
-                          Needs reply
-                        </span>
-                      ) : (
-                        <span className="text-brand-black/45">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {!session.isPreviewing ? (
-                        <EsNaturalSupportButton clientId={c.id} clientLabel={name} />
-                      ) : (
-                        <span className="text-brand-black/45">—</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </ResponsiveTableShell>
+      <EsClientsTable
+        includeArchived={includeArchived}
+        canManageSupport={!session.isPreviewing}
+        clients={sortedClients.map((c) => ({
+          id: c.id,
+          displayName: c.displayName,
+          serviceLabel: c.current_service_id
+            ? (serviceName.get(c.current_service_id) ?? "—")
+            : "—",
+          stageLabel: c.current_stage_id
+            ? (stageTitle.get(c.current_stage_id) ?? "—")
+            : "—",
+          overdue: Boolean(overdueByClient.get(c.id)),
+          archived: c.archived_at != null,
+          triageFlags: triageFlagsByClient.get(c.id) ?? [],
+        }))}
+      />
     </main>
   );
 }

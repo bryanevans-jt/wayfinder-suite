@@ -1,6 +1,6 @@
 {
   "name": "@wayfinder/staff",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "private": true,
   "scripts": {
     "dev": "cross-env NEXT_TELEMETRY_DISABLED=1 next dev --port 3000",

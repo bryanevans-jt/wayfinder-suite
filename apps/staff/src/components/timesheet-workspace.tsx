@@ -276,10 +276,10 @@ export function TimesheetWorkspace({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-brand-black">
-              {isEsRole(role) ? "My timesheet" : `${esName}'s timesheet`}
+              {isEsRole(role) ? "My weekly timesheet" : `${esName}'s weekly timesheet`}
             </h2>
             <p className="text-sm text-brand-black/70">
-              Pay week (Sun–Sat): {formatWeekLabel(weekStart, weekEnd)}
+              Week (Sun–Sat): {formatWeekLabel(weekStart, weekEnd)}
             </p>
             <p className="mt-1 text-xs text-brand-black/55">
               Status: <span className="font-medium capitalize">{weekStatus.replace("_", " ")}</span>

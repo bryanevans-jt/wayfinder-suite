@@ -1,7 +1,8 @@
 import { createServerClient } from "@wayfinder/supabase";
-import { clientDisplayName, isGoldApplicationStatus } from "@wayfinder/branding";
+import { clientDisplayName } from "@wayfinder/branding";
 import Link from "next/link";
 import { Suspense } from "react";
+import { CounselorClientsGrid } from "@/components/counselor-clients-grid";
 import { StaffSupportNote } from "@/components/staff-support-note";
 import { ViewArchivedToggle } from "@/components/view-archived-toggle";
 import { STAFF_SUPPORT_EMAIL, STAFF_SUPPORT_MAILTO } from "@/lib/support-contact";
@@ -195,8 +196,8 @@ export default async function CounselorPortalPage({
           <StaffSupportNote />
         </div>
       ) : (
-        <ul className="mt-10 grid list-none gap-5 p-0 sm:grid-cols-2 lg:grid-cols-3">
-          {clients.map((c) => {
+        <CounselorClientsGrid
+          clients={clients.map((c) => {
             const profileUserId = (c.user_id ?? c.profile_id) as string | null;
             const displayName = clientDisplayName({
               full_name: (profileUserId ? nameByUser.get(profileUserId) : null) ?? c.full_name ?? null,
@@ -205,47 +206,20 @@ export default async function CounselorPortalPage({
             });
             const stage =
               c.current_stage_id && stageTitle.has(c.current_stage_id as string)
-                ? stageTitle.get(c.current_stage_id as string)
+                ? (stageTitle.get(c.current_stage_id as string) ?? "—")
                 : "—";
-            const apps = appCount.get(c.linkId) ?? 0;
             const last = lastLogAt.get(c.linkId);
             const latest = latestAppByClient.get(c.linkId);
-            const gold = isGoldApplicationStatus(latest?.status);
-
-            return (
-              <li key={c.linkId}>
-                <Link
-                  href={`/dashboard/counselor/clients/${c.linkId}`}
-                  className="block h-full rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm transition hover:border-brand-green/40 hover:shadow-md"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <h2 className="text-lg font-semibold text-brand-black">{displayName}</h2>
-                    {gold ? (
-                      <span className="shrink-0 rounded-full bg-brand-gold px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-white">
-                        {latest?.status}
-                      </span>
-                    ) : null}
-                  </div>
-                  <p className="mt-2 text-sm text-brand-black/70">
-                    <span className="font-medium text-brand-green">Current stage</span> · {stage}
-                  </p>
-                  <dl className="mt-4 space-y-1 border-t border-neutral-100 pt-4 text-sm text-brand-black/80">
-                    <div className="flex justify-between gap-2">
-                      <dt>Applications submitted</dt>
-                      <dd className="font-semibold text-brand-black">{apps}</dd>
-                    </div>
-                    <div className="flex justify-between gap-2">
-                      <dt>Last activity</dt>
-                      <dd className="text-right text-brand-black">
-                        {last ? formatPortalDateTime(last) : "—"}
-                      </dd>
-                    </div>
-                  </dl>
-                </Link>
-              </li>
-            );
+            return {
+              linkId: c.linkId,
+              displayName,
+              stageLabel: stage,
+              applicationCount: appCount.get(c.linkId) ?? 0,
+              lastActivityLabel: last ? formatPortalDateTime(last) : "—",
+              latestStatus: latest?.status ?? null,
+            };
           })}
-        </ul>
+        />
       )}
 
       {clients.length > 0 ? (

@@ -1,6 +1,10 @@
 "use client";
 
 import type { HrAssignmentLink, HrClientRow } from "@/lib/hr-registry-data";
+import {
+  ClientListPaginationControls,
+  useClientListPagination,
+} from "@/components/client-list-pagination";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -28,6 +32,15 @@ export function HospitalityWorkspace({
   staffOfficeLinks,
 }: Props) {
   const [tab, setTab] = useState<"logs" | "network" | "connections">("logs");
+  const {
+    pageSize: clientPageSize,
+    setPageSize: setClientPageSize,
+    page: clientPage,
+    setPage: setClientPage,
+    totalPages: clientTotalPages,
+    pageItems: pagedClients,
+    totalCount: clientTotalCount,
+  } = useClientListPagination(clients);
 
   return (
     <div className="mt-6 space-y-6">
@@ -55,31 +68,57 @@ export function HospitalityWorkspace({
       </div>
 
       {tab === "logs" ? (
-        <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white">
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-neutral-50 text-brand-black/70">
-              <tr>
-                <th className="px-3 py-2">Client</th>
-                <th className="px-3 py-2">Office</th>
-                <th className="px-3 py-2">Employment Specialist</th>
-                <th className="px-3 py-2">Service</th>
-                <th className="px-3 py-2">Current stage</th>
-                <th className="px-3 py-2">Job start</th>
-              </tr>
-            </thead>
-            <tbody>
-              {clients.map((c) => (
-                <tr key={c.id} className="border-t border-neutral-100">
-                  <td className="px-3 py-3 font-medium">{c.name}</td>
-                  <td className="px-3 py-3">{c.officeName ?? "—"}</td>
-                  <td className="px-3 py-3">{c.esNames}</td>
-                  <td className="px-3 py-3">{c.serviceName ?? "—"}</td>
-                  <td className="px-3 py-3">{c.stageTitle ?? "—"}</td>
-                  <td className="px-3 py-3">{c.jobStartDate ?? "—"}</td>
+        <div className="space-y-3">
+          <ClientListPaginationControls
+            pageSize={clientPageSize}
+            onPageSizeChange={setClientPageSize}
+            page={clientPage}
+            totalPages={clientTotalPages}
+            totalCount={clientTotalCount}
+            onPageChange={setClientPage}
+          />
+          <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-neutral-50 text-brand-black/70">
+                <tr>
+                  <th className="px-3 py-2">Client</th>
+                  <th className="px-3 py-2">Office</th>
+                  <th className="px-3 py-2">Employment Specialist</th>
+                  <th className="px-3 py-2">Service</th>
+                  <th className="px-3 py-2">Current stage</th>
+                  <th className="px-3 py-2">Job start</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {clients.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-3 py-8 text-center text-brand-black/60">
+                      No clients yet.
+                    </td>
+                  </tr>
+                ) : (
+                  pagedClients.map((c) => (
+                    <tr key={c.id} className="border-t border-neutral-100">
+                      <td className="px-3 py-3 font-medium">{c.name}</td>
+                      <td className="px-3 py-3">{c.officeName ?? "—"}</td>
+                      <td className="px-3 py-3">{c.esNames}</td>
+                      <td className="px-3 py-3">{c.serviceName ?? "—"}</td>
+                      <td className="px-3 py-3">{c.stageTitle ?? "—"}</td>
+                      <td className="px-3 py-3">{c.jobStartDate ?? "—"}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          <ClientListPaginationControls
+            pageSize={clientPageSize}
+            onPageSizeChange={setClientPageSize}
+            page={clientPage}
+            totalPages={clientTotalPages}
+            totalCount={clientTotalCount}
+            onPageChange={setClientPage}
+          />
         </div>
       ) : null}
 

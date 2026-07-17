@@ -1,6 +1,10 @@
 "use client";
 
 import type { HrAssignmentLink, HrClientRow } from "@/lib/hr-registry-data";
+import {
+  ClientListPaginationControls,
+  useClientListPagination,
+} from "@/components/client-list-pagination";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -50,6 +54,16 @@ export function HrWorkspace({
         .sort((a, b) => a.name.localeCompare(b.name)),
     [clients]
   );
+
+  const {
+    pageSize: clientPageSize,
+    setPageSize: setClientPageSize,
+    page: clientPage,
+    setPage: setClientPage,
+    totalPages: clientTotalPages,
+    pageItems: pagedClients,
+    totalCount: clientTotalCount,
+  } = useClientListPagination(clients);
 
   function applyFilters() {
     const params = new URLSearchParams();
@@ -205,6 +219,14 @@ export function HrWorkspace({
               Export CSV
             </a>
           </div>
+          <ClientListPaginationControls
+            pageSize={clientPageSize}
+            onPageSizeChange={setClientPageSize}
+            page={clientPage}
+            totalPages={clientTotalPages}
+            totalCount={clientTotalCount}
+            onPageChange={setClientPage}
+          />
           <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white">
             <table className="min-w-full text-left text-sm">
               <thead className="bg-neutral-50 text-brand-black/70">
@@ -225,7 +247,7 @@ export function HrWorkspace({
                     </td>
                   </tr>
                 ) : (
-                  clients.map((c) => (
+                  pagedClients.map((c) => (
                     <tr key={c.id} className="border-t border-neutral-100">
                       <td className="px-3 py-3">
                         <p className="font-medium">{c.name}</p>
@@ -242,6 +264,14 @@ export function HrWorkspace({
               </tbody>
             </table>
           </div>
+          <ClientListPaginationControls
+            pageSize={clientPageSize}
+            onPageSizeChange={setClientPageSize}
+            page={clientPage}
+            totalPages={clientTotalPages}
+            totalCount={clientTotalCount}
+            onPageChange={setClientPage}
+          />
         </section>
       ) : null}
 

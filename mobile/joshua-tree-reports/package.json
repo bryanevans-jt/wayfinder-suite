@@ -1,6 +1,6 @@
 {
   "name": "joshua-tree-reports-mobile",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "private": true,
   "description": "Capacitor shell for Joshua Tree Reports",
   "scripts": {
