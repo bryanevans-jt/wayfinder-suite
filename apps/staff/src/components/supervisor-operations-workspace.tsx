@@ -1,4 +1,5 @@
 import type { CoachingSlaRow, CoachingThinLogRow, EsCapacityRow } from "@/lib/operations-data";
+import { SOFT_ACTIVE_CASELOAD_GUIDANCE } from "@/lib/analytics/definitions";
 import { MIN_CONTACTS_PER_MONTH } from "@wayfinder/supabase/caseload-triage";
 import { formatPortalDateTime } from "@wayfinder/branding";
 import Link from "next/link";
@@ -15,7 +16,9 @@ export function SupervisorOperationsWorkspace({ capacity, coaching, showCoaching
       <section className="rounded-xl border border-neutral-200 bg-white p-5">
         <h2 className="text-base font-semibold text-brand-black">Capacity view</h2>
         <p className="mt-1 text-sm text-brand-black/65">
-          Active caseload and billable minutes (last 4 weeks) per Employment Specialist.
+          Active caseload and billable minutes (last 4 weeks) per Employment Specialist. Soft
+          guidance is {SOFT_ACTIVE_CASELOAD_GUIDANCE} active clients — overages are allowed; use
+          judgment with supervisors/HR.
         </p>
         {capacity.length === 0 ? (
           <p className="mt-4 text-sm text-brand-black/60">No Employment Specialist data in scope.</p>
@@ -33,7 +36,20 @@ export function SupervisorOperationsWorkspace({ capacity, coaching, showCoaching
                 {capacity.map((row) => (
                   <tr key={row.esUserId} className="border-b border-neutral-100">
                     <td className="py-2 pr-4">{row.esName}</td>
-                    <td className="py-2 pr-4">{row.caseloadCount}</td>
+                    <td
+                      className={`py-2 pr-4 ${
+                        row.caseloadCount > SOFT_ACTIVE_CASELOAD_GUIDANCE
+                          ? "font-semibold text-amber-800"
+                          : ""
+                      }`}
+                    >
+                      {row.caseloadCount}
+                      {row.caseloadCount > SOFT_ACTIVE_CASELOAD_GUIDANCE ? (
+                        <span className="ml-2 text-xs font-normal text-amber-700">
+                          above soft guidance
+                        </span>
+                      ) : null}
+                    </td>
                     <td className="py-2">
                       {Math.floor(row.billableMinutesLast4Weeks / 60)}h{" "}
                       {row.billableMinutesLast4Weeks % 60}m

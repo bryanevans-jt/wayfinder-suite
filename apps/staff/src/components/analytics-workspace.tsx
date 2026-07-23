@@ -15,6 +15,8 @@ type FilterOptions = {
 type Props = {
   readOnly?: boolean;
   showBenchmark?: boolean;
+  /** When false (HR), hide client-named CSV export. */
+  allowClientFactExport?: boolean;
 };
 
 function formatPercent(value: number | null): string {
@@ -30,7 +32,11 @@ function formatMonthLabel(yyyyMm: string): string {
   return date.toLocaleDateString(undefined, { month: "short", year: "numeric" });
 }
 
-export function AnalyticsWorkspace({ readOnly = false, showBenchmark = false }: Props) {
+export function AnalyticsWorkspace({
+  readOnly = false,
+  showBenchmark = false,
+  allowClientFactExport = true,
+}: Props) {
   const defaults = useMemo(() => defaultAnalyticsRange(), []);
   const [from, setFrom] = useState(defaults.from);
   const [to, setTo] = useState(defaults.to);
@@ -171,14 +177,21 @@ export function AnalyticsWorkspace({ readOnly = false, showBenchmark = false }: 
             </label>
           ) : null}
         </div>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <a
-            href={exportHref}
-            className="inline-flex rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white hover:bg-brand-green/90"
-          >
-            Export client facts (CSV)
-          </a>
-        </div>
+        {allowClientFactExport ? (
+          <div className="mt-4 flex flex-wrap gap-3">
+            <a
+              href={exportHref}
+              className="inline-flex rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white hover:bg-brand-green/90"
+            >
+              Export client facts (CSV)
+            </a>
+          </div>
+        ) : (
+          <p className="mt-4 text-xs text-brand-black/55">
+            HR views are aggregated. Client-named fact exports are not available — use Timesheet /
+            Data exports for hours worked and billable-by-client files.
+          </p>
+        )}
       </section>
 
       {error ? (
@@ -247,7 +260,73 @@ export function AnalyticsWorkspace({ readOnly = false, showBenchmark = false }: 
               value={String(summary.applicationsSubmitted)}
               hint={ANALYTICS_METRIC_DEFINITIONS.applicationsSubmitted.description}
             />
+            <MetricCard
+              title={ANALYTICS_METRIC_DEFINITIONS.contactsPerWeek.label}
+              value={summary.contactsPerWeek != null ? String(summary.contactsPerWeek) : "—"}
+              hint={ANALYTICS_METRIC_DEFINITIONS.contactsPerWeek.description}
+            />
+            <MetricCard
+              title={ANALYTICS_METRIC_DEFINITIONS.applicationsPerWeek.label}
+              value={
+                summary.applicationsPerWeek != null ? String(summary.applicationsPerWeek) : "—"
+              }
+              hint={ANALYTICS_METRIC_DEFINITIONS.applicationsPerWeek.description}
+            />
+            <MetricCard
+              title={ANALYTICS_METRIC_DEFINITIONS.hoursWorked.label}
+              value={String(summary.hoursWorked)}
+              hint={ANALYTICS_METRIC_DEFINITIONS.hoursWorked.description}
+            />
+            <MetricCard
+              title={ANALYTICS_METRIC_DEFINITIONS.billableHours.label}
+              value={String(summary.billableHours)}
+              hint={ANALYTICS_METRIC_DEFINITIONS.billableHours.description}
+            />
+            <MetricCard
+              title={ANALYTICS_METRIC_DEFINITIONS.billableToWorkedRatio.label}
+              value={
+                summary.billableToWorkedRatio != null
+                  ? String(summary.billableToWorkedRatio)
+                  : "—"
+              }
+              hint={ANALYTICS_METRIC_DEFINITIONS.billableToWorkedRatio.description}
+            />
+            <MetricCard
+              title={ANALYTICS_METRIC_DEFINITIONS.billableHoursPerHire.label}
+              value={
+                summary.billableHoursPerHire != null
+                  ? String(summary.billableHoursPerHire)
+                  : "—"
+              }
+              hint={ANALYTICS_METRIC_DEFINITIONS.billableHoursPerHire.description}
+            />
+            <MetricCard
+              title={ANALYTICS_METRIC_DEFINITIONS.esOverCaseloadGuidance.label}
+              value={String(summary.esOverCaseloadGuidance)}
+              hint={ANALYTICS_METRIC_DEFINITIONS.esOverCaseloadGuidance.description}
+            />
           </section>
+
+          <BreakdownTable
+            title="Time to hire by office (district/region)"
+            hint="Median intake → hire for clients hired in the selected range, by office name (includes state district/region)."
+            rows={summary.timeToHireByOffice}
+          />
+          <BreakdownTable
+            title="Time to hire by Employment Specialist"
+            hint="Median days to hire by ES for hires in the selected range."
+            rows={summary.timeToHireByEs}
+          />
+          <BreakdownTable
+            title="Time to hire by supervisor"
+            hint="Median days to hire rolled up by the ES’s supervisor."
+            rows={summary.timeToHireBySupervisor}
+          />
+          <BreakdownTable
+            title="Time to hire by counselor"
+            hint="Median days to hire by assigned counselor."
+            rows={summary.timeToHireByCounselor}
+          />
 
           {summary.monthly.length > 0 ? (
             <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
@@ -338,5 +417,47 @@ function MetricCard({
       <p className="mt-2 text-3xl font-semibold tabular-nums text-brand-black">{value}</p>
       <p className="mt-2 text-xs text-brand-black/60">{hint}</p>
     </article>
+  );
+}
+
+function BreakdownTable({
+  title,
+  hint,
+  rows,
+}: {
+  title: string;
+  hint: string;
+  rows: { id: string; label: string; medianDaysToHire: number | null; hires: number }[];
+}) {
+  if (rows.length === 0) {
+    return null;
+  }
+  return (
+    <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+      <h2 className="text-base font-semibold text-brand-black">{title}</h2>
+      <p className="mt-1 text-sm text-brand-black/65">{hint}</p>
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full min-w-[420px] text-left text-sm">
+          <thead>
+            <tr className="border-b border-neutral-200 text-brand-black/70">
+              <th className="py-2 pr-4 font-medium">Group</th>
+              <th className="py-2 pr-4 font-medium">Hires</th>
+              <th className="py-2 font-medium">Median days to hire</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.id} className="border-b border-neutral-100">
+                <td className="py-2 pr-4">{row.label}</td>
+                <td className="py-2 pr-4">{row.hires}</td>
+                <td className="py-2">
+                  {row.medianDaysToHire != null ? `${row.medianDaysToHire} days` : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }

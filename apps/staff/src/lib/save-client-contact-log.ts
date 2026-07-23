@@ -86,8 +86,8 @@ export async function saveClientContactLog(
         timeErr instanceof Error ? friendlyApplicationSaveError(timeErr.message) : null;
       warning =
         timeMessage && !timeMessage.includes("We could not save this record")
-          ? `Contact saved, but billable time was not recorded: ${timeMessage}`
-          : "Contact saved, but billable time was not recorded. You can add time on the Timesheet page.";
+          ? `Contact saved, but service time was not recorded: ${timeMessage}`
+          : "Contact saved, but service time was not recorded. You can add time on the Timesheet page.";
       console.error("saveClientContactLog time entry failed:", timeErr);
     }
   }

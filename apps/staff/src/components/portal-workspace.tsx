@@ -1513,7 +1513,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                   <option value="es">Employment Specialist</option>
                   <option value="supervisor">Supervisor</option>
                   <option value="counselor">Counselor</option>
-                  <option value="accountant">Accountant</option>
+                  <option value="accountant">Accounts Specialist</option>
                   <option value="hr">HR</option>
                   <option value="hospitality_specialist">Hospitality Specialist</option>
                 </select>

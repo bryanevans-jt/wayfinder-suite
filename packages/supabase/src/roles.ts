@@ -132,7 +132,7 @@ export function roleDisplayName(role: string | null | undefined): string {
     counselor: "Counselor",
     client: "Client",
     support: "Natural support",
-    accountant: "Accountant",
+    accountant: "Accounts Specialist",
     hr: "HR",
     hospitality_specialist: "Hospitality Specialist",
   };

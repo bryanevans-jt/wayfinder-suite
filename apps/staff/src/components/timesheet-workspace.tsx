@@ -317,18 +317,29 @@ export function TimesheetWorkspace({
           </div>
         </div>
 
-        <div className="mt-5 grid gap-4 sm:grid-cols-3">
-          <Stat label="Total hours" value={minutesToDecimalHours(summary.totalMinutes)} />
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Stat
+            label="Hours worked (payroll)"
+            value={minutesToDecimalHours(summary.workedMinutes)}
+          />
+          <Stat
+            label="Billable hours (by client)"
+            value={minutesToDecimalHours(summary.billableMinutes)}
+          />
           <Stat label="Entries" value={String(visibleEntries.length)} />
           <Stat
             label="Clients served"
             value={String(summary.byClient.filter((c) => c.name !== "Non-client time").length)}
           />
         </div>
+        <p className="mt-2 text-xs text-brand-black/55">
+          Hours worked merges overlapping clock times so the same canvass billed to multiple clients
+          counts once for payroll. Billable hours sum each client line (may be higher).
+        </p>
 
         {summary.byClient.length > 0 ? (
           <div className="mt-5">
-            <h3 className="text-sm font-semibold text-brand-black">By client</h3>
+            <h3 className="text-sm font-semibold text-brand-black">Billable by client</h3>
             <ul className="mt-2 space-y-1 text-sm text-brand-black/80">
               {summary.byClient.map((c) => (
                 <li key={c.name} className="flex flex-wrap items-center gap-2">

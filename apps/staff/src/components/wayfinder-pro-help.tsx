@@ -4,6 +4,7 @@ import {
   isAdminTierRole,
   isCounselorRole,
   isEsRole,
+  isHrRole,
   isSuperAdminRole,
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
@@ -119,10 +120,21 @@ function sectionsForRole(role: string | null): Section[] {
           "The Clients page sorts people who need follow-up to the top and shows attention badges. The application pipeline lets you click a card to change its status (including Offer).",
         steps: [
           "Log every contact and job application on the client profile — counselors see your contact notes.",
+          "When logging service time, enter duration plus a start time, end time, or both. If start and end disagree with duration, clock times win.",
+          "You may log the same clock time on more than one client when the work applies to each (for example multi-client job canvass). Billable hours are summed per client; payroll hours worked count overlapping clock time only once.",
           "Use suggested chips when logging contacts to speed up common entries.",
           "Use Messages to reply to clients. Aim to respond within 48 business hours.",
           "Set job start date on the profile when a client is hired — this triggers milestone notifications for the team and counselors.",
           "Reporting in the sidebar opens Joshua Tree Reports with the client name filled in.",
+        ],
+      },
+      {
+        title: "Timesheet: billable vs hours worked",
+        body:
+          "Your weekly timesheet shows both billable hours (by client, for state billing) and hours worked (payroll). Logging the same canvass window on three clients bills three clients but does not triple your payroll hours.",
+        steps: [
+          "Open Weekly Timesheet to review the week, download CSV, and submit for approval.",
+          "Soft caseload guidance is about 20 active clients — supervisors/HR may allow more when needed.",
         ],
       },
     ];
@@ -133,20 +145,43 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Sidebar layout",
         body:
-          "Weekly Timesheet tools are grouped at the top; Community Partners is reference data shared across the team.",
+          "Accounts Specialist tools focus on timesheets and payment/billing exports. Community Partners is shared reference data.",
         steps: [
           "Weekly Timesheet → review weeks and Data exports.",
           "Reference → Community Partners.",
         ],
       },
       {
-        title: "Weekly Timesheet and exports",
-        body: "Your account focuses on approved time and payroll exports — you do not manage client caseloads here.",
+        title: "Payroll vs billable exports",
+        body:
+          "Hours worked (payroll) merges overlapping clock times so multi-client billing does not inflate pay. Billable by client is for state billing and may sum higher than hours worked.",
         steps: [
-          "Weekly Timesheet: review approved weeks as configured by super admin pay-period settings.",
-          "Data exports: download payroll CSV when you need numbers outside the app.",
-          "Community Partners lists employer contacts shared across the team.",
+          "Data exports → Payroll — hours worked for the pay period.",
+          "Data exports → Billable hours by client for state billing files.",
+          "Pay-period settings are configured by super admin under Portal → Settings → Payroll.",
         ],
+      },
+    ];
+  }
+
+  if (isHrRole(role)) {
+    return [
+      {
+        title: "HR workspace",
+        body:
+          "HR focuses on people and performance: timesheets, aggregated analytics, and exports for hours worked and billable oversight. Client-named analytics dumps are not available.",
+        steps: [
+          "HR Dashboard for people tools.",
+          "Weekly Timesheet to view any ES week.",
+          "Analytics for org-wide performance (hires, contacts/week, billable vs worked, time to hire by office/ES/supervisor/counselor).",
+          "Data exports → hours worked (payroll) and billable-by-client CSVs.",
+        ],
+      },
+      {
+        title: "Caseload guidance",
+        body:
+          "Policy guidance is about 20 active clients per ES. It is not a hard system limit — supervisors and HR manage overages organically.",
+        steps: ["Operations capacity view highlights caseloads above soft guidance."],
       },
     ];
   }

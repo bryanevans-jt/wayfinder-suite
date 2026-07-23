@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import {
   isAdminTierRole,
   isEsRole,
+  isHrRole,
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
 
@@ -13,7 +14,10 @@ export default async function AnalyticsPage() {
 
   if (
     !session ||
-    (!isEsRole(role) && !isSupervisorRole(role) && !isAdminTierRole(role))
+    (!isEsRole(role) &&
+      !isSupervisorRole(role) &&
+      !isAdminTierRole(role) &&
+      !isHrRole(role))
   ) {
     redirect("/dashboard");
   }
@@ -22,13 +26,14 @@ export default async function AnalyticsPage() {
     <main className="px-6 py-10">
       <h1 className="text-2xl font-semibold text-brand-black">Analytics</h1>
       <p className="mt-2 max-w-3xl text-sm text-brand-black/75">
-        Key employment outcomes from your Wayfinder data — hire rates, time to hire, and
-        application activity. Numbers use the same definitions every time and can be exported
-        for leadership or grant reporting.
+        Key employment outcomes from your Wayfinder data — hire rates, time to hire, contacts,
+        billable vs worked hours, and application activity. Numbers use the same definitions every
+        time. HR views are aggregated (no client-level exports).
       </p>
       <AnalyticsWorkspace
-        readOnly={session.isPreviewing}
-        showBenchmark={isSupervisorRole(role) || isAdminTierRole(role)}
+        readOnly={session.isPreviewing || isHrRole(role)}
+        showBenchmark={isSupervisorRole(role) || isAdminTierRole(role) || isHrRole(role)}
+        allowClientFactExport={!isHrRole(role)}
       />
     </main>
   );

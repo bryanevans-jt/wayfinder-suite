@@ -181,8 +181,6 @@ export async function insertEsTimeEntry(
     throw new Error("Invalid activity type");
   }
 
-  validateDurationMinutes(activity, input.durationMinutes);
-
   if (activity.requires_client && !input.clientId) {
     throw new Error("This activity requires a client");
   }
@@ -194,12 +192,26 @@ export async function insertEsTimeEntry(
     }
   }
 
+  const startTime = input.startTime?.trim() || null;
+  const endTime = input.endTime?.trim() || null;
+  if (!startTime && !endTime) {
+    throw new Error("Enter a start time, an end time, or both (duration is always required)");
+  }
+
+  const normalized = normalizeTimeEntryClock({
+    serviceDate: input.serviceDate,
+    durationMinutes: input.durationMinutes,
+    startTime,
+    endTime,
+  });
+  validateDurationMinutes(activity, normalized.durationMinutes);
+
   const flags = computeTimeEntryFlags(input.serviceDate);
   const { service_start_at, service_end_at } = resolveServiceTimestamps({
     serviceDate: input.serviceDate,
-    durationMinutes: input.durationMinutes,
-    startTime: input.startTime,
-    endTime: input.endTime,
+    durationMinutes: normalized.durationMinutes,
+    startTime: normalized.startTime,
+    endTime: normalized.endTime,
     recordedAt: input.recordedAt,
   });
 
@@ -210,7 +222,7 @@ export async function insertEsTimeEntry(
       client_id: input.clientId,
       activity_type_id: input.activityTypeId,
       service_date: input.serviceDate,
-      duration_minutes: input.durationMinutes,
+      duration_minutes: normalized.durationMinutes,
       service_start_at,
       service_end_at,
       narrative: input.narrative?.trim() || null,
@@ -277,7 +289,85 @@ export type ResolveServiceTimestampsInput = {
   recordedAt?: Date;
 };
 
-/** Resolve optional start/end times; default end is entry time, start is end minus duration. */
+export type NormalizedTimeClock = {
+  durationMinutes: number;
+  startTime: string;
+  endTime: string;
+  /** True when both clock times were provided and duration was replaced by the clock span. */
+  durationMatchedToClock: boolean;
+};
+
+/** Minutes between HH:mm times on a service date (handles overnight). */
+export function minutesBetweenServiceTimes(
+  serviceDate: string,
+  startTime: string,
+  endTime: string
+): number | null {
+  const start = combineServiceDateAndTime(serviceDate, startTime);
+  let end = combineServiceDateAndTime(serviceDate, endTime);
+  if (end.getTime() <= start.getTime()) {
+    end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+  }
+  const diff = Math.round((end.getTime() - start.getTime()) / (60 * 1000));
+  return diff > 0 ? diff : null;
+}
+
+/**
+ * Require duration plus at least one clock time. Auto-fill the blank clock side from duration.
+ * When both clocks are set, duration becomes the clock span (payroll/billing source of truth).
+ */
+export function normalizeTimeEntryClock(input: {
+  serviceDate: string;
+  durationMinutes: number;
+  startTime?: string | null;
+  endTime?: string | null;
+}): NormalizedTimeClock {
+  const startTime = input.startTime?.trim() || "";
+  const endTime = input.endTime?.trim() || "";
+  const duration = Math.round(input.durationMinutes);
+
+  if (!Number.isFinite(duration) || duration <= 0) {
+    throw new Error("Duration (minutes) is required");
+  }
+  if (!startTime && !endTime) {
+    throw new Error("Enter a start time, an end time, or both (duration is always required)");
+  }
+
+  if (startTime && endTime) {
+    const span = minutesBetweenServiceTimes(input.serviceDate, startTime, endTime);
+    if (!span) {
+      throw new Error("End time must be after start time");
+    }
+    return {
+      durationMinutes: span,
+      startTime,
+      endTime,
+      durationMatchedToClock: span !== duration,
+    };
+  }
+
+  if (startTime) {
+    const start = combineServiceDateAndTime(input.serviceDate, startTime);
+    const end = new Date(start.getTime() + duration * 60 * 1000);
+    return {
+      durationMinutes: duration,
+      startTime,
+      endTime: formatTimeInputValue(end),
+      durationMatchedToClock: false,
+    };
+  }
+
+  const end = combineServiceDateAndTime(input.serviceDate, endTime);
+  const start = new Date(end.getTime() - duration * 60 * 1000);
+  return {
+    durationMinutes: duration,
+    startTime: formatTimeInputValue(start),
+    endTime,
+    durationMatchedToClock: false,
+  };
+}
+
+/** Resolve start/end timestamps after normalizeTimeEntryClock (or legacy recordedAt fallback). */
 export function resolveServiceTimestamps(input: ResolveServiceTimestampsInput): {
   service_start_at: string;
   service_end_at: string;
@@ -285,9 +375,15 @@ export function resolveServiceTimestamps(input: ResolveServiceTimestampsInput): 
   const startTime = input.startTime?.trim() || null;
   const endTime = input.endTime?.trim() || null;
 
-  if (startTime && endTime) {
-    const start = combineServiceDateAndTime(input.serviceDate, startTime);
-    let end = combineServiceDateAndTime(input.serviceDate, endTime);
+  if (startTime || endTime) {
+    const normalized = normalizeTimeEntryClock({
+      serviceDate: input.serviceDate,
+      durationMinutes: input.durationMinutes,
+      startTime,
+      endTime,
+    });
+    const start = combineServiceDateAndTime(input.serviceDate, normalized.startTime);
+    let end = combineServiceDateAndTime(input.serviceDate, normalized.endTime);
     if (end.getTime() <= start.getTime()) {
       end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
     }
@@ -297,12 +393,79 @@ export function resolveServiceTimestamps(input: ResolveServiceTimestampsInput): 
     };
   }
 
+  // Legacy entries without clock times (should not be created by current UI).
   const end = input.recordedAt ?? new Date();
   const start = new Date(end.getTime() - input.durationMinutes * 60 * 1000);
   return {
     service_start_at: start.toISOString(),
     service_end_at: end.toISOString(),
   };
+}
+
+export type TimeIntervalMs = { startMs: number; endMs: number };
+
+/** Merge overlapping intervals; overlapping minutes count once (payroll hours worked). */
+export function mergeWorkedMinutes(intervals: TimeIntervalMs[]): number {
+  const valid = intervals
+    .filter((i) => Number.isFinite(i.startMs) && Number.isFinite(i.endMs) && i.endMs > i.startMs)
+    .sort((a, b) => a.startMs - b.startMs);
+  if (valid.length === 0) {
+    return 0;
+  }
+
+  let totalMs = 0;
+  let curStart = valid[0]!.startMs;
+  let curEnd = valid[0]!.endMs;
+
+  for (let i = 1; i < valid.length; i += 1) {
+    const next = valid[i]!;
+    if (next.startMs <= curEnd) {
+      curEnd = Math.max(curEnd, next.endMs);
+    } else {
+      totalMs += curEnd - curStart;
+      curStart = next.startMs;
+      curEnd = next.endMs;
+    }
+  }
+  totalMs += curEnd - curStart;
+  return Math.round(totalMs / (60 * 1000));
+}
+
+/** Billable minutes = sum of entry durations (may overlap across clients). */
+export function sumBillableMinutes(
+  entries: Array<{ duration_minutes: number }>
+): number {
+  return entries.reduce((sum, e) => sum + (e.duration_minutes || 0), 0);
+}
+
+/** Hours worked from entry clock ranges; falls back to duration when timestamps missing. */
+export function workedMinutesFromEntries(
+  entries: Array<{
+    duration_minutes: number;
+    service_start_at?: string | null;
+    service_end_at?: string | null;
+  }>
+): number {
+  const intervals: TimeIntervalMs[] = [];
+  for (const e of entries) {
+    if (e.service_start_at && e.service_end_at) {
+      const startMs = new Date(e.service_start_at).getTime();
+      const endMs = new Date(e.service_end_at).getTime();
+      if (endMs > startMs) {
+        intervals.push({ startMs, endMs });
+        continue;
+      }
+    }
+    // No usable clock: count full duration as a non-mergeable block via synthetic gap.
+    // Place sequentially so they don't falsely overlap each other.
+    const lastEnd = intervals.length ? intervals[intervals.length - 1]!.endMs : Date.UTC(2000, 0, 1);
+    const startMs = lastEnd + 60_000;
+    intervals.push({
+      startMs,
+      endMs: startMs + Math.max(0, e.duration_minutes) * 60 * 1000,
+    });
+  }
+  return mergeWorkedMinutes(intervals);
 }
 
 export function displayServiceTimes(entry: {

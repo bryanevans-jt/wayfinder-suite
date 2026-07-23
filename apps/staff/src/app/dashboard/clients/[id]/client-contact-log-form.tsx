@@ -61,6 +61,10 @@ export function ClientContactLogForm({ clientId, activities }: Props) {
   function save() {
     setError(null);
     setNotice(null);
+    if (activityTypeId && durationMinutes > 0 && !startTime && !endTime) {
+      setError("Enter a start time, an end time, or both when logging service time.");
+      return;
+    }
     startTransition(async () => {
       try {
         const res = await fetch("/api/es/contact-log", {
@@ -117,8 +121,9 @@ export function ClientContactLogForm({ clientId, activities }: Props) {
       </h2>
       <p className="mt-1 text-xs text-brand-black/60">
         Choose an activity type and describe what happened in {CONTACT_LOG_NOTES_LABEL.toLowerCase()}.
-        Counselors see those notes on the timeline. Billable time is optional — clear the activity
-        field to skip time entry.
+        Counselors see those notes on the timeline. Service time is optional — clear the activity
+        field to skip time entry. When you log time, duration plus a start and/or end time are
+        required.
       </p>
       <div className="mt-3 space-y-3">
         <label className="block text-sm font-medium text-brand-black">

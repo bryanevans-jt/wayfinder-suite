@@ -5,9 +5,10 @@ import {
   combineServiceDateAndTime,
   defaultActivityMinutes,
   groupActivityTypesByCategory,
+  minutesBetweenServiceTimes,
   todayLocalDate,
 } from "@wayfinder/supabase/es-time-tracking";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Props = {
   activities: ServiceActivityType[];
@@ -27,14 +28,12 @@ type Props = {
   disabled?: boolean;
 };
 
-function minutesBetweenTimes(serviceDate: string, startTime: string, endTime: string): number | null {
-  const start = combineServiceDateAndTime(serviceDate, startTime);
-  let end = combineServiceDateAndTime(serviceDate, endTime);
-  if (end.getTime() <= start.getTime()) {
-    end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
-  }
-  const diff = Math.round((end.getTime() - start.getTime()) / (60 * 1000));
-  return diff > 0 ? diff : null;
+function addMinutesToTime(serviceDate: string, timeValue: string, minutes: number): string {
+  const base = combineServiceDateAndTime(serviceDate, timeValue);
+  const next = new Date(base.getTime() + minutes * 60 * 1000);
+  const h = String(next.getHours()).padStart(2, "0");
+  const m = String(next.getMinutes()).padStart(2, "0");
+  return `${h}:${m}`;
 }
 
 export function TimeActivityFields({
@@ -58,6 +57,7 @@ export function TimeActivityFields({
   const selected = activities.find((a) => a.id === activityTypeId) ?? null;
   const effectiveServiceDate = serviceDate ?? todayLocalDate();
   const showTimeRange = Boolean(onStartTimeChange && onEndTimeChange);
+  const [clockMismatch, setClockMismatch] = useState(false);
 
   useEffect(() => {
     if (activityTypeId || activities.length === 0) {
@@ -77,19 +77,50 @@ export function TimeActivityFields({
     onDurationMinutesChange,
   ]);
 
+  // When both clocks are set, duration follows the clock span (with a mismatch notice).
   useEffect(() => {
     if (!showTimeRange || !startTime || !endTime) {
+      setClockMismatch(false);
       return;
     }
-    const nextMinutes = minutesBetweenTimes(effectiveServiceDate, startTime, endTime);
-    if (nextMinutes && nextMinutes !== durationMinutes) {
+    const nextMinutes = minutesBetweenServiceTimes(effectiveServiceDate, startTime, endTime);
+    if (!nextMinutes) {
+      setClockMismatch(false);
+      return;
+    }
+    if (nextMinutes !== durationMinutes) {
+      setClockMismatch(true);
       onDurationMinutesChange(nextMinutes);
+    } else {
+      setClockMismatch(false);
     }
   }, [
     durationMinutes,
     effectiveServiceDate,
     endTime,
     onDurationMinutesChange,
+    showTimeRange,
+    startTime,
+  ]);
+
+  // Auto-fill the blank clock side from duration + the other time.
+  useEffect(() => {
+    if (!showTimeRange || !durationMinutes || durationMinutes <= 0) {
+      return;
+    }
+    if (startTime && !endTime) {
+      onEndTimeChange?.(addMinutesToTime(effectiveServiceDate, startTime, durationMinutes));
+      return;
+    }
+    if (endTime && !startTime) {
+      onStartTimeChange?.(addMinutesToTime(effectiveServiceDate, endTime, -durationMinutes));
+    }
+  }, [
+    durationMinutes,
+    effectiveServiceDate,
+    endTime,
+    onEndTimeChange,
+    onStartTimeChange,
     showTimeRange,
     startTime,
   ]);
@@ -102,12 +133,13 @@ export function TimeActivityFields({
     }
     onStartTimeChange?.("");
     onEndTimeChange?.("");
+    setClockMismatch(false);
   }
 
   return (
     <div className="rounded-lg border border-brand-green/20 bg-brand-green/5 p-3 space-y-3">
       <p className="text-xs font-semibold uppercase tracking-wide text-brand-green">
-        Billable time
+        Service time
       </p>
       <label className="block text-sm font-medium text-brand-black">
         {activityTypeLabel}
@@ -164,7 +196,7 @@ export function TimeActivityFields({
       {showTimeRange ? (
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block text-sm font-medium text-brand-black">
-            Start time <span className="font-normal text-brand-black/55">(optional)</span>
+            Start time
             <input
               type="time"
               value={startTime}
@@ -174,7 +206,7 @@ export function TimeActivityFields({
             />
           </label>
           <label className="block text-sm font-medium text-brand-black">
-            End time <span className="font-normal text-brand-black/55">(optional)</span>
+            End time
             <input
               type="time"
               value={endTime}
@@ -187,8 +219,15 @@ export function TimeActivityFields({
       ) : null}
       {showTimeRange ? (
         <p className="text-xs text-brand-black/55">
-          Leave start and end blank to use the time you submit this entry as the end time. Start time
-          will be calculated from duration.
+          Duration is required. Enter a start time, an end time, or both — the blank time is filled
+          from duration. If start and end disagree with duration, clock times win and duration is
+          updated to match.
+        </p>
+      ) : null}
+      {clockMismatch ? (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+          Start and end times did not match the duration you entered. Duration was updated to match
+          the clock times. You can still edit the times before saving.
         </p>
       ) : null}
     </div>

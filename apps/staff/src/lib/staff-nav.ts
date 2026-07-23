@@ -258,7 +258,7 @@ export function staffNavSectionsForRole(
   if (staffRole === "accountant") {
     return withCultureAndHelp([
       {
-        label: "Weekly Timesheet",
+        label: "Accounts",
         items: [
           {
             href: "/dashboard/timesheet",
@@ -290,6 +290,8 @@ export function staffNavSectionsForRole(
             label: "Weekly Timesheet",
             match: (p) => p.startsWith("/dashboard/timesheet"),
           },
+          analyticsNav,
+          dataExportsNav,
         ],
       },
     ]);
@@ -424,6 +426,7 @@ export function staffWorkspaceLabel(staffRole: string | null): string {
   if (isAdminTierRole(staffRole)) return "Admin Workspace";
   if (isSupervisorRole(staffRole)) return "Supervisor Workspace";
   if (isEsRole(staffRole)) return "Employment Specialist";
-  if (staffRole === "accountant") return "Accountant";
+  if (staffRole === "accountant") return "Accounts Specialist";
+  if (isHrRole(staffRole)) return "HR Workspace";
   return "Team Member Workspace";
 }

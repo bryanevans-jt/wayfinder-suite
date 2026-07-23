@@ -4,6 +4,8 @@ import {
   weekEndSaturday,
   weekStartSunday,
   displayServiceTimes,
+  sumBillableMinutes,
+  workedMinutesFromEntries,
   type ServiceActivityType,
 } from "@wayfinder/supabase/es-time-tracking";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
@@ -259,10 +261,10 @@ export function summarizeTimeEntries(entries: EsTimeEntryRow[]) {
     { clientId: string | null; name: string; minutes: number; count: number }
   >();
   const byActivity = new Map<string, { name: string; minutes: number; count: number }>();
-  let total = 0;
+  const billableMinutes = sumBillableMinutes(entries);
+  const workedMinutes = workedMinutesFromEntries(entries);
 
   for (const e of entries) {
-    total += e.duration_minutes;
     const clientKey = e.client_id ?? "non-client";
     const clientName = e.client_name ?? "Non-client time";
     const clientRow = byClient.get(clientKey) ?? {
@@ -286,7 +288,10 @@ export function summarizeTimeEntries(entries: EsTimeEntryRow[]) {
   }
 
   return {
-    totalMinutes: total,
+    /** @deprecated Prefer billableMinutes — kept for older callers. */
+    totalMinutes: billableMinutes,
+    billableMinutes,
+    workedMinutes,
     byClient: [...byClient.values()].sort((a, b) => b.minutes - a.minutes),
     byActivity: [...byActivity.values()].sort((a, b) => b.minutes - a.minutes),
   };
@@ -300,8 +305,8 @@ export function esTimeEntriesToCsv(entries: EsTimeEntryRow[], esName: string, we
     "client_name",
     "activity_code",
     "activity_name",
-    "duration_minutes",
-    "duration_hours",
+    "billable_minutes",
+    "billable_hours",
     "start_time",
     "end_time",
     "narrative",
@@ -332,6 +337,46 @@ export function esTimeEntriesToCsv(entries: EsTimeEntryRow[], esName: string, we
         .join(",");
     }),
   ];
+  const summary = summarizeTimeEntries(entries);
+  lines.push("");
+  lines.push(
+    [
+      "SUMMARY",
+      esName,
+      "",
+      "",
+      "",
+      "hours_worked_payroll",
+      String(summary.workedMinutes),
+      minutesToDecimalHours(summary.workedMinutes),
+      "",
+      "",
+      "Overlapping clock time counted once",
+      "",
+      "",
+    ]
+      .map((v) => escape(String(v)))
+      .join(",")
+  );
+  lines.push(
+    [
+      "SUMMARY",
+      esName,
+      "",
+      "",
+      "",
+      "billable_hours_by_client_sum",
+      String(summary.billableMinutes),
+      minutesToDecimalHours(summary.billableMinutes),
+      "",
+      "",
+      "May exceed hours worked when the same clock time is billed to multiple clients",
+      "",
+      "",
+    ]
+      .map((v) => escape(String(v)))
+      .join(",")
+  );
   return lines.join("\n");
 }
 

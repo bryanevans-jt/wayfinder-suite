@@ -7,6 +7,7 @@ import { getAppSession } from "@wayfinder/supabase/preview-server";
 import {
   isAdminTierRole,
   isEsRole,
+  isHrRole,
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
 import { createServerClient } from "@wayfinder/supabase";
@@ -70,6 +71,17 @@ export async function assertAnalyticsSession(): Promise<
       role,
       scope: { kind: "org" },
       readOnly: session.isPreviewing,
+    };
+  }
+
+  if (isHrRole(role)) {
+    return {
+      admin,
+      actorUserId: session.actorUserId,
+      effectiveUserId,
+      role,
+      scope: { kind: "org" },
+      readOnly: true,
     };
   }
 

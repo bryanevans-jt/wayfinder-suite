@@ -1,18 +1,33 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import {
+  minutesToDecimalHours,
+  workedMinutesFromEntries,
+} from "@wayfinder/supabase/es-time-tracking";
 import { resolvePayPeriod, type PayrollSettingsRow } from "@wayfinder/supabase/payroll-period";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import {
   isAdminTierRole,
+  isHrRole,
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { NextResponse } from "next/server";
 
+function canExportPayroll(role: string | null | undefined): boolean {
+  return (
+    isSupervisorRole(role) ||
+    isAdminTierRole(role) ||
+    isHrRole(role) ||
+    role === "accountant"
+  );
+}
+
+/** Payroll export: hours worked per ES (overlapping clock time counted once). */
 export async function GET(request: Request) {
   const route = "api/exports/payroll";
   const session = await getAppSession();
   const role = session?.effectiveRole ?? null;
-  if (!session || (!isSupervisorRole(role) && !isAdminTierRole(role) && role !== "accountant")) {
+  if (!session || !canExportPayroll(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -43,14 +58,35 @@ export async function GET(request: Request) {
         ? { start: fromParam, end: toParam, frequency: settings.pay_period_frequency }
         : resolvePayPeriod(settings);
 
-    const { data: weeks } = await admin
-      .from("es_time_week_submissions")
-      .select("id, es_user_id, week_start, week_end, total_minutes, approved_at")
+    const { data: entries } = await admin
+      .from("es_time_entries")
+      .select(
+        "es_user_id, service_date, duration_minutes, service_start_at, service_end_at, status"
+      )
       .eq("status", "approved")
-      .gte("week_start", period.start)
-      .lte("week_end", period.end);
+      .gte("service_date", period.start)
+      .lte("service_date", period.end);
 
-    const esIds = [...new Set((weeks ?? []).map((w) => w.es_user_id as string))];
+    const byEs = new Map<
+      string,
+      Array<{
+        duration_minutes: number;
+        service_start_at: string | null;
+        service_end_at: string | null;
+      }>
+    >();
+    for (const e of entries ?? []) {
+      const esId = e.es_user_id as string;
+      const list = byEs.get(esId) ?? [];
+      list.push({
+        duration_minutes: e.duration_minutes as number,
+        service_start_at: (e.service_start_at as string | null) ?? null,
+        service_end_at: (e.service_end_at as string | null) ?? null,
+      });
+      byEs.set(esId, list);
+    }
+
+    const esIds = [...byEs.keys()];
     const { data: profiles } = esIds.length
       ? await admin.from("profiles").select("id, full_name, email").in("id", esIds)
       : { data: [] };
@@ -61,38 +97,31 @@ export async function GET(request: Request) {
       ])
     );
 
-    const { data: entries } = await admin
-      .from("es_time_entries")
-      .select(
-        "es_user_id, client_id, service_date, duration_minutes, activity_type_id, service_activity_types(code, name)"
-      )
-      .eq("status", "approved")
-      .gte("service_date", period.start)
-      .lte("service_date", period.end);
-
     const header =
-      "es_name,es_user_id,service_date,duration_minutes,activity_code,activity_name,client_id\n";
-    const lines = (entries ?? []).map((e) => {
-      const types = e.service_activity_types as { code: string; name: string } | { code: string; name: string }[] | null;
-      const type = Array.isArray(types) ? types[0] : types;
-      const name = esName.get(e.es_user_id as string) ?? "ES";
-      return [
-        `"${name.replace(/"/g, '""')}"`,
-        e.es_user_id,
-        e.service_date,
-        e.duration_minutes,
-        type?.code ?? "",
-        `"${(type?.name ?? "").replace(/"/g, '""')}"`,
-        e.client_id ?? "",
-      ].join(",");
-    });
+      "es_name,es_user_id,period_start,period_end,hours_worked_minutes,hours_worked,entry_count,note\n";
+    const lines = [...byEs.entries()]
+      .map(([esId, esEntries]) => {
+        const worked = workedMinutesFromEntries(esEntries);
+        const name = esName.get(esId) ?? "ES";
+        return [
+          `"${name.replace(/"/g, '""')}"`,
+          esId,
+          period.start,
+          period.end,
+          String(worked),
+          minutesToDecimalHours(worked),
+          String(esEntries.length),
+          '"Overlapping clock times counted once for payroll"',
+        ].join(",");
+      })
+      .sort((a, b) => a.localeCompare(b));
 
     const csv = header + lines.join("\n");
 
     return new NextResponse(csv, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="wayfinder-payroll-${period.start}-${period.end}.csv"`,
+        "Content-Disposition": `attachment; filename="wayfinder-payroll-hours-worked-${period.start}-${period.end}.csv"`,
       },
     });
   } catch (err) {

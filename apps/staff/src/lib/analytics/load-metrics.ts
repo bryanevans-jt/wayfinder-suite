@@ -1,6 +1,11 @@
 import { buildClientActivityFkIds } from "@wayfinder/supabase";
 import type { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
+  minutesToDecimalHours,
+  sumBillableMinutes,
+  workedMinutesFromEntries,
+} from "@wayfinder/supabase/es-time-tracking";
+import {
   filterOfficesForPicker,
   queryAllOffices,
 } from "@/lib/office-visibility";
@@ -13,6 +18,7 @@ import {
   median,
   monthKey,
   parseDateRange,
+  SOFT_ACTIVE_CASELOAD_GUIDANCE,
 } from "./definitions";
 
 type AdminClient = ReturnType<typeof createServiceRoleClient>;
@@ -22,6 +28,7 @@ type ClientRow = {
   user_id: string | null;
   profile_id: string | null;
   office_id: string | null;
+  counselor_id: string | null;
   created_at: string;
   current_stage_id: string | null;
   is_demo?: boolean | null;
@@ -34,6 +41,7 @@ function excludeDemoClients(rows: ClientRow[]): ClientRow[] {
 export type ClientFact = {
   clientId: string;
   officeId: string | null;
+  counselorId: string | null;
   esUserIds: string[];
   intakeAt: Date;
   hireAt: Date | null;
@@ -48,6 +56,13 @@ export type MonthlyMetricRow = {
   hireRate: number | null;
 };
 
+export type MedianDaysBreakdownRow = {
+  id: string;
+  label: string;
+  medianDaysToHire: number | null;
+  hires: number;
+};
+
 export type AnalyticsSummary = {
   range: { from: string; to: string };
   activeCaseload: number;
@@ -57,6 +72,18 @@ export type AnalyticsSummary = {
   applicationsSubmitted: number;
   applicationsByStatus: { status: string; count: number }[];
   monthly: MonthlyMetricRow[];
+  contactsPerWeek: number | null;
+  applicationsPerWeek: number | null;
+  billableHours: number;
+  hoursWorked: number;
+  billableToWorkedRatio: number | null;
+  billableHoursPerHire: number | null;
+  esOverCaseloadGuidance: number;
+  softCaseloadGuidance: number;
+  timeToHireByOffice: MedianDaysBreakdownRow[];
+  timeToHireByEs: MedianDaysBreakdownRow[];
+  timeToHireBySupervisor: MedianDaysBreakdownRow[];
+  timeToHireByCounselor: MedianDaysBreakdownRow[];
   definitions: Record<string, string>;
 };
 
@@ -79,7 +106,8 @@ async function loadScopedClientRows(
   scope: AnalyticsScope,
   filters: { officeId?: string | null; esUserId?: string | null }
 ): Promise<ClientRow[]> {
-  const select = "id, user_id, profile_id, office_id, created_at, current_stage_id, is_demo";
+  const select =
+    "id, user_id, profile_id, office_id, counselor_id, created_at, current_stage_id, is_demo";
 
   if (scope.kind === "es") {
     const { data: links } = await admin
@@ -294,6 +322,7 @@ async function buildClientFacts(
     return {
       clientId: c.id,
       officeId: c.office_id,
+      counselorId: c.counselor_id,
       esUserIds: esByClient.get(c.id) ?? [],
       intakeAt: intakeByClient.get(c.id) ?? new Date(c.created_at),
       hireAt: hireByClient.get(c.id) ?? null,
@@ -381,6 +410,172 @@ export async function loadAnalyticsSummary(
       hireRate: row.intakes > 0 ? Math.round((row.hires / row.intakes) * 1000) / 10 : null,
     }));
 
+  const weekMs = 7 * 24 * 60 * 60 * 1000;
+  const weeksInRange = Math.max(
+    1,
+    Math.ceil((range.to.getTime() - range.from.getTime() + 1) / weekMs)
+  );
+
+  let contactsInPeriod = 0;
+  if (allFkIds.length > 0) {
+    const { count } = await admin
+      .from("contact_logs")
+      .select("id", { count: "exact", head: true })
+      .in("client_id", allFkIds.slice(0, 5000))
+      .gte("created_at", range.from.toISOString())
+      .lte("created_at", range.to.toISOString());
+    contactsInPeriod = count ?? 0;
+  }
+
+  const contactsPerWeek =
+    Math.round((contactsInPeriod / weeksInRange) * 10) / 10;
+  const applicationsPerWeek =
+    Math.round((applicationsSubmitted / weeksInRange) * 10) / 10;
+
+  const esIdsForTime = [
+    ...new Set(facts.flatMap((f) => f.esUserIds)),
+  ];
+  let billableMinutes = 0;
+  let workedMinutes = 0;
+  if (esIdsForTime.length > 0) {
+    const { data: timeEntries } = await admin
+      .from("es_time_entries")
+      .select("es_user_id, duration_minutes, service_start_at, service_end_at, status, service_date")
+      .in("es_user_id", esIdsForTime.slice(0, 500))
+      .eq("status", "approved")
+      .gte("service_date", range.fromIso)
+      .lte("service_date", range.toIso);
+    const rows = timeEntries ?? [];
+    billableMinutes = sumBillableMinutes(rows);
+    const byEs = new Map<string, typeof rows>();
+    for (const row of rows) {
+      const id = row.es_user_id as string;
+      const list = byEs.get(id) ?? [];
+      list.push(row);
+      byEs.set(id, list);
+    }
+    workedMinutes = [...byEs.values()].reduce(
+      (sum, list) => sum + workedMinutesFromEntries(list),
+      0
+    );
+  }
+
+  const billableHours = Number(minutesToDecimalHours(billableMinutes));
+  const hoursWorked = Number(minutesToDecimalHours(workedMinutes));
+  const billableToWorkedRatio =
+    hoursWorked > 0 ? Math.round((billableHours / hoursWorked) * 100) / 100 : null;
+  const billableHoursPerHire =
+    clientsHired > 0 ? Math.round((billableHours / clientsHired) * 10) / 10 : null;
+
+  // Soft caseload guidance: count ES over 20 active clients in scope.
+  const activeByEs = new Map<string, number>();
+  for (const f of facts) {
+    if (!f.isActive) continue;
+    for (const esId of f.esUserIds) {
+      activeByEs.set(esId, (activeByEs.get(esId) ?? 0) + 1);
+    }
+  }
+  const esOverCaseloadGuidance = [...activeByEs.values()].filter(
+    (n) => n > SOFT_ACTIVE_CASELOAD_GUIDANCE
+  ).length;
+
+  const officeIds = [...new Set(facts.map((f) => f.officeId).filter(Boolean) as string[])];
+  const counselorIds = [
+    ...new Set(facts.map((f) => f.counselorId).filter(Boolean) as string[]),
+  ];
+  const [{ data: offices }, { data: counselors }, { data: esProfiles }, { data: supervisorLinks }] =
+    await Promise.all([
+      officeIds.length
+        ? admin.from("offices").select("id, name").in("id", officeIds)
+        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      counselorIds.length
+        ? admin.from("counselors").select("id, full_name").in("id", counselorIds)
+        : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
+      esIdsForTime.length
+        ? admin.from("profiles").select("id, full_name").in("id", esIdsForTime.slice(0, 500))
+        : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
+      esIdsForTime.length
+        ? admin
+            .from("supervisor_es_assignments")
+            .select("es_user_id, supervisor_user_id")
+            .in("es_user_id", esIdsForTime.slice(0, 500))
+        : Promise.resolve({
+            data: [] as { es_user_id: string; supervisor_user_id: string }[],
+          }),
+    ]);
+
+  const officeName = new Map((offices ?? []).map((o) => [o.id as string, o.name as string]));
+  const counselorName = new Map(
+    (counselors ?? []).map((c) => [
+      c.id as string,
+      (c.full_name as string | null)?.trim() || "Counselor",
+    ])
+  );
+  const esName = new Map(
+    (esProfiles ?? []).map((p) => [
+      p.id as string,
+      (p.full_name as string | null)?.trim() || "ES",
+    ])
+  );
+  const supervisorByEs = new Map(
+    (supervisorLinks ?? []).map((l) => [
+      l.es_user_id as string,
+      l.supervisor_user_id as string,
+    ])
+  );
+  const supervisorIds = [...new Set([...supervisorByEs.values()])];
+  const { data: supervisorProfiles } = supervisorIds.length
+    ? await admin.from("profiles").select("id, full_name").in("id", supervisorIds)
+    : { data: [] as { id: string; full_name: string | null }[] };
+  const supervisorName = new Map(
+    (supervisorProfiles ?? []).map((p) => [
+      p.id as string,
+      (p.full_name as string | null)?.trim() || "Supervisor",
+    ])
+  );
+
+  function breakdownMedian(
+    groupKey: (f: ClientFact) => string | null,
+    labelFor: (id: string) => string
+  ): MedianDaysBreakdownRow[] {
+    const buckets = new Map<string, number[]>();
+    for (const f of hiredInPeriod) {
+      const key = groupKey(f);
+      if (!key || !f.hireAt) continue;
+      const list = buckets.get(key) ?? [];
+      list.push(daysBetween(f.intakeAt, f.hireAt));
+      buckets.set(key, list);
+    }
+    return [...buckets.entries()]
+      .map(([id, values]) => ({
+        id,
+        label: labelFor(id),
+        medianDaysToHire: median(values),
+        hires: values.length,
+      }))
+      .sort((a, b) => (a.medianDaysToHire ?? 9999) - (b.medianDaysToHire ?? 9999));
+  }
+
+  const timeToHireByOffice = breakdownMedian(
+    (f) => f.officeId,
+    (id) => officeName.get(id) ?? "Office"
+  );
+  const timeToHireByEs = breakdownMedian(
+    (f) => f.esUserIds[0] ?? null,
+    (id) => esName.get(id) ?? "ES"
+  );
+  const timeToHireBySupervisor = breakdownMedian(
+    (f) => {
+      const esId = f.esUserIds[0];
+      return esId ? supervisorByEs.get(esId) ?? null : null;
+    },
+    (id) => supervisorName.get(id) ?? "Supervisor"
+  );
+  const timeToHireByCounselor = breakdownMedian(
+    (f) => f.counselorId,
+    (id) => counselorName.get(id) ?? "Counselor"
+  );
+
   return {
     range: { from: range.fromIso, to: range.toIso },
     activeCaseload,
@@ -390,6 +585,18 @@ export async function loadAnalyticsSummary(
     applicationsSubmitted,
     applicationsByStatus,
     monthly,
+    contactsPerWeek,
+    applicationsPerWeek,
+    billableHours,
+    hoursWorked,
+    billableToWorkedRatio,
+    billableHoursPerHire,
+    esOverCaseloadGuidance,
+    softCaseloadGuidance: SOFT_ACTIVE_CASELOAD_GUIDANCE,
+    timeToHireByOffice,
+    timeToHireByEs,
+    timeToHireBySupervisor,
+    timeToHireByCounselor,
     definitions: {
       intakeDate:
         "Earliest Phase 1 / Intake milestone, else first accepted meeting, else enrollment date.",
@@ -398,6 +605,13 @@ export async function loadAnalyticsSummary(
       hireRate: "Clients hired in period ÷ active assigned caseload.",
       medianDaysToHire: "Median days from intake to first hire (clients hired in period).",
       activeCaseload: "Assigned clients not in Closed or Dismissed stage.",
+      contactsPerWeek: "Contact logs in range ÷ calendar weeks in range.",
+      billableHoursPerHire: "Approved billable hours ÷ clients hired in period.",
+      hoursWorked: "Approved time with overlapping clocks merged (payroll).",
+      billableHours: "Sum of approved entry durations (state billing).",
+      billableToWorkedRatio: "Billable hours ÷ hours worked.",
+      applicationsPerWeek: "Applications in range ÷ calendar weeks.",
+      esOverCaseloadGuidance: `ES with more than ${SOFT_ACTIVE_CASELOAD_GUIDANCE} active clients (soft guidance).`,
     },
   };
 }

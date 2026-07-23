@@ -11,6 +11,7 @@ import {
   respondWithLoggedError,
   USER_FACING_FORBIDDEN,
 } from "@wayfinder/supabase/error-log";
+import { isHrRole } from "@wayfinder/supabase/roles";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
@@ -18,6 +19,14 @@ export async function GET(request: Request) {
   const auth = await assertAnalyticsSession();
   if ("error" in auth) {
     return auth.error;
+  }
+
+  // HR uses aggregated analytics only — no client-named fact dumps.
+  if (isHrRole(auth.role)) {
+    return NextResponse.json(
+      { error: "HR analytics exports are aggregated in the dashboard; client-level CSV is not available." },
+      { status: 403 }
+    );
   }
 
   const url = new URL(request.url);

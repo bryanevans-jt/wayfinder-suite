@@ -40,7 +40,8 @@ export function PayrollSettingsPanel() {
     <section className="mt-10 max-w-xl rounded-xl border border-neutral-200 bg-white p-5">
       <h2 className="text-lg font-semibold text-brand-black">Payroll export settings</h2>
       <p className="mt-1 text-sm text-brand-black/65">
-        Configure pay period frequency and anchor dates for accountant payroll CSV pulls.
+        Configure pay period frequency and anchor dates for Accounts Specialist and HR payroll /
+        billable CSV pulls.
       </p>
       <div className="mt-4 space-y-3 text-sm">
         <label className="block">
@@ -90,8 +91,9 @@ export function PayrollSettingsPanel() {
         </button>
         {message ? <p className="text-sm text-brand-black/70">{message}</p> : null}
         <p className="text-xs text-brand-black/55">
-          Accountants download approved time at{" "}
-          <code className="rounded bg-neutral-100 px-1">/api/exports/payroll</code>.
+          Accounts Specialist and HR download hours worked at{" "}
+          <code className="rounded bg-neutral-100 px-1">/api/exports/payroll</code> and billable by
+          client at <code className="rounded bg-neutral-100 px-1">/api/exports/billable</code>.
         </p>
       </div>
     </section>

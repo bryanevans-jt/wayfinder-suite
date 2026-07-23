@@ -37,7 +37,44 @@ export const ANALYTICS_METRIC_DEFINITIONS = {
     label: "Applications submitted",
     description: "Job applications created in the selected date range.",
   },
+  contactsPerWeek: {
+    label: "Contacts / week",
+    description:
+      "Contact logs in the selected range ÷ number of calendar weeks in the range (aggregated).",
+  },
+  billableHoursPerHire: {
+    label: "Billable hours / hire",
+    description:
+      "Sum of approved billable minutes for clients in scope in the period ÷ clients hired in the period.",
+  },
+  hoursWorked: {
+    label: "Hours worked (payroll)",
+    description:
+      "Approved time entries with overlapping clock intervals merged so the same physical time counts once.",
+  },
+  billableHours: {
+    label: "Billable hours (by client)",
+    description:
+      "Sum of approved entry durations by client. May exceed hours worked when the same clock time is billed to multiple clients.",
+  },
+  billableToWorkedRatio: {
+    label: "Billable ÷ worked",
+    description:
+      "Billable hours divided by hours worked. Values above 1.0 are expected when multi-client billing applies.",
+  },
+  applicationsPerWeek: {
+    label: "Applications / week",
+    description: "Applications submitted in the range ÷ calendar weeks in the range.",
+  },
+  esOverCaseloadGuidance: {
+    label: "ES over caseload guidance",
+    description:
+      "Employment Specialists whose active caseload exceeds the soft guidance of 20 clients (not a hard cap).",
+  },
 } as const;
+
+/** Soft guidance for active ES caseload size — not enforced. */
+export const SOFT_ACTIVE_CASELOAD_GUIDANCE = 20;
 
 export const CLOSED_STAGE_PATTERN = /^(closed(\s+successfully)?|dismissed)$/i;
 

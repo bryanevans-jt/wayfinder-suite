@@ -2,7 +2,13 @@
 
 import { canAccessFormalReporting } from "@/lib/staff-nav";
 import { SUPPORT_CONTACT_EMAIL, SUPPORT_CONTACT_MAILTO, SUPPORT_CONTACT_NAME } from "@wayfinder/branding";
-import { isAdminTierRole, isEsRole, isSuperAdminRole, isSupervisorRole } from "@wayfinder/supabase/roles";
+import {
+  isAdminTierRole,
+  isEsRole,
+  isHrRole,
+  isSuperAdminRole,
+  isSupervisorRole,
+} from "@wayfinder/supabase/roles";
 import { ReportingVsExportsGuide } from "./reporting-vs-exports-guide";
 
 type Props = {
@@ -15,7 +21,7 @@ type ExportCard = {
   description: string;
   href: string;
   filename: string;
-  roles: Array<"es" | "supervisor">;
+  roles: Array<"es" | "supervisor" | "accountant" | "hr">;
 };
 
 const EXPORT_CARDS: ExportCard[] = [
@@ -46,18 +52,26 @@ const EXPORT_CARDS: ExportCard[] = [
   {
     title: "My timesheet",
     description:
-      "Review billable hours by pay week, submit for supervisor approval, and download CSV from the Timesheet page.",
+      "Review hours worked and billable hours by pay week, submit for supervisor approval, and download CSV from the Timesheet page.",
     href: "/dashboard/timesheet",
     filename: "wayfinder-timesheet.csv",
     roles: ["es"],
   },
   {
-    title: "Payroll export (approved time)",
+    title: "Payroll — hours worked",
     description:
-      "Approved billable entries for the current pay period — formatted for payroll processing.",
+      "Approved hours worked per Employment Specialist for the current pay period. Overlapping clock times count once (payroll).",
     href: "/api/exports/payroll",
-    filename: "wayfinder-payroll.csv",
-    roles: [],
+    filename: "wayfinder-payroll-hours-worked.csv",
+    roles: ["accountant", "hr", "supervisor"],
+  },
+  {
+    title: "Billable hours by client",
+    description:
+      "Approved billable line items by client for state billing. The same clock time may appear on multiple clients when policy allows.",
+    href: "/api/exports/billable",
+    filename: "wayfinder-billable-by-client.csv",
+    roles: ["accountant", "hr", "supervisor"],
   },
 ];
 
@@ -69,13 +83,16 @@ function canUseExport(role: string | null, card: ExportCard): boolean {
     return card.roles.includes("supervisor");
   }
   if (role === "accountant") {
-    return card.href === "/api/exports/payroll";
+    return card.roles.includes("accountant");
+  }
+  if (isHrRole(role)) {
+    return card.roles.includes("hr");
   }
   return false;
 }
 
 function hasAnyExport(role: string | null): boolean {
-  if (role === "accountant") return true;
+  if (role === "accountant" || isHrRole(role)) return true;
   return EXPORT_CARDS.some((card) => canUseExport(role, card));
 }
 
@@ -100,7 +117,7 @@ export function ExportsWorkspace({ role, readOnly = false }: Props) {
           Pull operational data into a spreadsheet. These files are for analysis and internal use —
           not for funder PDF submission.
         </p>
-        {!canDownload && role !== "accountant" ? (
+        {!canDownload ? (
           <p className="text-sm text-brand-black/70">
             CSV downloads on this page are for <strong>Employment Specialists</strong> and{" "}
             <strong>supervisors</strong>. Open the{" "}
@@ -135,6 +152,13 @@ export function ExportsWorkspace({ role, readOnly = false }: Props) {
         {isSupervisorRole(role) ? (
           <p className="text-xs text-brand-black/60">
             As a supervisor, applications include every client assigned to team members in your scope.
+          </p>
+        ) : null}
+        {role === "accountant" || isHrRole(role) ? (
+          <p className="text-xs text-brand-black/60">
+            <strong>Hours worked</strong> is for payroll (overlaps count once).{" "}
+            <strong>Billable by client</strong> is for state billing (same clock time may appear on
+            multiple clients).
           </p>
         ) : null}
       </section>
