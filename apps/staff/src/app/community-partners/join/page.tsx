@@ -22,7 +22,7 @@ export default function CommunityPartnersJoinPage() {
 
       <div className="mb-8 space-y-6 text-sm text-brand-black/80">
         <section className="rounded-xl border border-neutral-200 bg-neutral-50/80 p-5">
-          <h2 className="text-base font-semibold text-brand-black">What we&apos;re agreeing to</h2>
+          <h2 className="text-base font-semibold text-brand-black">What We&apos;re Agreeing To</h2>
           <ul className="mt-3 list-disc space-y-2 pl-5">
             <li>
               <span className="font-medium text-brand-black">Employers:</span> Joining does not
@@ -44,7 +44,7 @@ export default function CommunityPartnersJoinPage() {
         </section>
 
         <section className="rounded-xl border border-neutral-200 bg-neutral-50/80 p-5">
-          <h2 className="text-base font-semibold text-brand-black">How we use your information</h2>
+          <h2 className="text-base font-semibold text-brand-black">How We Use Your Information</h2>
           <p className="mt-3">
             Information you submit is used by Joshua Tree Service Group team members to contact you about
             the {COMMUNITY_PARTNERS_NETWORK_NAME} and relevant hiring opportunities. It is not sold.

@@ -307,7 +307,7 @@ export function CommunityPartnersWorkspace({
           onSubmit={createEmployer}
           className="max-w-3xl space-y-4 rounded-xl border border-neutral-200 bg-white p-5"
         >
-          <h2 className="text-lg font-semibold text-brand-black">New employer</h2>
+          <h2 className="text-lg font-semibold text-brand-black">New Employer</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="flex flex-col gap-1 text-sm sm:col-span-2">
               <span className="font-medium">Company name *</span>

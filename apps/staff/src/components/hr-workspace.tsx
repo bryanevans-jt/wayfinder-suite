@@ -95,7 +95,7 @@ export function HrWorkspace({
           [
             ["clients", "Clients"],
             ["timesheets", "Timesheets"],
-            ["activity", "Activity logs"],
+            ["activity", "Activity Logs"],
             ["connections", "Connections"],
           ] as const
         ).map(([id, label]) => (
@@ -293,7 +293,7 @@ export function HrWorkspace({
 
       {tab === "activity" ? (
         <section className="rounded-xl border border-neutral-200 bg-white p-5">
-          <h2 className="text-base font-semibold text-brand-black">Activity logs</h2>
+          <h2 className="text-base font-semibold text-brand-black">Activity Logs</h2>
           <p className="mt-1 text-sm text-brand-black/70">
             Export activity for the filtered caseload as CSV.
           </p>
@@ -319,7 +319,7 @@ export function HrWorkspace({
             empty="No caseload links."
           />
           <ReadOnlyList
-            title="Employment Specialist ↔ office"
+            title="Employment Specialist ↔ Office"
             links={staffOfficeLinks}
             empty="No office links."
           />

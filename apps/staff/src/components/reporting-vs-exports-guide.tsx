@@ -23,7 +23,7 @@ export function ReportingVsExportsGuide({
   return (
     <section className="rounded-xl border border-neutral-200 bg-neutral-50 p-5">
       <h2 className="text-base font-semibold text-brand-black">
-        {isReportingPage ? "What this page is for" : "Reporting vs data in Wayfinder Pro"}
+        {isReportingPage ? "What This Page Is For" : "Reporting vs Data in Wayfinder Pro"}
       </h2>
       <p className="mt-2 text-sm text-brand-black/75">
         {isReportingPage

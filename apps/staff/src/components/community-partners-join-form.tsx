@@ -75,7 +75,7 @@ export function CommunityPartnersJoinForm() {
   if (success) {
     return (
       <div className="rounded-xl border border-brand-green/30 bg-brand-green/5 p-8 text-center">
-        <h2 className="text-xl font-semibold text-brand-black">Thank you!</h2>
+        <h2 className="text-xl font-semibold text-brand-black">Thank You!</h2>
         <p className="mt-3 text-brand-black/80">
           Your request to join the {COMMUNITY_PARTNERS_NETWORK_NAME} was received. Our team will
           review your information and follow up soon.

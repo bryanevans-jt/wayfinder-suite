@@ -366,7 +366,7 @@ export function staffNavSectionsForRole(
 }
 
 export function staffNavBadge(role: string | null | undefined): WayfinderNavBadge {
-  if (isSuperAdminRole(role)) return "Super admin";
+  if (isSuperAdminRole(role)) return "Super Admin";
   if (isAdminTierRole(role) && !isSuperAdminRole(role)) return "Admin";
   if (isSupervisorTierRole(role) && !isAdminTierRole(role)) return "Supervisor";
   return isCounselorRole(role) ? "Counselor" : "Pro";

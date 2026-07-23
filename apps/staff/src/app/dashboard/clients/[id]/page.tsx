@@ -363,7 +363,7 @@ export default async function EsClientDetailPage({ params }: PageProps) {
       </section>
 
       <section className="mt-10 max-w-2xl">
-        <h2 className="text-lg font-semibold text-brand-green">Activity timeline</h2>
+        <h2 className="text-lg font-semibold text-brand-green">Activity Timeline</h2>
         <p className="mt-1 text-sm text-brand-black/70">
           Contact notes, applications, and milestone updates — shared with the counselor portal.
         </p>

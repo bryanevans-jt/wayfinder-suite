@@ -10,7 +10,7 @@ export default async function SuperAdminPortalPage() {
     <>
       <PortalWorkspace
         mode="super_admin"
-        title="Super admin"
+        title="Super Admin"
         subtitle="Full organization control. Clients is your home tab; advanced connections and error logs live under Settings."
       />
       <div className="px-6 pb-10">

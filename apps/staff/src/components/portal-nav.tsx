@@ -43,14 +43,14 @@ const OFFICES_LABELS: Record<PortalOfficesSubNav, string> = {
 };
 
 const REPORTS_LABELS: Record<PortalReportsSubNav, string> = {
-  activity: "Activity logs",
-  messages: "Message audit",
+  activity: "Activity Logs",
+  messages: "Message Audit",
 };
 
 const SETTINGS_LABELS: Record<PortalSettingsSubNav, string> = {
   users: "Administrators",
-  advanced: "Advanced connections",
-  errors: "Error log",
+  advanced: "Advanced Connections",
+  errors: "Error Log",
 };
 
 function primaryTabsForMode(mode: PortalMode, canManage: boolean): PortalPrimaryNav[] {

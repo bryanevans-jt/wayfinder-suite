@@ -22,7 +22,7 @@ export default async function ComplianceCalendarPage() {
 
   return (
     <main className="px-4 py-8 sm:px-6 sm:py-10">
-      <h1 className="text-2xl font-semibold text-brand-black">Compliance calendar</h1>
+      <h1 className="text-2xl font-semibold text-brand-black">Compliance Calendar</h1>
       <p className="mt-2 max-w-3xl text-sm text-brand-black/75">
         Open SE Monthly report gaps and operational timesheets awaiting approval — scoped to your
         role.

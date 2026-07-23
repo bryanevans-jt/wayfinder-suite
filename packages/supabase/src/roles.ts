@@ -125,7 +125,7 @@ export function portalTierForRole(role: string | null | undefined): PortalTier |
 
 export function roleDisplayName(role: string | null | undefined): string {
   const labels: Record<string, string> = {
-    super_admin: "Super admin",
+    super_admin: "Super Admin",
     admin: "Admin",
     supervisor: "Supervisor",
     es: "Employment Specialist",

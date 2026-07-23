@@ -41,7 +41,7 @@ export default async function CounselorDemoClientPage({ params }: PageProps) {
       </header>
 
       <section className="mx-auto max-w-3xl py-10">
-        <h2 className="text-lg font-semibold text-brand-green">Activity timeline</h2>
+        <h2 className="text-lg font-semibold text-brand-green">Activity Timeline</h2>
         <p className="mt-1 text-sm text-brand-black/70">
           Contact notes, job applications, milestone updates, and confirmed upcoming meetings,
           oldest first. This view is read-only.

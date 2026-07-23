@@ -156,7 +156,7 @@ export function AdminMessageAuditPanel({ clients, isSuperAdmin }: Props) {
   return (
     <section className="mt-6 max-w-6xl space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-brand-black">Message audit</h2>
+        <h2 className="text-lg font-semibold text-brand-black">Message Audit</h2>
         <p className="mt-1 text-sm text-brand-black/70">
           Search and export client ↔ staff message history. Super admins can purge messages older
           than a chosen date for retention compliance.
@@ -260,7 +260,7 @@ export function AdminMessageAuditPanel({ clients, isSuperAdmin }: Props) {
       {isSuperAdmin ? (
         <div className="space-y-4 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
           <div>
-            <h3 className="text-base font-semibold text-brand-black">Retention purge</h3>
+            <h3 className="text-base font-semibold text-brand-black">Retention Purge</h3>
             <p className="mt-1 text-sm text-brand-black/70">
               Super admin only. Run this manually when needed — there is no automatic schedule.
               Deletes all messages sent before the selected date and records the run below.

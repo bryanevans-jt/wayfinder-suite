@@ -47,7 +47,7 @@ export function HospitalityWorkspace({
       <div className="flex flex-wrap gap-2 border-b border-neutral-200 pb-2">
         {(
           [
-            ["logs", "Client logs"],
+            ["logs", "Client Logs"],
             ["network", "Community Network"],
             ["connections", "Connections"],
           ] as const
@@ -181,7 +181,7 @@ export function HospitalityWorkspace({
             empty="No links."
           />
           <ReadOnlyList
-            title="Employment Specialist ↔ office"
+            title="Employment Specialist ↔ Office"
             links={staffOfficeLinks}
             empty="No links."
           />

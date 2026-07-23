@@ -206,7 +206,7 @@ export function AnalyticsWorkspace({
         <>
           {benchmark ? (
             <section className="rounded-xl border border-brand-green/25 bg-brand-green/5 p-5">
-              <h2 className="text-base font-semibold text-brand-black">Outcome benchmark</h2>
+              <h2 className="text-base font-semibold text-brand-black">Outcome Benchmark</h2>
               <p className="mt-1 text-sm text-brand-black/65">
                 Compared to the prior period of equal length in your scope.
               </p>
@@ -308,29 +308,29 @@ export function AnalyticsWorkspace({
           </section>
 
           <BreakdownTable
-            title="Time to hire by office (district/region)"
+            title="Time to Hire by Office (District/Region)"
             hint="Median intake → hire for clients hired in the selected range, by office name (includes state district/region)."
             rows={summary.timeToHireByOffice}
           />
           <BreakdownTable
-            title="Time to hire by Employment Specialist"
+            title="Time to Hire by Employment Specialist"
             hint="Median days to hire by ES for hires in the selected range."
             rows={summary.timeToHireByEs}
           />
           <BreakdownTable
-            title="Time to hire by supervisor"
+            title="Time to Hire by Supervisor"
             hint="Median days to hire rolled up by the ES’s supervisor."
             rows={summary.timeToHireBySupervisor}
           />
           <BreakdownTable
-            title="Time to hire by counselor"
+            title="Time to Hire by Counselor"
             hint="Median days to hire by assigned counselor."
             rows={summary.timeToHireByCounselor}
           />
 
           {summary.monthly.length > 0 ? (
             <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-semibold text-brand-black">Monthly trends</h2>
+              <h2 className="text-base font-semibold text-brand-black">Monthly Trends</h2>
               <p className="mt-1 text-sm text-brand-black/65">
                 Intakes and hires by calendar month within the selected range. Monthly hire rate
                 is hires ÷ intakes for that month.
@@ -362,7 +362,7 @@ export function AnalyticsWorkspace({
 
           {summary.applicationsByStatus.length > 0 ? (
             <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-semibold text-brand-black">Applications by status</h2>
+              <h2 className="text-base font-semibold text-brand-black">Applications by Status</h2>
               <p className="mt-1 text-sm text-brand-black/65">
                 Applications submitted in the selected date range.
               </p>
@@ -383,7 +383,7 @@ export function AnalyticsWorkspace({
           ) : null}
 
           <section className="rounded-xl border border-brand-green/20 bg-brand-green/5 p-5">
-            <h2 className="text-base font-semibold text-brand-black">How these numbers are calculated</h2>
+            <h2 className="text-base font-semibold text-brand-black">How These Numbers Are Calculated</h2>
             <dl className="mt-3 space-y-3 text-sm text-brand-black/80">
               {Object.entries(ANALYTICS_METRIC_DEFINITIONS).map(([key, def]) => (
                 <div key={key}>

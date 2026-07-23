@@ -74,7 +74,7 @@ export function PortalSetupChecklist({ bootstrap, canManage, onNavigate }: Props
     <div className="rounded-xl border border-brand-green/30 bg-brand-green/5 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-brand-black">Getting started</h2>
+          <h2 className="text-sm font-semibold text-brand-black">Getting Started</h2>
           <p className="mt-1 text-sm text-brand-black/70">
             Complete these steps to set up Wayfinder. You can return here anytime from the Clients
             tab.

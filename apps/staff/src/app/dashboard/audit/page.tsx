@@ -62,7 +62,7 @@ export default async function AuditPreviewPage() {
 
   return (
     <main className="px-6 py-10">
-      <h1 className="text-2xl font-semibold text-brand-black">Audit preview</h1>
+      <h1 className="text-2xl font-semibold text-brand-black">Audit Preview</h1>
       <p className="mt-2 max-w-2xl text-brand-black/75">
         Preview another user&apos;s dashboard in read-only mode. Use this to verify layouts,
         navigation, and data visibility before or after go-live.
@@ -70,7 +70,7 @@ export default async function AuditPreviewPage() {
       <AuditPreviewWorkspace />
 
       <section className="mt-10 max-w-4xl">
-        <h2 className="text-lg font-semibold text-brand-black">Preview audit log</h2>
+        <h2 className="text-lg font-semibold text-brand-black">Preview Audit Log</h2>
         <p className="mt-1 text-sm text-brand-black/65">
           Internal record of preview sessions (enter and exit). Visible to super admins only.
         </p>

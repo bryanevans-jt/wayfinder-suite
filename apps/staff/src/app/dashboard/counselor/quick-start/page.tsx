@@ -16,13 +16,13 @@ export default async function CounselorQuickStartPage() {
         className="h-10 w-auto"
         priority
       />
-      <h1 className="mt-6 text-2xl font-semibold text-brand-green">Counselor — Quick start</h1>
+      <h1 className="mt-6 text-2xl font-semibold text-brand-green">Counselor — Quick Start</h1>
       <p className="mt-2 text-sm text-brand-black/75">
         {STAFF_APP_PRODUCT_NAME} counselor portal — read-only view of your participants.
       </p>
 
       <section className="mt-8 space-y-4 text-sm text-brand-black/85">
-        <h2 className="text-lg font-semibold text-brand-black">Sign in</h2>
+        <h2 className="text-lg font-semibold text-brand-black">Sign In</h2>
         <ol className="list-decimal space-y-2 pl-5">
           <li>
             Go to <strong>wayfinder-pro.thejoshuatree.org</strong>
@@ -36,7 +36,7 @@ export default async function CounselorQuickStartPage() {
           </li>
         </ol>
 
-        <h2 className="pt-4 text-lg font-semibold text-brand-black">What you can do</h2>
+        <h2 className="pt-4 text-lg font-semibold text-brand-black">What You Can Do</h2>
         <ul className="list-disc space-y-2 pl-5">
           <li>
             <strong>My clients</strong> — see activity for assigned participants
@@ -46,7 +46,7 @@ export default async function CounselorQuickStartPage() {
           </li>
         </ul>
 
-        <h2 className="pt-4 text-lg font-semibold text-brand-black">What you cannot do</h2>
+        <h2 className="pt-4 text-lg font-semibold text-brand-black">What You Cannot Do</h2>
         <p>
           You cannot edit client records or send messages here. Contact the participant&apos;s Employment
           Specialist if something looks wrong.

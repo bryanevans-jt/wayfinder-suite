@@ -30,7 +30,7 @@ export default async function CounselorPortalPage({
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-green">
             Counselor portal
           </p>
-          <h1 className="mt-1 text-2xl font-semibold text-brand-green">Setup needed</h1>
+          <h1 className="mt-1 text-2xl font-semibold text-brand-green">Setup Needed</h1>
           <p className="mt-3 text-brand-black/85">
             Your account hasn&apos;t been set up yet. Contact{" "}
             <a
@@ -146,7 +146,7 @@ export default async function CounselorPortalPage({
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-green">
           Counselor portal
         </p>
-        <h1 className="mt-1 text-3xl font-semibold text-brand-green">Your clients</h1>
+        <h1 className="mt-1 text-3xl font-semibold text-brand-green">Your Clients</h1>
         <p className="mt-2 max-w-2xl text-sm text-brand-black/80">
           Signed in as <span className="font-medium text-brand-black">{counselorRow.full_name}</span>
           . Open a card to see the full activity timeline. Check{" "}
@@ -168,7 +168,7 @@ export default async function CounselorPortalPage({
         </Suspense>
         <p className="mt-3 text-sm">
           <Link href="/dashboard/counselor/quick-start" className="font-medium text-brand-green hover:underline">
-            Quick start guide
+            Quick Start Guide
           </Link>
           {" · "}
           <Link href="/dashboard/help" className="font-medium text-brand-green hover:underline">

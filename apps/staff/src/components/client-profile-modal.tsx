@@ -63,7 +63,7 @@ export function ClientProfileModal({ clientId, clientLabel, open, onClose }: Pro
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-brand-black">Contact & employment goals</h2>
+            <h2 className="text-lg font-semibold text-brand-black">Contact & Employment Goals</h2>
             <p className="text-sm text-brand-black/65">{clientLabel}</p>
           </div>
           <button

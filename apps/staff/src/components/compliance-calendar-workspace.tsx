@@ -40,7 +40,7 @@ export function ComplianceCalendarWorkspace({ reports, timesheets }: Props) {
       </section>
 
       <section className="rounded-xl border border-neutral-200 bg-white p-5">
-        <h2 className="text-base font-semibold text-brand-black">Timesheets pending approval</h2>
+        <h2 className="text-base font-semibold text-brand-black">Timesheets Pending Approval</h2>
         {timesheets.length === 0 ? (
           <p className="mt-3 text-sm text-brand-black/65">No submitted timesheets awaiting action.</p>
         ) : (

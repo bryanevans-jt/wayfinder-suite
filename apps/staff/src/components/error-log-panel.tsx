@@ -77,7 +77,7 @@ export function ErrorLogPanel() {
   return (
     <section className="mt-6 space-y-4">
       <div>
-        <h2 className="text-lg font-semibold text-brand-black">Error log</h2>
+        <h2 className="text-lg font-semibold text-brand-black">Error Log</h2>
         <p className="mt-1 max-w-2xl text-sm text-brand-black/70">
           System errors are logged here with a reference code. End users only see a supportive
           message — share a code here to get help diagnosing an issue quickly.

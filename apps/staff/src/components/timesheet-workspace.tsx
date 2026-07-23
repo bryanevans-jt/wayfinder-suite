@@ -167,7 +167,7 @@ export function TimesheetWorkspace({
     <div className="mt-8 max-w-5xl space-y-8">
       {(isSupervisorRole(role) || isAdminTierRole(role)) && pendingApprovals.length > 0 ? (
         <section className="rounded-xl border border-amber-200 bg-amber-50 p-5">
-          <h2 className="text-base font-semibold text-brand-black">Pending approvals</h2>
+          <h2 className="text-base font-semibold text-brand-black">Pending Approvals</h2>
           <ul className="mt-3 space-y-3">
             {pendingApprovals.map((w) => (
               <li
@@ -276,7 +276,7 @@ export function TimesheetWorkspace({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-brand-black">
-              {isEsRole(role) ? "My weekly timesheet" : `${esName}'s weekly timesheet`}
+              {isEsRole(role) ? "My Weekly Timesheet" : `${esName}'s Weekly Timesheet`}
             </h2>
             <p className="text-sm text-brand-black/70">
               Week (Sun–Sat): {formatWeekLabel(weekStart, weekEnd)}
@@ -339,7 +339,7 @@ export function TimesheetWorkspace({
 
         {summary.byClient.length > 0 ? (
           <div className="mt-5">
-            <h3 className="text-sm font-semibold text-brand-black">Billable by client</h3>
+            <h3 className="text-sm font-semibold text-brand-black">Billable by Client</h3>
             <ul className="mt-2 space-y-1 text-sm text-brand-black/80">
               {summary.byClient.map((c) => (
                 <li key={c.name} className="flex flex-wrap items-center gap-2">
@@ -384,7 +384,7 @@ export function TimesheetWorkspace({
       </section>
 
       <section>
-        <h3 className="text-base font-semibold text-brand-black">Line items</h3>
+        <h3 className="text-base font-semibold text-brand-black">Line Items</h3>
         {visibleEntries.length === 0 ? (
           <p className="mt-2 text-sm text-brand-black/70">
             No time entries this week. Log contact, applications, meetings, or stage updates from a{" "}

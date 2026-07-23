@@ -24,7 +24,7 @@ export function FormalReportingWorkspace({ readOnly = false, showAdminLink = fal
       />
 
       <section className="rounded-xl border border-neutral-200 bg-white p-5">
-        <h2 className="text-base font-semibold text-brand-black">Fastest path</h2>
+        <h2 className="text-base font-semibold text-brand-black">Fastest Path</h2>
         <ol className="mt-3 list-decimal space-y-3 pl-5 text-sm text-brand-black/80">
           <li>
             Open a <strong>client profile</strong> and use <strong>Generate Activity Report</strong>{" "}

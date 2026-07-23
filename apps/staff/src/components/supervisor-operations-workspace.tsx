@@ -14,7 +14,7 @@ export function SupervisorOperationsWorkspace({ capacity, coaching, showCoaching
   return (
     <div className="mt-8 max-w-5xl space-y-8">
       <section className="rounded-xl border border-neutral-200 bg-white p-5">
-        <h2 className="text-base font-semibold text-brand-black">Capacity view</h2>
+        <h2 className="text-base font-semibold text-brand-black">Capacity View</h2>
         <p className="mt-1 text-sm text-brand-black/65">
           Active caseload and billable minutes (last 4 weeks) per Employment Specialist. Soft
           guidance is {SOFT_ACTIVE_CASELOAD_GUIDANCE} active clients — overages are allowed; use
@@ -65,7 +65,7 @@ export function SupervisorOperationsWorkspace({ capacity, coaching, showCoaching
       {showCoaching ? (
         <>
           <section className="rounded-xl border border-red-200 bg-red-50/50 p-5">
-            <h2 className="text-base font-semibold text-brand-black">Coaching queue — message SLA</h2>
+            <h2 className="text-base font-semibold text-brand-black">Coaching Queue — Message SLA</h2>
             <p className="mt-1 text-sm text-brand-black/65">Overdue client replies (48 business hours).</p>
             {coaching.sla.length === 0 ? (
               <p className="mt-4 text-sm text-brand-black/60">No overdue message threads.</p>
@@ -85,7 +85,7 @@ export function SupervisorOperationsWorkspace({ capacity, coaching, showCoaching
           </section>
 
           <section className="rounded-xl border border-amber-200 bg-amber-50/50 p-5">
-            <h2 className="text-base font-semibold text-brand-black">Coaching queue — contact volume</h2>
+            <h2 className="text-base font-semibold text-brand-black">Coaching Queue — Contact Volume</h2>
             <p className="mt-1 text-sm text-brand-black/65">
               Clients with fewer than {MIN_CONTACTS_PER_MONTH} contacts logged this month.
             </p>

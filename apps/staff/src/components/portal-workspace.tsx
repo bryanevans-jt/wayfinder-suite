@@ -297,7 +297,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 });
               }}
             >
-              <h2 className="text-lg font-semibold text-brand-black">Add counselor</h2>
+              <h2 className="text-lg font-semibold text-brand-black">Add Counselor</h2>
               <div className="grid gap-3 sm:grid-cols-2">
                 <input
                   value={newCounselorName}
@@ -915,7 +915,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               });
             }}
           >
-            <h2 className="text-lg font-semibold text-brand-black">Add supervisor</h2>
+            <h2 className="text-lg font-semibold text-brand-black">Add Supervisor</h2>
             <p className="text-sm text-brand-black/70">
               Silent add keeps them inactive with no email until you are ready to onboard them.
             </p>
@@ -1049,7 +1049,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
         <section className="mt-6 max-w-5xl space-y-6">
           {canManageOrg ? (
             <div>
-              <h2 className="text-lg font-semibold text-brand-black">Advanced connections</h2>
+              <h2 className="text-lg font-semibold text-brand-black">Advanced Connections</h2>
               <p className="mt-1 text-sm text-brand-black/70">
                 Most day-to-day assignments happen when you add or edit clients and team members.
                 Use this section only when you need to adjust links in bulk.
@@ -1065,7 +1065,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
           {canManageOrg ? (
             <>
               <AssignmentCard
-                title="Counselor office access"
+                title="Counselor Office Access"
                 description="Which offices each counselor can view (read-only access to assigned clients)."
                 busy={busy}
                 onAdd={(counselorId, officeId) =>
@@ -1104,7 +1104,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 }}
               />
               <AssignmentCard
-                title="Employment Specialist office coverage"
+                title="Employment Specialist Office Coverage"
                 description="Offices each Employment Specialist can work from."
                 busy={busy}
                 onAdd={(userId, officeId) =>
@@ -1142,7 +1142,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 }}
               />
               <AssignmentCard
-                title="Supervisor to Employment Specialist link"
+                title="Supervisor to Employment Specialist Link"
                 description="Which Employment Specialists each supervisor oversees."
                 busy={busy}
                 onAdd={(supervisorId, esId) =>
@@ -1183,7 +1183,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 }}
               />
               <AssignmentCard
-                title="Client caseload"
+                title="Client Caseload"
                 description="Which Employment Specialist owns each client's caseload."
                 busy={busy}
                 onAdd={(esId, clientId) =>
@@ -1235,7 +1235,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 empty="No Employment Specialist team members linked to you yet."
               />
               <AssignmentCard
-                title="Client caseload"
+                title="Client Caseload"
                 description="Reassign clients to Employment Specialists you supervise. Adding a link replaces the client's current Employment Specialist."
                 busy={busy}
                 onAdd={(esId, clientId) =>
@@ -1278,7 +1278,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 }}
               />
               <ReadOnlyLinkList
-                title="Employment Specialist ↔ office"
+                title="Employment Specialist ↔ Office"
                 links={b.staffOfficeLinks.map((l) => ({
                   id: l.id,
                   label: `${staffLabel(l.user_id)} · ${officeName(l.office_id)}`,
@@ -1491,7 +1491,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 });
               }}
             >
-              <h2 className="text-lg font-semibold text-brand-black">Assign staff role by email</h2>
+              <h2 className="text-lg font-semibold text-brand-black">Assign Staff Role by Email</h2>
               <p className="text-sm text-brand-black/70">
                 Invites the user if they do not exist yet, then sets their Wayfinder Pro role.
               </p>

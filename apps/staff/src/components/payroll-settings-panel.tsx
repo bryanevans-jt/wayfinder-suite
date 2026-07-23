@@ -38,7 +38,7 @@ export function PayrollSettingsPanel() {
 
   return (
     <section className="mt-10 max-w-xl rounded-xl border border-neutral-200 bg-white p-5">
-      <h2 className="text-lg font-semibold text-brand-black">Payroll export settings</h2>
+      <h2 className="text-lg font-semibold text-brand-black">Payroll Export Settings</h2>
       <p className="mt-1 text-sm text-brand-black/65">
         Configure pay period frequency and anchor dates for Accounts Specialist and HR payroll /
         billable CSV pulls.

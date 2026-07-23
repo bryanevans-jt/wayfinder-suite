@@ -26,7 +26,7 @@ type ExportCard = {
 
 const EXPORT_CARDS: ExportCard[] = [
   {
-    title: "My caseload",
+    title: "My Caseload",
     description:
       "Current service, stage, office, and counselor for every client assigned to you.",
     href: "/api/exports/caseload",
@@ -34,7 +34,7 @@ const EXPORT_CARDS: ExportCard[] = [
     roles: ["es"],
   },
   {
-    title: "Applications by client",
+    title: "Applications by Client",
     description:
       "Every job application in your scope — one row per application with client name, employer, status, and notes.",
     href: "/api/exports/applications",
@@ -42,7 +42,7 @@ const EXPORT_CARDS: ExportCard[] = [
     roles: ["es", "supervisor"],
   },
   {
-    title: "My client activity",
+    title: "My Client Activity",
     description:
       "Contact logs, job applications, and stage changes for your assigned clients (most recent first). For monthly narrative text, use the report panel on each client profile.",
     href: "/api/exports/activity",
@@ -50,7 +50,7 @@ const EXPORT_CARDS: ExportCard[] = [
     roles: ["es"],
   },
   {
-    title: "My timesheet",
+    title: "My Timesheet",
     description:
       "Review hours worked and billable hours by pay week, submit for supervisor approval, and download CSV from the Timesheet page.",
     href: "/dashboard/timesheet",
@@ -58,7 +58,7 @@ const EXPORT_CARDS: ExportCard[] = [
     roles: ["es"],
   },
   {
-    title: "Payroll — hours worked",
+    title: "Payroll — Hours Worked",
     description:
       "Approved hours worked per Employment Specialist for the current pay period. Overlapping clock times count once (payroll).",
     href: "/api/exports/payroll",
@@ -66,7 +66,7 @@ const EXPORT_CARDS: ExportCard[] = [
     roles: ["accountant", "hr", "supervisor"],
   },
   {
-    title: "Billable hours by client",
+    title: "Billable Hours by Client",
     description:
       "Approved billable line items by client for state billing. The same clock time may appear on multiple clients when policy allows.",
     href: "/api/exports/billable",
@@ -112,7 +112,7 @@ export function ExportsWorkspace({ role, readOnly = false }: Props) {
       <ReportingVsExportsGuide context="exports" showReportingLink={showReportingLink} />
 
       <section className="space-y-3">
-        <h2 className="text-base font-semibold text-brand-black">CSV downloads</h2>
+        <h2 className="text-base font-semibold text-brand-black">CSV Downloads</h2>
         <p className="text-sm text-brand-black/70">
           Pull operational data into a spreadsheet. These files are for analysis and internal use —
           not for funder PDF submission.

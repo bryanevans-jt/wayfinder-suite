@@ -3,7 +3,7 @@ import { DemoBanner } from "../components/demo-banner";
 
 const NAV = [
   { href: "/walkthrough/counselor", label: "My clients" },
-  { href: "/walkthrough/counselor/quick-start", label: "Quick start" },
+  { href: "/walkthrough/counselor/quick-start", label: "Quick Start" },
 ] as const;
 
 export default function CounselorWalkthroughLayout({ children }: { children: React.ReactNode }) {

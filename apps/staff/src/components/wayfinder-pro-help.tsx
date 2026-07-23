@@ -19,7 +19,7 @@ function sectionsForRole(role: string | null): Section[] {
   if (isSuperAdminRole(role)) {
     return [
       {
-        title: "Sidebar layout",
+        title: "Sidebar Layout",
         body:
           "The sidebar groups your work: Portal for configuration, Oversight for team health, Tools for reporting and partners. Notifications appear at the top when you have unread alerts.",
         steps: [
@@ -30,7 +30,7 @@ function sectionsForRole(role: string | null): Section[] {
         ],
       },
       {
-        title: "Super admin portal",
+        title: "Super Admin Portal",
         body:
           "The portal is your control center for organization setup, team member roles, integrations, and system health.",
         steps: [
@@ -42,7 +42,7 @@ function sectionsForRole(role: string | null): Section[] {
         ],
       },
       {
-        title: "Reporting vs exports vs analytics",
+        title: "Reporting vs Exports vs Analytics",
         body: "Three different tools — use the one that matches the task.",
         steps: [
           "Reporting (sidebar): Joshua Tree Reports — official PDF submissions to Google Drive.",
@@ -56,7 +56,7 @@ function sectionsForRole(role: string | null): Section[] {
   if (isAdminTierRole(role)) {
     return [
       {
-        title: "Sidebar layout",
+        title: "Sidebar Layout",
         body:
           "Daily configuration lives in the Admin portal. Oversight pages show team capacity, compliance gaps, and analytics. Notifications alert you to message SLA issues and employment milestones.",
         steps: [
@@ -66,7 +66,7 @@ function sectionsForRole(role: string | null): Section[] {
         ],
       },
       {
-        title: "Team operations and compliance",
+        title: "Team Operations and Compliance",
         body: "Use these when supervising program delivery — you see organization-wide slices as an admin.",
         steps: [
           "Team operations: ES caseload capacity and billable-hour trends.",
@@ -80,7 +80,7 @@ function sectionsForRole(role: string | null): Section[] {
   if (isSupervisorRole(role)) {
     return [
       {
-        title: "Sidebar layout",
+        title: "Sidebar Layout",
         body:
           "Daily work is at the top (portal, messages, timesheet). Oversight covers your team’s coaching queue and compliance. Check Notifications for SLA alerts and client milestones.",
         steps: [
@@ -90,7 +90,7 @@ function sectionsForRole(role: string | null): Section[] {
         ],
       },
       {
-        title: "Supervisor portal and coaching",
+        title: "Supervisor Portal and Coaching",
         body: "Your portal shows team overview. Team operations adds a coaching queue for overdue message replies and thin contact logs.",
         steps: [
           "Supervisor portal: see your Employment Specialists and high-level caseload signals.",
@@ -106,7 +106,7 @@ function sectionsForRole(role: string | null): Section[] {
   if (isEsRole(role)) {
     return [
       {
-        title: "Sidebar layout",
+        title: "Sidebar Layout",
         body:
           "Clients is your home base. The sidebar groups daily work (clients, messages, timesheet, reporting) and resources (partners, analytics, exports). Notifications surface message SLA and employment celebrations.",
         steps: [
@@ -115,7 +115,7 @@ function sectionsForRole(role: string | null): Section[] {
         ],
       },
       {
-        title: "Working with your clients",
+        title: "Working with Your Clients",
         body:
           "The Clients page sorts people who need follow-up to the top and shows attention badges. The application pipeline lets you click a card to change its status (including Offer).",
         steps: [
@@ -129,7 +129,7 @@ function sectionsForRole(role: string | null): Section[] {
         ],
       },
       {
-        title: "Timesheet: billable vs hours worked",
+        title: "Timesheet: Billable vs Hours Worked",
         body:
           "Your weekly timesheet shows both billable hours (by client, for state billing) and hours worked (payroll). Logging the same canvass window on three clients bills three clients but does not triple your payroll hours.",
         steps: [
@@ -143,7 +143,7 @@ function sectionsForRole(role: string | null): Section[] {
   if (role === "accountant") {
     return [
       {
-        title: "Sidebar layout",
+        title: "Sidebar Layout",
         body:
           "Accounts Specialist tools focus on timesheets and payment/billing exports. Community Partners is shared reference data.",
         steps: [
@@ -152,7 +152,7 @@ function sectionsForRole(role: string | null): Section[] {
         ],
       },
       {
-        title: "Payroll vs billable exports",
+        title: "Payroll vs Billable Exports",
         body:
           "Hours worked (payroll) merges overlapping clock times so multi-client billing does not inflate pay. Billable by client is for state billing and may sum higher than hours worked.",
         steps: [
@@ -167,7 +167,7 @@ function sectionsForRole(role: string | null): Section[] {
   if (isHrRole(role)) {
     return [
       {
-        title: "HR workspace",
+        title: "HR Workspace",
         body:
           "HR focuses on people and performance: timesheets, aggregated analytics, and exports for hours worked and billable oversight. Client-named analytics dumps are not available.",
         steps: [
@@ -178,7 +178,7 @@ function sectionsForRole(role: string | null): Section[] {
         ],
       },
       {
-        title: "Caseload guidance",
+        title: "Caseload Guidance",
         body:
           "Policy guidance is about 20 active clients per ES. It is not a hard system limit — supervisors and HR manage overages organically.",
         steps: ["Operations capacity view highlights caseloads above soft guidance."],
@@ -189,7 +189,7 @@ function sectionsForRole(role: string | null): Section[] {
   if (isCounselorRole(role)) {
     return [
       {
-        title: "My clients and notifications",
+        title: "My Clients and Notifications",
         body:
           "You can see activity for clients assigned to you. You cannot edit their records or send messages through Wayfinder Pro.",
         steps: [
@@ -200,7 +200,7 @@ function sectionsForRole(role: string | null): Section[] {
         ],
       },
       {
-        title: "Quick start guide",
+        title: "Quick Start Guide",
         body:
           "A one-page summary on the counselor portal. Sign in with your agency work email and the magic link on the login page.",
         steps: [
@@ -253,7 +253,7 @@ export function WayfinderProHelp({ role }: Props) {
 
       {!isSuperAdminRole(role) ? (
         <section className="rounded-xl border border-brand-green/25 bg-brand-green/5 p-5">
-          <h2 className="text-base font-semibold text-brand-black">When something goes wrong</h2>
+          <h2 className="text-base font-semibold text-brand-black">When Something Goes Wrong</h2>
           <p className="mt-2 text-sm text-brand-black/80">
             If you see an error, note the <strong>WF-</strong> reference code on the screen and email{" "}
             <strong>Bryan Evans</strong> at{" "}
@@ -267,7 +267,7 @@ export function WayfinderProHelp({ role }: Props) {
 
       {!isCounselorRole(role) ? (
         <section className="rounded-xl border border-neutral-200 bg-white p-5">
-          <h2 className="text-base font-semibold text-brand-black">Training manuals & conference</h2>
+          <h2 className="text-base font-semibold text-brand-black">Training Manuals & Conference</h2>
           <p className="mt-2 text-sm text-brand-black/80">
             Full PDF manuals and GA training workbooks live in the team Google Drive folder (ask your
             supervisor or Bryan Evans). In-repo copies for IT:{" "}

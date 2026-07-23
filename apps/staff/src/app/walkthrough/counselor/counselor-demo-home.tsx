@@ -19,7 +19,7 @@ export function CounselorDemoHome() {
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-green">
           Counselor portal
         </p>
-        <h1 className="mt-1 text-3xl font-semibold text-brand-green">Your clients</h1>
+        <h1 className="mt-1 text-3xl font-semibold text-brand-green">Your Clients</h1>
         <p className="mt-2 max-w-2xl text-sm text-brand-black/80">
           Signed in as{" "}
           <span className="font-medium text-brand-black">{DEMO_COUNSELOR.full_name}</span> (
@@ -41,7 +41,7 @@ export function CounselorDemoHome() {
             href="/walkthrough/counselor/quick-start"
             className="font-medium text-brand-green hover:underline"
           >
-            Quick start guide
+            Quick Start Guide
           </Link>
         </p>
       </header>
