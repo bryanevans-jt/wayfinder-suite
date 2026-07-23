@@ -20,7 +20,6 @@ export * from "./client-portal-data";
 export * from "./client-success-path";
 export * from "./auth-client-row";
 export * from "./link-client-auth";
-export * from "./client-message-api";
 export * from "./business-hours";
 export * from "./meeting-ics";
 export * from "./natural-support-invite";

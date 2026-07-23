@@ -3,7 +3,7 @@ import {
   formatEasternTimeOfDay,
   PORTAL_DISPLAY_TIME_ZONE,
 } from "@wayfinder/branding";
-import { buildClientActivityFkIds } from "@wayfinder/supabase";
+import { buildClientActivityFkIds } from "@wayfinder/supabase/client-activity-fk";
 import type { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 
 export type ContactLogDailyRow = {

@@ -1,8 +1,8 @@
+import { createServerClient } from "@wayfinder/supabase";
 import {
   clientMessagePreviewBlockedResponse,
-  createServerClient,
   requireClientMessageApiContext,
-} from "@wayfinder/supabase";
+} from "@wayfinder/supabase/client-message-api";
 import {
   respondWithLoggedError,
   resolveErrorActor,

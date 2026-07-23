@@ -28,6 +28,8 @@
     "./message-sla-notify": "./src/message-sla-notify.ts",
     "./counselor-digest": "./src/counselor-digest.ts",
     "./error-log": "./src/error-log.ts",
+    "./client-message-api": "./src/client-message-api.ts",
+    "./client-activity-fk": "./src/client-activity-fk.ts",
     "./client-bulk-import": "./src/client-bulk-import.ts",
     "./client-import-csv": "./src/client-import-csv.ts",
     "./client-roster-import": "./src/client-roster-import.ts",

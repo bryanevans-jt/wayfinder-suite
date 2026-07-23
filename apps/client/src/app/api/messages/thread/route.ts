@@ -1,4 +1,5 @@
-import { createServerClient, requireClientMessageApiContext } from "@wayfinder/supabase";
+import { createServerClient } from "@wayfinder/supabase";
+import { requireClientMessageApiContext } from "@wayfinder/supabase/client-message-api";
 import {
   respondWithLoggedError,
   resolveErrorActor,
