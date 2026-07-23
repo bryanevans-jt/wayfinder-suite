@@ -17,6 +17,7 @@ type ThreadPayload = {
   threadId: string | null;
   esName: string | null;
   messages: MessageRow[];
+  isReadOnlyPreview?: boolean;
 };
 
 export function ClientMessagesPanel() {
@@ -26,6 +27,7 @@ export function ClientMessagesPanel() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const readOnly = Boolean(thread?.isReadOnlyPreview);
 
   const load = useCallback(async () => {
     setError(null);
@@ -93,6 +95,12 @@ export function ClientMessagesPanel() {
           ? `Conversation with ${thread.esName}. Replies typically arrive within two business days.`
           : "Your Employment Specialist will appear here once assigned."}
       </p>
+      {readOnly ? (
+        <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+          Read-only preview — you can view this conversation, but sending is disabled until you exit
+          preview.
+        </p>
+      ) : null}
 
       <div className="mt-4 max-h-72 space-y-3 overflow-y-auto rounded-xl border border-neutral-100 bg-neutral-50/50 p-3">
         {(thread?.messages ?? []).length === 0 ? (
@@ -128,14 +136,14 @@ export function ClientMessagesPanel() {
           value={body}
           onChange={(e) => setBody(e.target.value)}
           rows={2}
-          placeholder="Type your message…"
-          disabled={busy}
+          placeholder={readOnly ? "Sending disabled in preview…" : "Type your message…"}
+          disabled={busy || readOnly}
           className="min-h-[2.75rem] flex-1 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none ring-brand-green focus:ring-2"
         />
         <button
           type="button"
           onClick={send}
-          disabled={busy || !body.trim()}
+          disabled={busy || readOnly || !body.trim()}
           className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white hover:bg-brand-green/90 disabled:opacity-60"
         >
           {busy ? "Sending…" : "Send"}

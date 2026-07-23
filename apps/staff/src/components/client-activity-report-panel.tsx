@@ -1,6 +1,10 @@
 "use client";
 
 import { FormalReportLaunchLink } from "@/components/formal-report-launch-link";
+import {
+  friendlyClientError,
+  parseApiErrorResponse,
+} from "@wayfinder/supabase/error-log";
 import { useCallback, useState, useTransition } from "react";
 
 type Props = {
@@ -38,13 +42,13 @@ export function ClientActivityReportPanel({
         });
         const res = await fetch(`/api/exports/client-activity-report?${params.toString()}`);
         if (!res.ok) {
-          const body = (await res.json().catch(() => null)) as { error?: string } | null;
-          throw new Error(body?.error ?? "Could not generate report");
+          const parsed = await parseApiErrorResponse(res);
+          throw new Error(parsed.message);
         }
         const text = await res.text();
         setReportText(text);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Could not generate report");
+        setError(friendlyClientError(e));
         setReportText(null);
       }
     });

@@ -1,7 +1,12 @@
 "use client";
 
 import { easternTodayYmd } from "@/lib/contact-log-daily-copy";
-import { friendlyClientError, USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
+import {
+  friendlyClientError,
+  parseApiErrorResponse,
+  reportBrowserSystemError,
+  USER_FACING_SYSTEM_ERROR,
+} from "@wayfinder/supabase/error-log";
 import { useState } from "react";
 
 type Props = {
@@ -22,15 +27,38 @@ export function ContactLogDailyCopy({ clientId }: Props) {
       const res = await fetch(
         `/api/exports/contact-logs-daily?client=${encodeURIComponent(clientId)}&date=${encodeURIComponent(date)}`
       );
-      const data = (await res.json()) as { text?: string; error?: string };
       if (!res.ok) {
-        throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+        const parsed = await parseApiErrorResponse(res);
+        const shouldReport =
+          !parsed.errorCode &&
+          (res.status >= 500 ||
+            res.status === 413 ||
+            parsed.message.startsWith(USER_FACING_SYSTEM_ERROR));
+        if (shouldReport) {
+          const reported = await reportBrowserSystemError({
+            app: "staff",
+            route: "contact-log-daily-copy",
+            message: `Copy day for VPR failed with HTTP ${res.status}: ${parsed.message}`,
+          });
+          setError(reported.message);
+          return;
+        }
+        setError(friendlyClientError(parsed.message, parsed.errorCode));
+        return;
       }
+
+      const data = (await res.json()) as { text?: string; error?: string };
       const text = data.text ?? "";
       await navigator.clipboard.writeText(text);
       setCopied(true);
     } catch (err) {
-      setError(friendlyClientError(err));
+      const reported = await reportBrowserSystemError({
+        app: "staff",
+        route: "contact-log-daily-copy",
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack ?? null : null,
+      });
+      setError(reported.message);
     } finally {
       setBusy(false);
     }

@@ -488,13 +488,75 @@ export async function loadAnalyticsExportRows(
     ? await admin.from("profiles").select("id, full_name").in("id", esIds)
     : { data: [] as { id: string; full_name: string | null }[] };
   const esName = new Map(
-    (esProfiles ?? []).map((p) => [p.id as string, (p.full_name as string | null) ?? p.id])
+    (esProfiles ?? []).map((p) => [p.id as string, (p.full_name as string | null) ?? "Employment Specialist"])
+  );
+
+  const authIds = [
+    ...new Set(
+      clients
+        .flatMap((c) => [c.user_id, c.profile_id])
+        .filter((v): v is string => typeof v === "string" && v.length > 0)
+    ),
+  ];
+  const { data: clientProfiles } = authIds.length
+    ? await admin.from("profiles").select("id, full_name").in("id", authIds)
+    : { data: [] as { id: string; full_name: string | null }[] };
+  const profileNameById = new Map(
+    (clientProfiles ?? []).map((p) => [p.id as string, p.full_name as string | null])
+  );
+
+  const { clientDisplayName } = await import("@wayfinder/branding");
+
+  let rosterRows: { id: string; full_name?: string | null; contact_email?: string | null }[] = [];
+  {
+    const withName = await admin
+      .from("clients")
+      .select("id, full_name, contact_email")
+      .in(
+        "id",
+        clients.map((c) => c.id)
+      );
+    if (withName.error?.message.includes("full_name")) {
+      const withoutName = await admin
+        .from("clients")
+        .select("id, contact_email")
+        .in(
+          "id",
+          clients.map((c) => c.id)
+        );
+      rosterRows = (withoutName.data ?? []) as {
+        id: string;
+        full_name?: string | null;
+        contact_email?: string | null;
+      }[];
+    } else {
+      rosterRows = (withName.data ?? []) as {
+        id: string;
+        full_name?: string | null;
+        contact_email?: string | null;
+      }[];
+    }
+  }
+
+  const clientById = new Map(clients.map((c) => [c.id, c]));
+  const rosterById = new Map(
+    rosterRows.map((row) => {
+      const client = clientById.get(row.id);
+      const authId = client?.user_id ?? client?.profile_id ?? null;
+      return [
+        row.id,
+        clientDisplayName({
+          full_name: (authId ? profileNameById.get(authId) : null) ?? row.full_name ?? null,
+          contact_email: row.contact_email ?? null,
+        }),
+      ] as const;
+    })
   );
 
   return facts.map((f) => ({
-    client_id: f.clientId,
+    client_name: rosterById.get(f.clientId) ?? "Unknown client",
     office: f.officeId ? (officeName.get(f.officeId) ?? "") : "",
-    es_names: f.esUserIds.map((id) => esName.get(id) ?? id).join("; "),
+    es_names: f.esUserIds.map((id) => esName.get(id) ?? "Employment Specialist").join("; "),
     intake_date: f.intakeAt.toISOString().slice(0, 10),
     hire_date: f.hireAt ? f.hireAt.toISOString().slice(0, 10) : "",
     days_intake_to_hire: f.hireAt ? daysBetween(f.intakeAt, f.hireAt) : "",
@@ -506,7 +568,7 @@ export async function loadAnalyticsExportRows(
 
 export function analyticsExportToCsv(rows: Record<string, string | number | null>[]): string {
   if (rows.length === 0) {
-    return "client_id,office,es_names,intake_date,hire_date,days_intake_to_hire,is_active,current_stage,hired_in_period\n";
+    return "client_name,office,es_names,intake_date,hire_date,days_intake_to_hire,is_active,current_stage,hired_in_period\n";
   }
   const headers = Object.keys(rows[0]!);
   const escape = (v: string | number | null) => {

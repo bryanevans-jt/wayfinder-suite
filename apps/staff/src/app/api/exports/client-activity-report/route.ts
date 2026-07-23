@@ -1,13 +1,18 @@
 import { assertStaffExportSession } from "@/lib/export-access";
 import { formatClientActivityReportText } from "@/lib/client-activity-report";
+import { requireStaffClientAccess } from "@/lib/app-session";
 import { activityLogsToCsv, loadActivityLogs } from "@/lib/portal-data";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
-import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
+import {
+  respondWithLoggedError,
+  USER_FACING_FORBIDDEN,
+} from "@wayfinder/supabase/error-log";
+import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
   const route = "api/exports/client-activity-report";
-  const auth = await assertStaffExportSession(["es"]);
+  const auth = await assertStaffExportSession(["es", "supervisor"]);
   if (auth.error) {
     return auth.error;
   }
@@ -28,11 +33,21 @@ export async function GET(request: Request) {
   const actor = { userId: auth.user.id, userRole: auth.role };
 
   try {
+    const session = await getAppSession();
+    if (!session) {
+      return NextResponse.json({ error: "Please sign in again to continue." }, { status: 401 });
+    }
+    const allowed = await requireStaffClientAccess(session, clientId);
+    if (!allowed) {
+      return NextResponse.json({ error: USER_FACING_FORBIDDEN }, { status: 403 });
+    }
+
     const admin = createServiceRoleClient();
     const rows = await loadActivityLogs(
       admin,
       {
-        esUserId: auth.user.id,
+        // Supervisors need the full client timeline, not only rows where they are the ES.
+        ...(auth.role === "es" ? { esUserId: auth.user.id } : {}),
         clientId,
         dateFrom,
         dateTo,
@@ -51,11 +66,11 @@ export async function GET(request: Request) {
       const esName =
         (profile?.full_name as string | null)?.trim() ||
         (profile?.email as string | null) ||
-        "Employment Specialist";
+        (auth.role === "supervisor" ? "Supervisor" : "Employment Specialist");
 
       const { data: clientRow } = await admin
         .from("clients")
-        .select("id, contact_email, user_id, profile_id")
+        .select("id, contact_email, user_id, profile_id, full_name")
         .eq("id", clientId)
         .maybeSingle();
 
@@ -69,9 +84,11 @@ export async function GET(request: Request) {
 
         const { clientDisplayName } = await import("@wayfinder/branding");
         clientName = clientDisplayName({
-          full_name: clientProfile?.full_name ?? null,
+          full_name:
+            (clientProfile?.full_name as string | null) ??
+            (clientRow.full_name as string | null) ??
+            null,
           contact_email: clientRow.contact_email as string | null,
-          id: clientId,
         });
       }
 
@@ -89,7 +106,12 @@ export async function GET(request: Request) {
     }
 
     const csv = activityLogsToCsv(rows);
-    const filename = `wayfinder-activity-${clientId.slice(0, 8)}-${dateFrom}-to-${dateTo}.csv`;
+    const safeName = (rows[0]?.client_name ?? "client")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 40);
+    const filename = `wayfinder-activity-${safeName || "client"}-${dateFrom}-to-${dateTo}.csv`;
 
     return new NextResponse(csv, {
       headers: {

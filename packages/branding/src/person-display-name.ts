@@ -32,7 +32,19 @@ export function personDisplayName(
 }
 
 export function clientDisplayName(client: PersonLabelInput): string {
-  return personDisplayName(client, "Unknown client");
+  // Never surface internal client UUIDs in staff/client-facing labels.
+  return personDisplayName(
+    {
+      full_name: client.full_name,
+      name: client.name,
+      first_name: client.first_name,
+      last_name: client.last_name,
+      email: client.email,
+      contact_email: client.contact_email,
+      id: null,
+    },
+    "Unknown client"
+  );
 }
 
 export function staffDisplayName(staff: {

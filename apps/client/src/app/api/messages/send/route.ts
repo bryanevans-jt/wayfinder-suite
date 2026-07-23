@@ -1,4 +1,8 @@
-import { createServerClient, requireClientMessageApiContext } from "@wayfinder/supabase";
+import {
+  clientMessagePreviewBlockedResponse,
+  createServerClient,
+  requireClientMessageApiContext,
+} from "@wayfinder/supabase";
 import {
   respondWithLoggedError,
   resolveErrorActor,
@@ -16,6 +20,9 @@ export async function POST(request: Request) {
     }
 
     const { ctx } = auth;
+    if (ctx.isReadOnlyPreview) {
+      return clientMessagePreviewBlockedResponse();
+    }
     const actor = await resolveErrorActor(supabase, ctx.userId);
 
     const payload = (await request.json()) as { body?: string };

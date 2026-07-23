@@ -23,7 +23,7 @@ export async function GET() {
       .eq("client_id", ctx.clientId)
       .maybeSingle();
 
-    if (!thread) {
+    if (!thread && !ctx.isReadOnlyPreview) {
       const { data: assignment } = await ctx.admin
         .from("es_client_assignments")
         .select("es_user_id")
@@ -52,7 +52,36 @@ export async function GET() {
     }
 
     if (!thread) {
-      return NextResponse.json({ threadId: null, esName: null, messages: [] });
+      // Preview: still resolve ES name from assignment without creating a thread.
+      if (ctx.isReadOnlyPreview) {
+        const { data: assignment } = await ctx.admin
+          .from("es_client_assignments")
+          .select("es_user_id")
+          .eq("client_id", ctx.clientId)
+          .limit(1)
+          .maybeSingle();
+        let esName: string | null = null;
+        if (assignment?.es_user_id) {
+          const { data: esProfile } = await ctx.admin
+            .from("profiles")
+            .select("full_name")
+            .eq("id", assignment.es_user_id)
+            .maybeSingle();
+          esName = esProfile?.full_name ?? null;
+        }
+        return NextResponse.json({
+          threadId: null,
+          esName,
+          messages: [],
+          isReadOnlyPreview: true,
+        });
+      }
+      return NextResponse.json({
+        threadId: null,
+        esName: null,
+        messages: [],
+        isReadOnlyPreview: false,
+      });
     }
 
     let esName: string | null = null;
@@ -92,6 +121,7 @@ export async function GET() {
         created_at: m.created_at,
         sender_name: nameById.get(m.sender_user_id as string) ?? null,
       })),
+      isReadOnlyPreview: ctx.isReadOnlyPreview,
     });
   } catch (err) {
     return respondWithLoggedError("client", route, err);
