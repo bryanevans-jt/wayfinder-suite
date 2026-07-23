@@ -31,6 +31,7 @@ const COUNSELOR_BLOCKED_PREFIXES = [
   "/dashboard/operations",
   "/dashboard/compliance",
   "/dashboard/timesheet",
+  "/dashboard/time-clock",
   "/dashboard/audit",
   "/dashboard/share-moments",
   "/dashboard/core-four",
@@ -52,6 +53,12 @@ export type StaffNavSection = {
   /** Optional group label shown above a nav cluster. */
   label?: string;
   items: StaffNavItem[];
+};
+
+const timeClockNav: StaffNavItem = {
+  href: "/dashboard/time-clock",
+  label: "Time Clock",
+  match: (p) => p.startsWith("/dashboard/time-clock"),
 };
 
 const reportingNav: StaffNavItem = {
@@ -186,7 +193,7 @@ export function staffNavSectionsForRole(
         },
         {
           label: "Tools",
-          items: [reportingNav, communityPartnersNav],
+          items: [timeClockNav, reportingNav, communityPartnersNav],
         },
       ],
       staffRole
@@ -212,7 +219,7 @@ export function staffNavSectionsForRole(
         },
         {
           label: "Tools",
-          items: [reportingNav, communityPartnersNav],
+          items: [timeClockNav, reportingNav, communityPartnersNav],
         },
       ],
       staffRole
@@ -235,6 +242,7 @@ export function staffNavSectionsForRole(
               label: "Messages",
               match: (p) => p === "/dashboard/messages",
             },
+            timeClockNav,
             {
               href: "/dashboard/timesheet",
               label: "Weekly Timesheet",
@@ -329,6 +337,7 @@ export function staffNavSectionsForRole(
               label: "Messages",
               match: (p) => p === "/dashboard/messages",
             },
+            timeClockNav,
             {
               href: "/dashboard/timesheet",
               label: "Weekly Timesheet",

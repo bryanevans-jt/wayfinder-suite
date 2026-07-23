@@ -1,8 +1,5 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
-import {
-  minutesToDecimalHours,
-  workedMinutesFromEntries,
-} from "@wayfinder/supabase/es-time-tracking";
+import { minutesToDecimalHours } from "@wayfinder/supabase/es-time-tracking";
 import { resolvePayPeriod, type PayrollSettingsRow } from "@wayfinder/supabase/payroll-period";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import {
@@ -11,6 +8,7 @@ import {
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
+import { shiftDurationMinutes } from "@wayfinder/supabase/staff-time-clock-shared";
 import { NextResponse } from "next/server";
 
 function canExportPayroll(role: string | null | undefined): boolean {
@@ -22,7 +20,7 @@ function canExportPayroll(role: string | null | undefined): boolean {
   );
 }
 
-/** Payroll export: hours worked per ES (overlapping clock time counted once). */
+/** Payroll export: hours worked from staff Time Clock shifts (not billable activity). */
 export async function GET(request: Request) {
   const route = "api/exports/payroll";
   const session = await getAppSession();
@@ -58,60 +56,55 @@ export async function GET(request: Request) {
         ? { start: fromParam, end: toParam, frequency: settings.pay_period_frequency }
         : resolvePayPeriod(settings);
 
-    const { data: entries } = await admin
-      .from("es_time_entries")
-      .select(
-        "es_user_id, service_date, duration_minutes, service_start_at, service_end_at, status"
-      )
-      .eq("status", "approved")
-      .gte("service_date", period.start)
-      .lte("service_date", period.end);
+    const { data: shifts, error: shiftsErr } = await admin
+      .from("staff_time_clock_shifts")
+      .select("staff_user_id, local_date, clock_in_at, clock_out_at")
+      .gte("local_date", period.start)
+      .lte("local_date", period.end)
+      .not("clock_out_at", "is", null);
 
-    const byEs = new Map<
-      string,
-      Array<{
-        duration_minutes: number;
-        service_start_at: string | null;
-        service_end_at: string | null;
-      }>
-    >();
-    for (const e of entries ?? []) {
-      const esId = e.es_user_id as string;
-      const list = byEs.get(esId) ?? [];
-      list.push({
-        duration_minutes: e.duration_minutes as number,
-        service_start_at: (e.service_start_at as string | null) ?? null,
-        service_end_at: (e.service_end_at as string | null) ?? null,
-      });
-      byEs.set(esId, list);
+    if (shiftsErr) {
+      throw shiftsErr;
     }
 
-    const esIds = [...byEs.keys()];
-    const { data: profiles } = esIds.length
-      ? await admin.from("profiles").select("id, full_name, email").in("id", esIds)
+    const byStaff = new Map<string, { minutes: number; count: number }>();
+    for (const s of shifts ?? []) {
+      const id = s.staff_user_id as string;
+      const mins = shiftDurationMinutes(
+        s.clock_in_at as string,
+        s.clock_out_at as string | null
+      );
+      const cur = byStaff.get(id) ?? { minutes: 0, count: 0 };
+      cur.minutes += mins;
+      cur.count += 1;
+      byStaff.set(id, cur);
+    }
+
+    const staffIds = [...byStaff.keys()];
+    const { data: profiles } = staffIds.length
+      ? await admin.from("profiles").select("id, full_name, email").in("id", staffIds)
       : { data: [] };
-    const esName = new Map(
+    const staffName = new Map(
       (profiles ?? []).map((p) => [
         p.id as string,
-        (p.full_name as string | null)?.trim() || (p.email as string) || "ES",
+        (p.full_name as string | null)?.trim() || (p.email as string) || "Staff",
       ])
     );
 
     const header =
-      "es_name,es_user_id,period_start,period_end,hours_worked_minutes,hours_worked,entry_count,note\n";
-    const lines = [...byEs.entries()]
-      .map(([esId, esEntries]) => {
-        const worked = workedMinutesFromEntries(esEntries);
-        const name = esName.get(esId) ?? "ES";
+      "staff_name,staff_user_id,period_start,period_end,hours_worked_minutes,hours_worked,shift_count,note\n";
+    const lines = [...byStaff.entries()]
+      .map(([staffId, agg]) => {
+        const name = staffName.get(staffId) ?? "Staff";
         return [
           `"${name.replace(/"/g, '""')}"`,
-          esId,
+          staffId,
           period.start,
           period.end,
-          String(worked),
-          minutesToDecimalHours(worked),
-          String(esEntries.length),
-          '"Overlapping clock times counted once for payroll"',
+          String(agg.minutes),
+          minutesToDecimalHours(agg.minutes),
+          String(agg.count),
+          '"From staff Time Clock (America/New_York); billable client hours are a separate export"',
         ].join(",");
       })
       .sort((a, b) => a.localeCompare(b));

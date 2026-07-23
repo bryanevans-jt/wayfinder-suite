@@ -6,6 +6,8 @@ import { StaffSidebarPanel } from "./staff-sidebar";
 import { PwaInstallPrompt } from "@wayfinder/branding";
 import { PushNotificationPrompt } from "@wayfinder/auth-ui";
 import { ReportAlertsBanner } from "./report-alerts-banner";
+import { canUseStaffClock } from "@wayfinder/supabase/staff-time-clock-shared";
+import { StaffClockWidget } from "./staff-clock-widget";
 
 type Props = {
   staffRole: string | null;
@@ -16,6 +18,7 @@ type Props = {
 export function StaffDashboardShell({ staffRole, showAuditLink = false, children }: Props) {
   const pathname = usePathname() ?? "";
   const [menuOpen, setMenuOpen] = useState(false);
+  const showClock = canUseStaffClock(staffRole) && !pathname.startsWith("/dashboard/time-clock");
 
   useEffect(() => {
     setMenuOpen(false);
@@ -56,6 +59,11 @@ export function StaffDashboardShell({ staffRole, showAuditLink = false, children
             <PwaInstallPrompt productName="Wayfinder Pro" storageKey="staff-pwa-install-dismissed" />
           </div>
           <PushNotificationPrompt className="mx-4 mt-3 lg:mx-6" />
+          {showClock ? (
+            <div className="mx-4 mt-3 lg:mx-6">
+              <StaffClockWidget />
+            </div>
+          ) : null}
           <ReportAlertsBanner staffRole={staffRole} />
           {children}
         </div>

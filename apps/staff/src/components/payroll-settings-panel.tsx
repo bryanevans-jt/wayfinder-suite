@@ -91,7 +91,7 @@ export function PayrollSettingsPanel() {
         </button>
         {message ? <p className="text-sm text-brand-black/70">{message}</p> : null}
         <p className="text-xs text-brand-black/55">
-          Accounts Specialist and HR download hours worked at{" "}
+          Accounts Specialist and HR download hours worked (from Time Clock) at{" "}
           <code className="rounded bg-neutral-100 px-1">/api/exports/payroll</code> and billable by
           client at <code className="rounded bg-neutral-100 px-1">/api/exports/billable</code>.
         </p>

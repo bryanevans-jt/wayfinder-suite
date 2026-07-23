@@ -24,5 +24,21 @@ export * from "./business-hours";
 export * from "./meeting-ics";
 export * from "./natural-support-invite";
 export * from "./es-time-tracking";
+export {
+  STAFF_CLOCK_TIMEZONE,
+  STAFF_CLOCK_MIN_MINUTES,
+  canUseStaffClock,
+  zonedDateTimeParts,
+  localDateStringInTz,
+  nyLocalToUtc,
+  shiftDurationMinutes,
+  sumShiftMinutes,
+  minutesToClockLabel,
+} from "./staff-time-clock-shared";
+export type {
+  StaffClockAutoOutReason,
+  StaffClockShiftRow,
+  StaffClockEditLogRow,
+} from "./staff-time-clock-shared";
 export * from "./client-archive";
 export * from "./auth-check-email";

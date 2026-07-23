@@ -48,6 +48,7 @@ function sectionsForRole(role: string | null): Section[] {
           "Reporting (sidebar): Joshua Tree Reports — official PDF submissions to Google Drive.",
           "Analytics (sidebar): live charts including outcome benchmarking for leadership.",
           "Portal activity logs: administrative audit trails, not client monthly reports.",
+          "Time Clock (Tools): staff hours worked for payroll/accountability — separate from billable timesheets. Admins can edit any clock entry; every edit is logged.",
         ],
       },
     ];
@@ -62,7 +63,16 @@ function sectionsForRole(role: string | null): Section[] {
         steps: [
           "Portal → Admin portal for offices, services, and team members.",
           "Oversight → Team operations, Compliance, Analytics.",
-          "Tools → Reporting, Community Partners.",
+          "Tools → Time Clock, Reporting, Community Partners.",
+        ],
+      },
+      {
+        title: "Time Clock",
+        body:
+          "Joshua Tree team members use Time Clock for hours worked (Eastern time). Client billable hours stay on Weekly Timesheet. Admins can edit any entry for troubleshooting; edits are logged. Counselors and clients do not use Time Clock.",
+        steps: [
+          "Open Time Clock to view who’s clocked in org-wide and correct flagged auto-outs.",
+          "5:30 PM still-working prompts and 6:00 PM auto-outs (stamped 5:30) are server-driven; midnight splits days at 11:59 PM / 12:00 AM.",
         ],
       },
       {
@@ -82,11 +92,25 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Sidebar Layout",
         body:
-          "Daily work is at the top (portal, messages, timesheet). Oversight covers your team’s coaching queue and compliance. Check Notifications for SLA alerts and client milestones.",
+          "Daily work is at the top (portal, messages, time clock, timesheet). Oversight covers your team’s coaching queue and compliance. Check Notifications for SLA alerts and client milestones.",
         steps: [
-          "Daily work → Supervisor portal, Messages, Timesheet.",
+          "Daily work → Supervisor portal, Messages, Time Clock, Timesheet.",
           "Oversight → Team operations, Compliance, Reporting, Analytics.",
           "Tools → Data exports, Community Partners.",
+        ],
+      },
+      {
+        title: "Time Clock (Hours Worked)",
+        body:
+          "Time Clock tracks when Joshua Tree team members are working for payroll and accountability. It is separate from Weekly Timesheet client billable hours. All clock times use America/New_York.",
+        steps: [
+          "Open Time Clock (or use the strip at the top of most pages) to clock yourself in/out.",
+          "You can stay clocked in across lunch — work-at-your-own-pace is OK.",
+          "You cannot clock in twice while already clocked in; you’ll see “You’re already clocked in.”",
+          "At 5:30 PM Eastern, anyone still clocked in gets a Still Working? push and in-app prompt. Tap Still Working if you are continuing. If there is no response by 6:00 PM, the system clocks them out stamped at 5:30 PM, flags the entry for the person and their supervisor, and asks them to edit if needed.",
+          "At midnight Eastern, open shifts end at 11:59 PM and a new shift starts at 12:00 AM so each calendar day has clean totals.",
+          "Who’s Clocked In and Flagged Team Entries appear on Time Clock for your supervised Employment Specialists. You (and admins) can edit their entries; every edit is logged.",
+          "Enable push notifications so you receive 5:30 PM and auto-out alerts.",
         ],
       },
       {
@@ -108,10 +132,26 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Sidebar Layout",
         body:
-          "Clients is your home base. The sidebar groups daily work (clients, messages, timesheet, reporting) and resources (partners, analytics, exports). Notifications surface message SLA and employment celebrations.",
+          "Clients is your home base. The sidebar groups daily work (clients, messages, time clock, timesheet, reporting) and resources (partners, analytics, exports). Notifications surface message SLA and employment celebrations.",
         steps: [
-          "Daily work → Clients, Messages, Timesheet, Reporting.",
+          "Daily work → Clients, Messages, Time Clock, Timesheet, Reporting.",
           "Resources → Community Partners, Analytics, Data exports.",
+        ],
+      },
+      {
+        title: "Time Clock (Hours Worked)",
+        body:
+          "Use Time Clock to record when you are working. This is for payroll / accountability and is completely separate from client billable service time on Weekly Timesheet. Times are America/New_York.",
+        steps: [
+          "Clock In when you start work (any time of day). Clock Out when you stop. Multiple clock-ins in one day are allowed — the day total shows how long you worked.",
+          "You may stay clocked in across lunch. If you try to Clock In while already in, you’ll see “You’re already clocked in.”",
+          "Minimum shift length is 1 minute (every unpaid minute counts for records; team members are salaried).",
+          "At 5:30 PM Eastern you’ll get a Still Working? notification if you are still clocked in. Tap Still Working if you are continuing, or Clock Out. No reply by 6:00 PM → auto clock-out stamped at 5:30 PM, flagged for you and your supervisor — open Time Clock → Needs Your Attention and edit if the stamp is wrong.",
+          "If you are still working past midnight, the system ends the day at 11:59 PM and starts a new shift at 12:00 AM so each day has a clean total.",
+          "If you were offline during an auto-out, you’ll see the flagged entry when you return online — edit it then.",
+          "You can edit your own entries; supervisors and admins can help if you need a correction. Every edit is logged.",
+          "Turn on push notifications (account / prompt) so evening prompts reach you.",
+          "Demo client walkthroughs do not require Time Clock.",
         ],
       },
       {
@@ -121,7 +161,7 @@ function sectionsForRole(role: string | null): Section[] {
         steps: [
           "Log every contact and job application on the client profile — counselors see your contact notes.",
           "When logging service time, enter duration plus a start time, end time, or both. If start and end disagree with duration, clock times win.",
-          "You may log the same clock time on more than one client when the work applies to each (for example multi-client job canvass). Billable hours are summed per client; payroll hours worked count overlapping clock time only once.",
+          "You may log the same clock time on more than one client when the work applies to each (for example multi-client job canvass). Billable hours are summed per client; that is not the same as Time Clock hours worked.",
           "Use suggested chips when logging contacts to speed up common entries.",
           "Use Messages to reply to clients. Aim to respond within 48 business hours.",
           "Set job start date on the profile when a client is hired — this triggers milestone notifications for the team and counselors.",
@@ -129,11 +169,12 @@ function sectionsForRole(role: string | null): Section[] {
         ],
       },
       {
-        title: "Timesheet: Billable vs Hours Worked",
+        title: "Timesheet: Billable vs Time Clock",
         body:
-          "Your weekly timesheet shows both billable hours (by client, for state billing) and hours worked (payroll). Logging the same canvass window on three clients bills three clients but does not triple your payroll hours.",
+          "Weekly Timesheet is for client billable service activities (state billing). Time Clock is for when you yourself were working. Do not confuse the two.",
         steps: [
-          "Open Weekly Timesheet to review the week, download CSV, and submit for approval.",
+          "Open Weekly Timesheet to review billable entries, download CSV, and submit for approval.",
+          "Open Time Clock for your daily hours worked totals.",
           "Soft caseload guidance is about 20 active clients — supervisors/HR may allow more when needed.",
         ],
       },
@@ -154,9 +195,9 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Payroll vs Billable Exports",
         body:
-          "Hours worked (payroll) merges overlapping clock times so multi-client billing does not inflate pay. Billable by client is for state billing and may sum higher than hours worked.",
+          "Hours worked (payroll) come from staff Time Clock shifts. Billable by client is for state billing and may differ from hours worked.",
         steps: [
-          "Data exports → Payroll — hours worked for the pay period.",
+          "Data exports → Payroll — hours worked from Time Clock for the pay period.",
           "Data exports → Billable hours by client for state billing files.",
           "Pay-period settings are configured by super admin under Portal → Settings → Payroll.",
         ],
@@ -174,7 +215,7 @@ function sectionsForRole(role: string | null): Section[] {
           "HR Dashboard for people tools.",
           "Weekly Timesheet to view any ES week.",
           "Analytics for org-wide performance (hires, contacts/week, billable vs worked, time to hire by office/ES/supervisor/counselor).",
-          "Data exports → hours worked (payroll) and billable-by-client CSVs.",
+          "Data exports → hours worked (payroll from Time Clock) and billable-by-client CSVs.",
         ],
       },
       {

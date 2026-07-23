@@ -40,6 +40,8 @@
     "./employment-celebrations": "./src/employment-celebrations.ts",
     "./notification-priority": "./src/notification-priority.ts",
     "./payroll-period": "./src/payroll-period.ts",
+    "./staff-time-clock": "./src/staff-time-clock.ts",
+    "./staff-time-clock-shared": "./src/staff-time-clock-shared.ts",
     "./contact-log-suggestions": "./src/contact-log-suggestions.ts"
   },
   "scripts": {

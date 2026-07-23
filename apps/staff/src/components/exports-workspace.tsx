@@ -60,7 +60,7 @@ const EXPORT_CARDS: ExportCard[] = [
   {
     title: "Payroll — Hours Worked",
     description:
-      "Approved hours worked per Employment Specialist for the current pay period. Overlapping clock times count once (payroll).",
+      "Hours worked from staff Time Clock shifts for the current pay period (America/New_York). Separate from client billable hours.",
     href: "/api/exports/payroll",
     filename: "wayfinder-payroll-hours-worked.csv",
     roles: ["accountant", "hr", "supervisor"],
