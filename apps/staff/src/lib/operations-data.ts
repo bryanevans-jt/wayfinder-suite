@@ -1,8 +1,99 @@
+import { staffDisplayName } from "@wayfinder/branding";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { isEsReplyOverdue } from "@wayfinder/supabase";
 import { MIN_CONTACTS_PER_MONTH } from "@wayfinder/supabase/caseload-triage";
 
 type Admin = ReturnType<typeof createServiceRoleClient>;
+
+type StaffProfileNameRow = {
+  id: string;
+  full_name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  email?: string | null;
+};
+
+async function loadStaffNameById(
+  admin: Admin,
+  userIds: string[]
+): Promise<Map<string, string>> {
+  const ids = [...new Set(userIds.filter(Boolean))];
+  const map = new Map<string, string>();
+  if (ids.length === 0) {
+    return map;
+  }
+
+  let profileRows: StaffProfileNameRow[] = [];
+  {
+    const withNames = await admin
+      .from("profiles")
+      .select("id, full_name, first_name, last_name, email")
+      .in("id", ids);
+    if (!withNames.error) {
+      profileRows = (withNames.data ?? []) as StaffProfileNameRow[];
+    } else if (withNames.error.message.includes("first_name")) {
+      const basic = await admin
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", ids);
+      profileRows = (basic.data ?? []) as StaffProfileNameRow[];
+    }
+  }
+
+  const byId = new Map(profileRows.map((p) => [p.id, p]));
+
+  let emailById = new Map<string, string>();
+  let metaById = new Map<string, Record<string, unknown>>();
+  const needsAuthFallback = ids.some((id) => {
+    const profile = byId.get(id);
+    const preview = staffDisplayName({
+      full_name: profile?.full_name,
+      first_name: profile?.first_name,
+      last_name: profile?.last_name,
+      email: profile?.email,
+      id,
+    });
+    return preview === id || preview === "Unknown";
+  });
+
+  if (needsAuthFallback) {
+    try {
+      const { data } = await admin.auth.admin.listUsers({ perPage: 1000 });
+      emailById = new Map(
+        (data.users ?? [])
+          .filter((u) => ids.includes(u.id))
+          .map((u) => [u.id, u.email ?? ""])
+      );
+      metaById = new Map(
+        (data.users ?? [])
+          .filter((u) => ids.includes(u.id))
+          .map((u) => [u.id, (u.user_metadata ?? {}) as Record<string, unknown>])
+      );
+    } catch {
+      // Profile fields alone still apply.
+    }
+  }
+
+  for (const id of ids) {
+    const profile = byId.get(id);
+    const meta = metaById.get(id) as
+      | { full_name?: string; name?: string; first_name?: string; last_name?: string }
+      | undefined;
+    const label = staffDisplayName({
+      full_name: profile?.full_name ?? meta?.full_name ?? meta?.name ?? null,
+      first_name: profile?.first_name ?? meta?.first_name ?? null,
+      last_name: profile?.last_name ?? meta?.last_name ?? null,
+      email: profile?.email || emailById.get(id) || null,
+      id,
+    });
+    map.set(
+      id,
+      label && label !== id ? label : "Employment Specialist"
+    );
+  }
+
+  return map;
+}
 
 export type ComplianceReportRow = {
   id: string;
@@ -81,31 +172,23 @@ export async function loadComplianceCalendar(
   const clientIds = [...new Set((alerts ?? []).map((a) => a.wayfinder_client_id as string).filter(Boolean))];
   const esUserIds = [...new Set((alerts ?? []).map((a) => a.es_user_id as string))];
 
-  const [{ data: clients }, { data: profiles }] = await Promise.all([
+  const [{ data: clients }, esName] = await Promise.all([
     clientIds.length
       ? admin.from("clients").select("id, contact_email, user_id, profile_id").in("id", clientIds)
       : { data: [] },
-    esUserIds.length
-      ? admin.from("profiles").select("id, full_name, email").in("id", esUserIds)
-      : { data: [] },
+    loadStaffNameById(admin, esUserIds),
   ]);
 
   const clientName = new Map<string, string>();
   for (const c of clients ?? []) {
     clientName.set(c.id as string, (c.contact_email as string) ?? "Client");
   }
-  const esName = new Map(
-    (profiles ?? []).map((p) => [
-      p.id as string,
-      (p.full_name as string | null)?.trim() || (p.email as string) || "ES",
-    ])
-  );
 
   const reports: ComplianceReportRow[] = (alerts ?? []).map((a) => ({
     id: a.id as string,
     alertType: a.alert_type as string,
     clientName: clientName.get(a.wayfinder_client_id as string) ?? "Client",
-    esName: esName.get(a.es_user_id as string) ?? "ES",
+    esName: esName.get(a.es_user_id as string) ?? "Employment Specialist",
     reportingMonth: a.reporting_month as string,
     dueAt: (a.due_at as string | null) ?? null,
   }));
@@ -123,20 +206,12 @@ export async function loadComplianceCalendar(
 
   const { data: weeks } = await weekQuery;
   const weekEsIds = [...new Set((weeks ?? []).map((w) => w.es_user_id as string))];
-  const { data: weekProfiles } = weekEsIds.length
-    ? await admin.from("profiles").select("id, full_name, email").in("id", weekEsIds)
-    : { data: [] };
-  const weekEsName = new Map(
-    (weekProfiles ?? []).map((p) => [
-      p.id as string,
-      (p.full_name as string | null)?.trim() || (p.email as string) || "ES",
-    ])
-  );
+  const weekEsName = await loadStaffNameById(admin, weekEsIds);
 
   const timesheets: ComplianceTimesheetRow[] = (weeks ?? []).map((w) => ({
     id: w.id as string,
     esUserId: w.es_user_id as string,
-    esName: weekEsName.get(w.es_user_id as string) ?? "ES",
+    esName: weekEsName.get(w.es_user_id as string) ?? "Employment Specialist",
     weekStart: w.week_start as string,
     status: w.status as string,
     totalMinutes: w.total_minutes as number,
@@ -158,15 +233,7 @@ export async function loadCoachingQueue(
     .in("current_es_user_id", esIds);
 
   const overdueEsIds = [...new Set((threads ?? []).map((t) => t.current_es_user_id as string))];
-  const { data: esProfiles } = overdueEsIds.length
-    ? await admin.from("profiles").select("id, full_name, email").in("id", overdueEsIds)
-    : { data: [] };
-  const esNameMap = new Map(
-    (esProfiles ?? []).map((p) => [
-      p.id as string,
-      (p.full_name as string | null)?.trim() || (p.email as string) || "ES",
-    ])
-  );
+  const esNameMap = await loadStaffNameById(admin, [...new Set([...overdueEsIds, ...esIds])]);
 
   const sla: CoachingSlaRow[] = [];
   for (const t of threads ?? []) {
@@ -176,7 +243,7 @@ export async function loadCoachingQueue(
     sla.push({
       threadId: t.id as string,
       clientLabel: (t.client_label as string | null) ?? "Client",
-      esName: esNameMap.get(t.current_es_user_id as string) ?? "ES",
+      esName: esNameMap.get(t.current_es_user_id as string) ?? "Employment Specialist",
       lastClientMessageAt: lastClient,
     });
   }
@@ -213,7 +280,7 @@ export async function loadCoachingQueue(
       .in("id", clientIds)
       .is("archived_at", null);
 
-    const esName = esNameMap.get(esUserId) ?? "ES";
+    const esName = esNameMap.get(esUserId) ?? "Employment Specialist";
     for (const c of clientRows ?? []) {
       const count = countByClient.get(c.id as string) ?? 0;
       if (count < MIN_CONTACTS_PER_MONTH) {
@@ -252,10 +319,7 @@ export async function loadEsCapacityRows(
   fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
   const since = fourWeeksAgo.toISOString().slice(0, 10);
 
-  const { data: profiles } = await admin
-    .from("profiles")
-    .select("id, full_name, email")
-    .in("id", targetEs);
+  const esNameById = await loadStaffNameById(admin, targetEs);
 
   const rows: EsCapacityRow[] = [];
   for (const esUserId of targetEs) {
@@ -271,15 +335,9 @@ export async function loadEsCapacityRows(
       .gte("service_date", since)
       .in("status", ["draft", "submitted", "approved"]);
 
-    const profile = (profiles ?? []).find((p) => p.id === esUserId);
-    const esName =
-      (profile?.full_name as string | null)?.trim() ||
-      (profile?.email as string) ||
-      "ES";
-
     rows.push({
       esUserId,
-      esName,
+      esName: esNameById.get(esUserId) ?? "Employment Specialist",
       caseloadCount: count ?? 0,
       billableMinutesLast4Weeks: (entries ?? []).reduce(
         (sum, e) => sum + (e.duration_minutes as number),
