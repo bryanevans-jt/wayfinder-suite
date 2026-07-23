@@ -62,6 +62,7 @@ export default async function EsClientDetailPage({ params }: PageProps) {
   }
 
   const profileData: ClientProfileData = {
+    contact_email: client.contact_email as string | null,
     home_address_line1: client.home_address_line1 as string | null,
     home_address_line2: client.home_address_line2 as string | null,
     home_city: client.home_city as string | null,
@@ -252,19 +253,15 @@ export default async function EsClientDetailPage({ params }: PageProps) {
         <h1 className="text-3xl font-semibold text-brand-black">{displayName}</h1>
         <dl className="mt-4 grid max-w-2xl gap-3 text-sm sm:grid-cols-2">
           <div>
-            <dt className="font-medium text-brand-black/55">Email</dt>
-            <dd className="text-brand-black">{client.contact_email ?? "—"}</dd>
-          </div>
-          <div>
-            <dt className="font-medium text-brand-black/55">Primary phone</dt>
+            <dt className="font-medium text-brand-black/55">Primary Phone</dt>
             <dd className="text-brand-black">{profileData.primary_phone ?? "—"}</dd>
           </div>
           <div>
-            <dt className="font-medium text-brand-black/55">Current service</dt>
+            <dt className="font-medium text-brand-black/55">Current Service</dt>
             <dd className="text-brand-black">{service?.name ?? "—"}</dd>
           </div>
           <div>
-            <dt className="font-medium text-brand-black/55">Current stage</dt>
+            <dt className="font-medium text-brand-black/55">Current Stage</dt>
             <dd className="text-brand-black">{stage?.title ?? "—"}</dd>
           </div>
           <div>
@@ -276,6 +273,10 @@ export default async function EsClientDetailPage({ params }: PageProps) {
             <dd className="text-brand-black">{counselor?.full_name ?? "—"}</dd>
           </div>
         </dl>
+        <p className="mt-3 text-xs text-brand-black/55">
+          Email is editable in Contact &amp; Employment Goals below. Counselor changes are made by a
+          supervisor or admin in the portal.
+        </p>
       </header>
 
       {readOnly ? (

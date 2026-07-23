@@ -44,6 +44,9 @@ export function NaturalSupportPanel({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(!initialContacts);
   const [pending, startTransition] = useTransition();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editEmail, setEditEmail] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/natural-support?clientId=${encodeURIComponent(clientId)}`);
@@ -94,6 +97,47 @@ export function NaturalSupportPanel({
     });
   }
 
+  function beginEditEmail(contact: NaturalSupportContact) {
+    setError(null);
+    setEditingId(contact.id);
+    setEditEmail(contact.email);
+  }
+
+  function cancelEditEmail() {
+    setEditingId(null);
+    setEditEmail("");
+  }
+
+  async function saveEditEmail(contactId: string) {
+    setError(null);
+    setSavingEmail(true);
+    try {
+      const res = await fetch("/api/natural-support", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId,
+          contactId,
+          email: editEmail,
+        }),
+      });
+      const data = (await res.json()) as {
+        contacts?: NaturalSupportContact[];
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+      }
+      setContacts(data.contacts ?? []);
+      setEditingId(null);
+      setEditEmail("");
+    } catch (e) {
+      setError(friendlyClientError(e));
+    } finally {
+      setSavingEmail(false);
+    }
+  }
+
   return (
     <div className={compact ? "" : "rounded-xl border border-neutral-200 bg-white p-4"}>
       <h2 className="text-sm font-semibold uppercase tracking-wide text-brand-black/60">
@@ -104,7 +148,8 @@ export function NaturalSupportPanel({
       </h2>
       <p className="mt-1 text-xs text-brand-black/60">
         Parent, guardian, or family member with read-only access to this client&apos;s dashboard.
-        Sends a magic-link invite.
+        Sends a magic-link invite. You can update an email if it was entered incorrectly during
+        onboarding.
       </p>
 
       {loading ? (
@@ -113,14 +158,55 @@ export function NaturalSupportPanel({
         <ul className="mt-3 space-y-2 text-sm">
           {contacts.map((c) => (
             <li key={c.id} className="rounded-lg border border-neutral-100 bg-neutral-50 px-3 py-2">
-              <span className="font-medium text-brand-black">{c.full_name}</span>
-              <span className="text-brand-black/60"> · {c.email}</span>
-              <span className="ml-2 rounded-full bg-brand-green/10 px-2 py-0.5 text-xs uppercase text-brand-green">
-                {c.relationship}
-              </span>
-              {c.invited_at ? (
-                <span className="ml-2 text-xs text-brand-black/45">Invited</span>
-              ) : null}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-brand-black">{c.full_name}</span>
+                <span className="rounded-full bg-brand-green/10 px-2 py-0.5 text-xs uppercase text-brand-green">
+                  {c.relationship}
+                </span>
+                {c.invited_at ? (
+                  <span className="text-xs text-brand-black/45">Invited</span>
+                ) : null}
+              </div>
+              {editingId === c.id ? (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <input
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    className="min-w-[12rem] flex-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm"
+                    disabled={savingEmail}
+                    aria-label={`Email for ${c.full_name}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void saveEditEmail(c.id)}
+                    disabled={savingEmail || !editEmail.trim() || !editEmail.includes("@")}
+                    className="rounded-lg border border-brand-green bg-white px-3 py-1.5 text-xs font-semibold text-brand-green hover:bg-brand-green/5 disabled:opacity-60"
+                  >
+                    {savingEmail ? "Saving…" : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelEditEmail}
+                    disabled={savingEmail}
+                    className="rounded-lg px-3 py-1.5 text-xs text-brand-black/60 hover:bg-neutral-100 disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <span className="text-brand-black/60">{c.email}</span>
+                  <button
+                    type="button"
+                    onClick={() => beginEditEmail(c)}
+                    disabled={pending || savingEmail}
+                    className="text-xs font-medium text-brand-green hover:underline disabled:opacity-60"
+                  >
+                    Edit email
+                  </button>
+                </div>
+              )}
             </li>
           ))}
         </ul>

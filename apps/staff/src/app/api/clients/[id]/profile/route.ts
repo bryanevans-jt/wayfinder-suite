@@ -14,7 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 type RouteContext = { params: Promise<{ id: string }> };
 
 const PROFILE_SELECT =
-  "id, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other";
+  "id, contact_email, user_id, profile_id, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other";
 
 export async function GET(_request: NextRequest, context: RouteContext) {
   try {
@@ -77,6 +77,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: secondary.error }, { status: 400 });
     }
 
+    const contactEmailRaw =
+      typeof body.contact_email === "string" ? body.contact_email.trim().toLowerCase() : "";
+    if (!contactEmailRaw || !contactEmailRaw.includes("@")) {
+      return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
+    }
+
     const homeState =
       typeof body.home_state === "string" && body.home_state.trim()
         ? body.home_state.trim().toUpperCase()
@@ -108,7 +114,23 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
     }
 
+    const { data: existing, error: existingErr } = await auth.admin
+      .from("clients")
+      .select("id, user_id, profile_id, contact_email")
+      .eq("id", id)
+      .maybeSingle();
+    if (existingErr) {
+      return respondWithLoggedError("staff", "api/clients/profile", existingErr, {
+        userId: auth.session.actorUserId,
+        userRole: auth.role,
+      });
+    }
+    if (!existing) {
+      return NextResponse.json({ error: USER_FACING_NOT_FOUND }, { status: 404 });
+    }
+
     const patch = {
+      contact_email: contactEmailRaw,
       home_address_line1: addressLine1 || null,
       home_address_line2:
         typeof body.home_address_line2 === "string"
@@ -135,6 +157,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         userId: auth.session.actorUserId,
         userRole: auth.role,
       });
+    }
+
+    const authUserId = (existing.user_id ?? existing.profile_id) as string | null;
+    const previousEmail = ((existing.contact_email as string | null) ?? "").trim().toLowerCase();
+    if (authUserId && contactEmailRaw !== previousEmail) {
+      const { error: authErr } = await auth.admin.auth.admin.updateUserById(authUserId, {
+        email: contactEmailRaw,
+      });
+      if (authErr) {
+        return respondWithLoggedError("staff", "api/clients/profile", authErr, {
+          userId: auth.session.actorUserId,
+          userRole: auth.role,
+        });
+      }
     }
 
     return NextResponse.json({

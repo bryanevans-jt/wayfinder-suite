@@ -6,6 +6,7 @@ import {
 import {
   inviteNaturalSupportForClient,
   listNaturalSupportContacts,
+  updateNaturalSupportContactEmail,
 } from "@wayfinder/supabase/natural-support-invite";
 import {
   respondWithAccessOrLoggedError,
@@ -61,6 +62,35 @@ export async function POST(request: Request) {
       email: body.email ?? "",
       relationship: body.relationship ?? "",
       relationshipOther: body.relationshipOther ?? null,
+    });
+
+    const contacts = await listNaturalSupportContacts(admin, body.clientId);
+    return NextResponse.json({ ok: true, contacts });
+  } catch (error) {
+    return jsonError(error, route);
+  }
+}
+
+export async function PATCH(request: Request) {
+  const route = "api/natural-support";
+  try {
+    const body = (await request.json()) as {
+      clientId?: string;
+      contactId?: string;
+      email?: string;
+    };
+
+    if (!body.clientId || !body.contactId) {
+      return NextResponse.json({ error: "Missing clientId or contactId" }, { status: 400 });
+    }
+
+    await assertNaturalSupportClientAccess(body.clientId, true);
+    const admin = requireServiceRoleAdmin();
+
+    await updateNaturalSupportContactEmail(admin, {
+      clientId: body.clientId,
+      contactId: body.contactId,
+      email: body.email ?? "",
     });
 
     const contacts = await listNaturalSupportContacts(admin, body.clientId);

@@ -93,3 +93,51 @@ export async function listNaturalSupportContacts(
 
   return (data ?? []) as NaturalSupportContactRow[];
 }
+
+/** Update a Natural Support contact email (and linked auth login when present). */
+export async function updateNaturalSupportContactEmail(
+  admin: SupabaseClient,
+  input: { contactId: string; clientId: string; email: string }
+): Promise<void> {
+  const email = input.email.trim().toLowerCase();
+  if (!email || !email.includes("@")) {
+    throw new Error("A valid email is required");
+  }
+
+  const { data: contact, error: loadErr } = await admin
+    .from("natural_support_contacts")
+    .select("id, client_id, email, support_user_id")
+    .eq("id", input.contactId)
+    .eq("client_id", input.clientId)
+    .maybeSingle();
+
+  if (loadErr) {
+    throw new Error(loadErr.message);
+  }
+  if (!contact) {
+    throw new Error("Natural Support contact not found");
+  }
+
+  const previous = ((contact.email as string) ?? "").trim().toLowerCase();
+  if (previous === email) {
+    return;
+  }
+
+  const { error: updateErr } = await admin
+    .from("natural_support_contacts")
+    .update({ email })
+    .eq("id", input.contactId)
+    .eq("client_id", input.clientId);
+
+  if (updateErr) {
+    throw new Error(updateErr.message);
+  }
+
+  const supportUserId = contact.support_user_id as string | null;
+  if (supportUserId) {
+    const { error: authErr } = await admin.auth.admin.updateUserById(supportUserId, { email });
+    if (authErr) {
+      throw new Error(authErr.message);
+    }
+  }
+}

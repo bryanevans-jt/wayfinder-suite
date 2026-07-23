@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export type ClientProfileData = {
+  contact_email: string | null;
   home_address_line1: string | null;
   home_address_line2: string | null;
   home_city: string | null;
@@ -50,6 +51,7 @@ export function ClientProfileForm({ clientId, initial, readOnly = false }: Props
   );
 
   const [form, setForm] = useState({
+    contact_email: initial.contact_email ?? "",
     home_address_line1: initial.home_address_line1 ?? "",
     home_address_line2: initial.home_address_line2 ?? "",
     home_city: initial.home_city ?? "",
@@ -95,9 +97,13 @@ export function ClientProfileForm({ clientId, initial, readOnly = false }: Props
     return (
       <div className="rounded-xl border border-neutral-200 bg-white p-4">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-brand-black/60">
-          Contact & employment goals
+          Contact & Employment Goals
         </h2>
         <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <dt className="font-medium text-brand-black/55">Email</dt>
+            <dd className="text-brand-black">{form.contact_email || "—"}</dd>
+          </div>
           <div className="sm:col-span-2">
             <dt className="font-medium text-brand-black/55">Home address</dt>
             <dd className="text-brand-black">
@@ -141,14 +147,24 @@ export function ClientProfileForm({ clientId, initial, readOnly = false }: Props
   return (
     <form onSubmit={save} className="rounded-xl border border-neutral-200 bg-white p-4">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-brand-black/60">
-        Contact & employment goals
+        Contact & Employment Goals
       </h2>
       <p className="mt-1 text-xs text-brand-black/60">
-        Home address and employment goals power nearby employer matching in the Community Partners
-        Network.
+        Email is used for the client login invite. Home address and employment goals power nearby
+        employer matching in the Community Partners Network.
       </p>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+          <span className="font-medium">Email</span>
+          <input
+            type="email"
+            value={form.contact_email}
+            onChange={(e) => setForm((f) => ({ ...f, contact_email: e.target.value }))}
+            className="rounded-lg border border-neutral-300 px-3 py-2"
+            required
+          />
+        </label>
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
           <span className="font-medium">Street address</span>
           <input
