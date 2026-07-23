@@ -1,6 +1,6 @@
 "use client";
 
-import { friendlyClientError, USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
+import { friendlyClientError, parseApiErrorResponse, USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
 import {
   minutesToClockLabel,
   type StaffClockShiftRow,
@@ -57,12 +57,12 @@ export function StaffClockWidget({ compact = true }: Props) {
           action === "in"
             ? "/api/staff-clock/in"
             : action === "out"
-              ? "/api/staff-clock/out"
+              ? "/api/staff-clock/clock-out"
               : "/api/staff-clock/still-working";
         const res = await fetch(path, { method: "POST" });
-        const data = (await res.json()) as { error?: string };
         if (!res.ok) {
-          throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+          const { message } = await parseApiErrorResponse(res);
+          throw new Error(message);
         }
         await load();
       } catch (e) {

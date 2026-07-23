@@ -1,6 +1,6 @@
 "use client";
 
-import { friendlyClientError, USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
+import { friendlyClientError, parseApiErrorResponse, USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
 import {
   minutesToClockLabel,
   shiftDurationMinutes,
@@ -173,9 +173,9 @@ export function StaffTimeClockWorkspace({ canViewTeam, canEditOthers }: Props) {
     startTransition(async () => {
       try {
         const res = await fetch(path, { method: "POST" });
-        const data = (await res.json()) as { error?: string };
         if (!res.ok) {
-          throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+          const { message } = await parseApiErrorResponse(res);
+          throw new Error(message);
         }
         await load();
         await loadTeam();
@@ -247,7 +247,7 @@ export function StaffTimeClockWorkspace({ canViewTeam, canEditOthers }: Props) {
               <button
                 type="button"
                 disabled={pending}
-                onClick={() => postAction("/api/staff-clock/out")}
+                onClick={() => postAction("/api/staff-clock/clock-out")}
                 className="rounded-lg border border-brand-black/20 bg-white px-4 py-2 text-sm font-semibold text-brand-black hover:bg-neutral-100 disabled:opacity-60"
               >
                 Clock Out

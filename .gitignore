@@ -5,7 +5,9 @@ node_modules
 
 # Build / Next.js
 .next
-out
+# Static export output only — do not ignore source folders named "out" (e.g. api/.../out)
+/out
+apps/*/out
 dist
 build
 .turbo

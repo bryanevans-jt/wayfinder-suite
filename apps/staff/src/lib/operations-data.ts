@@ -13,9 +13,10 @@ type StaffProfileNameRow = {
   email?: string | null;
 };
 
-async function loadStaffNameById(
+export async function loadStaffNameById(
   admin: Admin,
-  userIds: string[]
+  userIds: string[],
+  unknownLabel = "Employment Specialist"
 ): Promise<Map<string, string>> {
   const ids = [...new Set(userIds.filter(Boolean))];
   const map = new Map<string, string>();
@@ -88,7 +89,7 @@ async function loadStaffNameById(
     });
     map.set(
       id,
-      label && label !== id ? label : "Employment Specialist"
+      label && label !== id ? label : unknownLabel
     );
   }
 
