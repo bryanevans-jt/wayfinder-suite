@@ -80,7 +80,7 @@ export default async function AuditPreviewPage() {
               <tr>
                 <th className="px-3 py-2">When</th>
                 <th className="px-3 py-2">Action</th>
-                <th className="px-3 py-2">Super admin</th>
+                <th className="px-3 py-2">Super Admin</th>
                 <th className="px-3 py-2">Target</th>
                 <th className="px-3 py-2">Role</th>
               </tr>

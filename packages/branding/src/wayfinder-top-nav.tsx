@@ -6,7 +6,7 @@ export type WayfinderNavBadge =
   | "Pro"
   | "Counselor"
   | "Client"
-  | "Super admin"
+  | "Super Admin"
   | "Admin"
   | "Supervisor";
 

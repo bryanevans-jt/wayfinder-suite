@@ -1681,7 +1681,7 @@ function AdminUserListItem({
     setIsActive(admin.is_active);
   }, [admin]);
 
-  const roleLabel = admin.role === "super_admin" ? "Super admin" : "Admin";
+  const roleLabel = admin.role === "super_admin" ? "Super Admin" : "Admin";
 
   if (editing && canEdit) {
     return (
