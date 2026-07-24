@@ -1,6 +1,7 @@
 import { PortalWorkspace } from "@/components/portal-workspace";
 import { DemoTrainingWorkspace } from "@/components/demo-training-workspace";
 import { PayrollSettingsPanel } from "@/components/payroll-settings-panel";
+import { PtoSettingsPanel } from "@/components/pto-settings-panel";
 import { requirePortalPage } from "@/lib/portal-data";
 
 export default async function SuperAdminPortalPage() {
@@ -16,6 +17,7 @@ export default async function SuperAdminPortalPage() {
       <div className="px-6 pb-10">
         <DemoTrainingWorkspace />
         <PayrollSettingsPanel />
+        <PtoSettingsPanel />
       </div>
     </>
   );

@@ -1,6 +1,8 @@
 import { StaffTimeClockWorkspace } from "@/components/staff-time-clock-workspace";
+import { StaffPtoPanel } from "@/components/staff-pto-panel";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { canUseStaffClock } from "@wayfinder/supabase/staff-time-clock-shared";
+import { isPtoPreviewUnlocked } from "@wayfinder/supabase/staff-pto-shared";
 import { isAdminTierRole, isSupervisorRole } from "@wayfinder/supabase/roles";
 import { redirect } from "next/navigation";
 
@@ -17,6 +19,7 @@ export default async function TimeClockPage() {
 
   const canViewTeam = isSupervisorRole(role) || isAdminTierRole(role);
   const canEditOthers = canViewTeam;
+  const showPtoPreview = isPtoPreviewUnlocked(role);
 
   return (
     <main className="px-4 py-8 sm:px-6 sm:py-10">
@@ -26,6 +29,7 @@ export default async function TimeClockPage() {
         billable time on Weekly Timesheet. All times use America/New_York.
       </p>
       <StaffTimeClockWorkspace canViewTeam={canViewTeam} canEditOthers={canEditOthers} />
+      {showPtoPreview ? <StaffPtoPanel /> : null}
     </main>
   );
 }
