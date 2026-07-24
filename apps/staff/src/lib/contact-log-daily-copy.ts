@@ -4,6 +4,10 @@ import {
   PORTAL_DISPLAY_TIME_ZONE,
 } from "@wayfinder/branding";
 import { buildClientActivityFkIds } from "@wayfinder/supabase/client-activity-fk";
+import {
+  contactLogDisplayText,
+  listContactLogsForClientIds,
+} from "@wayfinder/supabase/contact-logs-query";
 import type { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 
 export type ContactLogDailyRow = {
@@ -96,53 +100,10 @@ export async function loadContactLogsForEasternDay(
     return [];
   }
 
-  type ContactLogSelectRow = {
-    id: string;
-    client_id: string;
-    created_at: string;
-    public_outcome?: string | null;
-    notes?: string | null;
-    outcome?: string | null;
-  };
-
-  let logs: ContactLogSelectRow[] = [];
-  {
-    const full = await admin
-      .from("contact_logs")
-      .select("id, client_id, created_at, public_outcome, notes, outcome")
-      .in("client_id", fkIds)
-      .order("created_at", { ascending: true })
-      .limit(500);
-
-    if (!full.error) {
-      logs = (full.data ?? []) as ContactLogSelectRow[];
-    } else if (full.error.message.includes("notes") || full.error.message.includes("public_outcome")) {
-      const mid = await admin
-        .from("contact_logs")
-        .select("id, client_id, created_at, public_outcome, outcome")
-        .in("client_id", fkIds)
-        .order("created_at", { ascending: true })
-        .limit(500);
-      if (!mid.error) {
-        logs = (mid.data ?? []) as ContactLogSelectRow[];
-      } else if (mid.error.message.includes("public_outcome")) {
-        const basic = await admin
-          .from("contact_logs")
-          .select("id, client_id, created_at, outcome")
-          .in("client_id", fkIds)
-          .order("created_at", { ascending: true })
-          .limit(500);
-        if (basic.error) {
-          throw new Error(basic.error.message);
-        }
-        logs = (basic.data ?? []) as ContactLogSelectRow[];
-      } else {
-        throw new Error(mid.error.message);
-      }
-    } else {
-      throw new Error(full.error.message);
-    }
-  }
+  const logs = await listContactLogsForClientIds(admin, fkIds, {
+    orderAscending: true,
+    limit: 500,
+  });
 
   const startByLogId = await loadStartTimesByLogId(
     admin,
@@ -153,7 +114,7 @@ export async function loadContactLogsForEasternDay(
     .map((log) => {
       const createdAt = log.created_at;
       const startAt = startByLogId.get(log.id) ?? createdAt;
-      const notes = (log.public_outcome ?? log.notes ?? log.outcome ?? "").trim();
+      const notes = contactLogDisplayText(log);
       return {
         at: createdAt,
         startAt,

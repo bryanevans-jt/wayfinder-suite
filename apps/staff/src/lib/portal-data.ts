@@ -5,6 +5,7 @@ import {
   serviceDisplayName,
 } from "@wayfinder/branding";
 import { createServerClient, isAdminTierRole, isSuperAdminRole, buildClientActivityFkIds } from "@wayfinder/supabase";
+import { fetchContactLogsWithSchemaFallback, contactLogDisplayText } from "@wayfinder/supabase/contact-logs-query";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import type { PortalTier } from "@wayfinder/supabase/roles";
@@ -742,14 +743,23 @@ export async function loadActivityLogs(
     }
   }
 
-  const [{ data: esLinks }, { data: contacts }, { data: apps }, { data: stages }, { data: meetings }] =
+  const [{ data: esLinks }, contacts, { data: apps }, { data: stages }, { data: meetings }] =
     await Promise.all([
       admin.from("es_client_assignments").select("client_id, es_user_id"),
-      admin
-        .from("contact_logs")
-        .select("id, client_id, created_at, public_outcome, notes, outcome")
-        .order("created_at", { ascending: false })
-        .limit(limit),
+      fetchContactLogsWithSchemaFallback(async (cols) => {
+        const result = await admin
+          .from("contact_logs")
+          .select(cols)
+          .order("created_at", { ascending: false })
+          .limit(limit);
+        return {
+          data: (result.data as Record<string, unknown>[] | null) ?? null,
+          error: result.error,
+        };
+      }).catch((err) => {
+        console.error("[portal-data] contact_logs load failed:", err);
+        return [] as Record<string, unknown>[];
+      }),
       admin
         .from("applications")
         .select("id, client_id, created_at, status, company_name, notes")
@@ -855,16 +865,17 @@ export async function loadActivityLogs(
 
   const rows: ActivityLogRow[] = [];
 
-  for (const log of contacts ?? []) {
+  for (const log of contacts) {
     const clientId = log.client_id as string;
     if (!inScope(clientId)) continue;
     const createdAt = log.created_at as string;
     if (!inDateRange(createdAt, filters.dateFrom, filters.dateTo)) continue;
     const client = clientMap.get(clientId);
-    const outcome =
-      (log.public_outcome as string | null) ??
-      (log.outcome as string | null) ??
-      "";
+    const outcome = contactLogDisplayText({
+      public_outcome: log.public_outcome as string | null | undefined,
+      notes: null,
+      outcome: log.outcome as string | null | undefined,
+    });
     rows.push({
       id: log.id as string,
       kind: "contact",

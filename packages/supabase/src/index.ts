@@ -10,6 +10,7 @@ export { wayfinderAuthOptions, wayfinderServerAuthOptions } from "./auth-client-
 export type { SupabaseCookieToSet } from "./cookie-types";
 export * from "./roles";
 export * from "./client-activity-fk";
+export * from "./contact-logs-query";
 export * from "./client-insert";
 export * from "./client-create";
 export * from "./client-bulk-import";

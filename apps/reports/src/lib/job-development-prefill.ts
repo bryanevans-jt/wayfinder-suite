@@ -1,4 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  contactLogDisplayText,
+  fetchContactLogsWithSchemaFallback,
+} from "@wayfinder/supabase/contact-logs-query";
 
 export type JobDevelopmentContactRow = {
   rdate: string;
@@ -25,6 +29,32 @@ const REPORT_DATE = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
 });
 
+async function loadContactLogsForMonth(
+  admin: SupabaseClient,
+  clientId: string,
+  bounds: { from: string; to: string }
+) {
+  return fetchContactLogsWithSchemaFallback(async (cols) => {
+    // Prefill selects omit id/client_id — strip them from shared shapes.
+    const selectCols = cols
+      .split(",")
+      .map((c) => c.trim())
+      .filter((c) => c !== "id" && c !== "client_id")
+      .join(", ");
+    const result = await admin
+      .from("contact_logs")
+      .select(selectCols)
+      .eq("client_id", clientId)
+      .gte("created_at", bounds.from)
+      .lte("created_at", bounds.to)
+      .order("created_at", { ascending: true });
+    return {
+      data: (result.data as Record<string, unknown>[] | null) ?? null,
+      error: result.error,
+    };
+  });
+}
+
 /** Build job development narrative from Wayfinder contact logs for the reporting month. */
 export async function buildJobDevelopmentFromContactLogs(
   admin: SupabaseClient,
@@ -36,15 +66,8 @@ export async function buildJobDevelopmentFromContactLogs(
     return "";
   }
 
-  const { data: logs } = await admin
-    .from("contact_logs")
-    .select("created_at, public_outcome, notes, outcome")
-    .eq("client_id", clientId)
-    .gte("created_at", bounds.from)
-    .lte("created_at", bounds.to)
-    .order("created_at", { ascending: true });
-
-  if (!logs?.length) {
+  const logs = await loadContactLogsForMonth(admin, clientId, bounds);
+  if (!logs.length) {
     return "";
   }
 
@@ -52,9 +75,11 @@ export async function buildJobDevelopmentFromContactLogs(
   for (const log of logs) {
     const when = REPORT_DATE.format(new Date(log.created_at as string));
     const outcome =
-      (log.public_outcome as string | null)?.trim() ||
-      (log.outcome as string | null)?.trim() ||
-      "Contact";
+      contactLogDisplayText({
+        public_outcome: log.public_outcome as string | null | undefined,
+        outcome: log.outcome as string | null | undefined,
+        notes: null,
+      }) || "Contact";
     const internal = (log.notes as string | null)?.trim();
     lines.push(`${when} — ${outcome}`);
     if (internal) {
@@ -79,7 +104,7 @@ export async function buildJobDevelopmentContactRows(
   const bounds = monthBounds(month);
   if (!bounds) return [];
 
-  const [{ data: applications }, { data: logs }, { data: timeEntries }] = await Promise.all([
+  const [{ data: applications }, logs, { data: timeEntries }] = await Promise.all([
     admin
       .from("applications")
       .select("created_at, company_name, status, notes")
@@ -87,13 +112,7 @@ export async function buildJobDevelopmentContactRows(
       .gte("created_at", bounds.from)
       .lte("created_at", bounds.to)
       .order("created_at", { ascending: true }),
-    admin
-      .from("contact_logs")
-      .select("created_at, public_outcome, notes, outcome")
-      .eq("client_id", clientId)
-      .gte("created_at", bounds.from)
-      .lte("created_at", bounds.to)
-      .order("created_at", { ascending: true }),
+    loadContactLogsForMonth(admin, clientId, bounds),
     admin
       .from("es_time_entries")
       .select("service_date, narrative, service_activity_types(name, category, wayfinder_source_hint)")
@@ -118,11 +137,12 @@ export async function buildJobDevelopmentContactRows(
     });
   }
 
-  for (const log of logs ?? []) {
-    const outcome =
-      (log.public_outcome as string | null)?.trim() ||
-      (log.outcome as string | null)?.trim() ||
-      "";
+  for (const log of logs) {
+    const outcome = contactLogDisplayText({
+      public_outcome: log.public_outcome as string | null | undefined,
+      outcome: log.outcome as string | null | undefined,
+      notes: null,
+    });
     const notes = (log.notes as string | null)?.trim() ?? "";
     const results = [outcome, notes].filter(Boolean).join(" — ");
     if (!results) continue;

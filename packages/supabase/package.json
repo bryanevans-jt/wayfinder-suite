@@ -42,7 +42,8 @@
     "./payroll-period": "./src/payroll-period.ts",
     "./staff-time-clock": "./src/staff-time-clock.ts",
     "./staff-time-clock-shared": "./src/staff-time-clock-shared.ts",
-    "./contact-log-suggestions": "./src/contact-log-suggestions.ts"
+    "./contact-log-suggestions": "./src/contact-log-suggestions.ts",
+    "./contact-logs-query": "./src/contact-logs-query.ts"
   },
   "scripts": {
     "lint": "tsc --noEmit"
