@@ -26,18 +26,21 @@ export async function loadStaffNameById(
 
   let profileRows: StaffProfileNameRow[] = [];
   {
-    const withNames = await admin
-      .from("profiles")
-      .select("id, full_name, first_name, last_name, email")
-      .in("id", ids);
-    if (!withNames.error) {
-      profileRows = (withNames.data ?? []) as StaffProfileNameRow[];
-    } else if (withNames.error.message.includes("first_name")) {
-      const basic = await admin
-        .from("profiles")
-        .select("id, full_name, email")
-        .in("id", ids);
-      profileRows = (basic.data ?? []) as StaffProfileNameRow[];
+    const selectShapes = [
+      "id, full_name, first_name, last_name, email",
+      "id, full_name, first_name, last_name",
+      "id, full_name, email",
+      "id, full_name",
+    ] as const;
+    for (const cols of selectShapes) {
+      const result = await admin.from("profiles").select(cols).in("id", ids);
+      if (!result.error) {
+        profileRows = (result.data ?? []) as unknown as StaffProfileNameRow[];
+        break;
+      }
+      if (!/does not exist|Could not find the '|schema cache/i.test(result.error.message)) {
+        break;
+      }
     }
   }
 
@@ -142,11 +145,9 @@ async function scopedEsUserIds(
 ): Promise<string[] | null> {
   if (role === "super_admin" || role === "admin") return null;
   if (role === "supervisor") {
-    const { data } = await admin
-      .from("supervisor_es_assignments")
-      .select("es_user_id")
-      .eq("supervisor_user_id", userId);
-    return [...new Set((data ?? []).map((r) => r.es_user_id as string))];
+    const { loadSupervisorScope } = await import("@/lib/supervisor-client-scope");
+    const scope = await loadSupervisorScope(admin, userId);
+    return [...new Set(scope.esUserIds)];
   }
   return [userId];
 }

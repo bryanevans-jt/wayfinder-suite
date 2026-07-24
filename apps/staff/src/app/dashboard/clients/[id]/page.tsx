@@ -1,5 +1,11 @@
 import { buildClientActivityFeed, ClientActivityTimeline, clientDisplayName, normalizeEmploymentGoal } from "@wayfinder/branding";
-import { buildClientActivityFkIds, createServerClient, isEsRole, isSupervisorRole } from "@wayfinder/supabase";
+import {
+  buildClientActivityFkIds,
+  createServerClient,
+  isEsRole,
+  isSupervisorRole,
+  listContactLogsForClientIds,
+} from "@wayfinder/supabase";
 import { formatLocalDate, loadActiveActivityTypes, filterClientContactActivityTypes } from "@wayfinder/supabase/es-time-tracking";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -21,8 +27,63 @@ import { SubmittedFormalReportsPanel } from "@/components/submitted-formal-repor
 
 type PageProps = { params: Promise<{ id: string }> };
 
-const CLIENT_SELECT =
+type ClientDetailRow = {
+  id: string;
+  user_id: string | null;
+  profile_id: string | null;
+  full_name: string | null;
+  contact_email: string | null;
+  current_service_id: string | null;
+  current_stage_id: string | null;
+  office_id: string | null;
+  counselor_id: string | null;
+  job_start_date: string | null;
+  home_address_line1: string | null;
+  home_address_line2: string | null;
+  home_city: string | null;
+  home_state: string | null;
+  home_zip: string | null;
+  home_latitude: number | null;
+  home_longitude: number | null;
+  primary_phone: string | null;
+  secondary_phone: string | null;
+  employment_goal_primary: string | null;
+  employment_goal_primary_other: string | null;
+  employment_goal_secondary: string | null;
+  employment_goal_secondary_other: string | null;
+};
+
+const CLIENT_SELECT_FULL =
   "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, office_id, counselor_id, job_start_date, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other";
+
+const CLIENT_SELECT_CORE =
+  "id, user_id, profile_id, contact_email, current_service_id, current_stage_id, office_id, counselor_id, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other";
+
+async function loadClientDetailRow(
+  admin: NonNullable<ReturnType<typeof getEsCaseloadAdmin>>,
+  clientId: string
+): Promise<ClientDetailRow | null> {
+  const full = await admin.from("clients").select(CLIENT_SELECT_FULL).eq("id", clientId).maybeSingle();
+  if (!full.error && full.data) {
+    return full.data as ClientDetailRow;
+  }
+
+  const message = full.error?.message ?? "";
+  if (!/does not exist|Could not find the '|schema cache/i.test(message) && full.error) {
+    return null;
+  }
+
+  const core = await admin.from("clients").select(CLIENT_SELECT_CORE).eq("id", clientId).maybeSingle();
+  if (core.error || !core.data) {
+    return null;
+  }
+
+  return {
+    ...(core.data as Omit<ClientDetailRow, "full_name" | "job_start_date">),
+    full_name: null,
+    job_start_date: null,
+  };
+}
 
 export default async function EsClientDetailPage({ params }: PageProps) {
   const { id: clientId } = await params;
@@ -51,13 +112,8 @@ export default async function EsClientDetailPage({ params }: PageProps) {
   const reportDefaultFrom = formatLocalDate(new Date(now.getFullYear(), now.getMonth(), 1));
   const reportDefaultTo = formatLocalDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
 
-  const { data: client, error: clientErr } = await admin
-    .from("clients")
-    .select(CLIENT_SELECT)
-    .eq("id", clientId)
-    .maybeSingle();
-
-  if (clientErr || !client) {
+  const client = await loadClientDetailRow(admin, clientId);
+  if (!client) {
     notFound();
   }
 
@@ -84,10 +140,7 @@ export default async function EsClientDetailPage({ params }: PageProps) {
     : { data: null as { full_name: string | null } | null };
 
   const displayName = clientDisplayName({
-    full_name:
-      (client as { full_name?: string | null }).full_name ??
-      clientProfile?.full_name ??
-      null,
+    full_name: client.full_name ?? clientProfile?.full_name ?? null,
     contact_email: client.contact_email,
     id: client.id,
   });
@@ -148,13 +201,9 @@ export default async function EsClientDetailPage({ params }: PageProps) {
 
   const activityFkIds = buildClientActivityFkIds(client);
 
-  const [{ data: logs }, { data: stageEvents }, { data: applications }, { data: meetings }] =
+  const [logs, { data: stageEvents }, { data: applications }, { data: meetings }] =
     await Promise.all([
-      admin
-        .from("contact_logs")
-        .select("id, created_at, public_outcome, notes")
-        .in("client_id", activityFkIds)
-        .order("created_at", { ascending: true }),
+      listContactLogsForClientIds(admin, activityFkIds, { orderAscending: true }).catch(() => []),
       admin
         .from("client_stage_events")
         .select("id, created_at, milestone_id, service_milestones(title)")
@@ -191,11 +240,11 @@ export default async function EsClientDetailPage({ params }: PageProps) {
   const meetingServiceNameById = new Map((meetingServices ?? []).map((s) => [s.id, s.name]));
   const meetingEsNameById = new Map((meetingEsProfiles ?? []).map((p) => [p.id, p.full_name]));
 
-  const normalizedLogs = (logs ?? []).map((row) => ({
-    id: row.id as string,
-    created_at: row.created_at as string,
-    public_outcome: row.public_outcome as string | null,
-    notes: row.notes as string | null,
+  const normalizedLogs = logs.map((row) => ({
+    id: row.id,
+    created_at: row.created_at,
+    public_outcome: row.public_outcome ?? row.outcome,
+    notes: row.notes,
   }));
 
   const feed = buildClientActivityFeed({
@@ -323,7 +372,7 @@ export default async function EsClientDetailPage({ params }: PageProps) {
         {!readOnly ? (
           <ClientJobStartDateForm
             clientId={client.id}
-            initialJobStartDate={(client as { job_start_date?: string | null }).job_start_date ?? null}
+            initialJobStartDate={client.job_start_date}
           />
         ) : null}
         {!readOnly ? (

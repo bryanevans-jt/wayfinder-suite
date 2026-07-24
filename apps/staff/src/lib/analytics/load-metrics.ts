@@ -9,6 +9,7 @@ import {
   filterOfficesForPicker,
   queryAllOffices,
 } from "@/lib/office-visibility";
+import { loadStaffNameById } from "@/lib/operations-data";
 import type { AnalyticsScope } from "./access";
 import {
   CLOSED_STAGE_PATTERN,
@@ -659,19 +660,12 @@ export async function loadAnalyticsFilterOptions(
     }));
   }
 
-  const [{ data: profiles }] = await Promise.all([
-    esUserIds.length
-      ? admin.from("profiles").select("id, full_name, email").in("id", esUserIds)
-      : Promise.resolve({ data: [] as { id: string; full_name: string | null; email: string | null }[] }),
-  ]);
+  const esName = await loadStaffNameById(admin, esUserIds, "Employment Specialist");
 
   return {
     offices: officeOptions,
-    esUsers: (profiles ?? [])
-      .map((p) => ({
-        id: p.id as string,
-        name: (p.full_name as string | null)?.trim() || (p.email as string | null) || p.id,
-      }))
+    esUsers: [...esName.entries()]
+      .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name)),
     canFilterByEs: scope.kind !== "es",
     canFilterByOffice: scope.kind !== "es" || true,
@@ -698,12 +692,7 @@ export async function loadAnalyticsExportRows(
   const officeName = new Map((offices ?? []).map((o) => [o.id as string, o.name as string]));
 
   const esIds = [...new Set(facts.flatMap((f) => f.esUserIds))];
-  const { data: esProfiles } = esIds.length
-    ? await admin.from("profiles").select("id, full_name").in("id", esIds)
-    : { data: [] as { id: string; full_name: string | null }[] };
-  const esName = new Map(
-    (esProfiles ?? []).map((p) => [p.id as string, (p.full_name as string | null) ?? "Employment Specialist"])
-  );
+  const esName = await loadStaffNameById(admin, esIds, "Employment Specialist");
 
   const authIds = [
     ...new Set(

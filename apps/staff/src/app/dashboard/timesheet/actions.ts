@@ -13,9 +13,24 @@ import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { notifySupervisorsForEs, notifyUser } from "@wayfinder/supabase/notify-user";
 import { assertNotPreviewMutation, getAppSession } from "@wayfinder/supabase/preview-server";
 import { revalidatePath } from "next/cache";
+import { supervisorCanAccessEs } from "@/lib/supervisor-client-scope";
 
 function requireAdmin() {
   return createServiceRoleClient();
+}
+
+async function assertSupervisorOwnsEsWeek(
+  admin: ReturnType<typeof createServiceRoleClient>,
+  session: NonNullable<Awaited<ReturnType<typeof getAppSession>>>,
+  esUserId: string
+) {
+  if (!isSupervisorRole(session.effectiveRole) || isAdminTierRole(session.effectiveRole)) {
+    return;
+  }
+  const allowed = await supervisorCanAccessEs(admin, session.effectiveUserId, esUserId);
+  if (!allowed) {
+    throw new Error("This ES is not on your team");
+  }
 }
 
 function formatWeekLabel(weekStart: string): string {
@@ -172,17 +187,7 @@ export async function approveEsWeek(weekSubmissionId: string, notes?: string) {
     throw new Error("Week submission not found");
   }
 
-  if (isSupervisorRole(session.effectiveRole) && !isAdminTierRole(session.effectiveRole)) {
-    const { data: link } = await admin
-      .from("supervisor_es_assignments")
-      .select("es_user_id")
-      .eq("supervisor_user_id", session.effectiveUserId)
-      .eq("es_user_id", week.es_user_id as string)
-      .maybeSingle();
-    if (!link) {
-      throw new Error("This ES is not on your team");
-    }
-  }
+  await assertSupervisorOwnsEsWeek(admin, session, week.es_user_id as string);
 
   const { error: weekErr } = await admin
     .from("es_time_week_submissions")
@@ -256,6 +261,8 @@ export async function returnEsWeek(weekSubmissionId: string, notes: string) {
   if (weekLoadErr || !week) {
     throw new Error("Week submission not found");
   }
+
+  await assertSupervisorOwnsEsWeek(admin, session, week.es_user_id as string);
 
   const { error: weekErr } = await admin
     .from("es_time_week_submissions")

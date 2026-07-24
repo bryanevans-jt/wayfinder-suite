@@ -11,6 +11,7 @@ import {
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
 import { createServerClient } from "@wayfinder/supabase";
+import { loadSupervisorScope } from "@/lib/supervisor-client-scope";
 import { NextResponse } from "next/server";
 
 export type AnalyticsScope =
@@ -86,13 +87,7 @@ export async function assertAnalyticsSession(): Promise<
   }
 
   if (isSupervisorRole(role)) {
-    const [{ data: officeLinks }, { data: esLinks }] = await Promise.all([
-      admin.from("staff_office_assignments").select("office_id").eq("user_id", effectiveUserId),
-      admin
-        .from("supervisor_es_assignments")
-        .select("es_user_id")
-        .eq("supervisor_user_id", effectiveUserId),
-    ]);
+    const supervisorScope = await loadSupervisorScope(admin, effectiveUserId);
     return {
       admin,
       actorUserId: session.actorUserId,
@@ -100,8 +95,8 @@ export async function assertAnalyticsSession(): Promise<
       role,
       scope: {
         kind: "supervisor",
-        officeIds: (officeLinks ?? []).map((o) => o.office_id as string),
-        esUserIds: (esLinks ?? []).map((l) => l.es_user_id as string),
+        officeIds: supervisorScope.officeIds,
+        esUserIds: supervisorScope.esUserIds,
       },
       readOnly: session.isPreviewing,
     };

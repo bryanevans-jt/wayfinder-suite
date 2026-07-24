@@ -54,6 +54,16 @@ export function esUserAllowedForSupervisor(scope: SupervisorScope, esUserId: str
   return scope.esUserIds.includes(esUserId);
 }
 
+/** True when the supervisor may act on this ES (assignments + shared offices). */
+export async function supervisorCanAccessEs(
+  admin: SupabaseClient,
+  supervisorUserId: string,
+  esUserId: string
+): Promise<boolean> {
+  const scope = await loadSupervisorScope(admin, supervisorUserId);
+  return esUserAllowedForSupervisor(scope, esUserId);
+}
+
 export function officeAllowedForSupervisor(scope: SupervisorScope, officeId: string): boolean {
   return scope.officeIds.includes(officeId);
 }

@@ -15,6 +15,7 @@ import {
   loadStaffEsPickerOptions,
   loadWeekSubmission,
 } from "@/lib/es-time-data";
+import { loadStaffNameById } from "@/lib/operations-data";
 import { esUserAllowedForSupervisor, loadSupervisorScope } from "@/lib/supervisor-client-scope";
 
 type PageProps = {
@@ -82,9 +83,9 @@ export default async function TimesheetPage({ searchParams }: PageProps) {
     }
   }
 
-  const [{ data: esProfile }, entries, weekSubmission, pendingApprovals, caseloadClients] =
+  const [esNames, entries, weekSubmission, pendingApprovals, caseloadClients] =
     await Promise.all([
-      admin.from("profiles").select("full_name, email").eq("id", esUserId).maybeSingle(),
+      loadStaffNameById(admin, [esUserId], "Employment Specialist"),
       loadEsTimeEntriesForWeek(admin, esUserId, weekStart),
       loadWeekSubmission(admin, esUserId, weekStart),
       isSupervisorRole(role) || isAdminTierRole(role)
@@ -95,10 +96,7 @@ export default async function TimesheetPage({ searchParams }: PageProps) {
         : Promise.resolve([]),
     ]);
 
-  const esName =
-    (esProfile?.full_name as string | null)?.trim() ||
-    (esProfile?.email as string | null) ||
-    "Employment Specialist";
+  const esName = esNames.get(esUserId) ?? "Employment Specialist";
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">

@@ -9,6 +9,8 @@ import {
 } from "@wayfinder/supabase/roles";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { shiftDurationMinutes } from "@wayfinder/supabase/staff-time-clock-shared";
+import { loadStaffNameById } from "@/lib/operations-data";
+import { loadSupervisorScope } from "@/lib/supervisor-client-scope";
 import { NextResponse } from "next/server";
 
 function canExportPayroll(role: string | null | undefined): boolean {
@@ -56,12 +58,31 @@ export async function GET(request: Request) {
         ? { start: fromParam, end: toParam, frequency: settings.pay_period_frequency }
         : resolvePayPeriod(settings);
 
-    const { data: shifts, error: shiftsErr } = await admin
+    let query = admin
       .from("staff_time_clock_shifts")
       .select("staff_user_id, local_date, clock_in_at, clock_out_at")
       .gte("local_date", period.start)
       .lte("local_date", period.end)
       .not("clock_out_at", "is", null);
+
+    if (isSupervisorRole(role) && !isAdminTierRole(role)) {
+      const scope = await loadSupervisorScope(admin, session.effectiveUserId);
+      const allowedIds = [...new Set([session.effectiveUserId, ...scope.esUserIds])];
+      if (allowedIds.length === 0) {
+        return new NextResponse(
+          "staff_name,staff_user_id,period_start,period_end,hours_worked_minutes,hours_worked,shift_count,note\n",
+          {
+            headers: {
+              "Content-Type": "text/csv; charset=utf-8",
+              "Content-Disposition": `attachment; filename="wayfinder-payroll-hours-worked-${period.start}-${period.end}.csv"`,
+            },
+          }
+        );
+      }
+      query = query.in("staff_user_id", allowedIds);
+    }
+
+    const { data: shifts, error: shiftsErr } = await query;
 
     if (shiftsErr) {
       throw shiftsErr;
@@ -81,15 +102,7 @@ export async function GET(request: Request) {
     }
 
     const staffIds = [...byStaff.keys()];
-    const { data: profiles } = staffIds.length
-      ? await admin.from("profiles").select("id, full_name, email").in("id", staffIds)
-      : { data: [] };
-    const staffName = new Map(
-      (profiles ?? []).map((p) => [
-        p.id as string,
-        (p.full_name as string | null)?.trim() || (p.email as string) || "Staff",
-      ])
-    );
+    const staffName = await loadStaffNameById(admin, staffIds, "Staff");
 
     const header =
       "staff_name,staff_user_id,period_start,period_end,hours_worked_minutes,hours_worked,shift_count,note\n";

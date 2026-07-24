@@ -371,13 +371,32 @@ export async function canActorEditShift(
     return true;
   }
   if (isSupervisorRole(actor.role)) {
-    const { data } = await admin
+    const { data: assignment } = await admin
       .from("supervisor_es_assignments")
       .select("es_user_id")
       .eq("supervisor_user_id", actor.userId)
       .eq("es_user_id", targetStaffUserId)
       .maybeSingle();
-    return Boolean(data);
+    if (assignment) {
+      return true;
+    }
+    // Shared-office supervisors can edit clock for ES in their offices (parity with UI scope).
+    const [{ data: supervisorOffices }, { data: targetOffices }] = await Promise.all([
+      admin
+        .from("staff_office_assignments")
+        .select("office_id")
+        .eq("user_id", actor.userId),
+      admin
+        .from("staff_office_assignments")
+        .select("office_id")
+        .eq("user_id", targetStaffUserId),
+    ]);
+    const supervisorOfficeIds = new Set(
+      (supervisorOffices ?? []).map((row) => row.office_id as string)
+    );
+    return (targetOffices ?? []).some((row) =>
+      supervisorOfficeIds.has(row.office_id as string)
+    );
   }
   return false;
 }

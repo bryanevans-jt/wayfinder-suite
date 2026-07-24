@@ -1,6 +1,7 @@
 import { createServerClient, isEsRole, isSupervisorTierRole } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { esIsAssignedToClient } from "@/lib/es-caseload-data";
+import { supervisorCanAccessEs } from "@/lib/supervisor-client-scope";
 import {
   respondWithLoggedError,
   resolveErrorActor,
@@ -70,13 +71,11 @@ export async function GET(request: Request) {
         }
       }
       if (!isSupervisor) {
-        const { data: link } = await admin
-          .from("supervisor_es_assignments")
-          .select("es_user_id")
-          .eq("supervisor_user_id", effectiveUserId)
-          .eq("es_user_id", thread.current_es_user_id)
-          .maybeSingle();
-        isSupervisor = Boolean(link);
+        isSupervisor = await supervisorCanAccessEs(
+          admin,
+          effectiveUserId,
+          thread.current_es_user_id as string
+        );
       }
     }
 

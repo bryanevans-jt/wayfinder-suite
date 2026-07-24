@@ -1,5 +1,6 @@
 import { createServerClient, isEsRole, isEsReplyOverdue, isSupervisorTierRole } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { loadStaffNameById } from "@/lib/operations-data";
 import { loadSupervisorScope } from "@/lib/supervisor-client-scope";
 import {
   respondWithLoggedError,
@@ -164,18 +165,9 @@ export async function GET(request: NextRequest) {
         ),
       ];
       if (esIdsInThreads.length > 0) {
-        const { data: esProfiles } = await admin
-          .from("profiles")
-          .select("id, full_name, email")
-          .in("id", esIdsInThreads);
-        filterEsUsers = (esProfiles ?? [])
-          .map((p) => ({
-            id: p.id as string,
-            name:
-              (p.full_name as string | null)?.trim() ||
-              (p.email as string | null)?.trim() ||
-              "Employment Specialist",
-          }))
+        const nameById = await loadStaffNameById(admin, esIdsInThreads);
+        filterEsUsers = [...nameById.entries()]
+          .map(([id, name]) => ({ id, name }))
           .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
       }
 

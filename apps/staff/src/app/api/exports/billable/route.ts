@@ -9,6 +9,8 @@ import {
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
+import { loadStaffNameById } from "@/lib/operations-data";
+import { loadSupervisorScope } from "@/lib/supervisor-client-scope";
 import { NextResponse } from "next/server";
 
 function canExportBillable(role: string | null | undefined): boolean {
@@ -56,7 +58,7 @@ export async function GET(request: Request) {
         ? { start: fromParam, end: toParam, frequency: settings.pay_period_frequency }
         : resolvePayPeriod(settings);
 
-    const { data: entries } = await admin
+    let query = admin
       .from("es_time_entries")
       .select(
         "es_user_id, client_id, service_date, duration_minutes, service_start_at, service_end_at, activity_type_id, service_activity_types(code, name)"
@@ -65,6 +67,24 @@ export async function GET(request: Request) {
       .gte("service_date", period.start)
       .lte("service_date", period.end)
       .not("client_id", "is", null);
+
+    if (isSupervisorRole(role) && !isAdminTierRole(role)) {
+      const scope = await loadSupervisorScope(admin, session.effectiveUserId);
+      if (scope.esUserIds.length === 0) {
+        return new NextResponse(
+          "es_name,es_user_id,client_name,client_id,service_date,billable_minutes,billable_hours,activity_code,activity_name,start_time,end_time\n",
+          {
+            headers: {
+              "Content-Type": "text/csv; charset=utf-8",
+              "Content-Disposition": `attachment; filename="wayfinder-billable-by-client-${period.start}-${period.end}.csv"`,
+            },
+          }
+        );
+      }
+      query = query.in("es_user_id", scope.esUserIds);
+    }
+
+    const { data: entries } = await query;
 
     const esIds = [...new Set((entries ?? []).map((e) => e.es_user_id as string))];
     const clientIds = [
@@ -75,10 +95,7 @@ export async function GET(request: Request) {
       ),
     ];
 
-    const [{ data: profiles }, { data: clients }] = await Promise.all([
-      esIds.length
-        ? admin.from("profiles").select("id, full_name, email").in("id", esIds)
-        : Promise.resolve({ data: [] as { id: string; full_name: string | null; email: string }[] }),
+    const [{ data: clients }, esName] = await Promise.all([
       clientIds.length
         ? admin
             .from("clients")
@@ -92,14 +109,8 @@ export async function GET(request: Request) {
               profile_id: string | null;
             }[],
           }),
+      loadStaffNameById(admin, esIds, "ES"),
     ]);
-
-    const esName = new Map(
-      (profiles ?? []).map((p) => [
-        p.id as string,
-        (p.full_name as string | null)?.trim() || (p.email as string) || "ES",
-      ])
-    );
 
     const profileIds = [
       ...new Set(

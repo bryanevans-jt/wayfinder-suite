@@ -11,6 +11,8 @@ import {
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { isAdminTierRole, isSupervisorRole } from "@wayfinder/supabase/roles";
 import { clientDisplayName } from "@wayfinder/branding";
+import { loadStaffNameById } from "@/lib/operations-data";
+import { loadSupervisorScope } from "@/lib/supervisor-client-scope";
 
 export type EsTimeEntryRow = {
   id: string;
@@ -184,19 +186,12 @@ export async function loadWeekSubmission(
   }
   if (!data) return null;
 
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("full_name, email")
-    .eq("id", esUserId)
-    .maybeSingle();
+  const names = await loadStaffNameById(admin, [esUserId], "ES");
 
   return {
     id: data.id as string,
     es_user_id: data.es_user_id as string,
-    es_name:
-      (profile?.full_name as string | null)?.trim() ||
-      (profile?.email as string | null) ||
-      "ES",
+    es_name: names.get(esUserId) ?? "ES",
     week_start: data.week_start as string,
     week_end: data.week_end as string,
     total_minutes: data.total_minutes as number,
@@ -211,7 +206,6 @@ export async function loadPendingWeekSubmissionsForSupervisor(
   admin: ReturnType<typeof createServiceRoleClient>,
   supervisorUserId: string
 ): Promise<EsWeekSubmissionRow[]> {
-  const { loadSupervisorScope } = await import("@/lib/supervisor-client-scope");
   const scope = await loadSupervisorScope(admin, supervisorUserId);
   const esIds = [...new Set(scope.esUserIds)].filter((id) => id !== supervisorUserId);
   if (esIds.length === 0) return [];
@@ -229,17 +223,7 @@ export async function loadPendingWeekSubmissionsForSupervisor(
     throw new Error(error.message);
   }
 
-  const { data: profiles } = await admin
-    .from("profiles")
-    .select("id, full_name, email")
-    .in("id", esIds);
-
-  const nameById = new Map(
-    (profiles ?? []).map((p) => [
-      p.id as string,
-      (p.full_name as string | null)?.trim() || (p.email as string) || "ES",
-    ])
-  );
+  const nameById = await loadStaffNameById(admin, esIds, "ES");
 
   return (data ?? []).map((row) => ({
     id: row.id as string,
@@ -464,25 +448,20 @@ export async function loadSupervisedEsOptions(
   admin: ReturnType<typeof createServiceRoleClient>,
   supervisorUserId: string
 ): Promise<SupervisedEsOption[]> {
-  const { loadSupervisorScope } = await import("@/lib/supervisor-client-scope");
   const scope = await loadSupervisorScope(admin, supervisorUserId);
   const esIds = [...new Set(scope.esUserIds)].filter((id) => id !== supervisorUserId);
   if (esIds.length === 0) {
     return [];
   }
 
-  const { data: profiles } = await admin
-    .from("profiles")
-    .select("id, full_name, email, role, is_active")
-    .in("id", esIds)
-    .eq("role", "es");
+  const [{ data: profiles }, nameById] = await Promise.all([
+    admin.from("profiles").select("id, is_active").in("id", esIds).eq("role", "es"),
+    loadStaffNameById(admin, esIds, "Employment Specialist"),
+  ]);
 
   return (profiles ?? [])
     .map((p) => {
-      const name =
-        (p.full_name as string | null)?.trim() ||
-        (p.email as string | null)?.trim() ||
-        "Employment Specialist";
+      const name = nameById.get(p.id as string) ?? "Employment Specialist";
       const inactive = p.is_active === false ? " (inactive)" : "";
       return { id: p.id as string, name: `${name}${inactive}` };
     })
@@ -501,18 +480,19 @@ export async function loadStaffEsPickerOptions(
   if (isAdminTierRole(role) || role === "accountant" || role === "hr") {
     const { data: profiles } = await admin
       .from("profiles")
-      .select("id, full_name, email, is_active")
-      .eq("role", "es")
-      .order("full_name");
+      .select("id, is_active")
+      .eq("role", "es");
 
-    return (profiles ?? []).map((p) => {
-      const name =
-        (p.full_name as string | null)?.trim() ||
-        (p.email as string | null)?.trim() ||
-        "Employment Specialist";
-      const inactive = p.is_active === false ? " (inactive)" : "";
-      return { id: p.id as string, name: `${name}${inactive}` };
-    });
+    const ids = (profiles ?? []).map((p) => p.id as string);
+    const nameById = await loadStaffNameById(admin, ids, "Employment Specialist");
+
+    return (profiles ?? [])
+      .map((p) => {
+        const name = nameById.get(p.id as string) ?? "Employment Specialist";
+        const inactive = p.is_active === false ? " (inactive)" : "";
+        return { id: p.id as string, name: `${name}${inactive}` };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
   }
 
   return [];

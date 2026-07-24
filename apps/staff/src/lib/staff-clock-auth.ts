@@ -60,13 +60,9 @@ export async function resolveClockTargetUserId(
     return target;
   }
   if (isSupervisorRole(actor.role)) {
-    const { data } = await admin
-      .from("supervisor_es_assignments")
-      .select("es_user_id")
-      .eq("supervisor_user_id", actor.userId)
-      .eq("es_user_id", target)
-      .maybeSingle();
-    if (data) {
+    const { supervisorCanAccessEs } = await import("@/lib/supervisor-client-scope");
+    const allowed = await supervisorCanAccessEs(admin, actor.userId, target);
+    if (allowed) {
       return target;
     }
   }

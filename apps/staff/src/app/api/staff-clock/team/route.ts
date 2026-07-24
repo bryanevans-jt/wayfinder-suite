@@ -1,5 +1,6 @@
 import { jsonStaffClockError, requireStaffClockSession, staffClockOk } from "@/lib/staff-clock-auth";
 import { loadStaffNameById } from "@/lib/operations-data";
+import { loadSupervisorScope } from "@/lib/supervisor-client-scope";
 import {
   applyMidnightSplitIfNeeded,
   listOpenShiftsForUsers,
@@ -33,11 +34,8 @@ export async function GET() {
         ]);
       staffIds = (profiles ?? []).map((p) => p.id as string);
     } else {
-      const { data: links } = await admin
-        .from("supervisor_es_assignments")
-        .select("es_user_id")
-        .eq("supervisor_user_id", userId);
-      staffIds = [userId, ...((links ?? []).map((l) => l.es_user_id as string))];
+      const scope = await loadSupervisorScope(admin, userId);
+      staffIds = [...new Set([userId, ...scope.esUserIds])];
     }
 
     // Repair midnight splits for open team members before listing

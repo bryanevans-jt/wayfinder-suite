@@ -18,6 +18,7 @@ import {
 } from "@wayfinder/supabase/roles";
 import path from "node:path";
 import { NextResponse } from "next/server";
+import { supervisorCanAccessEs } from "@/lib/supervisor-client-scope";
 
 export const runtime = "nodejs";
 
@@ -44,13 +45,8 @@ async function assertTimesheetExportAccess(
   const admin = createServiceRoleClient();
 
   if (isSupervisorRole(role) && !isAdminTierRole(role)) {
-    const { data: link } = await admin
-      .from("supervisor_es_assignments")
-      .select("es_user_id")
-      .eq("supervisor_user_id", session.effectiveUserId)
-      .eq("es_user_id", esUserId)
-      .maybeSingle();
-    if (!link) {
+    const allowed = await supervisorCanAccessEs(admin, session.effectiveUserId, esUserId);
+    if (!allowed) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   }
