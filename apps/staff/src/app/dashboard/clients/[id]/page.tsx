@@ -323,8 +323,9 @@ export default async function EsClientDetailPage({ params }: PageProps) {
           </div>
         </dl>
         <p className="mt-3 text-xs text-brand-black/55">
-          Email is editable in Contact &amp; Employment Goals below. Counselor changes are made by a
-          supervisor or admin in the portal.
+          Email is optional in Contact &amp; Employment Goals below — leave it blank for a profile
+          without login, or add it later to create one. Counselor changes are made by a supervisor or
+          admin in the portal.
         </p>
       </header>
 

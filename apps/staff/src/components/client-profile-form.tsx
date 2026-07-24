@@ -150,19 +150,21 @@ export function ClientProfileForm({ clientId, initial, readOnly = false }: Props
         Contact & Employment Goals
       </h2>
       <p className="mt-1 text-xs text-brand-black/60">
-        Email is used for the client login invite. Home address and employment goals power nearby
-        employer matching in the Community Partners Network.
+        Email is optional. Leave it blank to keep a client profile without a login; add one later to
+        create their login while keeping all saved information. Home address and employment goals
+        power nearby employer matching in the Community Partners Network.
       </p>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="font-medium">Email</span>
+          <span className="font-medium">Email (optional)</span>
           <input
             type="email"
             value={form.contact_email}
             onChange={(e) => setForm((f) => ({ ...f, contact_email: e.target.value }))}
             className="rounded-lg border border-neutral-300 px-3 py-2"
-            required
+            placeholder="Add later to create a client login"
+            autoComplete="email"
           />
         </label>
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
