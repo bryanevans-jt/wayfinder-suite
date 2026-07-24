@@ -10,7 +10,17 @@ export const PTO_REASONS = [
   "other",
 ] as const;
 
+/** Reasons shown in the request form (maternity/paternity combined as one option). */
+export const PTO_FORM_REASONS = [
+  "vacation",
+  "sick",
+  "maternity",
+  "emergency",
+  "other",
+] as const;
+
 export type PtoReason = (typeof PTO_REASONS)[number];
+export type PtoFormReason = (typeof PTO_FORM_REASONS)[number];
 
 export const PTO_STATUSES = ["pending", "approved", "denied", "cancelled"] as const;
 export type PtoStatus = (typeof PTO_STATUSES)[number];
@@ -123,9 +133,8 @@ export function ptoReasonLabel(reason: string): string {
     case "sick":
       return "Sick";
     case "maternity":
-      return "Maternity";
     case "paternity":
-      return "Paternity";
+      return "Maternity/Paternity";
     case "emergency":
       return "Emergency";
     case "other":

@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  PTO_REASONS,
+  PTO_FORM_REASONS,
   ptoReasonLabel,
-  type PtoReason,
+  type PtoFormReason,
   type StaffPtoRequestRow,
 } from "@wayfinder/supabase/staff-pto-shared";
 
@@ -40,7 +40,7 @@ export function StaffPtoPanel() {
 
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [reason, setReason] = useState<PtoReason | "">("");
+  const [reason, setReason] = useState<PtoFormReason | "">("");
   const [details, setDetails] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -145,26 +145,24 @@ export function StaffPtoPanel() {
     <section className="mt-10 max-w-4xl rounded-xl border border-amber-200 bg-amber-50/40 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-brand-black">PTO requests (admin preview)</h2>
+          <h2 className="text-lg font-semibold text-brand-black">PTO Requests</h2>
           <p className="mt-1 max-w-2xl text-sm text-brand-black/70">
-            Visible to admins and super admins only while we review. Please request PTO at least 14
-            days in advance when possible; sick and emergency may be sooner. HR/admin make the final
-            decision. Days charged default to business days (Mon–Fri); holidays can be adjusted
-            without changing dates.
+            Please request PTO at least 14 days in advance when possible; sick and emergency may be
+            sooner. HR/admin make the final decision.
           </p>
         </div>
         {balance ? (
           <div className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm">
             {balance.unlimited ? (
-              <p className="font-medium text-brand-black">PTO bank: unlimited</p>
+              <p className="font-medium text-brand-black">PTO Bank: Unlimited</p>
             ) : (
               <>
                 <p className="font-medium text-brand-black">
-                  Remaining: {balance.remainingDays} / {balance.annualDays} days
+                  Remaining: {balance.remainingDays} / {balance.annualDays} Days
                 </p>
                 <p className="text-xs text-brand-black/60">
                   Used {balance.usedDays}
-                  {balance.pendingDays > 0 ? ` · ${balance.pendingDays} pending` : ""} · period{" "}
+                  {balance.pendingDays > 0 ? ` · ${balance.pendingDays} pending` : ""} · Period{" "}
                   {balance.period.start} – {balance.period.endInclusive}
                 </p>
                 {(balance.remainingDays ?? 0) < 0 ? (
@@ -178,7 +176,7 @@ export function StaffPtoPanel() {
 
       <form onSubmit={submitRequest} className="mt-5 grid gap-3 rounded-lg border border-neutral-200 bg-white p-4 sm:grid-cols-2">
         <label className="block text-sm">
-          <span className="font-medium">Start date</span>
+          <span className="font-medium">Start Date</span>
           <input
             type="date"
             required
@@ -191,7 +189,7 @@ export function StaffPtoPanel() {
           />
         </label>
         <label className="block text-sm">
-          <span className="font-medium">End date</span>
+          <span className="font-medium">End Date</span>
           <input
             type="date"
             required
@@ -206,10 +204,10 @@ export function StaffPtoPanel() {
             required
             className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2"
             value={reason}
-            onChange={(e) => setReason(e.target.value as PtoReason | "")}
+            onChange={(e) => setReason(e.target.value as PtoFormReason | "")}
           >
             <option value="">Select…</option>
-            {PTO_REASONS.map((r) => (
+            {PTO_FORM_REASONS.map((r) => (
               <option key={r} value={r}>
                 {ptoReasonLabel(r)}
               </option>
@@ -218,7 +216,7 @@ export function StaffPtoPanel() {
         </label>
         <label className="block text-sm sm:col-span-2">
           <span className="font-medium">
-            Details{reason === "other" ? " (required)" : " (optional)"}
+            Details{reason === "other" ? " (Required)" : " (Optional)"}
           </span>
           <textarea
             className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2"
@@ -234,7 +232,7 @@ export function StaffPtoPanel() {
             disabled={submitting}
             className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
           >
-            {submitting ? "Submitting…" : "Submit PTO request"}
+            {submitting ? "Submitting…" : "Submit PTO Request"}
           </button>
         </div>
       </form>
@@ -327,7 +325,7 @@ export function StaffPtoPanel() {
               {row.status === "pending" ? (
                 <div className="mt-3 space-y-2 border-t border-neutral-100 pt-3">
                   <label className="block text-xs font-medium text-brand-black/70">
-                    Decision explanation
+                    Decision Explanation
                     <input
                       className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-1.5 text-sm"
                       value={decisionNotes[row.id] ?? ""}
@@ -377,7 +375,7 @@ export function StaffPtoPanel() {
                         void patchRequest(row.id, { action: "cancel" }, "Cancelled.")
                       }
                     >
-                      Cancel (if yours)
+                      Cancel (If Yours)
                     </button>
                   </div>
                 </div>
@@ -386,7 +384,7 @@ export function StaffPtoPanel() {
               {row.status === "approved" || row.status === "pending" ? (
                 <details className="mt-3 border-t border-neutral-100 pt-3">
                   <summary className="cursor-pointer text-xs font-semibold text-brand-black/70">
-                    Amend dates / days charged
+                    Amend Dates / Days Charged
                   </summary>
                   <div className="mt-2 grid gap-2 sm:grid-cols-3">
                     <label className="text-xs">
@@ -418,7 +416,7 @@ export function StaffPtoPanel() {
                       />
                     </label>
                     <label className="text-xs">
-                      Days charged
+                      Days Charged
                       <input
                         type="number"
                         min={0}
@@ -434,7 +432,7 @@ export function StaffPtoPanel() {
                       />
                     </label>
                     <label className="text-xs sm:col-span-3">
-                      Amendment note (required)
+                      Amendment Note (Required)
                       <input
                         className="mt-1 w-full rounded border border-neutral-300 px-2 py-1"
                         value={draft.note}
@@ -464,7 +462,7 @@ export function StaffPtoPanel() {
                           )
                         }
                       >
-                        Save amendment
+                        Save Amendment
                       </button>
                       {row.status === "approved" ? (
                         <button
@@ -478,7 +476,7 @@ export function StaffPtoPanel() {
                             )
                           }
                         >
-                          Void approved
+                          Void Approved
                         </button>
                       ) : null}
                     </div>
@@ -492,7 +490,7 @@ export function StaffPtoPanel() {
 
       {settings ? (
         <p className="mt-4 text-xs text-brand-black/55">
-          Org period start: {settings.period_start_date}. Change annual days and period start under
+          Org Period Start: {settings.period_start_date}. Change annual days and period start under
           Super Admin / Admin portal settings.
         </p>
       ) : null}

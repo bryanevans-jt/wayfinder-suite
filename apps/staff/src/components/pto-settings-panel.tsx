@@ -68,11 +68,11 @@ export function PtoSettingsPanel() {
       <h2 className="text-lg font-semibold text-brand-black">PTO Settings</h2>
       <p className="mt-1 text-sm text-brand-black/65">
         Org-wide allowance and period start (usually January 1). Leave annual days blank for
-        unlimited. Remaining days show on Time Clock for admins during preview.
+        unlimited.
       </p>
       <div className="mt-4 space-y-3 text-sm">
         <label className="block">
-          <span className="font-medium">Period start date</span>
+          <span className="font-medium">Period Start Date</span>
           <input
             type="date"
             className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2"
@@ -83,7 +83,7 @@ export function PtoSettingsPanel() {
           />
         </label>
         <label className="block">
-          <span className="font-medium">Annual PTO days (blank = unlimited)</span>
+          <span className="font-medium">Annual PTO Days (Blank = Unlimited)</span>
           <input
             type="number"
             min={0}
@@ -100,7 +100,7 @@ export function PtoSettingsPanel() {
           onClick={() => void save()}
           className="rounded-lg bg-brand-gold px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
         >
-          {saving ? "Saving…" : "Save PTO settings"}
+          {saving ? "Saving…" : "Save PTO Settings"}
         </button>
         {message ? <p className="text-sm text-brand-black/70">{message}</p> : null}
       </div>
