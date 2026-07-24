@@ -37,6 +37,7 @@
     "./v2-roster-import-policy": "./src/v2-roster-import-policy.ts",
     "./es-time-tracking": "./src/es-time-tracking.ts",
     "./caseload-triage": "./src/caseload-triage.ts",
+    "./business-hours": "./src/business-hours.ts",
     "./employment-celebrations": "./src/employment-celebrations.ts",
     "./notification-priority": "./src/notification-priority.ts",
     "./payroll-period": "./src/payroll-period.ts",

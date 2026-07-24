@@ -10,8 +10,8 @@ import { friendlyClientError } from "@wayfinder/supabase/error-log";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import type { EsTimeEntryRow, EsWeekSubmissionRow, SupervisedEsOption, TimesheetClientOption } from "@/lib/es-time-data";
-import { shiftWeekStart, summarizeTimeEntries } from "@/lib/es-time-data";
+import type { EsTimeEntryRow, EsWeekSubmissionRow, SupervisedEsOption, TimesheetClientOption } from "@/lib/es-time-client";
+import { shiftWeekStart, summarizeTimeEntries } from "@/lib/es-time-client";
 import {
   approveEsWeek,
   returnEsWeek,
