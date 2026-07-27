@@ -1,5 +1,6 @@
 import {
   jsonStaffPtoError,
+  loadDesignatedEsUserIds,
   requireStaffPtoSession,
   staffPtoOk,
 } from "@/lib/staff-pto-auth";
@@ -21,11 +22,33 @@ import { NextRequest } from "next/server";
 export async function GET(request: NextRequest) {
   const route = "api/staff-pto/requests";
   try {
-    const { admin } = await requireStaffPtoSession(false);
+    const { admin, userId, caps } = await requireStaffPtoSession(false);
     const filter = (request.nextUrl.searchParams.get("filter") ?? "active").toLowerCase();
     const today = todayEasternDateString();
 
+    let allowedRequesterIds: string[] | null = null;
+    if (caps.canViewAll) {
+      allowedRequesterIds = null;
+    } else if (caps.canViewDesignatedEs) {
+      const esIds = await loadDesignatedEsUserIds(admin, userId);
+      allowedRequesterIds = [...new Set([userId, ...esIds])];
+    } else {
+      allowedRequesterIds = [userId];
+    }
+
     let query = admin.from("staff_pto_requests").select("*").order("start_date", { ascending: false });
+
+    if (allowedRequesterIds) {
+      if (allowedRequesterIds.length === 0) {
+        return staffPtoOk({
+          filter,
+          today,
+          capabilities: caps,
+          requests: [],
+        });
+      }
+      query = query.in("requester_user_id", allowedRequesterIds);
+    }
 
     if (filter === "pending") {
       query = query.eq("status", "pending");
@@ -38,7 +61,6 @@ export async function GET(request: NextRequest) {
     } else if (filter === "all") {
       // no status filter
     } else {
-      // active: pending, or decided with end_date still in the future/today
       query = query.in("status", ["pending", "approved", "denied"]);
     }
 
@@ -52,16 +74,19 @@ export async function GET(request: NextRequest) {
       rows = rows.filter(
         (r) => r.status === "pending" || (r.status !== "cancelled" && r.end_date >= today)
       );
-    }    const userIds = [
+    }
+
+    const nameIds = [
       ...new Set(
         rows.flatMap((r) => [r.requester_user_id, r.decided_by].filter(Boolean) as string[])
       ),
     ];
-    const names = await loadStaffNameById(admin, userIds);
+    const names = await loadStaffNameById(admin, nameIds);
 
     return staffPtoOk({
       filter,
       today,
+      capabilities: caps,
       requests: rows.map((r) => ({
         ...r,
         requester_name: names.get(r.requester_user_id) ?? "Team member",
@@ -105,7 +130,10 @@ export async function POST(request: NextRequest) {
     const daysCharged = countBusinessDaysInclusive(startDate, endDate);
     if (daysCharged <= 0) {
       return staffPtoOk(
-        { error: "Selected range has no business days (Mon–Fri). Adjust dates or ask HR to set days charged after submit." },
+        {
+          error:
+            "Selected range has no business days (Mon–Fri). Adjust dates or ask HR to set days charged after submit.",
+        },
         { status: 400 }
       );
     }

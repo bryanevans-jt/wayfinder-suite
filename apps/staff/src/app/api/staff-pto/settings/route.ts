@@ -9,12 +9,21 @@ import { NextRequest } from "next/server";
 export async function GET() {
   const route = "api/staff-pto/settings";
   try {
-    const { admin, userId } = await requireStaffPtoSession(false);
+    const { admin, userId, caps } = await requireStaffPtoSession(false);
     const [settings, balance] = await Promise.all([
       loadOrgPtoSettings(admin),
       loadPtoBalanceForUser(admin, userId),
     ]);
-    return staffPtoOk({ settings, balance });
+    return staffPtoOk({
+      settings,
+      balance,
+      capabilities: {
+        canApprove: caps.canApprove,
+        canManageSettings: caps.canManageSettings,
+        canViewAll: caps.canViewAll,
+        canViewDesignatedEs: caps.canViewDesignatedEs,
+      },
+    });
   } catch (error) {
     return jsonStaffPtoError(error, route);
   }
@@ -23,7 +32,10 @@ export async function GET() {
 export async function PATCH(request: NextRequest) {
   const route = "api/staff-pto/settings";
   try {
-    const { admin, userId, actor } = await requireStaffPtoSession(true);
+    const { admin, userId, actor, caps } = await requireStaffPtoSession(true);
+    if (!caps.canManageSettings) {
+      return staffPtoOk({ error: "Forbidden" }, { status: 403 });
+    }
     const body = (await request.json()) as {
       period_start_date?: string;
       annual_pto_days?: number | null;

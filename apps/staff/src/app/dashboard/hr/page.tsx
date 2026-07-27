@@ -3,6 +3,7 @@ import { isHrRole, isAdminTierRole } from "@wayfinder/supabase/roles";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { redirect } from "next/navigation";
 import { HrWorkspace } from "@/components/hr-workspace";
+import { PtoSettingsPanel } from "@/components/pto-settings-panel";
 import { loadHrRegistry } from "@/lib/hr-registry-data";
 
 type PageProps = {
@@ -70,6 +71,7 @@ export default async function HrDashboardPage({ searchParams }: PageProps) {
           tab: params.tab ?? "clients",
         }}
       />
+      <PtoSettingsPanel />
     </main>
   );
 }

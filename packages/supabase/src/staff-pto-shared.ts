@@ -1,5 +1,10 @@
-import { localDateStringInTz, STAFF_CLOCK_TIMEZONE } from "./staff-time-clock-shared";
-import { isAdminTierRole } from "./roles";
+import { localDateStringInTz, STAFF_CLOCK_TIMEZONE, canUseStaffClock } from "./staff-time-clock-shared";
+import {
+  isAdminTierRole,
+  isHrRole,
+  isSupervisorRole,
+  normalizeRole,
+} from "./roles";
 
 export const PTO_REASONS = [
   "vacation",
@@ -50,9 +55,33 @@ export type StaffPtoRequestRow = {
   updated_at: string;
 };
 
-/** Preview gate: only admin / super_admin until rollout. */
+/** PTO for Time Clock users (ES, supervisor, HR, accountant, hospitality, admin). Not counselors/clients/supports. */
+export function canUseStaffPto(role: string | null | undefined): boolean {
+  return canUseStaffClock(role);
+}
+
+/** @deprecated Use canUseStaffPto — kept so older imports keep working during rollout. */
 export function isPtoPreviewUnlocked(role: string | null | undefined): boolean {
-  return isAdminTierRole(role);
+  return canUseStaffPto(role);
+}
+
+export function canApproveStaffPto(role: string | null | undefined): boolean {
+  return isAdminTierRole(role) || isHrRole(role);
+}
+
+export function canManageStaffPtoSettings(role: string | null | undefined): boolean {
+  return isAdminTierRole(role) || isHrRole(role);
+}
+
+/** See every team member’s requests (view-only for accountant). */
+export function canViewAllStaffPto(role: string | null | undefined): boolean {
+  const r = normalizeRole(role);
+  return isAdminTierRole(r) || isHrRole(r) || r === "accountant";
+}
+
+/** Supervisors see designated ES requests (assignments only). */
+export function canViewDesignatedEsPto(role: string | null | undefined): boolean {
+  return isSupervisorRole(role);
 }
 
 export function todayEasternDateString(now: Date = new Date()): string {

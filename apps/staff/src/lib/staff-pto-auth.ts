@@ -4,7 +4,13 @@ import {
   respondWithLoggedError,
 } from "@wayfinder/supabase/error-log";
 import { getAppSession, assertNotPreviewMutation } from "@wayfinder/supabase/preview-server";
-import { isPtoPreviewUnlocked } from "@wayfinder/supabase/staff-pto-shared";
+import {
+  canApproveStaffPto,
+  canManageStaffPtoSettings,
+  canUseStaffPto,
+  canViewAllStaffPto,
+  canViewDesignatedEsPto,
+} from "@wayfinder/supabase/staff-pto-shared";
 import { NextResponse } from "next/server";
 
 export class StaffPtoAccessError extends Error {
@@ -15,7 +21,6 @@ export class StaffPtoAccessError extends Error {
   }
 }
 
-/** Admin/super_admin only while PTO is in preview. */
 export async function requireStaffPtoSession(forMutation = false) {
   if (forMutation) {
     await assertNotPreviewMutation();
@@ -25,7 +30,7 @@ export async function requireStaffPtoSession(forMutation = false) {
     throw new StaffPtoAccessError("Unauthorized", 401);
   }
   const role = session.effectiveRole ?? "";
-  if (!isPtoPreviewUnlocked(role)) {
+  if (!canUseStaffPto(role)) {
     throw new StaffPtoAccessError("Forbidden", 403);
   }
   let admin;
@@ -40,7 +45,28 @@ export async function requireStaffPtoSession(forMutation = false) {
     role,
     userId: session.effectiveUserId,
     actor: { userId: session.actorUserId, userRole: role },
+    caps: {
+      canApprove: canApproveStaffPto(role),
+      canManageSettings: canManageStaffPtoSettings(role),
+      canViewAll: canViewAllStaffPto(role),
+      canViewDesignatedEs: canViewDesignatedEsPto(role),
+    },
   };
+}
+
+/** Designated ES user IDs for a supervisor (assignments only). */
+export async function loadDesignatedEsUserIds(
+  admin: ReturnType<typeof createServiceRoleClient>,
+  supervisorUserId: string
+): Promise<string[]> {
+  const { data, error } = await admin
+    .from("supervisor_es_assignments")
+    .select("es_user_id")
+    .eq("supervisor_user_id", supervisorUserId);
+  if (error) {
+    throw new Error(error.message);
+  }
+  return [...new Set((data ?? []).map((r) => r.es_user_id as string))];
 }
 
 export async function jsonStaffPtoError(error: unknown, route: string) {

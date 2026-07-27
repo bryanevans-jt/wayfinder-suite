@@ -24,16 +24,23 @@ type Balance = {
   period: { start: string; endInclusive: string };
 };
 
-type Settings = {
-  period_start_date: string;
-  annual_pto_days: number | null;
+type Capabilities = {
+  canApprove: boolean;
+  canManageSettings: boolean;
+  canViewAll: boolean;
+  canViewDesignatedEs: boolean;
 };
 
 export function StaffPtoPanel() {
   const [filter, setFilter] = useState<Filter>("active");
   const [requests, setRequests] = useState<RequestRow[]>([]);
   const [balance, setBalance] = useState<Balance | null>(null);
-  const [settings, setSettings] = useState<Settings | null>(null);
+  const [caps, setCaps] = useState<Capabilities>({
+    canApprove: false,
+    canManageSettings: false,
+    canViewAll: false,
+    canViewDesignatedEs: false,
+  });
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,17 +64,22 @@ export function StaffPtoPanel() {
         fetch(`/api/staff-pto/requests?filter=${filter}`),
         fetch("/api/staff-pto/settings"),
       ]);
-      const reqData = (await reqRes.json()) as { requests?: RequestRow[]; error?: string };
+      const reqData = (await reqRes.json()) as {
+        requests?: RequestRow[];
+        capabilities?: Capabilities;
+        error?: string;
+      };
       const setData = (await setRes.json()) as {
-        settings?: Settings;
         balance?: Balance;
+        capabilities?: Capabilities;
         error?: string;
       };
       if (!reqRes.ok) throw new Error(reqData.error ?? "Could not load PTO requests.");
       if (!setRes.ok) throw new Error(setData.error ?? "Could not load PTO settings.");
       setRequests(reqData.requests ?? []);
-      setSettings(setData.settings ?? null);
       setBalance(setData.balance ?? null);
+      const nextCaps = setData.capabilities ?? reqData.capabilities;
+      if (nextCaps) setCaps(nextCaps);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load PTO.");
     } finally {
@@ -142,7 +154,7 @@ export function StaffPtoPanel() {
   }
 
   return (
-    <section className="mt-10 max-w-4xl rounded-xl border border-amber-200 bg-amber-50/40 p-5">
+    <section className="mt-10 max-w-4xl rounded-xl border border-neutral-200 bg-white p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-brand-black">PTO Requests</h2>
@@ -324,50 +336,56 @@ export function StaffPtoPanel() {
 
               {row.status === "pending" ? (
                 <div className="mt-3 space-y-2 border-t border-neutral-100 pt-3">
-                  <label className="block text-xs font-medium text-brand-black/70">
-                    Decision Explanation
-                    <input
-                      className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-1.5 text-sm"
-                      value={decisionNotes[row.id] ?? ""}
-                      onChange={(e) =>
-                        setDecisionNotes((m) => ({ ...m, [row.id]: e.target.value }))
-                      }
-                      placeholder="Optional on approve; required on deny"
-                    />
-                  </label>
+                  {caps.canApprove ? (
+                    <label className="block text-xs font-medium text-brand-black/70">
+                      Decision Explanation
+                      <input
+                        className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-1.5 text-sm"
+                        value={decisionNotes[row.id] ?? ""}
+                        onChange={(e) =>
+                          setDecisionNotes((m) => ({ ...m, [row.id]: e.target.value }))
+                        }
+                        placeholder="Optional on approve; required on deny"
+                      />
+                    </label>
+                  ) : null}
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="rounded-lg bg-brand-green px-3 py-1.5 text-xs font-semibold text-white"
-                      onClick={() =>
-                        void patchRequest(
-                          row.id,
-                          {
-                            action: "approve",
-                            decision_notes: decisionNotes[row.id] ?? "",
-                          },
-                          "Approved."
-                        )
-                      }
-                    >
-                      Approve
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-lg bg-red-700 px-3 py-1.5 text-xs font-semibold text-white"
-                      onClick={() =>
-                        void patchRequest(
-                          row.id,
-                          {
-                            action: "deny",
-                            decision_notes: decisionNotes[row.id] ?? "",
-                          },
-                          "Denied."
-                        )
-                      }
-                    >
-                      Deny
-                    </button>
+                    {caps.canApprove ? (
+                      <>
+                        <button
+                          type="button"
+                          className="rounded-lg bg-brand-green px-3 py-1.5 text-xs font-semibold text-white"
+                          onClick={() =>
+                            void patchRequest(
+                              row.id,
+                              {
+                                action: "approve",
+                                decision_notes: decisionNotes[row.id] ?? "",
+                              },
+                              "Approved."
+                            )
+                          }
+                        >
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-lg bg-red-700 px-3 py-1.5 text-xs font-semibold text-white"
+                          onClick={() =>
+                            void patchRequest(
+                              row.id,
+                              {
+                                action: "deny",
+                                decision_notes: decisionNotes[row.id] ?? "",
+                              },
+                              "Denied."
+                            )
+                          }
+                        >
+                          Deny
+                        </button>
+                      </>
+                    ) : null}
                     <button
                       type="button"
                       className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-semibold"
@@ -381,7 +399,7 @@ export function StaffPtoPanel() {
                 </div>
               ) : null}
 
-              {row.status === "approved" || row.status === "pending" ? (
+              {caps.canApprove && (row.status === "approved" || row.status === "pending") ? (
                 <details className="mt-3 border-t border-neutral-100 pt-3">
                   <summary className="cursor-pointer text-xs font-semibold text-brand-black/70">
                     Amend Dates / Days Charged
@@ -487,13 +505,6 @@ export function StaffPtoPanel() {
           );
         })}
       </ul>
-
-      {settings ? (
-        <p className="mt-4 text-xs text-brand-black/55">
-          Org Period Start: {settings.period_start_date}. Change annual days and period start under
-          Super Admin / Admin portal settings.
-        </p>
-      ) : null}
     </section>
   );
 }

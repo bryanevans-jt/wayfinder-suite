@@ -18,7 +18,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const route = "api/staff-pto/requests/[id]";
   try {
     const { id } = await context.params;
-    const { admin, userId } = await requireStaffPtoSession(true);
+    const { admin, userId, caps } = await requireStaffPtoSession(true);
     const body = (await request.json()) as {
       action?: string;
       decision_notes?: string;
@@ -78,6 +78,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     if (action === "approve" || action === "deny") {
+      if (!caps.canApprove) {
+        return staffPtoOk({ error: "Forbidden" }, { status: 403 });
+      }
       if (existing.status !== "pending") {
         return staffPtoOk({ error: "Only pending requests can be approved or denied." }, { status: 400 });
       }
@@ -126,6 +129,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     if (action === "void") {
+      if (!caps.canApprove) {
+        return staffPtoOk({ error: "Forbidden" }, { status: 403 });
+      }
       if (existing.status !== "approved") {
         return staffPtoOk({ error: "Only approved requests can be voided." }, { status: 400 });
       }
@@ -159,6 +165,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     if (action === "amend") {
+      if (!caps.canApprove) {
+        return staffPtoOk({ error: "Forbidden" }, { status: 403 });
+      }
       if (!note) {
         return staffPtoOk({ error: "An amendment note is required." }, { status: 400 });
       }

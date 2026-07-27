@@ -38,6 +38,7 @@ function sectionsForRole(role: string | null): Section[] {
           "Portal → Team for roles, assignments, and invitations.",
           "Portal → Settings → Error log for WF reference codes and stack traces.",
           "Portal → Settings → Payroll for pay-period configuration used by accountant exports.",
+          "Portal → Settings → PTO (on Super Admin / Admin pages) or HR Dashboard for annual PTO days and period start.",
           "Portal → Reports → Activity logs for org-wide audit CSV exports (not the same as sidebar Data exports).",
         ],
       },
@@ -49,6 +50,17 @@ function sectionsForRole(role: string | null): Section[] {
           "Analytics (sidebar): live charts including outcome benchmarking for leadership.",
           "Portal activity logs: administrative audit trails, not client monthly reports.",
           "Time Clock (Tools): staff hours worked for payroll/accountability — separate from billable timesheets. Admins can edit any clock entry; every edit is logged.",
+        ],
+      },
+      {
+        title: "PTO Requests",
+        body:
+          "Joshua Tree team members request paid time off from Time Clock. Days charged default to business days (Mon–Fri); HR and admins can adjust charged days (for holidays) without changing dates. Counselors and clients do not use PTO in Wayfinder Pro.",
+        steps: [
+          "Open Time Clock → PTO Requests to submit your own leave and review the org queue.",
+          "Approve or deny pending requests; include an explanation when denying.",
+          "Amend dates or days charged with a required note; void approved leave when it should not count against the bank.",
+          "Set annual PTO days and period start (usually January 1) under Super Admin / Admin portal or HR Dashboard. Leave annual days blank for unlimited.",
         ],
       },
     ];
@@ -73,6 +85,16 @@ function sectionsForRole(role: string | null): Section[] {
         steps: [
           "Open Time Clock to view who’s clocked in org-wide and correct flagged auto-outs.",
           "5:30 PM still-working prompts and 6:00 PM auto-outs (stamped 5:30) are server-driven; midnight splits days at 11:59 PM / 12:00 AM.",
+        ],
+      },
+      {
+        title: "PTO Requests",
+        body:
+          "Team members request PTO on Time Clock. You and HR approve or deny requests, adjust days charged for holidays, and set the org PTO bank.",
+        steps: [
+          "Time Clock → PTO Requests to submit, review, approve, deny, or amend leave.",
+          "Please ask for 14 days’ notice when possible; sick and emergency may be sooner — you make the final call.",
+          "Admin portal → PTO Settings for period start date and annual PTO days (blank = unlimited).",
         ],
       },
       {
@@ -111,6 +133,17 @@ function sectionsForRole(role: string | null): Section[] {
           "At midnight Eastern, open shifts end at 11:59 PM and a new shift starts at 12:00 AM so each calendar day has clean totals.",
           "Who’s Clocked In and Flagged Team Entries appear on Time Clock for your supervised Employment Specialists. You (and admins) can edit their entries; every edit is logged.",
           "Enable push notifications so you receive 5:30 PM and auto-out alerts.",
+        ],
+      },
+      {
+        title: "PTO Requests",
+        body:
+          "Request your own PTO on Time Clock. You can also see requests from Employment Specialists assigned to you (view only). HR and admins approve or deny leave.",
+        steps: [
+          "Time Clock → PTO Requests: pick dates, choose a reason, add details if needed, and submit.",
+          "Please request at least 14 days in advance when possible; sick and emergency may be sooner.",
+          "Watch status and any explanation from HR/admin on your requests. Cancel while still pending if plans change.",
+          "Review your designated ES requests so you can plan coverage — you do not approve them.",
         ],
       },
       {
@@ -178,6 +211,16 @@ function sectionsForRole(role: string | null): Section[] {
           "Soft caseload guidance is about 20 active clients — supervisors/HR may allow more when needed.",
         ],
       },
+      {
+        title: "PTO Requests",
+        body:
+          "Request vacation, sick, maternity/paternity, emergency, or other leave from Time Clock. Remaining days show when HR/admin has set an annual bank.",
+        steps: [
+          "Time Clock → PTO Requests → choose start/end dates and a reason, then submit.",
+          "Please request at least 14 days in advance when possible; sick and emergency may be sooner. HR/admin decide.",
+          "Track approval or denial (and any explanation) on the same page. You can cancel a request while it is still pending.",
+        ],
+      },
     ];
   }
 
@@ -190,6 +233,7 @@ function sectionsForRole(role: string | null): Section[] {
         steps: [
           "Weekly Timesheet → review weeks and Data exports.",
           "Reference → Community Partners.",
+          "Tools → Time Clock for hours worked and PTO visibility.",
         ],
       },
       {
@@ -200,6 +244,15 @@ function sectionsForRole(role: string | null): Section[] {
           "Data exports → Payroll — hours worked from Time Clock for the pay period.",
           "Data exports → Billable hours by client for state billing files.",
           "Pay-period settings are configured by super admin under Portal → Settings → Payroll.",
+        ],
+      },
+      {
+        title: "PTO Requests",
+        body:
+          "You can view all PTO requests for payroll awareness. You cannot approve or deny — that stays with HR and admins.",
+        steps: [
+          "Time Clock → PTO Requests to see the queue (filters: pending, approved, denied, past).",
+          "Submit your own PTO from the same page when you need leave.",
         ],
       },
     ];
@@ -219,10 +272,35 @@ function sectionsForRole(role: string | null): Section[] {
         ],
       },
       {
+        title: "PTO Requests",
+        body:
+          "You approve and manage leave for the organization. Days charged default to business days; adjust charged days so holidays do not penalize staff.",
+        steps: [
+          "Time Clock → PTO Requests to review, approve, deny, amend, or void leave.",
+          "Include an explanation when denying. Soft guideline: 14 days’ notice when possible.",
+          "HR Dashboard → PTO Settings for period start and annual PTO days (blank = unlimited).",
+        ],
+      },
+      {
         title: "Caseload Guidance",
         body:
           "Policy guidance is about 20 active clients per ES. It is not a hard system limit — supervisors and HR manage overages organically.",
         steps: ["Operations capacity view highlights caseloads above soft guidance."],
+      },
+    ];
+  }
+
+  if (role === "hospitality_specialist") {
+    return [
+      {
+        title: "Hospitality Workspace",
+        body:
+          "Use Time Clock for hours worked and PTO Requests for your own leave. You do not see other team members’ PTO.",
+        steps: [
+          "Time Clock → clock in/out for your workday (America/New_York).",
+          "Time Clock → PTO Requests to submit leave and track approval status.",
+          "Please request at least 14 days in advance when possible; sick and emergency may be sooner.",
+        ],
       },
     ];
   }
