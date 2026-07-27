@@ -2,6 +2,7 @@ import { PortalWorkspace } from "@/components/portal-workspace";
 import { DemoTrainingWorkspace } from "@/components/demo-training-workspace";
 import { PayrollSettingsPanel } from "@/components/payroll-settings-panel";
 import { PtoSettingsPanel } from "@/components/pto-settings-panel";
+import { WrtCurriculumPanel } from "@/components/wrt-curriculum-panel";
 import { requirePortalPage } from "@/lib/portal-data";
 
 export default async function SuperAdminPortalPage() {
@@ -18,6 +19,7 @@ export default async function SuperAdminPortalPage() {
         <DemoTrainingWorkspace />
         <PayrollSettingsPanel />
         <PtoSettingsPanel />
+        <WrtCurriculumPanel />
       </div>
     </>
   );

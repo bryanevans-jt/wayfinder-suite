@@ -7,6 +7,8 @@ export const STAFF_ROLES = [
   "super_admin",
   "hr",
   "hospitality_specialist",
+  "transition_specialist",
+  "wrt_admin",
 ] as const;
 
 export const CLIENT_ROLES = ["client", "support"] as const;
@@ -20,6 +22,8 @@ export const ASSIGNABLE_STAFF_ROLES = [
   "counselor",
   "hr",
   "hospitality_specialist",
+  "transition_specialist",
+  "wrt_admin",
 ] as const;
 
 export type StaffRole = (typeof STAFF_ROLES)[number];
@@ -47,8 +51,18 @@ export function isSupportRole(role: string | null | undefined): boolean {
   return normalizeRole(role) === "support";
 }
 
+/** Employment Specialist and Transition Specialist (same field access). */
 export function isEsRole(role: string | null | undefined): boolean {
-  return normalizeRole(role) === "es";
+  const r = normalizeRole(role);
+  return r === "es" || r === "transition_specialist";
+}
+
+export function isTransitionSpecialistRole(role: string | null | undefined): boolean {
+  return normalizeRole(role) === "transition_specialist";
+}
+
+export function isWrtAdminRole(role: string | null | undefined): boolean {
+  return normalizeRole(role) === "wrt_admin";
 }
 
 export function isCounselorRole(role: string | null | undefined): boolean {
@@ -112,6 +126,7 @@ export function staffHomePath(role: string | null | undefined): string {
   if (r === "accountant") return "/dashboard/timesheet";
   if (r === "hr") return "/dashboard/hr";
   if (r === "hospitality_specialist") return "/dashboard/hospitality";
+  if (r === "wrt_admin") return "/dashboard/profile";
   return "/dashboard/clients";
 }
 
@@ -135,6 +150,8 @@ export function roleDisplayName(role: string | null | undefined): string {
     accountant: "Accounts Specialist",
     hr: "HR",
     hospitality_specialist: "Hospitality Specialist",
+    transition_specialist: "Transition Specialist",
+    wrt_admin: "WRT Admin",
   };
   const key = normalizeRole(role);
   return labels[key] ?? key;

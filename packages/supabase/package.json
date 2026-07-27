@@ -44,6 +44,8 @@
     "./staff-time-clock": "./src/staff-time-clock.ts",
     "./staff-time-clock-shared": "./src/staff-time-clock-shared.ts",
     "./staff-pto-shared": "./src/staff-pto-shared.ts",
+    "./staff-wrt-shared": "./src/staff-wrt-shared.ts",
+    "./wrt-seed-curriculum": "./src/wrt-seed-curriculum.ts",
     "./contact-log-suggestions": "./src/contact-log-suggestions.ts",
     "./contact-logs-query": "./src/contact-logs-query.ts"
   },

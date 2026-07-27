@@ -1,5 +1,6 @@
 import { PortalWorkspace } from "@/components/portal-workspace";
 import { PtoSettingsPanel } from "@/components/pto-settings-panel";
+import { WrtCurriculumPanel } from "@/components/wrt-curriculum-panel";
 import { requirePortalPage } from "@/lib/portal-data";
 
 export default async function AdminPortalPage() {
@@ -14,6 +15,7 @@ export default async function AdminPortalPage() {
       />
       <div className="px-6 pb-10">
         <PtoSettingsPanel />
+        <WrtCurriculumPanel />
       </div>
     </>
   );
