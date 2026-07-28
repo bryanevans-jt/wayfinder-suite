@@ -1,17 +1,23 @@
 import { createServerClient, isEsReplyOverdue, isEsRole } from "@wayfinder/supabase";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
-import { clientDisplayName, serviceDisplayName } from "@wayfinder/branding";
-import { sortClientsByTriage } from "@wayfinder/supabase/caseload-triage";
+import {
+  clientDisplayName,
+  isTerminalApplicationStatus,
+  serviceDisplayName,
+} from "@wayfinder/branding";
+import { sortClientsByTriage, STALE_APPLICATION_DAYS } from "@wayfinder/supabase/caseload-triage";
 import { USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { ViewArchivedToggle } from "@/components/view-archived-toggle";
+import { isArchivedClient, isPendingArchive } from "@wayfinder/supabase/client-archive";
 import { CaseloadTriageLegend } from "@/components/caseload-triage-legend";
 import {
   EsApplicationPipelineBoard,
   type PipelineApplication,
 } from "@/components/es-application-pipeline-board";
 import { EsClientsTable } from "@/components/es-clients-table";
+import { EsClientsTodayStrip } from "@/components/es-clients-today-strip";
 import { loadCaseloadTriageFlags } from "@/lib/caseload-operations";
 import { fetchEsCaseloadClients, getEsCaseloadAdmin } from "@/lib/es-caseload-data";
 import { fetchOfficesForPicker } from "@/lib/office-visibility";
@@ -182,12 +188,22 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
   ).map((row) => clientRows.find((c) => c.id === row.id)!);
 
   let pipelineApplications: PipelineApplication[] = [];
+  let meetingsPending = 0;
+  let meetingsSoon = 0;
   if (admin && clientIds.length > 0) {
-    const { data: appRows } = await admin
-      .from("applications")
-      .select("id, client_id, company_name, status, updated_at, created_at")
-      .in("client_id", clientIds)
-      .order("updated_at", { ascending: false });
+    const [{ data: appRows }, { data: meetingRows }] = await Promise.all([
+      admin
+        .from("applications")
+        .select("id, client_id, company_name, status, updated_at, created_at")
+        .in("client_id", clientIds)
+        .order("updated_at", { ascending: false }),
+      admin
+        .from("client_meeting_requests")
+        .select("id, client_id, status, starts_at")
+        .eq("es_user_id", effectiveUserId)
+        .in("client_id", clientIds)
+        .in("status", ["pending", "accepted"]),
+    ]);
     const nameByClient = new Map(clientRows.map((c) => [c.id, c.displayName]));
     pipelineApplications = (appRows ?? []).map((a) => ({
       id: a.id as string,
@@ -197,7 +213,36 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
       status: (a.status as string) || "Applied",
       updatedAt: (a.updated_at ?? a.created_at) as string,
     }));
+
+    const now = Date.now();
+    const weekMs = 7 * 24 * 60 * 60 * 1000;
+    for (const m of meetingRows ?? []) {
+      if ((m.status as string) === "pending") {
+        meetingsPending += 1;
+        continue;
+      }
+      if ((m.status as string) === "accepted" && m.starts_at) {
+        const start = Date.parse(m.starts_at as string);
+        if (!Number.isNaN(start) && start >= now && start <= now + weekMs) {
+          meetingsSoon += 1;
+        }
+      }
+    }
   }
+
+  const staleCutoff = Date.now() - STALE_APPLICATION_DAYS * 24 * 60 * 60 * 1000;
+  const staleApplications = pipelineApplications.filter((a) => {
+    if (isTerminalApplicationStatus(a.status)) return false;
+    const updated = Date.parse(a.updatedAt);
+    return !Number.isNaN(updated) && updated <= staleCutoff;
+  }).length;
+
+  let noContact = 0;
+  for (const flags of triageFlagsByClient.values()) {
+    if (flags.includes("no_contact")) noContact += 1;
+  }
+
+  const needsReply = [...overdueByClient.keys()].filter((id) => clientIds.includes(id)).length;
 
   return (
     <main className="px-4 py-8 sm:px-6 sm:py-10">
@@ -209,9 +254,13 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
             table. Use the application pipeline above to update statuses — click a card, then pick
             the new stage. Open a row to update their current stage.
             {includeArchived ? (
-              <> Showing archived clients (Closed or Dismissed).</>
+              <> Showing closed and archived clients (Closed or Dismissed).</>
             ) : (
-              <> Archived clients are hidden unless you turn on View archived.</>
+              <>
+                {" "}
+                Closed clients leave this list immediately and archive after 24 hours unless you
+                turn on View archived.
+              </>
             )}
           </p>
         </div>
@@ -233,30 +282,46 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      <EsApplicationPipelineBoard
-        applications={pipelineApplications}
-        readOnly={session.isPreviewing}
-      />
+      {!includeArchived ? (
+        <EsClientsTodayStrip
+          needsReply={needsReply}
+          meetingsPending={meetingsPending}
+          meetingsSoon={meetingsSoon}
+          staleApplications={staleApplications}
+          noContact={noContact}
+          activePipeline={pipelineApplications.filter((a) => !isTerminalApplicationStatus(a.status)).length}
+        />
+      ) : null}
+
+      <div id="pipeline">
+        <EsApplicationPipelineBoard
+          applications={pipelineApplications}
+          readOnly={session.isPreviewing}
+        />
+      </div>
 
       <CaseloadTriageLegend />
 
-      <EsClientsTable
-        includeArchived={includeArchived}
-        canManageSupport={!session.isPreviewing}
-        clients={sortedClients.map((c) => ({
-          id: c.id,
-          displayName: c.displayName,
-          serviceLabel: c.current_service_id
-            ? (serviceName.get(c.current_service_id) ?? "—")
-            : "—",
-          stageLabel: c.current_stage_id
-            ? (stageTitle.get(c.current_stage_id) ?? "—")
-            : "—",
-          overdue: Boolean(overdueByClient.get(c.id)),
-          archived: c.archived_at != null,
-          triageFlags: triageFlagsByClient.get(c.id) ?? [],
-        }))}
-      />
+      <div id="caseload">
+        <EsClientsTable
+          includeArchived={includeArchived}
+          canManageSupport={!session.isPreviewing}
+          clients={sortedClients.map((c) => ({
+            id: c.id,
+            displayName: c.displayName,
+            serviceLabel: c.current_service_id
+              ? (serviceName.get(c.current_service_id) ?? "—")
+              : "—",
+            stageLabel: c.current_stage_id
+              ? (stageTitle.get(c.current_stage_id) ?? "—")
+              : "—",
+            overdue: Boolean(overdueByClient.get(c.id)),
+            archived: isArchivedClient(c.archived_at),
+            pendingArchive: isPendingArchive(c.archived_at),
+            triageFlags: triageFlagsByClient.get(c.id) ?? [],
+          }))}
+        />
+      </div>
     </main>
   );
 }

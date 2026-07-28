@@ -1,6 +1,10 @@
 "use client";
 
 import { friendlyClientError } from "@wayfinder/supabase/error-log";
+import {
+  archiveWarningMessage,
+  isTerminalStageTitle,
+} from "@wayfinder/supabase/client-archive";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { updateClientCurrentStage } from "./actions";
@@ -29,6 +33,15 @@ export function ClientStageForm({
       setError("Select a stage");
       return;
     }
+    const selected = milestones.find((m) => m.id === value);
+    if (selected && isTerminalStageTitle(selected.title)) {
+      const ok = window.confirm(
+        `Change this client to “${selected.title}”?\n\n` +
+          `${archiveWarningMessage(null)}\n\n` +
+          "You can restore them later from Activity Logs (or View archived) if this was a mistake."
+      );
+      if (!ok) return;
+    }
     startTransition(async () => {
       try {
         await updateClientCurrentStage(clientId, value);
@@ -38,6 +51,9 @@ export function ClientStageForm({
       }
     });
   }
+
+  const selectedTitle = milestones.find((m) => m.id === value)?.title ?? "";
+  const terminalSelected = isTerminalStageTitle(selectedTitle);
 
   return (
     <div className="rounded-xl border border-neutral-200 bg-white p-4">
@@ -72,6 +88,12 @@ export function ClientStageForm({
           {pending ? "Saving…" : "Save stage"}
         </button>
       </div>
+      {terminalSelected ? (
+        <p className="mt-2 text-sm text-amber-900/90">
+          Closing or dismissing removes this client from your active caseload now and
+          archives them after 24 hours.
+        </p>
+      ) : null}
       {error ? <p className="mt-2 text-sm text-red-700">{error}</p> : null}
     </div>
   );

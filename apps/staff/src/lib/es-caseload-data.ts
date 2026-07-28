@@ -1,4 +1,5 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { isRemovedFromEsCaseload } from "@wayfinder/supabase/client-archive";
 
 export type EsCaseloadClientRow = {
   id: string;
@@ -87,7 +88,9 @@ export async function fetchEsCaseloadClients(
       full_name: null,
       archived_at: null,
     })) as EsCaseloadClientRow[];
-    const clients = includeArchived ? rows : rows.filter((c) => c.archived_at == null);
+    const clients = includeArchived
+      ? rows
+      : rows.filter((c) => !isRemovedFromEsCaseload(c.archived_at));
     return { clients, error: null };
   }
 
@@ -98,7 +101,7 @@ export async function fetchEsCaseloadClients(
   const rows = (clientRows ?? []) as EsCaseloadClientRow[];
   const clients = includeArchived
     ? rows
-    : rows.filter((c) => c.archived_at == null);
+    : rows.filter((c) => !isRemovedFromEsCaseload(c.archived_at));
 
   return { clients, error: null };
 }

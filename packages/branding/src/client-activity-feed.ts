@@ -16,6 +16,7 @@ export function buildClientActivityFeed(input: {
     created_at: string;
     public_outcome?: string | null;
     notes?: string | null;
+    logged_by?: string | null;
   }[];
   stageEvents?: {
     id: string;
@@ -50,6 +51,7 @@ export function buildClientActivityFeed(input: {
       at: row.created_at,
       public_outcome: row.public_outcome ?? null,
       notes: row.notes ?? null,
+      logged_by: row.logged_by ?? null,
     });
   }
 

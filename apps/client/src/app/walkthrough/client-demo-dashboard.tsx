@@ -79,7 +79,7 @@ export function ClientDemoDashboard() {
           Signed in as <span className="font-medium text-brand-green">{DEMO_CLIENT_EMAIL}</span>
           {" · "}
           <Link href="/quick-start" className="font-medium text-brand-green hover:underline">
-            Quick start guide
+            Help
           </Link>
         </p>
       </header>
@@ -105,7 +105,7 @@ export function ClientDemoDashboard() {
           />
         </div>
         <div className="mt-6">
-          <h2 className="text-lg font-semibold text-brand-green">Current Services</h2>
+          <h2 className="text-lg font-semibold text-brand-green">Your path</h2>
           <p className="mt-1 text-sm text-brand-black/70">{DEMO_SERVICE.name}</p>
           <p className="mt-3 text-base font-semibold text-brand-black">
             Current stage:{" "}

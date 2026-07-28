@@ -1,4 +1,5 @@
-import { buildClientActivityFeed, ClientActivityTimeline, clientDisplayName, normalizeEmploymentGoal } from "@wayfinder/branding";
+import { buildClientActivityFeed, clientDisplayName, normalizeEmploymentGoal } from "@wayfinder/branding";
+import { StaffClientActivityTimeline } from "@/components/staff-client-activity-timeline";
 import {
   buildClientActivityFkIds,
   createServerClient,
@@ -245,6 +246,7 @@ export default async function EsClientDetailPage({ params }: PageProps) {
     created_at: row.created_at,
     public_outcome: row.public_outcome ?? row.outcome,
     notes: row.notes,
+    logged_by: row.logged_by,
   }));
 
   const feed = buildClientActivityFeed({
@@ -418,7 +420,12 @@ export default async function EsClientDetailPage({ params }: PageProps) {
         <p className="mt-1 text-sm text-brand-black/70">
           Contact notes, applications, and milestone updates — shared with the counselor portal.
         </p>
-        <ClientActivityTimeline feed={feed} showInternalNotes />
+        <StaffClientActivityTimeline
+          feed={feed}
+          clientId={client.id}
+          currentUserId={session.effectiveUserId}
+          allowCorrection={!readOnly}
+        />
       </section>
     </main>
   );

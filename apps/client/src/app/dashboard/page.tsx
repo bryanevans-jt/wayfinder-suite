@@ -114,9 +114,41 @@ export default async function ClientDashboardPage({
           <span className="font-medium text-brand-green">{displayEmail}</span>
           {" · "}
           <a href="/quick-start" className="font-medium text-brand-green hover:underline">
-            Quick start guide
+            Help
           </a>
         </p>
+        <nav
+          aria-label="On this page"
+          className="flex flex-wrap gap-x-3 gap-y-1 pt-1 text-sm text-brand-black/70"
+        >
+          <a href="#today" className="font-medium text-brand-green hover:underline">
+            Today
+          </a>
+          <span aria-hidden="true">·</span>
+          <a href="#your-path" className="font-medium text-brand-green hover:underline">
+            Your path
+          </a>
+          {!support ? (
+            <>
+              <span aria-hidden="true">·</span>
+              <a href="#messages" className="font-medium text-brand-green hover:underline">
+                Messages
+              </a>
+            </>
+          ) : null}
+          <span aria-hidden="true">·</span>
+          <a href="#applications" className="font-medium text-brand-green hover:underline">
+            Applications
+          </a>
+          <span aria-hidden="true">·</span>
+          <a href="#activity" className="font-medium text-brand-green hover:underline">
+            Activity
+          </a>
+          <span aria-hidden="true">·</span>
+          <a href="#account" className="font-medium text-brand-green hover:underline">
+            Account
+          </a>
+        </nav>
       </header>
       {support && supportClients.length > 1 ? (
         <Suspense fallback={null}>
@@ -125,11 +157,11 @@ export default async function ClientDashboardPage({
       ) : null}
       <PushNotificationPrompt />
       <ClientCelebrationsCard />
-      <SuccessPath selectedClientId={sp.client} />
       <ClientNextMeeting selectedClientId={sp.client} />
+      <SuccessPath selectedClientId={sp.client} />
+      {!support ? <ClientMessagesPanel /> : null}
       <ClientApplicationsCard selectedClientId={sp.client} />
       <ClientActivity selectedClientId={sp.client} />
-      {!support ? <ClientMessagesPanel /> : null}
       <DashboardActions allowPasskey={!support} />
       <AccessibilitySettings
         initialLargeText={Boolean(a11yProfile?.accessibility_large_text)}

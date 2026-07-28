@@ -1,5 +1,6 @@
 import { CONTACT_LOG_INTERNAL_NOTES_LABEL } from "./constants";
 import { formatPortalDateTime, PORTAL_DISPLAY_TIME_ZONE } from "./portal-datetime";
+import type { ReactNode } from "react";
 
 export type ClientActivityFeedItem =
   | {
@@ -8,6 +9,7 @@ export type ClientActivityFeedItem =
       at: string;
       public_outcome: string | null;
       notes: string | null;
+      logged_by?: string | null;
     }
   | { kind: "milestone"; id: string; at: string; title: string }
   | {
@@ -36,12 +38,17 @@ type Props = {
   emptyMessage?: string;
   /** When false, internal ES notes are hidden (counselor and client views). */
   showInternalNotes?: boolean;
+  /** Optional footer under contact log cards (e.g. ES correction controls). */
+  renderContactFooter?: (
+    item: Extract<ClientActivityFeedItem, { kind: "contact" }>
+  ) => ReactNode;
 };
 
 export function ClientActivityTimeline({
   feed,
   emptyMessage = "No activity yet for this client.",
   showInternalNotes = false,
+  renderContactFooter,
 }: Props) {
   if (feed.length === 0) {
     return <p className="mt-6 text-sm text-brand-black/60">{emptyMessage}</p>;
@@ -123,6 +130,7 @@ export function ClientActivityTimeline({
                   {item.notes}
                 </p>
               ) : null}
+              {renderContactFooter ? renderContactFooter(item) : null}
             </div>
           )}
         </li>

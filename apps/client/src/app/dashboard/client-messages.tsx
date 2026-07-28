@@ -80,7 +80,10 @@ export function ClientMessagesPanel() {
 
   if (loading) {
     return (
-      <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+      <section
+        id="messages"
+        className="scroll-mt-6 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm"
+      >
         <h2 className="text-lg font-semibold text-brand-green">Message your ES</h2>
         <p className="mt-2 text-sm text-brand-black/60">Loading…</p>
       </section>
@@ -88,7 +91,10 @@ export function ClientMessagesPanel() {
   }
 
   return (
-    <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+    <section
+      id="messages"
+      className="scroll-mt-6 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm"
+    >
       <h2 className="text-lg font-semibold text-brand-green">Message your ES</h2>
       <p className="mt-1 text-sm text-brand-black/70">
         {thread?.esName

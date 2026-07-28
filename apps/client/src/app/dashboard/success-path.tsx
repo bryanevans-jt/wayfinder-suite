@@ -30,8 +30,11 @@ export async function SuccessPath({ selectedClientId }: SuccessPathProps) {
 
   if (!ctx) {
     return (
-      <section className="rounded-2xl border border-brand-black/15 bg-brand-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-brand-green">Current Services</h2>
+      <section
+        id="your-path"
+        className="scroll-mt-6 rounded-2xl border border-brand-black/15 bg-brand-white p-6 shadow-sm"
+      >
+        <h2 className="text-lg font-semibold text-brand-green">Your path</h2>
         <p className="mt-2 text-sm text-brand-black/75">
           {readOnly
             ? "No client assignments are linked to your support account yet."
@@ -53,8 +56,11 @@ export async function SuccessPath({ selectedClientId }: SuccessPathProps) {
 
   if (!clientRow.current_service_id && !clientRow.current_stage_id) {
     return (
-      <section className="rounded-2xl border border-brand-black/15 bg-brand-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-brand-green">Current Services</h2>
+      <section
+        id="your-path"
+        className="scroll-mt-6 rounded-2xl border border-brand-black/15 bg-brand-white p-6 shadow-sm"
+      >
+        <h2 className="text-lg font-semibold text-brand-green">Your path</h2>
         <p className="mt-2 text-sm text-brand-black/75">No active service is assigned yet.</p>
       </section>
     );
@@ -67,8 +73,11 @@ export async function SuccessPath({ selectedClientId }: SuccessPathProps) {
 
   if (!path || path.milestones.length === 0) {
     return (
-      <section className="rounded-2xl border border-brand-black/15 bg-brand-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-brand-green">Current Services</h2>
+      <section
+        id="your-path"
+        className="scroll-mt-6 rounded-2xl border border-brand-black/15 bg-brand-white p-6 shadow-sm"
+      >
+        <h2 className="text-lg font-semibold text-brand-green">Your path</h2>
         <p className="mt-2 text-sm text-brand-black/75">
           Your service path is being set up. If this message persists, ask your Employment
           Specialist to confirm your service and stage are assigned.
@@ -78,7 +87,10 @@ export async function SuccessPath({ selectedClientId }: SuccessPathProps) {
   }
 
   return (
-    <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+    <section
+      id="your-path"
+      className="scroll-mt-6 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm"
+    >
       <div className="flex flex-col items-center border-b border-neutral-200 pb-6">
         <Image
           src={WAYFINDER_LOGO_PATH}
@@ -93,7 +105,7 @@ export async function SuccessPath({ selectedClientId }: SuccessPathProps) {
 
       <div className="mt-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-brand-green">Current Services</h2>
+          <h2 className="text-lg font-semibold text-brand-green">Your path</h2>
           <p className="mt-1 text-sm text-brand-black/70">{path.serviceName}</p>
           <p className="mt-3 text-base font-semibold text-brand-black">
             Current stage:{" "}

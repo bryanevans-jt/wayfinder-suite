@@ -11,7 +11,14 @@ export type PortalPrimaryNav =
 export type PortalTeamSubNav = "es" | "supervisors";
 export type PortalOfficesSubNav = "directory" | "counselors";
 export type PortalReportsSubNav = "activity" | "messages";
-export type PortalSettingsSubNav = "users" | "advanced" | "errors";
+export type PortalSettingsSubNav =
+  | "users"
+  | "advanced"
+  | "errors"
+  | "pto"
+  | "wrt"
+  | "payroll"
+  | "demos";
 
 export type PortalNavState = {
   primary: PortalPrimaryNav;
@@ -43,13 +50,17 @@ const OFFICES_LABELS: Record<PortalOfficesSubNav, string> = {
 };
 
 const REPORTS_LABELS: Record<PortalReportsSubNav, string> = {
-  activity: "Activity Logs",
+  activity: "Audit activity",
   messages: "Message Audit",
 };
 
 const SETTINGS_LABELS: Record<PortalSettingsSubNav, string> = {
   users: "Administrators",
   advanced: "Advanced Connections",
+  pto: "PTO settings",
+  wrt: "WRT curriculum",
+  payroll: "Payroll settings",
+  demos: "Demo training",
   errors: "Error Log",
 };
 
@@ -100,8 +111,8 @@ export function PortalNav({ mode, canManage, nav, onChange }: Props) {
 
   const settingsSubs: PortalSettingsSubNav[] =
     mode === "super_admin"
-      ? ["users", "advanced", "errors"]
-      : ["users", "advanced"];
+      ? ["users", "advanced", "pto", "wrt", "payroll", "demos", "errors"]
+      : ["users", "advanced", "pto", "wrt"];
 
   return (
     <div className="mt-8 space-y-3">

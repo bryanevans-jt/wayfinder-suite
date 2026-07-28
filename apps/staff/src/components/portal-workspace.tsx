@@ -6,6 +6,7 @@ import {
   clientDisplayName,
   personDisplayName,
 } from "@wayfinder/branding";
+import { isArchivedClient, isTerminalStageTitle } from "@wayfinder/supabase/client-archive";
 import {
   AddClientModal,
   type CounselorOption,
@@ -23,6 +24,11 @@ import { ClientProfileModal } from "@/components/client-profile-modal";
 import { NaturalSupportModal } from "@/components/natural-support-modal";
 import { OfficeDirectoryList } from "@/components/office-directory-list";
 import { OfficeDistrictRegionSelect } from "@/components/office-district-region-select";
+import { SupervisorWeekPack } from "@/components/supervisor-week-pack";
+import { DemoTrainingWorkspace } from "@/components/demo-training-workspace";
+import { PayrollSettingsPanel } from "@/components/payroll-settings-panel";
+import { PtoSettingsPanel } from "@/components/pto-settings-panel";
+import { WrtCurriculumPanel } from "@/components/wrt-curriculum-panel";
 import {
   buildOfficeDisplayName,
   coerceDistrictOrRegionForState,
@@ -205,7 +211,13 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
     if (!b) return [];
     const q = clientSearch.trim().toLowerCase();
     return b.clients.filter((c) => {
-      if (mode === "supervisor" && !showArchivedClients && c.archived_at) return false;
+      if (
+        (mode === "supervisor" || mode === "admin" || mode === "super_admin") &&
+        !showArchivedClients &&
+        isArchivedClient(c.archived_at)
+      ) {
+        return false;
+      }
       if (clientFilterOffice && c.office_id !== clientFilterOffice) return false;
       if (clientFilterEs && !c.es_user_ids.includes(clientFilterEs)) return false;
       if (!q) return true;
@@ -558,6 +570,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
         )
       ) : nav.primary === "clients" ? (
         <section className="mt-6 max-w-6xl space-y-4">
+          {mode === "supervisor" ? <SupervisorWeekPack /> : null}
           {canManageOrg ? (
             <PortalSetupChecklist bootstrap={b} canManage={canManageOrg} onNavigate={setNav} />
           ) : null}
@@ -612,17 +625,15 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 </option>
               ))}
             </select>
-            {mode === "supervisor" ? (
-              <label className="inline-flex items-center gap-2 text-sm text-brand-black/80">
-                <input
-                  type="checkbox"
-                  checked={showArchivedClients}
-                  onChange={(e) => setShowArchivedClients(e.target.checked)}
-                  className="size-4 rounded border-neutral-300 text-brand-green focus:ring-brand-green"
-                />
-                View archived
-              </label>
-            ) : null}
+            <label className="inline-flex items-center gap-2 text-sm text-brand-black/80">
+              <input
+                type="checkbox"
+                checked={showArchivedClients}
+                onChange={(e) => setShowArchivedClients(e.target.checked)}
+                className="size-4 rounded border-neutral-300 text-brand-green focus:ring-brand-green"
+              />
+              View archived
+            </label>
           </div>
           <ClientListPaginationControls
             pageSize={clientPageSize}
@@ -1352,18 +1363,27 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                   <th className="px-3 py-2">Client</th>
                   <th className="px-3 py-2">Office</th>
                   <th className="px-3 py-2">Summary</th>
-                  {canEditLogs ? <th className="px-3 py-2">Actions</th> : null}
+                  <th className="px-3 py-2">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {logs.length === 0 ? (
                   <tr>
-                    <td colSpan={canEditLogs ? 6 : 5} className="px-3 py-8 text-center text-brand-black/60">
+                    <td colSpan={6} className="px-3 py-8 text-center text-brand-black/60">
                       No activity for these filters.
                     </td>
                   </tr>
                 ) : (
-                  logs.map((row) => (
+                  logs.map((row) => {
+                    const stageTitle = row.summary.replace(/^Stage\s*·\s*/i, "").trim();
+                    const canRestoreStage =
+                      row.kind === "stage" &&
+                      isTerminalStageTitle(stageTitle) &&
+                      (canEditLogs ||
+                        mode === "admin" ||
+                        mode === "super_admin" ||
+                        (mode === "supervisor" && showArchivedClients));
+                    return (
                     <tr key={`${row.kind}-${row.id}`} className="border-t border-neutral-100">
                       <td className="whitespace-nowrap px-3 py-2">
                         {formatPortalDateTime(row.created_at)}
@@ -1378,8 +1398,8 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                       </td>
                       <td className="px-3 py-2">{officeName(row.office_id)}</td>
                       <td className="px-3 py-2">{row.summary}</td>
-                      {canEditLogs && row.kind === "contact" ? (
-                        <td className="px-3 py-2">
+                      <td className="px-3 py-2">
+                        {canEditLogs && row.kind === "contact" ? (
                           <button
                             type="button"
                             className="text-red-700 hover:underline"
@@ -1397,21 +1417,49 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                           >
                             Delete
                           </button>
-                        </td>
-                      ) : canEditLogs ? (
-                        <td className="px-3 py-2 text-brand-black/40">—</td>
-                      ) : null}
+                        ) : canRestoreStage ? (
+                          <button
+                            type="button"
+                            className="text-brand-green hover:underline"
+                            disabled={busy}
+                            onClick={() =>
+                              void run(async () => {
+                                if (
+                                  !confirm(
+                                    "Restore this client to an active stage? They will return to caseload views."
+                                  )
+                                ) {
+                                  return;
+                                }
+                                const res = await fetch("/api/portal/clients/restore", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ clientId: row.client_id }),
+                                });
+                                const data = (await res.json()) as { error?: string };
+                                if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                                await reload();
+                              })
+                            }
+                          >
+                            Restore client
+                          </button>
+                        ) : (
+                          <span className="text-brand-black/40">—</span>
+                        )}
+                      </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </div>
-          {!canEditLogs ? (
-            <p className="text-xs text-brand-black/60">
-              Admin tier can view and export logs but cannot edit or delete them.
-            </p>
-          ) : null}
+          <p className="text-xs text-brand-black/60">
+            Closed or Dismissed stage events can be restored here
+            {mode === "supervisor" ? " when View archived is on" : ""}. Only super admins
+            can delete contact logs.
+          </p>
         </section>
       ) : nav.primary === "reports" && nav.reports === "messages" && canManageOrg ? (
         <AdminMessageAuditPanel
@@ -1420,6 +1468,28 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
         />
       ) : nav.primary === "settings" && nav.settings === "errors" && mode === "super_admin" ? (
         <ErrorLogPanel />
+      ) : nav.primary === "settings" && nav.settings === "pto" && canManageOrg ? (
+        <div className="mt-6">
+          <PtoSettingsPanel />
+        </div>
+      ) : nav.primary === "settings" && nav.settings === "wrt" && canManageOrg ? (
+        <div className="mt-6 space-y-4">
+          <WrtCurriculumPanel />
+          <a
+            href="/dashboard/wrt"
+            className="inline-flex rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-brand-black hover:bg-amber-100"
+          >
+            Open WRT Facilitation Preview
+          </a>
+        </div>
+      ) : nav.primary === "settings" && nav.settings === "payroll" && mode === "super_admin" ? (
+        <div className="mt-6">
+          <PayrollSettingsPanel />
+        </div>
+      ) : nav.primary === "settings" && nav.settings === "demos" && mode === "super_admin" ? (
+        <div className="mt-6">
+          <DemoTrainingWorkspace />
+        </div>
       ) : nav.primary === "settings" && (nav.settings ?? "users") === "users" && canManageOrg ? (
         <section className="mt-6 max-w-3xl space-y-6">
           <div>

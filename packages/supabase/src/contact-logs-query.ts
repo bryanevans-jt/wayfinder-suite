@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** Columns that exist on Wayfinder contact_logs (outcome is legacy-only). */
 const CONTACT_LOG_SELECT_SHAPES = [
+  "id, client_id, created_at, public_outcome, notes, logged_by",
   "id, client_id, created_at, public_outcome, notes",
   "id, client_id, created_at, public_outcome",
   "id, client_id, created_at, notes",
@@ -61,6 +62,7 @@ export async function listContactLogsForClientIds(
     public_outcome: string | null;
     notes: string | null;
     outcome: string | null;
+    logged_by: string | null;
   }>
 > {
   if (clientIds.length === 0) {
@@ -89,5 +91,6 @@ export async function listContactLogsForClientIds(
     public_outcome: (row.public_outcome as string | null | undefined) ?? null,
     notes: (row.notes as string | null | undefined) ?? null,
     outcome: (row.outcome as string | null | undefined) ?? null,
+    logged_by: (row.logged_by as string | null | undefined) ?? null,
   }));
 }

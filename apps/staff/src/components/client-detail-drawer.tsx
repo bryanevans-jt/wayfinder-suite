@@ -9,6 +9,10 @@ import {
   servicesForClientEditGroups,
   flattenServiceGroups,
 } from "@wayfinder/branding";
+import {
+  archiveWarningMessage,
+  isTerminalStageTitle,
+} from "@wayfinder/supabase/client-archive";
 import { useEffect, useMemo, useState } from "react";
 import { ServiceSelect } from "@/components/service-select";
 
@@ -357,7 +361,20 @@ export function ClientDetailDrawer({
             <button
               type="button"
               disabled={!canSave}
-              onClick={() =>
+              onClick={() => {
+                const selected = stagesForService.find((m) => m.id === stageId);
+                if (
+                  selected &&
+                  isTerminalStageTitle(selected.title) &&
+                  stageId !== (client?.current_stage_id ?? "")
+                ) {
+                  const ok = window.confirm(
+                    `Change this client to “${selected.title}”?\n\n` +
+                      `${archiveWarningMessage(null)}\n\n` +
+                      "You can restore them later from Reports → Activity Logs if this was a mistake."
+                  );
+                  if (!ok) return;
+                }
                 void onSave({
                   name: name.trim(),
                   contact_email: email.trim(),
@@ -371,8 +388,8 @@ export function ClientDetailDrawer({
                         ...(stageId ? { current_stage_id: stageId } : {}),
                       }
                     : {}),
-                })
-              }
+                });
+              }}
               className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
             >
               Save changes

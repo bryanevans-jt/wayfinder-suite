@@ -19,6 +19,7 @@ import { saveClientContactLog } from "@/lib/save-client-contact-log";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { processEmploymentCelebration } from "@wayfinder/supabase/employment-celebrations";
 import { clientDisplayName } from "@wayfinder/branding";
+import { isTerminalStageTitle } from "@wayfinder/supabase/client-archive";
 
 function revalidateClientPaths(clientId: string) {
   revalidatePath("/dashboard/clients");
@@ -118,6 +119,48 @@ export async function updateClientCurrentStage(clientId: string, milestoneId: st
   if (updErr) {
     throw new Error(updErr.message ?? "Update failed");
   }
+
+  revalidateClientPaths(clientId);
+}
+
+/** Restore Closed/Dismissed/archived client to the first active stage for their service. */
+export async function restoreArchivedClient(clientId: string) {
+  await assertNotPreviewMutation();
+  const { admin } = await assertStaffClientWriteAccess(clientId);
+
+  const { data: client, error: clientErr } = await admin
+    .from("clients")
+    .select("id, current_service_id, archived_at")
+    .eq("id", clientId)
+    .maybeSingle();
+
+  if (clientErr || !client) {
+    throw new Error("Client not found");
+  }
+  if (!client.current_service_id) {
+    throw new Error("Client has no service; assign a service before restoring.");
+  }
+  if (!client.archived_at) {
+    throw new Error("Client is not closed or archived.");
+  }
+
+  const { data: milestones, error: mErr } = await admin
+    .from("service_milestones")
+    .select("id, title, order_index")
+    .eq("service_id", client.current_service_id)
+    .order("order_index", { ascending: true });
+  if (mErr) throw new Error(mErr.message);
+
+  const active = (milestones ?? []).find((m) => !isTerminalStageTitle(String(m.title)));
+  if (!active) {
+    throw new Error("No active stage found for this service.");
+  }
+
+  const { error: updErr } = await admin
+    .from("clients")
+    .update({ current_stage_id: active.id })
+    .eq("id", clientId);
+  if (updErr) throw new Error(updErr.message ?? "Restore failed");
 
   revalidateClientPaths(clientId);
 }

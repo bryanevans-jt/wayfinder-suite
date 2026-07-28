@@ -8,6 +8,7 @@ import {
   isSuperAdminRole,
   isSupervisorRole,
   isSupervisorTierRole,
+  isWrtAdminRole,
   normalizeRole,
   staffHomePath,
 } from "@wayfinder/supabase/roles";
@@ -64,13 +65,13 @@ const timeClockNav: StaffNavItem = {
 
 const reportingNav: StaffNavItem = {
   href: "/dashboard/reporting",
-  label: "Reporting",
+  label: "Submit reports",
   match: (p) => p === "/dashboard/reporting",
 };
 
 const dataExportsNav: StaffNavItem = {
   href: "/dashboard/exports",
-  label: "Data Exports",
+  label: "Download exports",
   match: (p) => p === "/dashboard/exports",
 };
 
@@ -83,7 +84,7 @@ const communityPartnersNav: StaffNavItem = {
 
 const analyticsNav: StaffNavItem = {
   href: "/dashboard/analytics",
-  label: "Analytics",
+  label: "Explore analytics",
   match: (p) => p === "/dashboard/analytics",
 };
 
@@ -292,6 +293,7 @@ export function staffNavSectionsForRole(
             label: "Weekly Timesheet",
             match: (p) => p.startsWith("/dashboard/timesheet"),
           },
+          timeClockNav,
           dataExportsNav,
         ],
       },
@@ -317,6 +319,7 @@ export function staffNavSectionsForRole(
             label: "Weekly Timesheet",
             match: (p) => p.startsWith("/dashboard/timesheet"),
           },
+          timeClockNav,
           analyticsNav,
           dataExportsNav,
         ],
@@ -335,9 +338,26 @@ export function staffNavSectionsForRole(
             match: (p) => p.startsWith("/dashboard/hospitality"),
           },
           communityPartnersNav,
+          timeClockNav,
         ],
       },
     ]);
+  }
+
+  if (isWrtAdminRole(staffRole)) {
+    return withHelpAndProfile(
+      [
+        {
+          label: "Account",
+          items: [timeClockNav],
+        },
+        {
+          label: "Reference",
+          items: [communityPartnersNav],
+        },
+      ],
+      staffRole
+    );
   }
 
   if (isEsRole(staffRole)) {
@@ -359,7 +379,7 @@ export function staffNavSectionsForRole(
             timeClockNav,
             {
               href: "/dashboard/timesheet",
-              label: "Weekly Timesheet",
+              label: "My time (timesheet)",
               match: (p) => p.startsWith("/dashboard/timesheet"),
             },
             reportingNav,

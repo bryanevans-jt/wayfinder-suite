@@ -9,13 +9,14 @@ export function DashboardActions({
   showNotifications?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-3">
+    <section id="account" className="scroll-mt-6 flex flex-col gap-3">
+      <h2 className="text-lg font-semibold text-brand-green">Account</h2>
       {showNotifications ? <ClientNotificationsBell /> : null}
       <PushNotificationsToggle />
       <div className="flex flex-wrap items-center gap-3">
         {allowPasskey ? <RegisterPasskeyButton /> : null}
         <SignOutButton />
       </div>
-    </div>
+    </section>
   );
 }

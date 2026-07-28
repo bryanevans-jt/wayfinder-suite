@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { buildClientActivityFkIds } from "@wayfinder/supabase";
 import { USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
+import { isArchivedClient } from "@wayfinder/supabase/client-archive";
 
 export type CounselorPortalClient = {
   /** Route + display key (clients.id or legacy profile_id). */
@@ -129,7 +130,7 @@ export async function fetchCounselorAssignedClients(
   const clients = rawRows
     .map((row) => normalizeClient(row))
     .filter(Boolean)
-    .filter((c) => includeArchived || c!.archived_at == null) as CounselorPortalClient[];
+    .filter((c) => includeArchived || !isArchivedClient(c!.archived_at)) as CounselorPortalClient[];
 
   let devHint: string | null = null;
   if (process.env.NODE_ENV === "development" && clients.length === 0) {
@@ -189,7 +190,9 @@ export async function fetchCounselorClientForActivity(
   client: CounselorPortalClient | null;
   error: string | null;
 }> {
-  const { clients, error } = await fetchCounselorAssignedClients(counselorId, authUserId);
+  const { clients, error } = await fetchCounselorAssignedClients(counselorId, authUserId, {
+    includeArchived: true,
+  });
   if (error) {
     return { client: null, error };
   }

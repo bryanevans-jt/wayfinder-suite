@@ -37,7 +37,7 @@ export default function ClientQuickStartPage() {
         <h2 className="pt-4 text-lg font-semibold text-brand-black">Your dashboard</h2>
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            <strong>Success path</strong> — your program milestones
+            <strong>Your path</strong> — your program milestones
           </li>
           <li>
             <strong>Messages</strong> — contact your Employment Specialist

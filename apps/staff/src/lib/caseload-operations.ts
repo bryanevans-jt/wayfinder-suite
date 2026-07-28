@@ -71,7 +71,7 @@ export async function loadCaseloadTriageFlags(
 
   const meetingPending = new Set<string>();
   for (const row of meetingsRes.data ?? []) {
-    if ((row.status as string) === "pending_client") {
+    if ((row.status as string) === "pending") {
       meetingPending.add(row.client_id as string);
     }
   }

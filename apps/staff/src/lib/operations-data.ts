@@ -258,3 +258,31 @@ export async function loadEsCapacityRows(
 
   return rows.sort((a, b) => b.caseloadCount - a.caseloadCount);
 }
+
+export type SupervisorWeekPack = {
+  messageSla: number;
+  thinContacts: number;
+  reportGaps: number;
+  timesheetsPending: number;
+};
+
+/** Compact counts for supervisor portal home (“This week”). */
+export async function loadSupervisorWeekPack(
+  userId: string,
+  role: string
+): Promise<SupervisorWeekPack> {
+  const coachingRole = role === "supervisor" ? "supervisor" : role;
+  const [coaching, compliance] = await Promise.all([
+    coachingRole === "supervisor"
+      ? loadCoachingQueue(userId)
+      : Promise.resolve({ sla: [] as CoachingSlaRow[], thinLogs: [] as CoachingThinLogRow[] }),
+    loadComplianceCalendar(role, userId),
+  ]);
+
+  return {
+    messageSla: coaching.sla.length,
+    thinContacts: coaching.thinLogs.length,
+    reportGaps: compliance.reports.length,
+    timesheetsPending: compliance.timesheets.length,
+  };
+}
