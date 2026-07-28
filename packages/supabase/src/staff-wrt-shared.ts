@@ -58,7 +58,7 @@ export type WrtLessonWithBlocks = WrtLessonRow & { blocks: WrtLessonBlockRow[] }
 
 export type WrtModuleWithLessons = WrtModuleRow & { lessons: WrtLessonWithBlocks[] };
 
-/** Admin-only curriculum preview (same pattern as early PTO). */
+/** Admin-only curriculum + facilitation preview (same pattern as early PTO). */
 export function isWrtCurriculumPreviewUnlocked(role: string | null | undefined): boolean {
   return isAdminTierRole(role);
 }
@@ -66,6 +66,45 @@ export function isWrtCurriculumPreviewUnlocked(role: string | null | undefined):
 export function canManageWrtCurriculum(role: string | null | undefined): boolean {
   return isWrtCurriculumPreviewUnlocked(role);
 }
+
+/** ES/TS facilitation UI is built, but preview access stays admin-tier only for now. */
+export function canUseWrtFacilitationPreview(role: string | null | undefined): boolean {
+  return isWrtCurriculumPreviewUnlocked(role);
+}
+
+export const WRT_DELIVERY_MODES = ["in_person", "virtual"] as const;
+export type WrtDeliveryMode = (typeof WRT_DELIVERY_MODES)[number];
+
+export const WRT_ENROLLMENT_STATUSES = ["active", "ended"] as const;
+export type WrtEnrollmentStatus = (typeof WRT_ENROLLMENT_STATUSES)[number];
+
+export type WrtEnrollmentRow = {
+  id: string;
+  client_id: string;
+  delivery_mode: WrtDeliveryMode;
+  requested_hours: number;
+  status: WrtEnrollmentStatus;
+  enrolled_by: string | null;
+  created_at: string;
+  updated_at: string;
+  ended_at: string | null;
+};
+
+export type WrtSessionRow = {
+  id: string;
+  lesson_id: string | null;
+  scheduled_start: string;
+  scheduled_end: string | null;
+  delivery_mode: WrtDeliveryMode;
+  zoom_url: string | null;
+  status: "scheduled" | "completed" | "cancelled";
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export const WRT_ACTIVITY_CODE = "JT-ACT-070";
 
 export function isValidWrtBlockType(value: string): value is WrtBlockType {
   return (WRT_BLOCK_TYPES as readonly string[]).includes(value);

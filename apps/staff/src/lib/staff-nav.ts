@@ -194,7 +194,16 @@ export function staffNavSectionsForRole(
         },
         {
           label: "Tools",
-          items: [timeClockNav, reportingNav, communityPartnersNav],
+          items: [
+            timeClockNav,
+            {
+              href: "/dashboard/wrt",
+              label: "WRT Preview",
+              match: (p) => p.startsWith("/dashboard/wrt"),
+            },
+            reportingNav,
+            communityPartnersNav,
+          ],
         },
       ],
       staffRole
@@ -220,7 +229,16 @@ export function staffNavSectionsForRole(
         },
         {
           label: "Tools",
-          items: [timeClockNav, reportingNav, communityPartnersNav],
+          items: [
+            timeClockNav,
+            {
+              href: "/dashboard/wrt",
+              label: "WRT Preview",
+              match: (p) => p.startsWith("/dashboard/wrt"),
+            },
+            reportingNav,
+            communityPartnersNav,
+          ],
         },
       ],
       staffRole
