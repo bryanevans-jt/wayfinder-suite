@@ -254,12 +254,12 @@ async function notifyHospitalitySpecialistsOfHire(
 
   const esIds = (esLinks ?? []).map((l) => l.es_user_id as string);
   const { data: esProfiles } = esIds.length
-    ? await admin.from("profiles").select("id, full_name, email").in("id", esIds)
-    : { data: [] as { id: string; full_name: string | null; email?: string | null }[] };
+    ? await admin.from("profiles").select("id, full_name").in("id", esIds)
+    : { data: [] as { id: string; full_name: string | null }[] };
 
   const esNames =
     (esProfiles ?? [])
-      .map((p) => (p.full_name as string | null)?.trim() || (p.email as string | null) || null)
+      .map((p) => (p.full_name as string | null)?.trim() || null)
       .filter(Boolean)
       .join(", ") || "—";
 

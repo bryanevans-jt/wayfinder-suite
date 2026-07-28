@@ -103,14 +103,12 @@ export async function GET(request: Request) {
 
     const { data: esProfile } = await admin
       .from("profiles")
-      .select("full_name, email")
+      .select("full_name")
       .eq("id", esUserId)
       .maybeSingle();
 
     const esName =
-      (esProfile?.full_name as string | null)?.trim() ||
-      (esProfile?.email as string | null) ||
-      "Employment Specialist";
+      (esProfile?.full_name as string | null)?.trim() || "Employment Specialist";
 
     let approvedByName: string | null = null;
     const { data: weekRow } = await admin
@@ -123,13 +121,10 @@ export async function GET(request: Request) {
     if (approvedBy) {
       const { data: approver } = await admin
         .from("profiles")
-        .select("full_name, email")
+        .select("full_name")
         .eq("id", approvedBy)
         .maybeSingle();
-      approvedByName =
-        (approver?.full_name as string | null)?.trim() ||
-        (approver?.email as string | null) ||
-        null;
+      approvedByName = (approver?.full_name as string | null)?.trim() || null;
     }
 
     const shared = {

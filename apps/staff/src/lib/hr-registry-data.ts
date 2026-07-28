@@ -53,7 +53,7 @@ export async function loadHrRegistry(
     { data: milestones },
   ] = await Promise.all([
     admin.from("offices").select("id, name, state").order("name"),
-    admin.from("profiles").select("id, full_name, email, is_active").eq("role", "es"),
+    admin.from("profiles").select("id, full_name, is_active").eq("role", "es"),
     admin
       .from("clients")
       .select(
@@ -99,15 +99,13 @@ export async function loadHrRegistry(
 
   const { data: nameProfiles } = await admin
     .from("profiles")
-    .select("id, full_name, email")
+    .select("id, full_name")
     .in("id", [...new Set([...authIds, ...staffIds])].slice(0, 2000));
 
   const nameById = new Map(
     (nameProfiles ?? []).map((p) => [
       p.id as string,
-      (p.full_name as string | null)?.trim() ||
-        (p.email as string | null)?.trim() ||
-        "User",
+      (p.full_name as string | null)?.trim() || "User",
     ])
   );
 
@@ -173,10 +171,7 @@ export async function loadHrRegistry(
   const esUsers = (esProfiles ?? [])
     .map((p) => ({
       id: p.id as string,
-      name:
-        (p.full_name as string | null)?.trim() ||
-        (p.email as string | null)?.trim() ||
-        "Employment Specialist",
+      name: (p.full_name as string | null)?.trim() || "Employment Specialist",
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 

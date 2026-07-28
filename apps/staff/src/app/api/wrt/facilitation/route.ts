@@ -10,7 +10,23 @@ export async function GET(request: NextRequest) {
   const route = "api/wrt/facilitation";
   try {
     const { admin } = await requireWrtCurriculumSession(false);
-    await seedWrtCurriculumIfEmpty(admin);
+
+    try {
+      await seedWrtCurriculumIfEmpty(admin);
+    } catch (seedErr) {
+      const msg = seedErr instanceof Error ? seedErr.message : String(seedErr);
+      if (/relation .* does not exist|Could not find the table/i.test(msg)) {
+        return wrtOk(
+          {
+            error:
+              "WRT database tables are not set up yet. Run the WRT curriculum and facilitation migrations in Supabase, then refresh.",
+            clients: [],
+          },
+          { status: 503 }
+        );
+      }
+      throw seedErr;
+    }
 
     const clientId = request.nextUrl.searchParams.get("clientId")?.trim();
     const q = request.nextUrl.searchParams.get("q");

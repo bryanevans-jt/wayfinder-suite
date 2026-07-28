@@ -138,7 +138,8 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
 
   const stageTitle = new Map((stageRows ?? []).map((m) => [m.id, m.title]));
 
-  const { data: messageThreads } = await supabase
+  const messageLookup = admin ?? supabase;
+  const { data: messageThreads } = await messageLookup
     .from("client_message_threads")
     .select("client_id, last_client_message_at, last_es_message_at")
     .eq("current_es_user_id", effectiveUserId);

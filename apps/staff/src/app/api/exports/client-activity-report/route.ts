@@ -59,13 +59,12 @@ export async function GET(request: Request) {
     if (format === "text") {
       const { data: profile } = await admin
         .from("profiles")
-        .select("full_name, email")
+        .select("full_name")
         .eq("id", auth.user.id)
         .maybeSingle();
 
       const esName =
         (profile?.full_name as string | null)?.trim() ||
-        (profile?.email as string | null) ||
         (auth.role === "supervisor" ? "Supervisor" : "Employment Specialist");
 
       const { data: clientRow } = await admin

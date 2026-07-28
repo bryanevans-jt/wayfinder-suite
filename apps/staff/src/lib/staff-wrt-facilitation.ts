@@ -122,7 +122,7 @@ export async function loadClientFacilitationSnapshot(
   clientName: string;
 }> {
   const [{ data: client }, enrollment, curriculum] = await Promise.all([
-    admin.from("clients").select("id, full_name, preferred_name").eq("id", clientId).maybeSingle(),
+    admin.from("clients").select("id, full_name, contact_email").eq("id", clientId).maybeSingle(),
     loadActiveEnrollmentForClient(admin, clientId),
     loadWrtCurriculumTree(admin),
   ]);
@@ -132,8 +132,8 @@ export async function loadClientFacilitationSnapshot(
   }
 
   const clientName =
-    (client.preferred_name as string | null)?.trim() ||
     (client.full_name as string | null)?.trim() ||
+    (client.contact_email as string | null)?.trim() ||
     "Client";
 
   if (!enrollment) {
@@ -493,19 +493,20 @@ export async function searchClientsForWrt(
   const q = query.trim();
   let builder = admin
     .from("clients")
-    .select("id, full_name, preferred_name")
+    .select("id, full_name, contact_email")
+    .is("archived_at", null)
     .order("full_name", { ascending: true })
     .limit(25);
   if (q) {
-    builder = builder.or(`full_name.ilike.%${q}%,preferred_name.ilike.%${q}%`);
+    builder = builder.or(`full_name.ilike.%${q}%,contact_email.ilike.%${q}%`);
   }
   const { data, error } = await builder;
   if (error) throw new Error(error.message);
   return (data ?? []).map((c) => ({
     id: String(c.id),
     name:
-      (c.preferred_name as string | null)?.trim() ||
       (c.full_name as string | null)?.trim() ||
+      (c.contact_email as string | null)?.trim() ||
       "Client",
   }));
 }

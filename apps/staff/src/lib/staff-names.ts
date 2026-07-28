@@ -26,9 +26,7 @@ export async function loadStaffNameById(
   let profileRows: StaffProfileNameRow[] = [];
   {
     const selectShapes = [
-      "id, full_name, first_name, last_name, email",
       "id, full_name, first_name, last_name",
-      "id, full_name, email",
       "id, full_name",
     ] as const;
     for (const cols of selectShapes) {

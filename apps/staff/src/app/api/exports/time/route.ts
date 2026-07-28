@@ -66,14 +66,11 @@ export async function GET(request: Request) {
     }
     const { data: profile } = await admin
       .from("profiles")
-      .select("full_name, email")
+      .select("full_name")
       .eq("id", esUserId)
       .maybeSingle();
 
-    const esName =
-      (profile?.full_name as string | null)?.trim() ||
-      (profile?.email as string | null) ||
-      "ES";
+    const esName = (profile?.full_name as string | null)?.trim() || "ES";
 
     const csv = esTimeEntriesToCsv(entries, esName, weekStart);
 
