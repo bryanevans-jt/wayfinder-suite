@@ -185,7 +185,7 @@ export function ExportsWorkspace({ role, readOnly = false }: Props) {
           <li>
             Need official PDF submissions? Use{" "}
             <a href="/dashboard/reporting" className="font-medium text-brand-green hover:underline">
-              Reporting
+              Submit Reports
             </a>
             , not this page.
           </li>

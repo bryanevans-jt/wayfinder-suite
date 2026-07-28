@@ -189,7 +189,7 @@ export function AnalyticsWorkspace({
         ) : (
           <p className="mt-4 text-xs text-brand-black/55">
             HR views are aggregated. Client-named fact exports are not available — use Timesheet /
-            Data exports for hours worked and billable-by-client files.
+            Download Exports for hours worked and billable-by-client files.
           </p>
         )}
       </section>

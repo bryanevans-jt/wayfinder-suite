@@ -31,7 +31,7 @@ export function ComplianceCalendarWorkspace({ reports, timesheets }: Props) {
                   </p>
                 </div>
                 <Link href="/dashboard/reporting" className="text-brand-green hover:underline">
-                  Reporting →
+                  Submit Reports →
                 </Link>
               </li>
             ))}

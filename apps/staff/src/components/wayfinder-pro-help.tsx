@@ -7,6 +7,7 @@ import {
   isHrRole,
   isSuperAdminRole,
   isSupervisorRole,
+  isWrtAdminRole,
 } from "@wayfinder/supabase/roles";
 
 type Section = {
@@ -21,35 +22,43 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Sidebar Layout",
         body:
-          "The sidebar groups your work: Portal for configuration, Oversight for team health, Tools for reporting and partners. Notifications appear at the top when you have unread alerts.",
+          "The sidebar groups your work: Portal for configuration, Oversight for team health, and Tools for time, WRT preview, reports, and partners.",
         steps: [
-          "Portal → Super admin portal (and Audit when not previewing).",
-          "Oversight → Team operations, Compliance, Analytics.",
-          "Tools → Reporting (Joshua Tree Reports), Community Partners.",
+          "Portal → Super Admin Portal (and Audit when you are not role-previewing).",
+          "Oversight → Team Operations, Compliance, Explore Analytics.",
+          "Tools → Time Clock, WRT Preview, Submit Reports, Community Partners.",
           "Help → this guide.",
         ],
       },
       {
         title: "Super Admin Portal",
         body:
-          "The portal is your control center for organization setup, team member roles, integrations, and system health.",
+          "Clients is the home tab. Team, Offices, Reports, and Settings cover organization control. Setup panels live under Settings — not as extras at the bottom of the page.",
         steps: [
-          "Portal → Organization for offices, services, and branding.",
-          "Portal → Team for roles, assignments, and invitations.",
-          "Portal → Settings → Error log for WF reference codes and stack traces.",
-          "Portal → Settings → Payroll for pay-period configuration used by accountant exports.",
-          "Portal → Settings → PTO (on Super Admin / Admin pages) or HR Dashboard for annual PTO days and period start.",
-          "Portal → Reports → Activity logs for org-wide audit CSV exports (not the same as sidebar Data exports).",
+          "Clients → search, add, import, and manage the roster (including View Archived).",
+          "Team → Employment Specialists and Supervisors.",
+          "Offices → Directory and Counselors; you can hide/show offices.",
+          "Reports → Audit Activity (org audit CSV) and Message Audit.",
+          "Settings → Administrators, Advanced Connections, PTO Settings, WRT Curriculum, Payroll Settings, Demo Training, Error Log.",
         ],
       },
       {
-        title: "Reporting vs Exports vs Analytics",
+        title: "Submit Reports vs Download Exports vs Explore Analytics",
         body: "Three different tools — use the one that matches the task.",
         steps: [
-          "Reporting (sidebar): Joshua Tree Reports — official PDF submissions to Google Drive.",
-          "Analytics (sidebar): live charts including outcome benchmarking for leadership.",
-          "Portal activity logs: administrative audit trails, not client monthly reports.",
-          "Time Clock (Tools): staff hours worked for payroll/accountability — separate from billable timesheets. Admins can edit any clock entry; every edit is logged.",
+          "Submit Reports: Joshua Tree Reports — official PDF submissions to Google Drive.",
+          "Explore Analytics: live charts and outcome benchmarking for leadership.",
+          "Reports → Audit Activity: administrative audit trails (not client monthly reports).",
+          "Time Clock: staff hours worked for payroll/accountability — separate from billable timesheets. You can edit any clock entry; every edit is logged.",
+        ],
+      },
+      {
+        title: "WRT Preview",
+        body:
+          "Workplace Readiness Training curriculum and facilitation are admin-tier preview tools for now. The WRT Admin role can sign in, but WRT tools stay under Admin / Super Admin until rollout.",
+        steps: [
+          "Settings → WRT Curriculum to review modules and lessons.",
+          "Tools → WRT Preview (or the link under WRT Curriculum) for facilitation and presentation mode.",
         ],
       },
       {
@@ -60,7 +69,16 @@ function sectionsForRole(role: string | null): Section[] {
           "Open Time Clock → PTO Requests to submit your own leave and review the org queue.",
           "Approve or deny pending requests; include an explanation when denying.",
           "Amend dates or days charged with a required note; void approved leave when it should not count against the bank.",
-          "Set annual PTO days and period start (usually January 1) under Super Admin / Admin portal or HR Dashboard. Leave annual days blank for unlimited.",
+          "Settings → PTO Settings for annual PTO days and period start (usually January 1). Leave annual days blank for unlimited.",
+        ],
+      },
+      {
+        title: "Closed, Dismissed, and Restore",
+        body:
+          "Closing or dismissing a client leaves the ES active caseload immediately and archives after 24 hours. You can restore from Audit Activity or when View Archived is on.",
+        steps: [
+          "Reports → Audit Activity → Restore Client on Closed/Dismissed stage events.",
+          "Clients → View Archived to find archived people, then restore from the client stage or activity restore actions.",
         ],
       },
     ];
@@ -71,11 +89,22 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Sidebar Layout",
         body:
-          "Daily configuration lives in the Admin portal. Oversight pages show team capacity, compliance gaps, and analytics. Notifications alert you to message SLA issues and employment milestones.",
+          "Daily configuration lives in the Admin Portal. Oversight pages show team capacity, compliance gaps, and analytics. Notifications alert you to message SLA issues and employment milestones.",
         steps: [
-          "Portal → Admin portal for offices, services, and team members.",
-          "Oversight → Team operations, Compliance, Analytics.",
-          "Tools → Time Clock, Reporting, Community Partners.",
+          "Portal → Admin Portal for clients, offices, services, and team members.",
+          "Oversight → Team Operations, Compliance, Explore Analytics.",
+          "Tools → Time Clock, WRT Preview, Submit Reports, Community Partners.",
+        ],
+      },
+      {
+        title: "Admin Portal Settings",
+        body:
+          "PTO and WRT curriculum live under Portal → Settings (not bolted under the Clients list).",
+        steps: [
+          "Settings → PTO Settings for period start and annual PTO days.",
+          "Settings → WRT Curriculum (and Open WRT Facilitation Preview) for the admin-only WRT tools.",
+          "Settings → Administrators and Advanced Connections for org access.",
+          "Reports → Audit Activity for contact/stage audits; restore Closed/Dismissed clients from stage events when needed.",
         ],
       },
       {
@@ -94,16 +123,17 @@ function sectionsForRole(role: string | null): Section[] {
         steps: [
           "Time Clock → PTO Requests to submit, review, approve, deny, or amend leave.",
           "Please ask for 14 days’ notice when possible; sick and emergency may be sooner — you make the final call.",
-          "Admin portal → PTO Settings for period start date and annual PTO days (blank = unlimited).",
+          "Portal → Settings → PTO Settings for period start date and annual PTO days (blank = unlimited).",
         ],
       },
       {
         title: "Team Operations and Compliance",
         body: "Use these when supervising program delivery — you see organization-wide slices as an admin.",
         steps: [
-          "Team operations: ES caseload capacity and billable-hour trends.",
+          "Team Operations: ES caseload capacity and billable-hour trends.",
           "Compliance: SE Monthly report gaps and timesheets awaiting approval.",
-          "Analytics: organization-wide progress and outcome benchmarking.",
+          "Explore Analytics: organization-wide progress and outcome benchmarking.",
+          "Submit Reports: open Joshua Tree Reports for official PDFs.",
         ],
       },
     ];
@@ -116,9 +146,19 @@ function sectionsForRole(role: string | null): Section[] {
         body:
           "Daily work is at the top (portal, messages, time clock, timesheet). Oversight covers your team’s coaching queue and compliance. Check Notifications for SLA alerts and client milestones.",
         steps: [
-          "Daily work → Supervisor portal, Messages, Time Clock, Timesheet.",
-          "Oversight → Team operations, Compliance, Reporting, Analytics.",
-          "Tools → Data exports, Community Partners.",
+          "Daily Work → Supervisor Portal, Messages, Time Clock, Weekly Timesheet.",
+          "Oversight → Team Operations, Compliance, Submit Reports, Explore Analytics.",
+          "Tools → Download Exports, Community Partners.",
+        ],
+      },
+      {
+        title: "This Week (Supervisor Portal)",
+        body:
+          "On Supervisor Portal → Clients, This Week shows open coaching and compliance counts so you can triage before browsing the roster.",
+        steps: [
+          "Message SLA overdue and thin contact logs open Team Operations.",
+          "Report gaps open Compliance; timesheets to review open Weekly Timesheet.",
+          "Use View Archived on Clients when you need Closed/Dismissed people; restore from Reports → Audit Activity when View Archived is on, or ask an admin.",
         ],
       },
       {
@@ -148,13 +188,14 @@ function sectionsForRole(role: string | null): Section[] {
       },
       {
         title: "Supervisor Portal and Coaching",
-        body: "Your portal shows team overview. Team operations adds a coaching queue for overdue message replies and thin contact logs.",
+        body:
+          "Your portal shows team overview. Team Operations adds a coaching queue for overdue message replies and thin contact logs.",
         steps: [
-          "Supervisor portal: see your Employment Specialists and high-level caseload signals.",
-          "Team operations: capacity view plus coaching queue (SLA overdue and fewer than four contacts per month).",
-          "Messages: read-only view of client threads.",
+          "Supervisor Portal: see your Employment Specialists and high-level caseload signals.",
+          "Team Operations: capacity view plus coaching queue (SLA overdue and fewer than four contacts per month).",
+          "Messages: intervene on client threads in your scope.",
           "Compliance: your team’s SE Monthly gaps and pending timesheet approvals.",
-          "Reporting: open Joshua Tree Reports to submit or review official monthly reports.",
+          "Submit Reports: open Joshua Tree Reports to submit or review official monthly reports.",
         ],
       },
     ];
@@ -165,10 +206,22 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Sidebar Layout",
         body:
-          "Clients is your home base. The sidebar groups daily work (clients, messages, time clock, timesheet, reporting) and resources (partners, analytics, exports). Notifications surface message SLA and employment celebrations.",
+          "Clients is your home base. The sidebar groups daily work (clients, messages, time clock, timesheet, reports) and resources (partners, analytics, exports). Notifications surface message SLA and employment celebrations.",
         steps: [
-          "Daily work → Clients, Messages, Time Clock, Timesheet, Reporting.",
-          "Resources → Community Partners, Analytics, Data exports.",
+          "Daily Work → Clients, Messages, Time Clock, My Time (Timesheet), Submit Reports.",
+          "Resources → Community Partners, Explore Analytics, Download Exports.",
+        ],
+      },
+      {
+        title: "Clients: Today, Pipeline, and Caseload",
+        body:
+          "The Clients page opens with a Today strip for urgent work, then the application pipeline, then your caseload table (people who need follow-up sort to the top).",
+        steps: [
+          "Today: needs reply, upcoming meetings, stale applications, and no-contact flags — tap a chip to jump.",
+          "Application pipeline: click a card to move status (including Offer).",
+          "Open a client row for profile, contacts, applications, and stage.",
+          "Closed or Dismissed: confirm first — they leave your active list immediately and archive after 24 hours. Use View Archived to find them; Restore brings them back to an active stage.",
+          "Correct your own contact logs within 24 hours from the Activity Timeline (Correct). After that, ask a super admin.",
         ],
       },
       {
@@ -190,23 +243,23 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Working with Your Clients",
         body:
-          "The Clients page sorts people who need follow-up to the top and shows attention badges. The application pipeline lets you click a card to change its status (including Offer).",
+          "Log contacts and applications carefully — counselors see your contact notes. Billable time on a contact is not the same as Time Clock hours worked.",
         steps: [
-          "Log every contact and job application on the client profile — counselors see your contact notes.",
+          "Log every contact and job application on the client profile.",
           "When logging service time, enter duration plus a start time, end time, or both. If start and end disagree with duration, clock times win.",
-          "You may log the same clock time on more than one client when the work applies to each (for example multi-client job canvass). Billable hours are summed per client; that is not the same as Time Clock hours worked.",
+          "You may log the same clock time on more than one client when the work applies to each (for example multi-client job canvass).",
           "Use suggested chips when logging contacts to speed up common entries.",
           "Use Messages to reply to clients. Aim to respond within 48 business hours.",
           "Set job start date on the profile when a client is hired — this triggers milestone notifications for the team and counselors.",
-          "Reporting in the sidebar opens Joshua Tree Reports with the client name filled in.",
+          "Submit Reports opens Joshua Tree Reports with the client name filled in when you start from a client workflow.",
         ],
       },
       {
         title: "Timesheet: Billable vs Time Clock",
         body:
-          "Weekly Timesheet is for client billable service activities (state billing). Time Clock is for when you yourself were working. Do not confuse the two.",
+          "My Time (Timesheet) is for client billable service activities (state billing). Time Clock is for when you yourself were working. Do not confuse the two.",
         steps: [
-          "Open Weekly Timesheet to review billable entries, download CSV, and submit for approval.",
+          "Open My Time (Timesheet) to review billable entries, download CSV, and submit for approval.",
           "Open Time Clock for your daily hours worked totals.",
           "Soft caseload guidance is about 20 active clients — supervisors/HR may allow more when needed.",
         ],
@@ -229,11 +282,10 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Sidebar Layout",
         body:
-          "Accounts Specialist tools focus on timesheets and payment/billing exports. Community Partners is shared reference data.",
+          "Accounts Specialist tools focus on timesheets, Time Clock, and payment/billing exports. Community Partners is shared reference data.",
         steps: [
-          "Weekly Timesheet → review weeks and Data exports.",
+          "Accounts → Weekly Timesheet, Time Clock, Download Exports.",
           "Reference → Community Partners.",
-          "Tools → Time Clock for hours worked and PTO visibility.",
         ],
       },
       {
@@ -241,9 +293,9 @@ function sectionsForRole(role: string | null): Section[] {
         body:
           "Hours worked (payroll) come from staff Time Clock shifts. Billable by client is for state billing and may differ from hours worked.",
         steps: [
-          "Data exports → Payroll — hours worked from Time Clock for the pay period.",
-          "Data exports → Billable hours by client for state billing files.",
-          "Pay-period settings are configured by super admin under Portal → Settings → Payroll.",
+          "Download Exports → Payroll — hours worked from Time Clock for the pay period.",
+          "Download Exports → Billable hours by client for state billing files.",
+          "Pay-period settings are configured by super admin under Portal → Settings → Payroll Settings.",
         ],
       },
       {
@@ -263,12 +315,13 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "HR Workspace",
         body:
-          "HR focuses on people and performance: timesheets, aggregated analytics, and exports for hours worked and billable oversight. Client-named analytics dumps are not available.",
+          "HR focuses on people and performance: timesheets, Time Clock / PTO approvals, aggregated analytics, and exports for hours worked and billable oversight. Client-named analytics dumps are not available.",
         steps: [
           "HR Dashboard for people tools.",
           "Weekly Timesheet to view any ES week.",
-          "Analytics for org-wide performance (hires, contacts/week, billable vs worked, time to hire by office/ES/supervisor/counselor).",
-          "Data exports → hours worked (payroll from Time Clock) and billable-by-client CSVs.",
+          "Time Clock for hours worked and the org PTO approval queue.",
+          "Explore Analytics for org-wide performance (hires, contacts/week, billable vs worked, time to hire by office/ES/supervisor/counselor).",
+          "Download Exports → hours worked (payroll from Time Clock) and billable-by-client CSVs.",
         ],
       },
       {
@@ -295,11 +348,28 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Hospitality Workspace",
         body:
-          "Use Time Clock for hours worked and PTO Requests for your own leave. You do not see other team members’ PTO.",
+          "Your sidebar includes the Hospitality Dashboard, Community Partners, and Time Clock. Use Time Clock for hours worked and your own PTO.",
         steps: [
-          "Time Clock → clock in/out for your workday (America/New_York).",
-          "Time Clock → PTO Requests to submit leave and track approval status.",
+          "Hospitality Dashboard → client logs, community network, and connections for hospitality work.",
+          "Community Partners → shared employer / partner reference.",
+          "Time Clock → clock in/out (America/New_York) and PTO Requests for your own leave.",
           "Please request at least 14 days in advance when possible; sick and emergency may be sooner.",
+        ],
+      },
+    ];
+  }
+
+  if (isWrtAdminRole(role)) {
+    return [
+      {
+        title: "WRT Admin",
+        body:
+          "Your account is set up for Workplace Readiness Training administration. Curriculum and facilitation previews stay under Admin / Super Admin until WRT is rolled out more broadly.",
+        steps: [
+          "My Profile → keep your name and contact details current.",
+          "Time Clock → hours worked and your own PTO.",
+          "Community Partners → reference directory.",
+          "Ask an Admin or Super Admin to open WRT Curriculum / WRT Preview when you need to review content.",
         ],
       },
     ];
@@ -310,11 +380,12 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "My Clients and Notifications",
         body:
-          "You can see activity for clients assigned to you. You cannot edit their records or send messages through Wayfinder Pro.",
+          "You can see activity for clients assigned to you. You cannot edit their records or send messages through Wayfinder Pro. Archived (Closed/Dismissed after 24 hours) clients stay hidden unless you turn on View Archived.",
         steps: [
-          "Open My clients to see recent updates — contacts, applications, and milestones.",
+          "Open My Clients to see recent updates — contacts, applications, and milestones.",
+          "Use View Archived when you need Closed or Dismissed clients.",
           "Notifications (top of the sidebar): weekly activity summaries and employment celebrations (hire, 30/60/90 days). Tap an alert to open that client’s timeline.",
-          "On mobile, open Menu to reach Notifications and My clients.",
+          "On mobile, open Menu to reach Notifications and My Clients.",
           "If something looks wrong, contact the client’s Employment Specialist or your program supervisor.",
         ],
       },
@@ -323,7 +394,7 @@ function sectionsForRole(role: string | null): Section[] {
         body:
           "A one-page summary on the counselor portal. Sign in with your agency work email and the magic link on the login page.",
         steps: [
-          "My clients → Quick start guide (top of the page).",
+          "My Clients → Quick Start Guide (top of the page).",
           "Or bookmark: wayfinder-pro.thejoshuatree.org/dashboard/counselor/quick-start (sign in required).",
         ],
       },

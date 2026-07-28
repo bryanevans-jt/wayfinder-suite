@@ -9,7 +9,7 @@ type Props = {
   /** Which page is hosting the guide — highlights that row. */
   context: "reporting" | "exports";
   showReportingLink?: boolean;
-  /** Primary CTA when on the Reporting page — shown inside the Reporting card. */
+  /** Primary CTA when on the Submit Reports page — shown inside the Submit Reports card. */
   reportingAction?: ReportingAction;
 };
 
@@ -23,7 +23,7 @@ export function ReportingVsExportsGuide({
   return (
     <section className="rounded-xl border border-neutral-200 bg-neutral-50 p-5">
       <h2 className="text-base font-semibold text-brand-black">
-        {isReportingPage ? "What This Page Is For" : "Reporting vs Data in Wayfinder Pro"}
+        {isReportingPage ? "What This Page Is For" : "Submit Reports vs Download Exports"}
       </h2>
       <p className="mt-2 text-sm text-brand-black/75">
         {isReportingPage
@@ -38,7 +38,7 @@ export function ReportingVsExportsGuide({
               : "border-neutral-200 bg-white"
           }`}
         >
-          <dt className="font-semibold text-brand-black">Reporting</dt>
+          <dt className="font-semibold text-brand-black">Submit Reports</dt>
           <dd className="mt-1 text-brand-black/80">
             <strong>Joshua Tree Reports</strong> — official progress notes and monthly submissions
             (SE Monthly, VPR, JTSG VMR, EVF, time sheets). Each submission creates a PDF, saves it
@@ -67,7 +67,7 @@ export function ReportingVsExportsGuide({
                 href="/dashboard/reporting"
                 className="text-sm font-medium text-brand-green hover:underline"
               >
-                Go to Reporting →
+                Go to Submit Reports →
               </Link>
             </dd>
           ) : null}
@@ -79,7 +79,7 @@ export function ReportingVsExportsGuide({
               : "border-neutral-200 bg-white"
           }`}
         >
-          <dt className="font-semibold text-brand-black">Data Exports</dt>
+          <dt className="font-semibold text-brand-black">Download Exports</dt>
           <dd className="mt-1 text-brand-black/80">
             <strong>Wayfinder Pro</strong> — download spreadsheet files (CSV) of caseload,
             applications, activity, and timesheets when you need numbers in Excel or for meetings.
@@ -91,13 +91,13 @@ export function ReportingVsExportsGuide({
                 href="/dashboard/exports"
                 className="text-sm font-medium text-brand-green hover:underline"
               >
-                Go to Data Exports →
+                Go to Download Exports →
               </Link>
             </dd>
           ) : null}
         </div>
         <div className="rounded-lg border border-neutral-200 bg-white p-4">
-          <dt className="font-semibold text-brand-black">Analytics</dt>
+          <dt className="font-semibold text-brand-black">Explore Analytics</dt>
           <dd className="mt-1 text-brand-black/80">
             <strong>Wayfinder Pro</strong> — charts and organization-wide numbers for leadership and
             grant reporting. Live views, not spreadsheet downloads or PDF submissions.
@@ -107,7 +107,7 @@ export function ReportingVsExportsGuide({
               href="/dashboard/analytics"
               className="text-sm font-medium text-brand-green hover:underline"
             >
-              Go to Analytics →
+              Go to Explore Analytics →
             </Link>
           </dd>
         </div>

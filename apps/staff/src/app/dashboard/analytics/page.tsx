@@ -24,7 +24,7 @@ export default async function AnalyticsPage() {
 
   return (
     <main className="px-6 py-10">
-      <h1 className="text-2xl font-semibold text-brand-black">Analytics</h1>
+      <h1 className="text-2xl font-semibold text-brand-black">Explore Analytics</h1>
       <p className="mt-2 max-w-3xl text-sm text-brand-black/75">
         Key employment outcomes from your Wayfinder data — hire rates, time to hire, contacts,
         billable vs worked hours, and application activity. Numbers use the same definitions every

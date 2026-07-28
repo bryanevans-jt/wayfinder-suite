@@ -50,17 +50,17 @@ const OFFICES_LABELS: Record<PortalOfficesSubNav, string> = {
 };
 
 const REPORTS_LABELS: Record<PortalReportsSubNav, string> = {
-  activity: "Audit activity",
+  activity: "Audit Activity",
   messages: "Message Audit",
 };
 
 const SETTINGS_LABELS: Record<PortalSettingsSubNav, string> = {
   users: "Administrators",
   advanced: "Advanced Connections",
-  pto: "PTO settings",
-  wrt: "WRT curriculum",
-  payroll: "Payroll settings",
-  demos: "Demo training",
+  pto: "PTO Settings",
+  wrt: "WRT Curriculum",
+  payroll: "Payroll Settings",
+  demos: "Demo Training",
   errors: "Error Log",
 };
 

@@ -17,7 +17,7 @@ export default async function FormalReportingPage() {
 
   return (
     <main className="px-6 py-10">
-      <h1 className="text-2xl font-semibold text-brand-black">Reporting</h1>
+      <h1 className="text-2xl font-semibold text-brand-black">Submit Reports</h1>
       <p className="mt-1 text-sm text-brand-black/60">
         Official GVRA and Tennessee submissions through Joshua Tree Reports.
       </p>

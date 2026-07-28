@@ -20,7 +20,7 @@ export function FormalReportingWorkspace({ readOnly = false, showAdminLink = fal
 
       <ReportingVsExportsGuide
         context="reporting"
-        reportingAction={{ href: reportsUrl, label: "Open Reporting Workspace" }}
+        reportingAction={{ href: reportsUrl, label: "Open Joshua Tree Reports" }}
       />
 
       <section className="rounded-xl border border-neutral-200 bg-white p-5">
@@ -32,7 +32,7 @@ export function FormalReportingWorkspace({ readOnly = false, showAdminLink = fal
             section so the client name is pre-filled.
           </li>
           <li>
-            Or use <strong>Open reporting workspace</strong> above to pick state, report type, and
+            Or use <strong>Open Joshua Tree Reports</strong> above to pick state, report type, and
             client from your caseload.
           </li>
           <li>Review every field, sign, and submit — you receive a confirmation email with the PDF.</li>

@@ -1,6 +1,6 @@
 {
   "name": "wayfinder-client-mobile",
-  "version": "1.0.3",
+  "version": "1.0.5",
   "private": true,
   "description": "Capacitor shell for Wayfinder (client)",
   "scripts": {

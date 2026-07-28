@@ -65,13 +65,13 @@ const timeClockNav: StaffNavItem = {
 
 const reportingNav: StaffNavItem = {
   href: "/dashboard/reporting",
-  label: "Submit reports",
+  label: "Submit Reports",
   match: (p) => p === "/dashboard/reporting",
 };
 
 const dataExportsNav: StaffNavItem = {
   href: "/dashboard/exports",
-  label: "Download exports",
+  label: "Download Exports",
   match: (p) => p === "/dashboard/exports",
 };
 
@@ -84,7 +84,7 @@ const communityPartnersNav: StaffNavItem = {
 
 const analyticsNav: StaffNavItem = {
   href: "/dashboard/analytics",
-  label: "Explore analytics",
+  label: "Explore Analytics",
   match: (p) => p === "/dashboard/analytics",
 };
 
@@ -379,7 +379,7 @@ export function staffNavSectionsForRole(
             timeClockNav,
             {
               href: "/dashboard/timesheet",
-              label: "My time (timesheet)",
+              label: "My Time (Timesheet)",
               match: (p) => p.startsWith("/dashboard/timesheet"),
             },
             reportingNav,
