@@ -8,6 +8,10 @@ import {
   type WrtSessionRow,
   youtubeEmbedUrl,
 } from "@wayfinder/supabase/staff-wrt-shared";
+import {
+  WrtPresentationMode,
+  type PresentationAttendee,
+} from "@/components/wrt-presentation-mode";
 
 type ClientOption = { id: string; name: string };
 
@@ -62,6 +66,8 @@ export function WrtFacilitationWorkspace() {
 
   const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
   const [groupQuery, setGroupQuery] = useState("");
+  const [presenting, setPresenting] = useState(false);
+  const [presentationCompletedIds, setPresentationCompletedIds] = useState<string[]>([]);
 
   const loadClients = useCallback(async (q: string) => {
     const res = await fetch(`/api/wrt/facilitation?q=${encodeURIComponent(q)}`);
@@ -191,20 +197,20 @@ export function WrtFacilitationWorkspace() {
   }
 
   function buildAttendees(): GroupMember[] {
-    if (groupMembers.length > 0) return groupMembers;
     if (!clientId || !snap) return [];
-    return [
-      {
-        clientId,
-        name: snap.clientName,
-        enrollmentId: snap.enrollment?.id ?? null,
-        attendance: "present",
-        durationMinutes: sessionMinutes,
-        startTime,
-        endTime,
-        lessonCompleted: markComplete,
-      },
-    ];
+    const primary: GroupMember = {
+      clientId,
+      name: snap.clientName,
+      enrollmentId: snap.enrollment?.id ?? null,
+      attendance: "present",
+      durationMinutes: sessionMinutes,
+      startTime,
+      endTime,
+      lessonCompleted: markComplete,
+    };
+    if (groupMembers.length === 0) return [primary];
+    const others = groupMembers.filter((m) => m.clientId !== clientId);
+    return [primary, ...others];
   }
 
   async function runSession() {
@@ -276,6 +282,7 @@ export function WrtFacilitationWorkspace() {
   }
 
   function addGroupMember(c: ClientOption) {
+    if (c.id === clientId) return;
     if (groupMembers.some((m) => m.clientId === c.id)) return;
     setGroupMembers((prev) => [
       ...prev,
@@ -292,8 +299,53 @@ export function WrtFacilitationWorkspace() {
     ]);
   }
 
+  const sessionRoster: PresentationAttendee[] = useMemo(() => {
+    if (!clientId || !snap) return [];
+    const primary: PresentationAttendee = {
+      clientId,
+      name: snap.clientName,
+      enrollmentId: snap.enrollment?.id ?? null,
+      attendance: "present",
+    };
+    if (groupMembers.length === 0) return [primary];
+    const others = groupMembers.map((m) => ({
+      clientId: m.clientId,
+      name: m.name,
+      enrollmentId: m.enrollmentId,
+      attendance: m.attendance,
+    }));
+    const withoutPrimary = others.filter((m) => m.clientId !== clientId);
+    return [primary, ...withoutPrimary];
+  }, [clientId, snap, groupMembers]);
+
+  const presentCount = sessionRoster.filter((a) => a.attendance === "present").length;
+
+  function startPresentation() {
+    if (!snap?.enrollment || presentCount === 0) return;
+    setPresentationCompletedIds(snap.completedLessonIds ?? []);
+    setPresenting(true);
+  }
+
   return (
     <section className="mt-10 max-w-5xl rounded-xl border border-amber-200 bg-amber-50/40 p-5">
+      {presenting && snap?.enrollment ? (
+        <WrtPresentationMode
+          curriculum={assignedCurriculum}
+          completedLessonIds={presentationCompletedIds}
+          attendees={sessionRoster}
+          deliveryMode={snap.enrollment.delivery_mode}
+          onExit={() => {
+            setPresenting(false);
+            if (clientId) void loadSnapshot(clientId);
+          }}
+          onCompletedLessonsChange={setPresentationCompletedIds}
+          onFinishDayLogged={() => {
+            setMessage("Session time saved for present attendees.");
+            if (clientId) void loadSnapshot(clientId);
+          }}
+        />
+      ) : null}
+
       <div>
         <h2 className="text-lg font-semibold text-brand-black">WRT Facilitation Preview</h2>
         <p className="mt-1 max-w-2xl text-sm text-brand-black/70">
@@ -474,6 +526,120 @@ export function WrtFacilitationWorkspace() {
 
           {snap.enrollment ? (
             <>
+              <div className="rounded-lg border border-brand-green/30 bg-white p-4">
+                <h3 className="font-semibold text-brand-black">Presentation session</h3>
+                <p className="mt-1 text-sm text-brand-black/70">
+                  Build the roster for today, then open full-screen presentation for the shared
+                  display.
+                </p>
+                <div className="mt-3 rounded border border-dashed border-neutral-300 p-3">
+                  <p className="text-xs font-semibold text-brand-black/55">
+                    Group attendees (optional)
+                  </p>
+                  <p className="mt-1 text-xs text-brand-black/50">
+                    {snap.clientName} is included automatically. Add others for a shared group
+                    session.
+                  </p>
+                  <input
+                    className="mt-2 w-full rounded border border-neutral-300 px-2 py-1.5 text-sm"
+                    placeholder="Search to add…"
+                    value={groupQuery}
+                    onChange={(e) => {
+                      setGroupQuery(e.target.value);
+                      void loadClients(e.target.value).catch(() => undefined);
+                    }}
+                  />
+                  {groupQuery ? (
+                    <ul className="mt-1 max-h-28 overflow-auto text-sm">
+                      {clients
+                        .filter((c) => c.id !== clientId)
+                        .slice(0, 8)
+                        .map((c) => (
+                          <li key={c.id}>
+                            <button
+                              type="button"
+                              className="w-full px-1 py-0.5 text-left hover:bg-neutral-50"
+                              onClick={() => {
+                                addGroupMember(c);
+                                setGroupQuery("");
+                              }}
+                            >
+                              + {c.name}
+                            </button>
+                          </li>
+                        ))}
+                    </ul>
+                  ) : null}
+                  <ul className="mt-3 space-y-2">
+                    {sessionRoster.map((m) => {
+                      const isPrimary = m.clientId === clientId;
+                      return (
+                        <li
+                          key={m.clientId}
+                          className="flex flex-wrap items-center gap-2 rounded bg-neutral-50 px-2 py-1.5 text-sm"
+                        >
+                          <span className="font-medium">
+                            {m.name}
+                            {isPrimary ? " (primary)" : ""}
+                          </span>
+                          {isPrimary ? (
+                            <span className="rounded bg-brand-green/15 px-2 py-0.5 text-xs font-semibold text-brand-green">
+                              Present
+                            </span>
+                          ) : (
+                            <>
+                              <select
+                                className="rounded border border-neutral-300 text-xs"
+                                value={m.attendance}
+                                onChange={(e) =>
+                                  setGroupMembers((prev) =>
+                                    prev.map((x) =>
+                                      x.clientId === m.clientId
+                                        ? {
+                                            ...x,
+                                            attendance: e.target.value as "present" | "absent",
+                                          }
+                                        : x
+                                    )
+                                  )
+                                }
+                              >
+                                <option value="present">Present</option>
+                                <option value="absent">Absent</option>
+                              </select>
+                              <button
+                                type="button"
+                                className="text-xs text-red-700"
+                                onClick={() =>
+                                  setGroupMembers((prev) =>
+                                    prev.filter((x) => x.clientId !== m.clientId)
+                                  )
+                                }
+                              >
+                                Remove
+                              </button>
+                            </>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+                <button
+                  type="button"
+                  disabled={busy || presentCount === 0 || assignedCurriculum.length === 0}
+                  onClick={startPresentation}
+                  className="mt-4 rounded-lg bg-brand-green px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  Start presentation
+                </button>
+                {assignedCurriculum.length === 0 ? (
+                  <p className="mt-2 text-xs text-red-700">
+                    Assign at least one module before presenting.
+                  </p>
+                ) : null}
+              </div>
+
               <div className="rounded-lg border border-neutral-200 bg-white p-4">
                 <h3 className="font-semibold text-brand-black">Upcoming sessions</h3>
                 {snap.upcomingSessions.length === 0 ? (

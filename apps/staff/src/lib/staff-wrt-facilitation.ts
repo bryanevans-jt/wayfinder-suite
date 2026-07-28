@@ -434,12 +434,6 @@ export async function completeSession(
         { onConflict: "enrollment_id,lesson_id" }
       );
       if (progErr) throw new Error(progErr.message);
-    } else if (!att.lessonCompleted && enrollment && lessonId) {
-      await admin
-        .from("wrt_lesson_progress")
-        .delete()
-        .eq("enrollment_id", enrollment.id)
-        .eq("lesson_id", lessonId);
     }
 
     if (att.durationMinutes > 0) {
@@ -484,6 +478,41 @@ export async function completeSession(
   if (doneErr) throw new Error(doneErr.message);
 
   return { warnings };
+}
+
+/** Mark a lesson complete for present clients (no hours / contact log). */
+export async function markLessonCompleteForClients(
+  admin: Admin,
+  input: {
+    lessonId: string;
+    actorUserId: string;
+    clientIds: string[];
+  }
+): Promise<{ completedClientIds: string[]; skipped: string[] }> {
+  const now = new Date().toISOString();
+  const completedClientIds: string[] = [];
+  const skipped: string[] = [];
+
+  for (const clientId of input.clientIds) {
+    const enrollment = await loadActiveEnrollmentForClient(admin, clientId);
+    if (!enrollment) {
+      skipped.push(clientId);
+      continue;
+    }
+    const { error } = await admin.from("wrt_lesson_progress").upsert(
+      {
+        enrollment_id: enrollment.id,
+        lesson_id: input.lessonId,
+        completed_at: now,
+        completed_by: input.actorUserId,
+      },
+      { onConflict: "enrollment_id,lesson_id" }
+    );
+    if (error) throw new Error(error.message);
+    completedClientIds.push(clientId);
+  }
+
+  return { completedClientIds, skipped };
 }
 
 export async function searchClientsForWrt(
