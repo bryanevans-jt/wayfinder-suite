@@ -69,15 +69,16 @@ export function EsApplicationPipelineBoard({ applications, readOnly = false }: P
         {PIPELINE_BOARD_STATUSES.map((status) => (
           <div
             key={status}
-            className="min-w-[200px] flex-1 rounded-lg border border-neutral-100 bg-neutral-50/80 p-3"
+            className="flex min-w-[200px] flex-1 flex-col rounded-lg border border-neutral-100 bg-neutral-50/80 p-3"
           >
-            <h3 className="text-xs font-bold uppercase tracking-wide text-brand-black/55">
+            <h3 className="shrink-0 text-xs font-bold uppercase tracking-wide text-brand-black/55">
               {status}
               <span className="ml-1 font-normal text-brand-black/40">
                 ({appsForColumn(status).length})
               </span>
             </h3>
-            <ul className="mt-2 space-y-2">
+            {/* ~10 collapsed cards (5.5rem) + 9 gaps (0.5rem) */}
+            <ul className="mt-2 max-h-[calc(10*5.5rem+9*0.5rem)] space-y-2 overflow-y-auto overscroll-y-contain">
               {appsForColumn(status).map((app) => (
                 <li key={app.id}>
                   <div className="rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
