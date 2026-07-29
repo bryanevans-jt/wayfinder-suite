@@ -4,6 +4,9 @@ import {
   GVRA_DEADLINE_DAY,
   GVRA_DEADLINE_HOUR,
   GVRA_DEADLINE_MINUTE,
+  OVERDUE_ALERT_DAY,
+  OVERDUE_ALERT_HOUR,
+  OVERDUE_ALERT_MINUTE,
   SUPPORTED_EMPLOYMENT_STAGES,
 } from "./constants";
 
@@ -67,7 +70,7 @@ function easternLocalToUtc(
   return new Date(utcGuess);
 }
 
-export function gvraDueAtForReportingMonth(reportingMonth: string): Date {
+function dueMonthParts(reportingMonth: string): { dueYear: number; dueMonth: number } {
   const [y, m] = reportingMonth.split("-").map(Number);
   let dueYear = y;
   let dueMonth = m + 1;
@@ -75,7 +78,24 @@ export function gvraDueAtForReportingMonth(reportingMonth: string): Date {
     dueMonth = 1;
     dueYear += 1;
   }
+  return { dueYear, dueMonth };
+}
+
+export function gvraDueAtForReportingMonth(reportingMonth: string): Date {
+  const { dueYear, dueMonth } = dueMonthParts(reportingMonth);
   return easternLocalToUtc(dueYear, dueMonth, GVRA_DEADLINE_DAY, GVRA_DEADLINE_HOUR, GVRA_DEADLINE_MINUTE);
+}
+
+/** When the Overdue Reports cron may create alerts (before the official GVRA due stamp). */
+export function overdueAlertAtForReportingMonth(reportingMonth: string): Date {
+  const { dueYear, dueMonth } = dueMonthParts(reportingMonth);
+  return easternLocalToUtc(
+    dueYear,
+    dueMonth,
+    OVERDUE_ALERT_DAY,
+    OVERDUE_ALERT_HOUR,
+    OVERDUE_ALERT_MINUTE
+  );
 }
 
 export function getReportingPeriod(now = new Date()): ReportingPeriod {
@@ -226,7 +246,7 @@ export async function computeSeMonthlyNonCompliant(
     (c) => !submittedCurrent.has(c.clientId) && submittedPrior.has(c.clientId)
   );
 
-  if (alertType === "overdue" && now < period.dueAt) {
+  if (alertType === "overdue" && now < overdueAlertAtForReportingMonth(period.reportingMonth)) {
     return { candidates: [], period };
   }
 

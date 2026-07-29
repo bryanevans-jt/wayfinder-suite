@@ -24,7 +24,12 @@ export const SUPERADMIN_EMAIL = 'bryan.evans@thejoshuatree.org';
 export const ORG_DOMAIN = 'thejoshuatree.org';
 export const FROM_EMAIL = 'noreply@thejoshuatree.org';
 
-// GVRA deadline: 5:01pm on 10th = late
+// GVRA funder deadline: 5:01pm ET on the 10th = late for compliance status
 export const GVRA_DEADLINE_HOUR = 17;
 export const GVRA_DEADLINE_MINUTE = 1;
 export const GVRA_DEADLINE_DAY = 10;
+
+/** Internal overdue alert email/notification (vercel cron: 6th at 19:00 UTC ≈ 3:00 PM EDT). */
+export const OVERDUE_ALERT_DAY = 6;
+export const OVERDUE_ALERT_HOUR = 15;
+export const OVERDUE_ALERT_MINUTE = 0;

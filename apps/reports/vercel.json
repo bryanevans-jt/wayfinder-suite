@@ -4,11 +4,11 @@
   "crons": [
     {
       "path": "/api/cron/missing-reports",
-      "schedule": "0 14 7 * *"
+      "schedule": "0 19 5 * *"
     },
     {
       "path": "/api/cron/overdue-reports",
-      "schedule": "1 22 10 * *"
+      "schedule": "0 19 6 * *"
     }
   ]
 }

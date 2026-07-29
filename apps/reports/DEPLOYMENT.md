@@ -69,8 +69,8 @@ Or push a new commit.
 
 If you use cron-job.org or similar:
 
-- **Missing Reports (7th):** `GET https://YOUR_APP.vercel.app/api/cron/missing-reports?secret=YOUR_CRON_SECRET`
-- **Overdue Reports (10th):** `GET https://YOUR_APP.vercel.app/api/cron/overdue-reports?secret=YOUR_CRON_SECRET`
+- **Missing Reports (5th, 3:00 PM ET / 19:00 UTC):** `GET https://YOUR_APP.vercel.app/api/cron/missing-reports?secret=YOUR_CRON_SECRET`
+- **Overdue Reports (6th, 3:00 PM ET / 19:00 UTC):** `GET https://YOUR_APP.vercel.app/api/cron/overdue-reports?secret=YOUR_CRON_SECRET`
 - **VPR Cleanup:** `GET https://YOUR_APP.vercel.app/api/cron/vpr-cleanup?secret=YOUR_CRON_SECRET`
 
 Or send `Authorization: Bearer YOUR_CRON_SECRET` header.

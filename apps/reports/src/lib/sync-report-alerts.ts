@@ -151,7 +151,7 @@ async function emailRecipients(
   const intro =
     alertType === "missing"
       ? "The following GVRA Monthly Reports are not yet submitted (deadline: 10th at 5:00 PM ET):\n\n"
-      : "The following GVRA Monthly Reports are OVERDUE (deadline was 10th at 5:00 PM ET):\n\n";
+      : "The following GVRA Monthly Reports are still outstanding (escalated overdue list; GVRA deadline: 10th at 5:00 PM ET):\n\n";
 
   const auth = await getGoogleAuth();
   for (const to of recipients) {

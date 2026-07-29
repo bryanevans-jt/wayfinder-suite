@@ -55,7 +55,7 @@ After deploy:
 2. Set `NEXT_PUBLIC_REPORTS_APP_URL` on the **staff** Vercel project to the reports URL.
 3. Add the reports URL to Supabase **Authentication → Redirect URLs**.
 
-`vercel.json` schedules missing-report (7th) and overdue-report (10th) crons.
+`vercel.json` schedules missing-report (5th, 3:00 PM ET) and overdue-report (6th, 3:00 PM ET) crons.
 
 ## Shared sign-in with Wayfinder Pro
 

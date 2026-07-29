@@ -338,7 +338,7 @@ export function AdminPortal({ userEmail, isSuperadmin }: Props) {
       <section className="bg-white rounded-xl shadow p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">Report Notification Recipients</h2>
         <p className="text-sm text-gray-600 mb-4">
-          Email addresses that receive the Missing Reports List (7th) and Overdue Reports (10th). Can include external addresses.
+          Email addresses that receive the Missing Reports List (5th at 3:00 PM ET) and Overdue Reports (6th at 3:00 PM ET). Can include external addresses.
         </p>
         <div className="flex gap-2 mb-4">
           <input
