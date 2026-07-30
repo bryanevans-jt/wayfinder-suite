@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { intakeStatusLabel, referralStageLabel } from "@wayfinder/supabase/referral-labels";
 
 type ReferralRow = {
   id: string;
@@ -12,10 +13,24 @@ type ReferralRow = {
   referred_at: string | null;
   counselorName: string | null;
   serviceName: string | null;
+  stageName: string | null;
   authorization_number: string | null;
   hasEsAssignment: boolean;
   possibleDuplicates: Array<{ id: string; full_name: string | null }>;
 };
+
+type SortKey = "counselor" | "state" | "service" | "stage" | "referred";
+
+function stageForRow(c: ReferralRow): string {
+  return referralStageLabel({
+    intakeStatus: c.intake_status,
+    stageTitle: c.stageName,
+  });
+}
+
+function compareText(a: string, b: string): number {
+  return a.localeCompare(b, undefined, { sensitivity: "base" });
+}
 
 export function ReferralQueueWorkspace() {
   const [clients, setClients] = useState<ReferralRow[]>([]);
@@ -25,6 +40,8 @@ export function ReferralQueueWorkspace() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [authById, setAuthById] = useState<Record<string, string>>({});
   const [overrideById, setOverrideById] = useState<Record<string, string>>({});
+  const [sortKey, setSortKey] = useState<SortKey>("referred");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -45,6 +62,28 @@ export function ReferralQueueWorkspace() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const sortedClients = useMemo(() => {
+    const copy = [...clients];
+    copy.sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === "counselor") {
+        cmp = compareText(a.counselorName || "", b.counselorName || "");
+      } else if (sortKey === "state") {
+        cmp = compareText(a.referral_state || "", b.referral_state || "");
+      } else if (sortKey === "service") {
+        cmp = compareText(a.serviceName || "", b.serviceName || "");
+      } else if (sortKey === "stage") {
+        cmp = compareText(stageForRow(a), stageForRow(b));
+      } else {
+        const at = a.referred_at ? new Date(a.referred_at).getTime() : 0;
+        const bt = b.referred_at ? new Date(b.referred_at).getTime() : 0;
+        cmp = at - bt;
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return copy;
+  }, [clients, sortKey, sortDir]);
 
   async function runAction(
     clientId: string,
@@ -73,6 +112,28 @@ export function ReferralQueueWorkspace() {
     }
   }
 
+  const listExportHref =
+    sortedClients.length > 0
+      ? `/api/exports/referrals/pdf?ids=${sortedClients.map((c) => c.id).join(",")}`
+      : null;
+
+  function setSort(next: SortKey) {
+    if (sortKey === next) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(next);
+      setSortDir("asc");
+    }
+  }
+
+  const sortOptions: Array<{ key: SortKey; label: string }> = [
+    { key: "counselor", label: "Counselor" },
+    { key: "state", label: "State" },
+    { key: "service", label: "Service" },
+    { key: "stage", label: "Stage" },
+    { key: "referred", label: "Referred Date" },
+  ];
+
   return (
     <div className="mt-6 space-y-4">
       <div className="flex flex-wrap items-center gap-4 text-sm">
@@ -82,7 +143,7 @@ export function ReferralQueueWorkspace() {
             checked={includeAssigned}
             onChange={(e) => setIncludeAssigned(e.target.checked)}
           />
-          Include ES-assigned active clients
+          Include ES-Assigned Active Clients
         </label>
         <button
           type="button"
@@ -91,6 +152,33 @@ export function ReferralQueueWorkspace() {
         >
           Refresh
         </button>
+        {listExportHref ? (
+          <a
+            href={listExportHref}
+            className="rounded-lg border border-neutral-200 px-3 py-1.5 font-medium text-brand-green hover:bg-neutral-50"
+          >
+            Export List PDF
+          </a>
+        ) : null}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span className="font-medium text-brand-black/70">Sort By</span>
+        {sortOptions.map((opt) => (
+          <button
+            key={opt.key}
+            type="button"
+            onClick={() => setSort(opt.key)}
+            className={`rounded-lg px-3 py-1.5 font-medium ${
+              sortKey === opt.key
+                ? "bg-brand-green text-white"
+                : "border border-neutral-200 hover:bg-neutral-50"
+            }`}
+          >
+            {opt.label}
+            {sortKey === opt.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+          </button>
+        ))}
       </div>
 
       {error ? (
@@ -101,11 +189,11 @@ export function ReferralQueueWorkspace() {
 
       {loading ? (
         <p className="text-sm text-brand-black/60">Loading referrals…</p>
-      ) : clients.length === 0 ? (
+      ) : sortedClients.length === 0 ? (
         <p className="text-sm text-brand-black/60">No referrals in the queue.</p>
       ) : (
         <ul className="space-y-4">
-          {clients.map((c) => (
+          {sortedClients.map((c) => (
             <li
               key={c.id}
               className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm"
@@ -113,33 +201,42 @@ export function ReferralQueueWorkspace() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <Link
-                    href={`/dashboard/clients/${c.id}`}
+                    href={`/dashboard/referrals/${c.id}`}
                     className="text-lg font-semibold text-brand-green hover:underline"
                   >
                     {c.full_name || c.contact_email || c.id}
                   </Link>
                   <p className="mt-1 text-sm text-brand-black/70">
-                    {c.intake_status.replace(/_/g, " ")}
+                    {stageForRow(c)}
                     {c.referral_state ? ` · ${c.referral_state}` : ""}
                     {c.serviceName ? ` · ${c.serviceName}` : ""}
                     {c.counselorName ? ` · Counselor: ${c.counselorName}` : ""}
                   </p>
-                  {c.referred_at ? (
-                    <p className="text-xs text-brand-black/50">
-                      Referred {new Date(c.referred_at).toLocaleString()}
-                    </p>
-                  ) : null}
+                  <p className="text-xs text-brand-black/50">
+                    {intakeStatusLabel(c.intake_status)}
+                    {c.referred_at
+                      ? ` · Referred ${new Date(c.referred_at).toLocaleString()}`
+                      : ""}
+                  </p>
                 </div>
-                {c.hasEsAssignment ? (
-                  <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-brand-black/70">
-                    ES assigned
-                  </span>
-                ) : null}
+                <div className="flex flex-wrap items-center gap-2">
+                  {c.hasEsAssignment ? (
+                    <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-brand-black/70">
+                      ES Assigned
+                    </span>
+                  ) : null}
+                  <a
+                    href={`/api/exports/referrals/pdf?clientId=${encodeURIComponent(c.id)}`}
+                    className="rounded-lg border border-neutral-200 px-2.5 py-1 text-xs font-medium text-brand-green hover:bg-neutral-50"
+                  >
+                    Export PDF
+                  </a>
+                </div>
               </div>
 
               {c.possibleDuplicates.length > 0 ? (
                 <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-                  Possible duplicate of{" "}
+                  Possible Duplicate Of{" "}
                   {c.possibleDuplicates.map((d) => d.full_name || d.id).join(", ")}
                 </p>
               ) : null}
@@ -156,7 +253,7 @@ export function ReferralQueueWorkspace() {
                   />
                 </label>
                 <label className="text-sm">
-                  <span className="font-medium">Activate override reason</span>
+                  <span className="font-medium">Activate Override Reason</span>
                   <input
                     className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2"
                     placeholder="Required if no authorization #"
@@ -183,7 +280,7 @@ export function ReferralQueueWorkspace() {
                   onClick={() => void runAction(c.id, "activate")}
                   className="rounded-lg bg-brand-green px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-green/90 disabled:opacity-50"
                 >
-                  Activate first stage
+                  Activate First Stage
                 </button>
                 <button
                   type="button"

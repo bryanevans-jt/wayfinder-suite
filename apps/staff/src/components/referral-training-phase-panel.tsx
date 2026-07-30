@@ -46,7 +46,7 @@ export function ReferralTrainingPhasePanel() {
 
   return (
     <section className="max-w-xl space-y-4 rounded-xl border border-neutral-200 bg-white p-5">
-      <h2 className="text-lg font-semibold text-brand-black">Referral training phase</h2>
+      <h2 className="text-lg font-semibold text-brand-black">Referral Training Phase</h2>
       <p className="text-sm text-brand-black/75">
         When on, HR intake notifications (new referral, SLA reminders) also go to admins. When off,
         only the HR Director role receives them. Counselor confirmation emails are unchanged.
@@ -57,10 +57,10 @@ export function ReferralTrainingPhasePanel() {
           checked={training}
           onChange={(e) => setTraining(e.target.checked)}
         />
-        Training phase on (admins get HR intake notifications)
+        Training Phase On (Admins Get HR Intake Notifications)
       </label>
       <label className="block text-sm">
-        <span className="font-medium">Referral notify email (HR inbox)</span>
+        <span className="font-medium">Referral Notify Email (HR Inbox)</span>
         <input
           className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2"
           value={email}

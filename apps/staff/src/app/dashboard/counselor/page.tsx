@@ -12,7 +12,7 @@ import {
   getCounselorPortalAdmin,
 } from "@/lib/counselor-portal-data";
 import { formatPortalDateTime } from "@/lib/portal-datetime";
-import { counselorDisplayStatus } from "@wayfinder/supabase/referral-intake";
+import { counselorDisplayStatus } from "@wayfinder/supabase/referral-labels";
 
 export default async function CounselorPortalPage({
   searchParams,

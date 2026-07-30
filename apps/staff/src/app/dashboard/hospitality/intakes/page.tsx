@@ -22,8 +22,8 @@ export default async function HospitalityIntakesPage() {
     <main className="px-6 py-10">
       <h1 className="text-2xl font-semibold text-brand-black">Intake Calls</h1>
       <p className="mt-2 max-w-2xl text-sm text-brand-black/75">
-        GA TSE Phase 1 clients needing an intake meeting scheduled. Oldest incomplete stays at the
-        top; mark complete when the meeting is set.
+        GA TSE Phase 1 clients needing an intake meeting scheduled. Oldest Incomplete stays at the
+        top; mark Complete when the meeting is set.
       </p>
       <HospitalityIntakeWorkspace />
     </main>

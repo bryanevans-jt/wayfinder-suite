@@ -51,19 +51,31 @@ export async function GET(request: Request) {
 
   const counselorIds = [...new Set(list.map((r) => r.counselor_id).filter(Boolean))] as string[];
   const serviceIds = [...new Set(list.map((r) => r.current_service_id).filter(Boolean))] as string[];
-  const [{ data: counselors }, { data: services }] = await Promise.all([
+  const stageIds = [...new Set(list.map((r) => r.current_stage_id).filter(Boolean))] as string[];
+  const [{ data: counselors }, { data: services }, { data: stages }] = await Promise.all([
     counselorIds.length
       ? admin.from("counselors").select("id, full_name, contact_email").in("id", counselorIds)
       : Promise.resolve({ data: [] as { id: string; full_name: string; contact_email: string | null }[] }),
     serviceIds.length
       ? admin.from("services").select("id, name").in("id", serviceIds)
       : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    stageIds.length
+      ? admin.from("service_milestones").select("id, name, title").in("id", stageIds)
+      : Promise.resolve({
+          data: [] as { id: string; name: string | null; title: string | null }[],
+        }),
   ]);
 
   const counselorName = Object.fromEntries(
     (counselors ?? []).map((c) => [c.id, c.full_name as string])
   );
   const serviceName = Object.fromEntries((services ?? []).map((s) => [s.id, s.name as string]));
+  const stageNames = Object.fromEntries(
+    (stages ?? []).map((s) => [
+      s.id,
+      ((s.title as string | null) || (s.name as string | null) || "").trim() || null,
+    ])
+  );
 
   const enriched = [];
   for (const row of list) {
@@ -77,6 +89,9 @@ export async function GET(request: Request) {
       counselorName: row.counselor_id ? counselorName[row.counselor_id as string] ?? null : null,
       serviceName: row.current_service_id
         ? serviceName[row.current_service_id as string] ?? null
+        : null,
+      stageName: row.current_stage_id
+        ? stageNames[row.current_stage_id as string] ?? null
         : null,
       hasEsAssignment: assigned.has(row.id as string),
       possibleDuplicates: duplicates.filter((d) => d.id !== row.id),

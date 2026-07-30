@@ -49,7 +49,8 @@
     "./contact-log-suggestions": "./src/contact-log-suggestions.ts",
     "./contact-logs-query": "./src/contact-logs-query.ts",
     "./client-archive": "./src/client-archive.ts",
-    "./referral-intake": "./src/referral-intake.ts"
+    "./referral-intake": "./src/referral-intake.ts",
+    "./referral-labels": "./src/referral-labels.ts"
   },
   "scripts": {
     "lint": "tsc --noEmit"

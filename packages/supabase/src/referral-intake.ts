@@ -1,6 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { insertRosterClientRecord } from "./client-roster-insert";
 import { notifyUser } from "./notify-user";
+import {
+  counselorDisplayStatus,
+  intakeStatusLabel,
+  referralStageLabel,
+} from "./referral-labels";
 import { isAdminRole, isAdminTierRole, isHrRole, isSuperAdminRole } from "./roles";
 
 export type ReferralState = "GA" | "TN";
@@ -69,18 +74,7 @@ export function mapReferralServiceName(state: ReferralState, serviceLabel: strin
   return map[s] ?? null;
 }
 
-export function counselorDisplayStatus(opts: {
-  intakeStatus: string | null | undefined;
-  stageTitle: string | null | undefined;
-}): string {
-  const intake = (opts.intakeStatus ?? "active").toLowerCase();
-  if (intake === "new_referral") return "New Referral";
-  if (intake === "pending_authorization") return "Pending Authorization";
-  if (intake === "discarded") return "Discarded";
-  const stage = (opts.stageTitle ?? "").trim();
-  if (/phase\s*1\s*:\s*intake/i.test(stage) || /^intake$/i.test(stage)) return "Needs Intake";
-  return stage || "Active";
-}
+export { counselorDisplayStatus, intakeStatusLabel, referralStageLabel };
 
 export async function loadReferralTrainingPhase(admin: SupabaseClient): Promise<boolean> {
   const { data } = await admin
