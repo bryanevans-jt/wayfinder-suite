@@ -2,15 +2,16 @@ import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
   respondWithAccessOrLoggedError,
   respondWithLoggedError,
-  resolveErrorActor,
   USER_FACING_AUTH_REQUIRED,
   USER_FACING_FORBIDDEN,
   USER_FACING_NOT_FOUND,
 } from "@wayfinder/supabase/error-log";
 import { getAppSession, assertNotPreviewMutation } from "@wayfinder/supabase/preview-server";
+import { canManageReferrals } from "@wayfinder/supabase/referral-intake";
 import {
   isAdminTierRole,
   isEsRole,
+  isHrRole,
   isSupervisorTierRole,
 } from "@wayfinder/supabase/roles";
 import { createServerClient } from "@wayfinder/supabase";
@@ -56,7 +57,7 @@ export async function assertClientProfileAccess(clientId: string, forMutation = 
     if (!allowed) {
       allowed = await clientVisibleToSupervisor(clientId);
     }
-  } else if (isAdminTierRole(role)) {
+  } else if (isAdminTierRole(role) || isHrRole(role) || canManageReferrals(role)) {
     allowed = true;
   }
 

@@ -688,6 +688,163 @@ export async function setReferralPendingAuthorization(
   return { ok: true };
 }
 
+export type ReferralClientInfoUpdate = {
+  fullName?: string | null;
+  dateOfBirth?: string | null;
+  contactEmail?: string | null;
+  primaryPhone?: string | null;
+  secondaryPhone?: string | null;
+  homeAddressLine1?: string | null;
+  homeCity?: string | null;
+  homeState?: string | null;
+  homeZip?: string | null;
+  gender?: string | null;
+  ethnicity?: string | null;
+  disabilityHistory?: string | null;
+  workGoal?: string | null;
+  meetingPreference?: string | null;
+  counselorAvailability?: string | null;
+  authorizationNumber?: string | null;
+  referralState?: ReferralState | null;
+  counselorName?: string | null;
+  counselorEmail?: string | null;
+  counselorPhone?: string | null;
+  /** Website form service label (e.g. "Job Coaching") or full services.name */
+  serviceLabel?: string | null;
+};
+
+export async function updateReferralClientInfo(
+  admin: SupabaseClient,
+  opts: {
+    clientId: string;
+    actorUserId: string;
+    patch: ReferralClientInfoUpdate;
+  }
+): Promise<{ ok: true } | { error: string }> {
+  const { data: existing, error: loadErr } = await admin
+    .from("clients")
+    .select("id, referral_state, current_service_id, counselor_id")
+    .eq("id", opts.clientId)
+    .maybeSingle();
+  if (loadErr || !existing) {
+    return { error: loadErr?.message ?? "Client not found" };
+  }
+
+  const p = opts.patch;
+  const fullName = (p.fullName ?? "").trim();
+  if (p.fullName !== undefined && !fullName) {
+    return { error: "Client name is required" };
+  }
+
+  const referralState =
+    p.referralState === "GA" || p.referralState === "TN"
+      ? p.referralState
+      : ((existing.referral_state as ReferralState | null) ?? null);
+
+  const update: Record<string, unknown> = {
+    last_activity_at: new Date().toISOString(),
+  };
+
+  if (p.fullName !== undefined) update.full_name = fullName;
+  if (p.dateOfBirth !== undefined) update.date_of_birth = (p.dateOfBirth ?? "").trim() || null;
+  if (p.contactEmail !== undefined) {
+    const email = (p.contactEmail ?? "").trim().toLowerCase();
+    update.contact_email = email || null;
+  }
+  if (p.primaryPhone !== undefined) update.primary_phone = (p.primaryPhone ?? "").trim() || null;
+  if (p.secondaryPhone !== undefined) {
+    update.secondary_phone = (p.secondaryPhone ?? "").trim() || null;
+  }
+  if (p.homeAddressLine1 !== undefined) {
+    update.home_address_line1 = (p.homeAddressLine1 ?? "").trim() || null;
+  }
+  if (p.homeCity !== undefined) update.home_city = (p.homeCity ?? "").trim() || null;
+  if (p.homeZip !== undefined) update.home_zip = (p.homeZip ?? "").trim() || null;
+  if (p.homeState !== undefined) {
+    const hs = (p.homeState ?? "").trim().toUpperCase();
+    if (hs && hs !== "GA" && hs !== "TN") {
+      return { error: "Home state must be GA or TN" };
+    }
+    update.home_state = hs || null;
+  }
+  if (p.gender !== undefined) update.gender = (p.gender ?? "").trim() || null;
+  if (p.ethnicity !== undefined) update.ethnicity = (p.ethnicity ?? "").trim() || null;
+  if (p.disabilityHistory !== undefined) {
+    update.disability_history = (p.disabilityHistory ?? "").trim() || null;
+  }
+  if (p.workGoal !== undefined) {
+    update.employment_goal_primary = (p.workGoal ?? "").trim() || null;
+  }
+  if (p.meetingPreference !== undefined) {
+    update.meeting_preference = (p.meetingPreference ?? "").trim() || null;
+  }
+  if (p.counselorAvailability !== undefined) {
+    update.counselor_availability = (p.counselorAvailability ?? "").trim() || null;
+  }
+  if (p.authorizationNumber !== undefined) {
+    update.authorization_number = (p.authorizationNumber ?? "").trim() || null;
+  }
+  if (p.referralState !== undefined) {
+    if (p.referralState !== "GA" && p.referralState !== "TN" && p.referralState !== null) {
+      return { error: "Referral state must be GA or TN" };
+    }
+    update.referral_state = p.referralState;
+  }
+
+  const counselorName = (p.counselorName ?? "").trim();
+  const counselorEmail = (p.counselorEmail ?? "").trim().toLowerCase();
+  if (counselorName || counselorEmail) {
+    if (!counselorName || !counselorEmail || !counselorEmail.includes("@")) {
+      return { error: "Counselor name and a valid email are required to update counselor" };
+    }
+    const counselor = await findOrCreateReferralCounselor(admin, {
+      fullName: counselorName,
+      email: counselorEmail,
+      phone: p.counselorPhone ?? undefined,
+    });
+    if ("error" in counselor) return { error: counselor.error };
+    update.counselor_id = counselor.counselorId;
+    const { data: cRow } = await admin
+      .from("counselors")
+      .select("office_id")
+      .eq("id", counselor.counselorId)
+      .maybeSingle();
+    if (cRow?.office_id) {
+      update.office_id = cRow.office_id;
+    }
+  }
+
+  if (p.serviceLabel !== undefined && (p.serviceLabel ?? "").trim()) {
+    const label = (p.serviceLabel ?? "").trim();
+    const stateForMap = (update.referral_state as ReferralState | null) ?? referralState;
+    let serviceName =
+      stateForMap === "GA" || stateForMap === "TN"
+        ? mapReferralServiceName(stateForMap, label)
+        : null;
+    if (!serviceName) {
+      // Allow passing the full services.name directly
+      serviceName = label;
+    }
+    const serviceId = await resolveServiceId(admin, serviceName);
+    if (!serviceId) {
+      return { error: `Service not found: ${label}` };
+    }
+    update.current_service_id = serviceId;
+  }
+
+  const { error } = await admin.from("clients").update(update).eq("id", opts.clientId);
+  if (error) return { error: error.message };
+
+  await admin.from("client_intake_events").insert({
+    client_id: opts.clientId,
+    actor_user_id: opts.actorUserId,
+    event_type: "referral_info_updated",
+    metadata: { fields: Object.keys(update) },
+  });
+
+  return { ok: true };
+}
+
 export function isEasternWeekday(now = new Date()): boolean {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/New_York",

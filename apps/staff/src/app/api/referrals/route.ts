@@ -6,6 +6,7 @@ import {
   createPublicReferral,
   findPossibleDuplicateClients,
   setReferralPendingAuthorization,
+  updateReferralClientInfo,
   type PublicReferralPayload,
   type ReferralState,
 } from "@wayfinder/supabase/referral-intake";
@@ -155,10 +156,11 @@ export async function PATCH(request: Request) {
 
   const body = (await request.json()) as {
     clientId?: string;
-    action?: "pending_authorization" | "activate" | "discard";
+    action?: "pending_authorization" | "activate" | "discard" | "update_info";
     authorizationNumber?: string;
     overrideReason?: string;
     stageId?: string;
+    info?: Parameters<typeof updateReferralClientInfo>[1]["patch"];
   };
 
   if (!body.clientId || !body.action) {
@@ -167,6 +169,18 @@ export async function PATCH(request: Request) {
 
   const admin = createServiceRoleClient();
   const actor = session.effectiveUserId;
+
+  if (body.action === "update_info") {
+    const result = await updateReferralClientInfo(admin, {
+      clientId: body.clientId,
+      actorUserId: actor,
+      patch: body.info ?? {},
+    });
+    if ("error" in result) {
+      return NextResponse.json({ error: result.error }, { status: 400 });
+    }
+    return NextResponse.json({ ok: true });
+  }
 
   if (body.action === "pending_authorization") {
     const result = await setReferralPendingAuthorization(admin, {
