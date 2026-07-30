@@ -3,10 +3,16 @@ import { getAppSession } from "@wayfinder/supabase/preview-server";
 import {
   activateReferralToFirstStage,
   canManageReferrals,
+  createPublicReferral,
   findPossibleDuplicateClients,
   setReferralPendingAuthorization,
+  type PublicReferralPayload,
+  type ReferralState,
 } from "@wayfinder/supabase/referral-intake";
 import { NextResponse } from "next/server";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function GET(request: Request) {
   const session = await getAppSession();
@@ -99,6 +105,46 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.json({ clients: enriched });
+}
+
+/** Manual staff referral — same workflow as website, no counselor/HR emails. */
+export async function POST(request: Request) {
+  const session = await getAppSession();
+  if (!session || !canManageReferrals(session.effectiveRole)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  let body: PublicReferralPayload & { state?: ReferralState };
+  try {
+    body = (await request.json()) as PublicReferralPayload & { state?: ReferralState };
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const state = body.state;
+  if (state !== "GA" && state !== "TN") {
+    return NextResponse.json({ error: "State must be GA or TN" }, { status: 400 });
+  }
+
+  const { state: _state, ...payload } = body;
+  void _state;
+
+  const admin = createServiceRoleClient();
+  const created = await createPublicReferral(admin, state, payload, {
+    source: "manual",
+    actorUserId: session.effectiveUserId,
+    skipCounselorEmailAllowlist: true,
+  });
+
+  if ("error" in created) {
+    return NextResponse.json({ error: created.error }, { status: created.status ?? 400 });
+  }
+
+  return NextResponse.json({
+    ok: true,
+    clientId: created.clientId,
+    possibleDuplicates: created.duplicates.length,
+  });
 }
 
 export async function PATCH(request: Request) {

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { intakeStatusLabel, referralStageLabel } from "@wayfinder/supabase/referral-labels";
+import { ManualReferralModal } from "@/components/manual-referral-modal";
 
 type ReferralRow = {
   id: string;
@@ -161,6 +162,7 @@ export function ReferralQueueWorkspace() {
   const [serviceFilter, setServiceFilter] = useState("");
   const [stageFilter, setStageFilter] = useState("");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
+  const [createOpen, setCreateOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -287,22 +289,39 @@ export function ReferralQueueWorkspace() {
           />
           Include Active Referrals
         </label>
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="rounded-lg border border-neutral-200 px-3 py-1.5 font-medium text-brand-green hover:bg-neutral-50"
-        >
-          Refresh
-        </button>
-        {listExportHref ? (
-          <a
-            href={listExportHref}
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void load()}
             className="rounded-lg border border-neutral-200 px-3 py-1.5 font-medium text-brand-green hover:bg-neutral-50"
           >
-            Export List PDF
-          </a>
-        ) : null}
+            Refresh
+          </button>
+          {listExportHref ? (
+            <a
+              href={listExportHref}
+              className="rounded-lg border border-neutral-200 px-3 py-1.5 font-medium text-brand-green hover:bg-neutral-50"
+            >
+              Export List PDF
+            </a>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setCreateOpen(true)}
+            className="rounded-lg bg-brand-green px-3 py-1.5 font-semibold text-white hover:bg-brand-green/90"
+          >
+            Create Referral
+          </button>
+        </div>
       </div>
+
+      <ManualReferralModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={() => {
+          void load();
+        }}
+      />
 
       <div className="rounded-xl border border-neutral-200 bg-white p-4">
         <div className="flex flex-wrap items-end justify-between gap-3">

@@ -273,7 +273,13 @@ async function uploadReferralFile(
 export async function createPublicReferral(
   admin: SupabaseClient,
   state: ReferralState,
-  payload: PublicReferralPayload
+  payload: PublicReferralPayload,
+  opts?: {
+    source?: "website" | "manual";
+    actorUserId?: string | null;
+    /** Staff manual entry may use any counselor email; website still enforces allowlist. */
+    skipCounselorEmailAllowlist?: boolean;
+  }
 ): Promise<
   | {
       clientId: string;
@@ -284,7 +290,11 @@ export async function createPublicReferral(
   | { error: string; status?: number }
 > {
   const counselorEmail = (payload.counselorEmail ?? "").toLowerCase().trim();
-  if (!isAllowedReferralCounselorEmail(state, counselorEmail)) {
+  const source = opts?.source ?? "website";
+  if (!counselorEmail.includes("@")) {
+    return { error: "Counselor email is required", status: 400 };
+  }
+  if (!opts?.skipCounselorEmailAllowlist && !isAllowedReferralCounselorEmail(state, counselorEmail)) {
     return {
       error:
         state === "GA"
@@ -292,6 +302,14 @@ export async function createPublicReferral(
           : "That email address isn't authorized. Please use your official email address.",
       status: 403,
     };
+  }
+
+  const counselorName = (payload.counselorName ?? "").trim();
+  if (!counselorName) {
+    return { error: "Counselor name is required", status: 400 };
+  }
+  if (!(payload.counselorPhone ?? "").trim()) {
+    return { error: "Counselor phone is required", status: 400 };
   }
 
   const serviceName = mapReferralServiceName(state, payload.service ?? "");
@@ -309,7 +327,7 @@ export async function createPublicReferral(
   }
 
   const counselor = await findOrCreateReferralCounselor(admin, {
-    fullName: payload.counselorName,
+    fullName: counselorName,
     email: counselorEmail,
     phone: payload.counselorPhone,
   });
@@ -373,13 +391,14 @@ export async function createPublicReferral(
 
   await admin.from("client_intake_events").insert({
     client_id: created.id,
-    actor_user_id: null,
+    actor_user_id: opts?.actorUserId ?? null,
     event_type: "referral_submitted",
     to_value: "new_referral",
     metadata: {
       state,
       service: serviceName,
       counselorEmail,
+      source,
       possibleDuplicates: duplicates.map((d) => d.id),
     },
   });
