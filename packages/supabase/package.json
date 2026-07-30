@@ -48,7 +48,8 @@
     "./wrt-seed-curriculum": "./src/wrt-seed-curriculum.ts",
     "./contact-log-suggestions": "./src/contact-log-suggestions.ts",
     "./contact-logs-query": "./src/contact-logs-query.ts",
-    "./client-archive": "./src/client-archive.ts"
+    "./client-archive": "./src/client-archive.ts",
+    "./referral-intake": "./src/referral-intake.ts"
   },
   "scripts": {
     "lint": "tsc --noEmit"

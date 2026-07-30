@@ -203,6 +203,11 @@ export function staffNavSectionsForRole(
               match: (p) => p.startsWith("/dashboard/wrt"),
             },
             reportingNav,
+            {
+              href: "/dashboard/referrals",
+              label: "Referral Queue",
+              match: (p) => p.startsWith("/dashboard/referrals"),
+            },
             communityPartnersNav,
           ],
         },
@@ -238,6 +243,11 @@ export function staffNavSectionsForRole(
               match: (p) => p.startsWith("/dashboard/wrt"),
             },
             reportingNav,
+            {
+              href: "/dashboard/referrals",
+              label: "Referral Queue",
+              match: (p) => p.startsWith("/dashboard/referrals"),
+            },
             communityPartnersNav,
           ],
         },
@@ -315,6 +325,11 @@ export function staffNavSectionsForRole(
             match: (p) => p.startsWith("/dashboard/hr"),
           },
           {
+            href: "/dashboard/referrals",
+            label: "Referral Queue",
+            match: (p) => p.startsWith("/dashboard/referrals"),
+          },
+          {
             href: "/dashboard/timesheet",
             label: "Weekly Timesheet",
             match: (p) => p.startsWith("/dashboard/timesheet"),
@@ -335,7 +350,12 @@ export function staffNavSectionsForRole(
           {
             href: "/dashboard/hospitality",
             label: "Hospitality Dashboard",
-            match: (p) => p.startsWith("/dashboard/hospitality"),
+            match: (p) => p === "/dashboard/hospitality",
+          },
+          {
+            href: "/dashboard/hospitality/intakes",
+            label: "Intake Calls",
+            match: (p) => p.startsWith("/dashboard/hospitality/intakes"),
           },
           communityPartnersNav,
           timeClockNav,

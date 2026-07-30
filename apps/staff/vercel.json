@@ -19,6 +19,14 @@
     {
       "path": "/api/cron/staff-clock",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/referral-sla",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/referral-inactivity",
+      "schedule": "30 6 * * 1"
     }
   ]
 }

@@ -1,0 +1,233 @@
+<!--
+  Paste this entire block into the Tennessee referrals page CMS/HTML embed.
+  Replace YOUR_STAFF_APP_HOST if needed — default uses wayfinder-pro.thejoshuatree.org
+-->
+<div class="jt-referral-container">
+  <div id="referral-form-wrapper">
+    <h2>TDHS VR Client Referral Form</h2>
+    <form id="referral-form" novalidate>
+      
+      <h3>Counselor Information</h3>
+      <div class="jt-grid">
+        <label class="jt-field">
+          <span>Counselor Full Name*</span>
+          <input type="text" name="counselorName" required>
+        </label>
+        <label class="jt-field">
+          <span>Counselor Email Address*</span>
+          <input type="email" name="counselorEmail" required>
+        </label>
+        <label class="jt-field">
+          <span>Counselor Phone Number*</span>
+          <input type="text" name="counselorPhone" required>
+        </label>
+      </div>
+
+      <h3>Service Requested</h3>
+      <div class="jt-radio-group">
+        <label><input type="radio" name="service" value="Traditional Supported Employment" required> Traditional Supported Employment</label>
+        <label><input type="radio" name="service" value="Individual Job Placement"> Individual Job Placement</label>
+        <label><input type="radio" name="service" value="Job Coaching"> Job Coaching</label>
+        <label><input type="radio" name="service" value="Job Readiness Training"> Job Readiness Training</label>
+      </div>
+
+      <h3>Client Referral</h3>
+      <div class="jt-grid">
+        <label class="jt-field">
+          <span>Client Full Legal Name</span>
+          <input type="text" name="clientName">
+        </label>
+        <label class="jt-field">
+          <span>Date of Birth</span>
+          <input type="date" name="dob">
+        </label>
+        <label class="jt-field">
+          <span>Primary Phone Number</span>
+          <input type="text" name="clientPhone">
+        </label>
+        <label class="jt-field">
+          <span>Secondary Phone Number</span>
+          <input type="text" name="clientPhone2">
+        </label>
+        <label class="jt-field jt-col-2">
+          <span>Address</span>
+          <input type="text" name="clientAddress">
+        </label>
+        <label class="jt-field">
+          <span>Email Address</span>
+          <input type="email" name="clientEmail">
+        </label>
+        <label class="jt-field">
+          <span>Gender</span>
+          <input type="text" name="gender">
+        </label>
+        <label class="jt-field">
+          <span>Ethnicity/Race</span>
+          <input type="text" name="ethnicity">
+        </label>
+        <label class="jt-field jt-col-2">
+          <span>Disability/History</span>
+          <textarea name="disability" rows="4"></textarea>
+        </label>
+        <label class="jt-field jt-col-2">
+          <span>Client's Work Goal (if applicable)</span>
+          <textarea name="workGoal" rows="2"></textarea>
+        </label>
+        <label class="jt-field">
+          <span>Service/Intake Meeting Option</span>
+          <select name="meetingOption">
+            <option value="" disabled selected>Select...</option>
+            <option value="In-Person">In-Person</option>
+            <option value="Zoom">Zoom</option>
+            <option value="Any of the Above">Any of the Above</option>
+          </select>
+        </label>
+        <label class="jt-field">
+          <span>Counselor Availability for Intake</span>
+          <input type="text" name="counselorAvailability" placeholder="e.g., Tuesdays/Thursdays after 2PM">
+        </label>
+      </div>
+
+      <h3>Attachments</h3>
+      <div class="jt-grid">
+        <label class="jt-field">
+          <span>Documents (Optional)</span>
+          <input type="file" name="authorizations">
+        </label>
+        <label class="jt-field">
+          <span>Other Documents (Optional)</span>
+          <input type="file" name="otherDocs">
+        </label>
+      </div>
+
+      <div class="jt-actions" style="margin-top: 20px;">
+        <button type="submit" id="ref-submit" class="jt-primary">Submit Referral</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="referral-success" style="display: none; text-align: center; padding: 40px 20px;">
+    <h3 style="color: #16a34a; margin-bottom: 15px;">Success!</h3>
+    <p style="font-size: 1.1rem; line-height: 1.6;">
+      Thank you for your referral. You will receive a copy of your entries at the email address provided, and we will contact you within 2 business days. Have a great day!
+    </p>
+  </div>
+</div>
+
+<style>
+  .jt-referral-container {
+    max-width: 800px;
+    margin: 0 auto;
+    font-family: sans-serif;
+    color: #1f2937;
+  }
+  .jt-referral-container h2 { border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; }
+  .jt-referral-container h3 { margin: 25px 0 15px; color: #15803d; font-size: 1.2rem; }
+  
+  .jt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+  .jt-col-2 { grid-column: span 2; }
+  
+  .jt-field { display: flex; flex-direction: column; gap: 5px; }
+  .jt-field > span { font-weight: 600; font-size: 0.95rem; }
+  .jt-field input[type="text"], .jt-field input[type="email"], .jt-field input[type="date"], .jt-field textarea, .jt-field select, .jt-field input[type="file"] {
+    padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 1rem; width: 100%; box-sizing: border-box;
+  }
+  
+  .jt-radio-group { display: flex; flex-direction: column; gap: 8px; }
+  .jt-radio-group label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.95rem; }
+  
+  .jt-primary { background: #15803d; color: #fff; border: none; padding: 12px 24px; font-size: 1rem; border-radius: 6px; cursor: pointer; font-weight: bold; }
+  .jt-primary:hover { background: #166534; }
+  .jt-primary:disabled { background: #9ca3af; cursor: not-allowed; }
+
+  @media (max-width: 600px) {
+    .jt-grid { grid-template-columns: 1fr; }
+    .jt-col-2 { grid-column: span 1; }
+  }
+</style>
+
+<script>
+  // Wayfinder Pro public referral API (replace host if different)
+  const REFERRAL_SCRIPT_URL = "https://wayfinder-pro.thejoshuatree.org/api/public/referrals/tn";
+  // Optional: set if REFERRAL_FORM_SECRET is configured on Vercel
+  const REFERRAL_FORM_SECRET = "";
+
+  function fileToPayload(file) {
+    return new Promise((resolve, reject) => {
+      if (!file) return resolve(null);
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result;
+        const commaIdx = result.indexOf(",");
+        const meta = result.substring(5, result.indexOf(";"));
+        const base64 = result.substring(commaIdx + 1);
+        resolve({ name: file.name, mimeType: meta || file.type || "application/octet-stream", data: base64 });
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  document.getElementById("referral-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const submitBtn = document.getElementById("ref-submit");
+
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
+    const cEmailInput = form.querySelector('input[name="counselorEmail"]').value.toLowerCase().trim();
+    if (
+      !cEmailInput.endsWith("@tn.gov") &&
+      !cEmailInput.endsWith(".tn.gov") &&
+      !cEmailInput.endsWith("@thejoshuatree.org") &&
+      !cEmailInput.endsWith(".thejoshuatree.org")
+    ) {
+      alert("Error: That email address isn't authorized. Please use your official email address.");
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Sending Referral...";
+
+    try {
+      const formData = new FormData(form);
+      const payload = Object.fromEntries(formData.entries());
+
+      const authFile = form.querySelector('input[name="authorizations"]').files[0];
+      const otherFile = form.querySelector('input[name="otherDocs"]').files[0];
+
+      if (authFile) payload.authorizations = await fileToPayload(authFile);
+      if (otherFile) payload.otherDocs = await fileToPayload(otherFile);
+
+      const headers = { "Content-Type": "application/json" };
+      if (REFERRAL_FORM_SECRET) {
+        headers["x-referral-secret"] = REFERRAL_FORM_SECRET;
+      }
+
+      const res = await fetch(REFERRAL_SCRIPT_URL, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload)
+      });
+      
+      const out = await res.json();
+
+      if (out.result === "success") {
+        document.getElementById("referral-form-wrapper").style.display = "none";
+        document.getElementById("referral-success").style.display = "block";
+      } else {
+        alert("Error: " + (out.message || "Unknown error"));
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Submit Referral";
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Submission failed. Please try again.");
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Submit Referral";
+    }
+  });
+</script>

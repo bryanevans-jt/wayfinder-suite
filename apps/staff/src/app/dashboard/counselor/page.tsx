@@ -12,6 +12,7 @@ import {
   getCounselorPortalAdmin,
 } from "@/lib/counselor-portal-data";
 import { formatPortalDateTime } from "@/lib/portal-datetime";
+import { counselorDisplayStatus } from "@wayfinder/supabase/referral-intake";
 
 export default async function CounselorPortalPage({
   searchParams,
@@ -204,10 +205,13 @@ export default async function CounselorPortalPage({
               contact_email: c.contact_email,
               id: c.linkId,
             });
-            const stage =
-              c.current_stage_id && stageTitle.has(c.current_stage_id as string)
-                ? (stageTitle.get(c.current_stage_id as string) ?? "—")
-                : "—";
+            const stage = counselorDisplayStatus({
+              intakeStatus: c.intake_status,
+              stageTitle:
+                c.current_stage_id && stageTitle.has(c.current_stage_id as string)
+                  ? (stageTitle.get(c.current_stage_id as string) ?? null)
+                  : null,
+            });
             const last = lastLogAt.get(c.linkId);
             const latest = latestAppByClient.get(c.linkId);
             return {

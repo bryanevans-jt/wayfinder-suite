@@ -1,0 +1,685 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { insertRosterClientRecord } from "./client-roster-insert";
+import { notifyUser } from "./notify-user";
+import { isAdminRole, isAdminTierRole, isHrRole, isSuperAdminRole } from "./roles";
+
+export type ReferralState = "GA" | "TN";
+export type IntakeStatus = "new_referral" | "pending_authorization" | "active" | "discarded";
+
+export type ReferralFilePayload = {
+  name: string;
+  mimeType?: string;
+  data: string; // base64
+} | null;
+
+export type PublicReferralPayload = {
+  counselorName: string;
+  counselorEmail: string;
+  counselorPhone: string;
+  service: string;
+  clientName: string;
+  dob?: string;
+  clientPhone?: string;
+  clientPhone2?: string;
+  clientAddress?: string;
+  clientEmail?: string;
+  gender?: string;
+  ethnicity?: string;
+  disability?: string;
+  workGoal?: string;
+  meetingOption?: string;
+  counselorAvailability?: string;
+  authorizations?: ReferralFilePayload;
+  otherDocs?: ReferralFilePayload;
+};
+
+const JT_SUFFIXES = ["@thejoshuatree.org"];
+
+export function isJoshuaTreeEmail(email: string): boolean {
+  const e = email.toLowerCase().trim();
+  return JT_SUFFIXES.some((s) => e.endsWith(s)) || e.endsWith(".thejoshuatree.org");
+}
+
+export function isAllowedReferralCounselorEmail(state: ReferralState, email: string): boolean {
+  const e = email.toLowerCase().trim();
+  if (!e.includes("@")) return false;
+  if (isJoshuaTreeEmail(e)) return true;
+  if (state === "GA") return e.endsWith("@gvs.ga.gov");
+  return e.endsWith("@tn.gov") || e.endsWith(".tn.gov");
+}
+
+/** Map public form service labels → services.name */
+export function mapReferralServiceName(state: ReferralState, serviceLabel: string): string | null {
+  const s = serviceLabel.trim();
+  if (state === "GA") {
+    const map: Record<string, string> = {
+      "Traditional Supported Employment": "Traditional Supported Employment (GA)",
+      "Job Coaching": "Job Coaching (GA)",
+      "Individual Job Placement": "Individual Job Placement (GA)",
+      "Workplace Readiness Training": "Workplace Readiness Training (GA)",
+    };
+    return map[s] ?? null;
+  }
+  const map: Record<string, string> = {
+    "Traditional Supported Employment": "Supported Employment (TN)",
+    "Individual Job Placement": "Individual Job Placement (TN)",
+    "Job Coaching": "Job Coaching (TN)",
+    "Job Readiness Training": "Job Readiness Training (TN)",
+  };
+  return map[s] ?? null;
+}
+
+export function counselorDisplayStatus(opts: {
+  intakeStatus: string | null | undefined;
+  stageTitle: string | null | undefined;
+}): string {
+  const intake = (opts.intakeStatus ?? "active").toLowerCase();
+  if (intake === "new_referral") return "New Referral";
+  if (intake === "pending_authorization") return "Pending Authorization";
+  if (intake === "discarded") return "Discarded";
+  const stage = (opts.stageTitle ?? "").trim();
+  if (/phase\s*1\s*:\s*intake/i.test(stage) || /^intake$/i.test(stage)) return "Needs Intake";
+  return stage || "Active";
+}
+
+export async function loadReferralTrainingPhase(admin: SupabaseClient): Promise<boolean> {
+  const { data } = await admin
+    .from("admin_config")
+    .select("referral_training_phase")
+    .limit(1)
+    .maybeSingle();
+  return data?.referral_training_phase !== false;
+}
+
+export async function loadReferralNotifyEmail(admin: SupabaseClient): Promise<string | null> {
+  const envEmail = (process.env.REFERRAL_NOTIFY_EMAIL ?? "").trim();
+  if (envEmail) return envEmail;
+  const { data } = await admin
+    .from("admin_config")
+    .select("referral_notify_email")
+    .limit(1)
+    .maybeSingle();
+  const fromDb = (data?.referral_notify_email as string | null)?.trim();
+  return fromDb || "ryan.herrington@thejoshuatree.org";
+}
+
+/** HR intake notification recipients: hr (+ admin when training on). */
+export async function loadHrIntakeRecipientUserIds(admin: SupabaseClient): Promise<string[]> {
+  const training = await loadReferralTrainingPhase(admin);
+  const roles = training ? ["hr", "admin"] : ["hr"];
+  const { data } = await admin.from("profiles").select("id, role").in("role", roles).eq("is_active", true);
+  return (data ?? []).map((r) => r.id as string);
+}
+
+export function canManageReferrals(role: string | null | undefined): boolean {
+  return isHrRole(role) || isAdminRole(role) || isSuperAdminRole(role) || isAdminTierRole(role);
+}
+
+export async function findOrCreateReferralCounselor(
+  admin: SupabaseClient,
+  opts: { fullName: string; email: string; phone?: string }
+): Promise<{ counselorId: string } | { error: string }> {
+  const email = opts.email.toLowerCase().trim();
+  const fullName = opts.fullName.trim();
+  if (!email || !fullName) return { error: "Counselor name and email are required" };
+
+  const { data: byEmail } = await admin
+    .from("counselors")
+    .select("id, office_id, user_id")
+    .ilike("contact_email", email)
+    .maybeSingle();
+
+  if (byEmail?.id) {
+    return { counselorId: byEmail.id as string };
+  }
+
+  // Match linked login email via profiles
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("role", "counselor")
+    .limit(500);
+
+  // Prefer contact_email column match only for directory; also try auth email via counselors.user_id
+  const { data: withUser } = await admin
+    .from("counselors")
+    .select("id, user_id, contact_email")
+    .not("user_id", "is", null)
+    .limit(2000);
+
+  // Soft match: if an auth user exists with this email and is linked to a counselor, reuse
+  try {
+    const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const authUser = list?.users?.find((u) => (u.email ?? "").toLowerCase() === email);
+    if (authUser) {
+      const linked = (withUser ?? []).find((c) => c.user_id === authUser.id);
+      if (linked?.id) {
+        await admin
+          .from("counselors")
+          .update({ contact_email: email, full_name: fullName })
+          .eq("id", linked.id);
+        return { counselorId: linked.id as string };
+      }
+    }
+  } catch {
+    // ignore auth list failures; fall through to create directory row
+  }
+
+  void profile;
+
+  const { data: inserted, error } = await admin
+    .from("counselors")
+    .insert({
+      full_name: fullName,
+      office_id: null,
+      contact_email: email,
+      user_id: null,
+    })
+    .select("id")
+    .single();
+
+  if (error || !inserted?.id) {
+    return { error: error?.message ?? "Could not create counselor directory entry" };
+  }
+
+  return { counselorId: inserted.id as string };
+}
+
+async function resolveServiceId(
+  admin: SupabaseClient,
+  serviceName: string
+): Promise<string | null> {
+  const { data } = await admin.from("services").select("id, name").ilike("name", serviceName).maybeSingle();
+  if (data?.id) return data.id as string;
+  const { data: all } = await admin.from("services").select("id, name");
+  const hit = (all ?? []).find((s) => (s.name as string).toLowerCase() === serviceName.toLowerCase());
+  return (hit?.id as string) ?? null;
+}
+
+function parseAddress(address: string | undefined): {
+  line1: string | null;
+  city: string | null;
+  state: "GA" | "TN" | null;
+  zip: string | null;
+} {
+  const raw = (address ?? "").trim();
+  if (!raw) return { line1: null, city: null, state: null, zip: null };
+  const zipMatch = raw.match(/\b(\d{5})(?:-\d{4})?\b/);
+  const zip = zipMatch?.[1] ?? null;
+  const stateMatch = raw.match(/\b(GA|TN)\b/i);
+  const state = stateMatch ? (stateMatch[1].toUpperCase() as "GA" | "TN") : null;
+  return { line1: raw, city: null, state, zip };
+}
+
+export async function findPossibleDuplicateClients(
+  admin: SupabaseClient,
+  opts: { fullName: string; dateOfBirth?: string | null; contactEmail?: string | null }
+): Promise<Array<{ id: string; full_name: string | null; contact_email: string | null }>> {
+  const results: Array<{ id: string; full_name: string | null; contact_email: string | null }> = [];
+  const email = (opts.contactEmail ?? "").trim().toLowerCase();
+  if (email) {
+    const { data } = await admin
+      .from("clients")
+      .select("id, full_name, contact_email")
+      .ilike("contact_email", email)
+      .neq("intake_status", "discarded")
+      .limit(5);
+    for (const row of data ?? []) results.push(row as (typeof results)[number]);
+  }
+  const name = opts.fullName.trim();
+  const dob = (opts.dateOfBirth ?? "").trim();
+  if (name && dob) {
+    const { data } = await admin
+      .from("clients")
+      .select("id, full_name, contact_email, date_of_birth")
+      .eq("date_of_birth", dob)
+      .neq("intake_status", "discarded")
+      .limit(20);
+    for (const row of data ?? []) {
+      const n = ((row as { full_name?: string }).full_name ?? "").trim().toLowerCase();
+      if (n && n === name.toLowerCase() && !results.some((r) => r.id === row.id)) {
+        results.push({
+          id: row.id as string,
+          full_name: (row as { full_name?: string }).full_name ?? null,
+          contact_email: (row as { contact_email?: string }).contact_email ?? null,
+        });
+      }
+    }
+  }
+  return results;
+}
+
+async function uploadReferralFile(
+  admin: SupabaseClient,
+  clientId: string,
+  kind: "authorizations" | "other",
+  file: ReferralFilePayload
+): Promise<void> {
+  if (!file?.data || !file.name) return;
+  const bytes = Buffer.from(file.data, "base64");
+  const safeName = file.name.replace(/[^\w.\-()+ ]+/g, "_").slice(0, 120);
+  const path = `${clientId}/${kind}-${Date.now()}-${safeName}`;
+  const { error: upErr } = await admin.storage.from("referral-docs").upload(path, bytes, {
+    contentType: file.mimeType || "application/octet-stream",
+    upsert: false,
+  });
+  if (upErr) {
+    console.error("referral doc upload failed:", upErr.message);
+    return;
+  }
+  await admin.from("client_referral_documents").insert({
+    client_id: clientId,
+    kind,
+    file_name: file.name,
+    storage_path: path,
+    mime_type: file.mimeType ?? null,
+  });
+}
+
+export async function createPublicReferral(
+  admin: SupabaseClient,
+  state: ReferralState,
+  payload: PublicReferralPayload
+): Promise<
+  | {
+      clientId: string;
+      counselorId: string;
+      duplicates: Array<{ id: string; full_name: string | null }>;
+      serviceName: string;
+    }
+  | { error: string; status?: number }
+> {
+  const counselorEmail = (payload.counselorEmail ?? "").toLowerCase().trim();
+  if (!isAllowedReferralCounselorEmail(state, counselorEmail)) {
+    return {
+      error:
+        state === "GA"
+          ? "Unauthorized Access: only official email addresses allowed."
+          : "That email address isn't authorized. Please use your official email address.",
+      status: 403,
+    };
+  }
+
+  const serviceName = mapReferralServiceName(state, payload.service ?? "");
+  if (!serviceName) {
+    return { error: "Invalid service requested", status: 400 };
+  }
+  const serviceId = await resolveServiceId(admin, serviceName);
+  if (!serviceId) {
+    return { error: `Service not configured: ${serviceName}`, status: 500 };
+  }
+
+  const clientName = (payload.clientName ?? "").trim();
+  if (!clientName) {
+    return { error: "Client name is required", status: 400 };
+  }
+
+  const counselor = await findOrCreateReferralCounselor(admin, {
+    fullName: payload.counselorName,
+    email: counselorEmail,
+    phone: payload.counselorPhone,
+  });
+  if ("error" in counselor) {
+    return { error: counselor.error, status: 500 };
+  }
+
+  const { data: counselorRow } = await admin
+    .from("counselors")
+    .select("id, office_id")
+    .eq("id", counselor.counselorId)
+    .maybeSingle();
+
+  const officeId = (counselorRow?.office_id as string | null) ?? null;
+  const addr = parseAddress(payload.clientAddress);
+  const nowIso = new Date().toISOString();
+
+  const duplicates = await findPossibleDuplicateClients(admin, {
+    fullName: clientName,
+    dateOfBirth: payload.dob,
+    contactEmail: payload.clientEmail,
+  });
+
+  const created = await insertRosterClientRecord(admin, {
+    fullName: clientName,
+    counselorId: counselor.counselorId,
+    officeId,
+    serviceId,
+    stageId: null,
+    contactEmail: payload.clientEmail,
+    employmentGoalPrimary: payload.workGoal ?? null,
+  });
+  if ("error" in created) {
+    return { error: created.error, status: 500 };
+  }
+
+  const patch: Record<string, unknown> = {
+    intake_status: "new_referral",
+    intake_status_changed_at: nowIso,
+    referral_state: state,
+    referred_at: nowIso,
+    last_activity_at: nowIso,
+    date_of_birth: payload.dob?.trim() || null,
+    primary_phone: payload.clientPhone?.trim() || null,
+    secondary_phone: payload.clientPhone2?.trim() || null,
+    gender: payload.gender?.trim() || null,
+    ethnicity: payload.ethnicity?.trim() || null,
+    disability_history: payload.disability?.trim() || null,
+    meeting_preference: payload.meetingOption?.trim() || null,
+    counselor_availability: payload.counselorAvailability?.trim() || null,
+    home_address_line1: addr.line1,
+    home_city: addr.city,
+    home_state: addr.state ?? (state === "GA" || state === "TN" ? state : null),
+    home_zip: addr.zip,
+  };
+
+  const { error: patchErr } = await admin.from("clients").update(patch).eq("id", created.id);
+  if (patchErr) {
+    return { error: patchErr.message, status: 500 };
+  }
+
+  await admin.from("client_intake_events").insert({
+    client_id: created.id,
+    actor_user_id: null,
+    event_type: "referral_submitted",
+    to_value: "new_referral",
+    metadata: {
+      state,
+      service: serviceName,
+      counselorEmail,
+      possibleDuplicates: duplicates.map((d) => d.id),
+    },
+  });
+
+  await uploadReferralFile(admin, created.id, "authorizations", payload.authorizations ?? null);
+  await uploadReferralFile(admin, created.id, "other", payload.otherDocs ?? null);
+
+  return {
+    clientId: created.id,
+    counselorId: counselor.counselorId,
+    duplicates,
+    serviceName,
+  };
+}
+
+export function buildReferralEmailBodies(opts: {
+  state: ReferralState;
+  payload: PublicReferralPayload;
+  serviceName: string;
+  authFileName: string;
+  otherFileName: string;
+}): { adminSubject: string; adminBody: string; counselorSubject: string; counselorBody: string } {
+  const label = opts.state === "GA" ? "GVRA" : "Tennessee VR";
+  const core = `
+--- COUNSELOR INFORMATION ---
+Name: ${opts.payload.counselorName}
+Email: ${opts.payload.counselorEmail}
+Phone: ${opts.payload.counselorPhone}
+
+--- SERVICE REQUESTED ---
+${opts.serviceName}
+
+--- CLIENT REFERRAL DETAILS ---
+Client Name: ${opts.payload.clientName}
+Date of Birth: ${opts.payload.dob ?? ""}
+Primary Phone: ${opts.payload.clientPhone ?? ""}
+Secondary Phone: ${opts.payload.clientPhone2 || "N/A"}
+Address: ${opts.payload.clientAddress ?? ""}
+Email Address: ${opts.payload.clientEmail ?? ""}
+Gender: ${opts.payload.gender ?? ""}
+Ethnicity/Race: ${opts.payload.ethnicity ?? ""}
+
+Disability/History:
+${opts.payload.disability ?? ""}
+
+Client's Work Goal:
+${opts.payload.workGoal || "N/A"}
+
+Meeting Option: ${opts.payload.meetingOption ?? ""}
+Counselor Availability: ${opts.payload.counselorAvailability ?? ""}
+`.trim();
+
+  return {
+    adminSubject: `New ${label} Referral - ${opts.payload.counselorName} - ${opts.payload.clientName}`,
+    adminBody: `A new ${label} Client Referral has been submitted.\n\n${core}\n\n--- UPLOADED FILES ---\nAuthorizations: ${opts.authFileName}\nOther Documents: ${opts.otherFileName}\n`,
+    counselorSubject: `Confirmation: Your ${label} Referral for ${opts.payload.clientName}`,
+    counselorBody: `Thank you for your referral. Below is a copy of your submission. We will contact you within 2 business days.\n\n${core}\n\n--- UPLOADED FILES CONFIRMATION ---\nAuthorizations: ${opts.authFileName}\nOther Documents: ${opts.otherFileName}\n`,
+  };
+}
+
+export async function notifyHrOfNewReferral(
+  admin: SupabaseClient,
+  opts: { clientId: string; clientName: string; state: ReferralState }
+): Promise<void> {
+  const userIds = await loadHrIntakeRecipientUserIds(admin);
+  for (const userId of userIds) {
+    await notifyUser(admin, {
+      userId,
+      app: "staff",
+      kind: "referral_new",
+      title: `New ${opts.state} referral: ${opts.clientName}`,
+      body: "A counselor submitted a referral. Review in the Referral Queue.",
+      link_path: "/dashboard/referrals",
+      metadata: { clientId: opts.clientId, state: opts.state },
+    });
+  }
+}
+
+export async function touchClientActivity(admin: SupabaseClient, clientId: string): Promise<void> {
+  await admin.from("clients").update({ last_activity_at: new Date().toISOString() }).eq("id", clientId);
+}
+
+/** Exclude pre-active intake from ES/supervisor/client-facing lists. Counselors still see their assigned. */
+export function intakeVisibleToFieldStaff(intakeStatus: string | null | undefined): boolean {
+  const s = (intakeStatus ?? "active").toLowerCase();
+  return s === "active";
+}
+
+export async function isPhase1IntakeStage(
+  admin: SupabaseClient,
+  stageId: string | null | undefined
+): Promise<boolean> {
+  if (!stageId) return false;
+  const { data } = await admin.from("service_milestones").select("title, name").eq("id", stageId).maybeSingle();
+  const title = `${data?.title ?? ""} ${data?.name ?? ""}`;
+  return /phase\s*1\s*:\s*intake/i.test(title) || /^intake$/i.test((data?.title as string)?.trim() ?? "");
+}
+
+export async function isGaTseService(admin: SupabaseClient, serviceId: string | null | undefined): Promise<boolean> {
+  if (!serviceId) return false;
+  const { data } = await admin.from("services").select("name").eq("id", serviceId).maybeSingle();
+  return (data?.name as string) === "Traditional Supported Employment (GA)";
+}
+
+export async function activateReferralToFirstStage(
+  admin: SupabaseClient,
+  opts: {
+    clientId: string;
+    actorUserId: string;
+    authorizationNumber?: string | null;
+    overrideReason?: string | null;
+    stageId?: string | null;
+  }
+): Promise<{ ok: true } | { error: string }> {
+  const { data: client, error } = await admin
+    .from("clients")
+    .select(
+      "id, full_name, contact_email, intake_status, authorization_number, current_service_id, current_stage_id, office_id, counselor_id"
+    )
+    .eq("id", opts.clientId)
+    .maybeSingle();
+
+  if (error || !client) return { error: error?.message ?? "Client not found" };
+
+  const authNumber = (opts.authorizationNumber ?? client.authorization_number ?? "").trim();
+  const override = (opts.overrideReason ?? "").trim();
+  if (!authNumber && !override) {
+    return {
+      error: "Enter an authorization number, or provide an override reason to activate without one.",
+    };
+  }
+
+  const serviceId = client.current_service_id as string | null;
+  if (!serviceId) return { error: "Client has no service assigned" };
+
+  let stageId = opts.stageId?.trim() || null;
+  if (!stageId) {
+    const { data: first } = await admin
+      .from("service_milestones")
+      .select("id")
+      .eq("service_id", serviceId)
+      .order("order_index", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    stageId = (first?.id as string) ?? null;
+  }
+  if (!stageId) return { error: "No first stage found for this service" };
+
+  const nowIso = new Date().toISOString();
+  const { error: updErr } = await admin
+    .from("clients")
+    .update({
+      intake_status: "active",
+      intake_status_changed_at: nowIso,
+      last_activity_at: nowIso,
+      current_stage_id: stageId,
+      authorization_number: authNumber || client.authorization_number,
+      authorization_override_reason: authNumber ? null : override,
+    })
+    .eq("id", opts.clientId);
+
+  if (updErr) return { error: updErr.message };
+
+  await admin.from("client_intake_events").insert({
+    client_id: opts.clientId,
+    actor_user_id: opts.actorUserId,
+    event_type: "activated",
+    from_value: client.intake_status as string,
+    to_value: "active",
+    reason: authNumber ? null : override,
+    metadata: { stageId, authorizationNumber: authNumber || null },
+  });
+
+  const clientLabel =
+    (client.full_name as string)?.trim() ||
+    (client.contact_email as string)?.trim() ||
+    opts.clientId;
+
+  const officeId = client.office_id as string | null;
+  if (officeId) {
+    const { data: staffLinks } = await admin
+      .from("staff_office_assignments")
+      .select("user_id")
+      .eq("office_id", officeId);
+    const staffIds = [...new Set((staffLinks ?? []).map((r) => r.user_id as string))];
+    if (staffIds.length) {
+      const { data: supers } = await admin
+        .from("profiles")
+        .select("id, role")
+        .in("id", staffIds)
+        .eq("role", "supervisor")
+        .eq("is_active", true);
+      for (const s of supers ?? []) {
+        await notifyUser(admin, {
+          userId: s.id as string,
+          app: "staff",
+          kind: "referral_new_client",
+          title: `New client: ${clientLabel}`,
+          body: "A referral was activated to the first service stage.",
+          link_path: `/dashboard/clients/${opts.clientId}`,
+          metadata: { clientId: opts.clientId },
+        });
+      }
+    }
+  }
+
+  const { data: esLinks } = await admin
+    .from("es_client_assignments")
+    .select("es_user_id")
+    .eq("client_id", opts.clientId);
+  for (const link of esLinks ?? []) {
+    await notifyUser(admin, {
+      userId: link.es_user_id as string,
+      app: "staff",
+      kind: "referral_new_client",
+      title: `New client: ${clientLabel}`,
+      body: "A referral was activated and assigned to your caseload.",
+      link_path: `/dashboard/clients/${opts.clientId}`,
+      metadata: { clientId: opts.clientId },
+    });
+  }
+
+  const gaTse = await isGaTseService(admin, serviceId);
+  const phase1 = await isPhase1IntakeStage(admin, stageId);
+  if (gaTse && phase1) {
+    await admin.from("hospitality_intake_tasks").upsert(
+      {
+        client_id: opts.clientId,
+        status: "open",
+        created_at: nowIso,
+        completed_at: null,
+        completed_by: null,
+      },
+      { onConflict: "client_id" }
+    );
+    const { data: hospitality } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("role", "hospitality_specialist")
+      .eq("is_active", true);
+    for (const h of hospitality ?? []) {
+      await notifyUser(admin, {
+        userId: h.id as string,
+        app: "staff",
+        kind: "referral_needs_intake",
+        title: `Schedule intake: ${clientLabel}`,
+        body: "GA TSE Phase 1 — call to set up the intake meeting.",
+        link_path: "/dashboard/hospitality/intakes",
+        metadata: { clientId: opts.clientId },
+      });
+    }
+  }
+
+  return { ok: true };
+}
+
+export async function setReferralPendingAuthorization(
+  admin: SupabaseClient,
+  opts: { clientId: string; actorUserId: string }
+): Promise<{ ok: true } | { error: string }> {
+  const nowIso = new Date().toISOString();
+  const { data: before } = await admin
+    .from("clients")
+    .select("intake_status")
+    .eq("id", opts.clientId)
+    .maybeSingle();
+
+  const { error } = await admin
+    .from("clients")
+    .update({
+      intake_status: "pending_authorization",
+      intake_status_changed_at: nowIso,
+      last_activity_at: nowIso,
+    })
+    .eq("id", opts.clientId);
+
+  if (error) return { error: error.message };
+
+  await admin.from("client_intake_events").insert({
+    client_id: opts.clientId,
+    actor_user_id: opts.actorUserId,
+    event_type: "pending_authorization",
+    from_value: (before?.intake_status as string) ?? null,
+    to_value: "pending_authorization",
+  });
+
+  return { ok: true };
+}
+
+export function isEasternWeekday(now = new Date()): boolean {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+  }).formatToParts(now);
+  const wd = parts.find((p) => p.type === "weekday")?.value ?? "";
+  return wd !== "Sat" && wd !== "Sun";
+}

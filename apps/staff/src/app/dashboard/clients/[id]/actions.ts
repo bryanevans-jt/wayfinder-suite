@@ -92,7 +92,7 @@ export async function updateClientCurrentStage(clientId: string, milestoneId: st
 
   const { data: client, error: clientErr } = await admin
     .from("clients")
-    .select("id, current_service_id")
+    .select("id, current_service_id, current_stage_id, full_name, contact_email")
     .eq("id", clientId)
     .maybeSingle();
 
@@ -111,13 +111,61 @@ export async function updateClientCurrentStage(clientId: string, milestoneId: st
     throw new Error("Invalid milestone for this client’s service");
   }
 
+  const prevStageId = client.current_stage_id as string | null;
+  let prevTitle = "";
+  if (prevStageId) {
+    const { data: prev } = await admin
+      .from("service_milestones")
+      .select("title")
+      .eq("id", prevStageId)
+      .maybeSingle();
+    prevTitle = String(prev?.title ?? "");
+  }
+
   const { error: updErr } = await admin
     .from("clients")
-    .update({ current_stage_id: milestoneId })
+    .update({
+      current_stage_id: milestoneId,
+      last_activity_at: new Date().toISOString(),
+    })
     .eq("id", clientId);
 
   if (updErr) {
     throw new Error(updErr.message ?? "Update failed");
+  }
+
+  const nextTitle = String(milestone.title ?? "");
+  const fromPhase1 = /phase\s*1\s*:\s*intake/i.test(prevTitle);
+  const toPhase2 = /phase\s*2\s*:\s*job\s*development/i.test(nextTitle);
+  if (fromPhase1 && toPhase2) {
+    const { data: service } = await admin
+      .from("services")
+      .select("name")
+      .eq("id", client.current_service_id)
+      .maybeSingle();
+    if ((service?.name as string) === "Traditional Supported Employment (GA)") {
+      const label =
+        (client.full_name as string)?.trim() ||
+        (client.contact_email as string)?.trim() ||
+        clientId;
+      const { data: accountants } = await admin
+        .from("profiles")
+        .select("id")
+        .eq("role", "accountant")
+        .eq("is_active", true);
+      const { notifyUser } = await import("@wayfinder/supabase/notify-user");
+      for (const a of accountants ?? []) {
+        await notifyUser(admin, {
+          userId: a.id as string,
+          app: "staff",
+          kind: "referral_intake_billing",
+          title: `Bill intake: ${label}`,
+          body: "Client moved from Phase 1: Intake to Phase 2: Job Development.",
+          link_path: `/dashboard/clients/${clientId}`,
+          metadata: { clientId },
+        });
+      }
+    }
   }
 
   revalidateClientPaths(clientId);

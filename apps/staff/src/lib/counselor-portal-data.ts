@@ -17,6 +17,7 @@ export type CounselorPortalClient = {
   counselor_id: string | null;
   contact_email: string | null;
   archived_at: string | null;
+  intake_status: string | null;
 };
 
 function normalizeClient(row: {
@@ -28,6 +29,7 @@ function normalizeClient(row: {
   counselor_id: string | null;
   contact_email?: string | null;
   archived_at?: string | null;
+  intake_status?: string | null;
 }): CounselorPortalClient | null {
   const linkId = row.id ?? row.profile_id;
   const fkClientId = row.user_id ?? row.profile_id ?? row.id;
@@ -45,6 +47,7 @@ function normalizeClient(row: {
     counselor_id: row.counselor_id,
     contact_email: row.contact_email ?? null,
     archived_at: row.archived_at ?? null,
+    intake_status: row.intake_status ?? "active",
   };
 }
 
@@ -72,7 +75,7 @@ async function queryAssignedClientRows(
   const fullSelect = admin
     .from("clients")
     .select(
-      "id, user_id, profile_id, full_name, current_stage_id, counselor_id, contact_email, archived_at"
+      "id, user_id, profile_id, full_name, current_stage_id, counselor_id, contact_email, archived_at, intake_status"
     );
   const { data, error } = await (useLoginOr
     ? fullSelect.or(orFilter)

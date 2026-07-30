@@ -10,6 +10,7 @@ export type EsCaseloadClientRow = {
   current_service_id: string | null;
   current_stage_id: string | null;
   archived_at: string | null;
+  intake_status?: string | null;
 };
 
 export type FetchEsCaseloadOptions = {
@@ -67,7 +68,7 @@ export async function fetchEsCaseloadClients(
   const { data: clientRows, error: clientsErr } = await admin
     .from("clients")
     .select(
-      "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, archived_at"
+      "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, archived_at, intake_status"
     )
     .in("id", clientIds);
 
@@ -90,7 +91,12 @@ export async function fetchEsCaseloadClients(
     })) as EsCaseloadClientRow[];
     const clients = includeArchived
       ? rows
-      : rows.filter((c) => !isRemovedFromEsCaseload(c.archived_at));
+      : rows.filter(
+          (c) =>
+            !isRemovedFromEsCaseload(c.archived_at) &&
+            ((c as EsCaseloadClientRow).intake_status == null ||
+              (c as EsCaseloadClientRow).intake_status === "active")
+        );
     return { clients, error: null };
   }
 
@@ -101,7 +107,11 @@ export async function fetchEsCaseloadClients(
   const rows = (clientRows ?? []) as EsCaseloadClientRow[];
   const clients = includeArchived
     ? rows
-    : rows.filter((c) => !isRemovedFromEsCaseload(c.archived_at));
+    : rows.filter(
+        (c) =>
+          !isRemovedFromEsCaseload(c.archived_at) &&
+          (c.intake_status == null || c.intake_status === "active")
+      );
 
   return { clients, error: null };
 }

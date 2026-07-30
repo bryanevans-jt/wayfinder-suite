@@ -160,7 +160,7 @@ export async function loadPortalBootstrap(
   let clientsQuery = await admin
     .from("clients")
     .select(
-      "id, contact_email, office_id, user_id, profile_id, full_name, current_service_id, current_stage_id, counselor_id, archived_at"
+      "id, contact_email, office_id, user_id, profile_id, full_name, current_service_id, current_stage_id, counselor_id, archived_at, intake_status"
     );
   if (clientsQuery.error?.message.includes("full_name")) {
     clientsQuery = await admin.from("clients").select(
@@ -327,6 +327,8 @@ export async function loadPortalBootstrap(
       (p) => esSet.has(p.id as string) || (staffOfficeByUser.get(p.id as string) ?? []).some((o) => officeSet.has(o))
     );
     clientRows = clientRows.filter((c) => {
+      const intake = (c as { intake_status?: string | null }).intake_status;
+      if (intake && intake !== "active") return false;
       if (c.office_id && officeSet.has(c.office_id as string)) return true;
       return (esClientLinks ?? []).some(
         (l) =>

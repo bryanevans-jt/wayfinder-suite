@@ -18,7 +18,8 @@ export type PortalSettingsSubNav =
   | "pto"
   | "wrt"
   | "payroll"
-  | "demos";
+  | "demos"
+  | "referrals";
 
 export type PortalNavState = {
   primary: PortalPrimaryNav;
@@ -61,6 +62,7 @@ const SETTINGS_LABELS: Record<PortalSettingsSubNav, string> = {
   wrt: "WRT Curriculum",
   payroll: "Payroll Settings",
   demos: "Demo Training",
+  referrals: "Referral Settings",
   errors: "Error Log",
 };
 
@@ -111,7 +113,7 @@ export function PortalNav({ mode, canManage, nav, onChange }: Props) {
 
   const settingsSubs: PortalSettingsSubNav[] =
     mode === "super_admin"
-      ? ["users", "advanced", "pto", "wrt", "payroll", "demos", "errors"]
+      ? ["users", "advanced", "pto", "wrt", "payroll", "demos", "referrals", "errors"]
       : ["users", "advanced", "pto", "wrt"];
 
   return (

@@ -1,5 +1,5 @@
 import type { createServiceRoleClient } from "./admin-server";
-import { notifySupervisorsForEs } from "./notify-user";
+import { notifySupervisorsForEs, notifyUser } from "./notify-user";
 
 export type EmploymentMilestone = "hire" | "day_30" | "day_60" | "day_90";
 
@@ -196,9 +196,44 @@ export async function processEmploymentCelebration(
       jobStartDate,
       staffClientLink,
     });
+    await notifyAccountantsOfHire(admin, {
+      clientId,
+      clientLabel,
+      jobStartDate,
+    });
   }
 
   return true;
+}
+
+async function notifyAccountantsOfHire(
+  admin: AdminClient,
+  input: {
+    clientId: string;
+    clientLabel: string;
+    jobStartDate: string;
+  }
+): Promise<void> {
+  const { data: accountants } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("role", "accountant")
+    .eq("is_active", true);
+
+  for (const user of accountants ?? []) {
+    await notifyUser(admin, {
+      userId: user.id as string,
+      app: "staff",
+      kind: "client_hired_billing",
+      title: `Client hired: ${input.clientLabel}`,
+      body: `Job start date ${input.jobStartDate}. Review for billing as needed.`,
+      link_path: "/dashboard/exports",
+      metadata: {
+        client_id: input.clientId,
+        job_start_date: input.jobStartDate,
+      },
+    });
+  }
 }
 
 async function notifyHospitalitySpecialistsOfHire(
