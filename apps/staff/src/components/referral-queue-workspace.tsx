@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { intakeStatusLabel, referralStageLabel } from "@wayfinder/supabase/referral-labels";
 
@@ -11,6 +11,7 @@ type ReferralRow = {
   intake_status: string;
   referral_state: string | null;
   referred_at: string | null;
+  counselor_id: string | null;
   counselorName: string | null;
   serviceName: string | null;
   stageName: string | null;
@@ -19,7 +20,16 @@ type ReferralRow = {
   possibleDuplicates: Array<{ id: string; full_name: string | null }>;
 };
 
-type SortKey = "counselor" | "state" | "service" | "stage" | "referred";
+type TimeFilter = "all" | "48h" | "7d" | "30d" | "90d" | "ytd";
+
+const TIME_OPTIONS: Array<{ value: TimeFilter; label: string }> = [
+  { value: "all", label: "All Time" },
+  { value: "48h", label: "Last 48 Hours" },
+  { value: "7d", label: "Last 7 Days" },
+  { value: "30d", label: "Last 30 Days" },
+  { value: "90d", label: "Last 90 Days" },
+  { value: "ytd", label: "Year To Date" },
+];
 
 function stageForRow(c: ReferralRow): string {
   return referralStageLabel({
@@ -28,26 +38,135 @@ function stageForRow(c: ReferralRow): string {
   });
 }
 
-function compareText(a: string, b: string): number {
-  return a.localeCompare(b, undefined, { sensitivity: "base" });
+function referredMs(c: ReferralRow): number {
+  return c.referred_at ? new Date(c.referred_at).getTime() : 0;
+}
+
+function timeCutoff(filter: TimeFilter): number | null {
+  if (filter === "all") return null;
+  const now = Date.now();
+  if (filter === "48h") return now - 48 * 60 * 60 * 1000;
+  if (filter === "7d") return now - 7 * 24 * 60 * 60 * 1000;
+  if (filter === "30d") return now - 30 * 24 * 60 * 60 * 1000;
+  if (filter === "90d") return now - 90 * 24 * 60 * 60 * 1000;
+  // Year to date
+  return new Date(new Date().getFullYear(), 0, 1).getTime();
+}
+
+function CounselorFilter({
+  counselors,
+  value,
+  onChange,
+}: {
+  counselors: Array<{ id: string; name: string }>;
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  const selectedName = counselors.find((c) => c.id === value)?.name ?? "";
+
+  useEffect(() => {
+    if (!open) setQuery(selectedName);
+  }, [open, selectedName]);
+
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return counselors;
+    return counselors.filter((c) => c.name.toLowerCase().includes(q));
+  }, [counselors, query]);
+
+  return (
+    <div ref={rootRef} className="relative min-w-[14rem] flex-1">
+      <label className="block text-xs font-medium text-brand-black/70">Counselor</label>
+      <input
+        type="search"
+        className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+        placeholder="Search counselors…"
+        value={open ? query : selectedName || query}
+        onFocus={() => {
+          setOpen(true);
+          setQuery(selectedName);
+        }}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+          if (!e.target.value.trim()) onChange("");
+        }}
+        autoComplete="off"
+      />
+      {open ? (
+        <ul className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-neutral-200 bg-white py-1 shadow-lg">
+          <li>
+            <button
+              type="button"
+              className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-50"
+              onClick={() => {
+                onChange("");
+                setQuery("");
+                setOpen(false);
+              }}
+            >
+              All Counselors
+            </button>
+          </li>
+          {filtered.length === 0 ? (
+            <li className="px-3 py-2 text-sm text-brand-black/50">No matches</li>
+          ) : (
+            filtered.map((c) => (
+              <li key={c.id}>
+                <button
+                  type="button"
+                  className={`w-full px-3 py-2 text-left text-sm hover:bg-neutral-50 ${
+                    c.id === value ? "bg-brand-green/10 font-medium text-brand-green" : ""
+                  }`}
+                  onClick={() => {
+                    onChange(c.id);
+                    setQuery(c.name);
+                    setOpen(false);
+                  }}
+                >
+                  {c.name}
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      ) : null}
+    </div>
+  );
 }
 
 export function ReferralQueueWorkspace() {
   const [clients, setClients] = useState<ReferralRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [includeAssigned, setIncludeAssigned] = useState(false);
+  const [includeActive, setIncludeActive] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [authById, setAuthById] = useState<Record<string, string>>({});
   const [overrideById, setOverrideById] = useState<Record<string, string>>({});
-  const [sortKey, setSortKey] = useState<SortKey>("referred");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  const [counselorId, setCounselorId] = useState("");
+  const [stateFilter, setStateFilter] = useState("");
+  const [serviceFilter, setServiceFilter] = useState("");
+  const [stageFilter, setStageFilter] = useState("");
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const qs = includeAssigned ? "?includeAssigned=1" : "";
+      const qs = includeActive ? "?includeActive=1" : "";
       const res = await fetch(`/api/referrals${qs}`);
       const data = (await res.json()) as { clients?: ReferralRow[]; error?: string };
       if (!res.ok) throw new Error(data.error || "Failed to load");
@@ -57,33 +176,65 @@ export function ReferralQueueWorkspace() {
     } finally {
       setLoading(false);
     }
-  }, [includeAssigned]);
+  }, [includeActive]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const sortedClients = useMemo(() => {
-    const copy = [...clients];
-    copy.sort((a, b) => {
-      let cmp = 0;
-      if (sortKey === "counselor") {
-        cmp = compareText(a.counselorName || "", b.counselorName || "");
-      } else if (sortKey === "state") {
-        cmp = compareText(a.referral_state || "", b.referral_state || "");
-      } else if (sortKey === "service") {
-        cmp = compareText(a.serviceName || "", b.serviceName || "");
-      } else if (sortKey === "stage") {
-        cmp = compareText(stageForRow(a), stageForRow(b));
-      } else {
-        const at = a.referred_at ? new Date(a.referred_at).getTime() : 0;
-        const bt = b.referred_at ? new Date(b.referred_at).getTime() : 0;
-        cmp = at - bt;
+  const counselorOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of clients) {
+      if (c.counselor_id && c.counselorName) {
+        map.set(c.counselor_id, c.counselorName);
+      } else if (c.counselorName) {
+        map.set(`name:${c.counselorName}`, c.counselorName);
       }
-      return sortDir === "asc" ? cmp : -cmp;
+    }
+    return [...map.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+  }, [clients]);
+
+  const serviceOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of clients) {
+      if (c.serviceName) set.add(c.serviceName);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }, [clients]);
+
+  const stageOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of clients) set.add(stageForRow(c));
+    return [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }, [clients]);
+
+  const filteredClients = useMemo(() => {
+    const cutoff = timeCutoff(timeFilter);
+    const copy = clients.filter((c) => {
+      if (counselorId) {
+        if (counselorId.startsWith("name:")) {
+          if (c.counselorName !== counselorId.slice(5)) return false;
+        } else if (c.counselor_id !== counselorId) {
+          return false;
+        }
+      }
+      if (stateFilter && (c.referral_state || "") !== stateFilter) return false;
+      if (serviceFilter && (c.serviceName || "") !== serviceFilter) return false;
+      if (stageFilter && stageForRow(c) !== stageFilter) return false;
+      if (cutoff != null) {
+        const t = referredMs(c);
+        if (!t || t < cutoff) return false;
+      }
+      return true;
     });
+    copy.sort((a, b) => referredMs(a) - referredMs(b));
     return copy;
-  }, [clients, sortKey, sortDir]);
+  }, [clients, counselorId, stateFilter, serviceFilter, stageFilter, timeFilter]);
+
+  const hasFilters =
+    Boolean(counselorId || stateFilter || serviceFilter || stageFilter) || timeFilter !== "all";
 
   async function runAction(
     clientId: string,
@@ -113,26 +264,17 @@ export function ReferralQueueWorkspace() {
   }
 
   const listExportHref =
-    sortedClients.length > 0
-      ? `/api/exports/referrals/pdf?ids=${sortedClients.map((c) => c.id).join(",")}`
+    filteredClients.length > 0
+      ? `/api/exports/referrals/pdf?ids=${filteredClients.map((c) => c.id).join(",")}`
       : null;
 
-  function setSort(next: SortKey) {
-    if (sortKey === next) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(next);
-      setSortDir("asc");
-    }
+  function clearFilters() {
+    setCounselorId("");
+    setStateFilter("");
+    setServiceFilter("");
+    setStageFilter("");
+    setTimeFilter("all");
   }
-
-  const sortOptions: Array<{ key: SortKey; label: string }> = [
-    { key: "counselor", label: "Counselor" },
-    { key: "state", label: "State" },
-    { key: "service", label: "Service" },
-    { key: "stage", label: "Stage" },
-    { key: "referred", label: "Referred Date" },
-  ];
 
   return (
     <div className="mt-6 space-y-4">
@@ -140,10 +282,10 @@ export function ReferralQueueWorkspace() {
         <label className="inline-flex items-center gap-2">
           <input
             type="checkbox"
-            checked={includeAssigned}
-            onChange={(e) => setIncludeAssigned(e.target.checked)}
+            checked={includeActive}
+            onChange={(e) => setIncludeActive(e.target.checked)}
           />
-          Include ES-Assigned Active Clients
+          Include Active Referrals
         </label>
         <button
           type="button"
@@ -162,23 +304,87 @@ export function ReferralQueueWorkspace() {
         ) : null}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="font-medium text-brand-black/70">Sort By</span>
-        {sortOptions.map((opt) => (
-          <button
-            key={opt.key}
-            type="button"
-            onClick={() => setSort(opt.key)}
-            className={`rounded-lg px-3 py-1.5 font-medium ${
-              sortKey === opt.key
-                ? "bg-brand-green text-white"
-                : "border border-neutral-200 hover:bg-neutral-50"
-            }`}
-          >
-            {opt.label}
-            {sortKey === opt.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
-          </button>
-        ))}
+      <div className="rounded-xl border border-neutral-200 bg-white p-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <p className="text-sm font-semibold text-brand-black">Filters</p>
+          {hasFilters ? (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-sm font-medium text-brand-green hover:underline"
+            >
+              Clear Filters
+            </button>
+          ) : null}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-3">
+          <CounselorFilter
+            counselors={counselorOptions}
+            value={counselorId}
+            onChange={setCounselorId}
+          />
+          <label className="min-w-[8rem] text-xs font-medium text-brand-black/70">
+            State
+            <select
+              className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+              value={stateFilter}
+              onChange={(e) => setStateFilter(e.target.value)}
+            >
+              <option value="">All States</option>
+              <option value="GA">GA</option>
+              <option value="TN">TN</option>
+            </select>
+          </label>
+          <label className="min-w-[12rem] flex-1 text-xs font-medium text-brand-black/70">
+            Service
+            <select
+              className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+              value={serviceFilter}
+              onChange={(e) => setServiceFilter(e.target.value)}
+            >
+              <option value="">All Services</option>
+              {serviceOptions.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="min-w-[10rem] flex-1 text-xs font-medium text-brand-black/70">
+            Stage
+            <select
+              className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+              value={stageFilter}
+              onChange={(e) => setStageFilter(e.target.value)}
+            >
+              <option value="">All Stages</option>
+              {stageOptions.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="min-w-[10rem] text-xs font-medium text-brand-black/70">
+            Time
+            <select
+              className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+              value={timeFilter}
+              onChange={(e) => setTimeFilter(e.target.value as TimeFilter)}
+            >
+              {TIME_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <p className="mt-3 text-xs text-brand-black/55">
+          Showing oldest referrals first
+          {!loading ? ` · ${filteredClients.length} of ${clients.length}` : ""}
+          {hasFilters ? " (filtered)" : ""}
+        </p>
       </div>
 
       {error ? (
@@ -189,11 +395,15 @@ export function ReferralQueueWorkspace() {
 
       {loading ? (
         <p className="text-sm text-brand-black/60">Loading referrals…</p>
-      ) : sortedClients.length === 0 ? (
-        <p className="text-sm text-brand-black/60">No referrals in the queue.</p>
+      ) : filteredClients.length === 0 ? (
+        <p className="text-sm text-brand-black/60">
+          {clients.length === 0
+            ? "No referrals in the queue."
+            : "No referrals match the current filters."}
+        </p>
       ) : (
         <ul className="space-y-4">
-          {sortedClients.map((c) => (
+          {filteredClients.map((c) => (
             <li
               key={c.id}
               className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm"

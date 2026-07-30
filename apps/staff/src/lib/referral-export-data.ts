@@ -28,7 +28,7 @@ export type ReferralExportRow = {
   serviceName: string | null;
   stageName: string | null;
   stageLabel: string;
-  documents: Array<{ kind: string; file_name: string }>;
+  documents: Array<{ id: string; kind: string; file_name: string; mime_type: string | null }>;
 };
 
 const CLIENT_FIELDS =
@@ -87,7 +87,7 @@ export async function loadReferralExportRows(
           }),
       admin
         .from("client_referral_documents")
-        .select("client_id, kind, file_name")
+        .select("id, client_id, kind, file_name, mime_type")
         .in("client_id", clientIds),
     ]);
 
@@ -104,11 +104,19 @@ export async function loadReferralExportRows(
       ((s.title as string | null) || (s.name as string | null) || "").trim() || null,
     ])
   );
-  const docsByClient = new Map<string, Array<{ kind: string; file_name: string }>>();
+  const docsByClient = new Map<
+    string,
+    Array<{ id: string; kind: string; file_name: string; mime_type: string | null }>
+  >();
   for (const d of docs ?? []) {
     const cid = d.client_id as string;
     const list = docsByClient.get(cid) ?? [];
-    list.push({ kind: d.kind as string, file_name: d.file_name as string });
+    list.push({
+      id: d.id as string,
+      kind: d.kind as string,
+      file_name: d.file_name as string,
+      mime_type: (d.mime_type as string | null) ?? null,
+    });
     docsByClient.set(cid, list);
   }
 

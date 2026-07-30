@@ -15,7 +15,9 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const includeAssigned = searchParams.get("includeAssigned") === "1";
+  const includeActive =
+    searchParams.get("includeActive") === "1" ||
+    searchParams.get("includeAssigned") === "1";
   const status = searchParams.get("status");
 
   const admin = createServiceRoleClient();
@@ -24,11 +26,12 @@ export async function GET(request: Request) {
     .select(
       "id, full_name, contact_email, intake_status, referral_state, referred_at, intake_status_changed_at, current_service_id, current_stage_id, office_id, counselor_id, authorization_number, date_of_birth, primary_phone, gender, ethnicity, disability_history, created_at"
     )
-    .in("intake_status", ["new_referral", "pending_authorization", "active"])
     .order("referred_at", { ascending: true, nullsFirst: false });
 
   if (status && ["new_referral", "pending_authorization", "active"].includes(status)) {
     query = query.eq("intake_status", status);
+  } else if (includeActive) {
+    query = query.in("intake_status", ["new_referral", "pending_authorization", "active"]);
   } else {
     query = query.in("intake_status", ["new_referral", "pending_authorization"]);
   }
@@ -38,16 +41,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const clientIds = (rows ?? []).map((r) => r.id as string);
+  const list = rows ?? [];
+  const clientIds = list.map((r) => r.id as string);
   const { data: esLinks } = clientIds.length
     ? await admin.from("es_client_assignments").select("client_id, es_user_id").in("client_id", clientIds)
     : { data: [] as { client_id: string; es_user_id: string }[] };
 
   const assigned = new Set((esLinks ?? []).map((l) => l.client_id as string));
-  let list = rows ?? [];
-  if (!includeAssigned) {
-    list = list.filter((r) => !assigned.has(r.id as string) || r.intake_status !== "active");
-  }
 
   const counselorIds = [...new Set(list.map((r) => r.counselor_id).filter(Boolean))] as string[];
   const serviceIds = [...new Set(list.map((r) => r.current_service_id).filter(Boolean))] as string[];

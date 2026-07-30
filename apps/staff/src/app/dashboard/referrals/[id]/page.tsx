@@ -89,15 +89,50 @@ export default async function ReferralDetailPage({ params }: PageProps) {
         {row.documents.length === 0 ? (
           <p className="mt-2 text-sm text-brand-black/60">No documents uploaded.</p>
         ) : (
-          <ul className="mt-2 space-y-1 text-sm">
-            {row.documents.map((d, i) => (
-              <li key={`${d.file_name}-${i}`}>
-                <span className="font-medium">
-                  {d.kind === "authorizations" ? "Authorizations" : "Other Documents"}:
-                </span>{" "}
-                {d.file_name}
-              </li>
-            ))}
+          <ul className="mt-3 space-y-3">
+            {row.documents.map((d) => {
+              const kindLabel =
+                d.kind === "authorizations" ? "Authorizations" : "Other Documents";
+              const viewHref = `/api/referrals/documents/${d.id}?disposition=inline`;
+              const downloadHref = `/api/referrals/documents/${d.id}?disposition=attachment`;
+              const mime = (d.mime_type || "").toLowerCase();
+              const canPreview =
+                mime.includes("pdf") ||
+                mime.startsWith("image/") ||
+                /\.(pdf|png|jpe?g|webp)$/i.test(d.file_name);
+
+              return (
+                <li
+                  key={d.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium uppercase tracking-wide text-brand-black/50">
+                      {kindLabel}
+                    </p>
+                    <p className="truncate text-sm font-medium text-brand-black">{d.file_name}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {canPreview ? (
+                      <a
+                        href={viewHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm font-medium text-brand-green hover:bg-neutral-50"
+                      >
+                        View
+                      </a>
+                    ) : null}
+                    <a
+                      href={downloadHref}
+                      className="rounded-lg bg-brand-green px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-green/90"
+                    >
+                      Download
+                    </a>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
