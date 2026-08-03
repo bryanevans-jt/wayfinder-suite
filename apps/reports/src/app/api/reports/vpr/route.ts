@@ -18,6 +18,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const reportData = body.reportData as Record<string, string>;
     const wayfinderClientId = body.wayfinderClientId as string | undefined;
+    const reportingState = body.state === 'TN' ? 'TN' : 'GA';
     if (!reportData) return NextResponse.json({ error: 'reportData required' }, { status: 400 });
 
     const admin = createAdminClient();
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
     await recordFormalSubmission(admin, {
       wayfinderClientId: wayfinderClientId || null,
       clientName: reportData.ClientName || 'Client',
-      state: 'GA',
+      state: reportingState,
       reportTypeSlug: 'vpr',
       reportingMonth: reportData.Date?.slice(0, 7) ?? null,
       submittedBy: user.id,

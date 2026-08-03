@@ -14,6 +14,11 @@ const GA_REPORTS = [
   { slug: "evf", name: "Employment Verification Form", requiresClient: false, requiresSignature: false },
 ] as const;
 
+/** Same GA VPR flow (form, template, Drive stage folders) offered under Tennessee. */
+const TN_BUILTIN_REPORTS = [
+  { slug: "vpr", name: "Vocational Progress Reports", requiresClient: false, requiresSignature: false },
+] as const;
+
 export async function GET(request: Request) {
   try {
     const supabase = await createClient();
@@ -36,6 +41,7 @@ export async function GET(request: Request) {
       return NextResponse.json({
         state,
         gaReports: GA_REPORTS,
+        builtinReports: [],
         programs: [],
       });
     }
@@ -70,6 +76,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       state,
       gaReports: [],
+      builtinReports: TN_BUILTIN_REPORTS,
       programs: (programs ?? []).map((p) => ({
         id: p.id,
         name: p.name,

@@ -13,6 +13,11 @@ type GaReport = {
   name: string;
 };
 
+type BuiltinReport = {
+  slug: string;
+  name: string;
+};
+
 export type TnReportSelection = {
   id: string;
   slug: string;
@@ -41,12 +46,21 @@ interface Props {
   user: { email: string; displayName: string };
   state: ReportingState;
   onSelectGa: (type: GaReportType) => void;
+  onSelectBuiltin: (slug: string) => void;
   onSelectTn: (report: TnReportSelection) => void;
   onBack: () => void;
 }
 
-export function ReportSelection({ user, state, onSelectGa, onSelectTn, onBack }: Props) {
+export function ReportSelection({
+  user,
+  state,
+  onSelectGa,
+  onSelectBuiltin,
+  onSelectTn,
+  onBack,
+}: Props) {
   const [gaReports, setGaReports] = useState<GaReport[]>([]);
+  const [builtinReports, setBuiltinReports] = useState<BuiltinReport[]>([]);
   const [programs, setPrograms] = useState<TnProgram[]>([]);
   const [selected, setSelected] = useState('');
   const [loading, setLoading] = useState(true);
@@ -56,6 +70,7 @@ export function ReportSelection({ user, state, onSelectGa, onSelectTn, onBack }:
       .then((res) => res.json())
       .then((data) => {
         setGaReports(data.gaReports ?? []);
+        setBuiltinReports(data.builtinReports ?? []);
         setPrograms(data.programs ?? []);
       })
       .finally(() => setLoading(false));
@@ -126,55 +141,76 @@ export function ReportSelection({ user, state, onSelectGa, onSelectTn, onBack }:
               Next
             </button>
           </>
-        ) : enabledTnReports.length === 0 ? (
-          <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-gray-700">
-            <p className="font-medium">No Tennessee reports are enabled yet.</p>
-            <p className="mt-2">
-              Programs are seeded in admin. Enable a program and add report templates in the{' '}
-              <a href="/admin" className="font-medium text-green-700 hover:underline">
-                reports admin portal
-              </a>{' '}
-              when ready.
-            </p>
-            <ul className="mt-3 list-disc pl-5 space-y-1">
-              {programs.map((p) => (
-                <li key={p.id}>
-                  {p.name}
-                  {!p.enabled ? ' (disabled)' : ''}
-                </li>
-              ))}
-            </ul>
-          </div>
         ) : (
-          <ul className="space-y-2">
-            {enabledTnReports.map((report) => (
-              <li key={report.id}>
-                <button
-                  type="button"
-                  onClick={() =>
-                    onSelectTn({
-                      id: report.id,
-                      slug: report.slug,
-                      name: report.name,
-                      requiresSignature: report.requiresSignature,
-                      templateKind: report.templateKind,
-                      tagSchema: report.tagSchema,
-                    })
-                  }
-                  className="w-full rounded-lg border border-gray-200 px-4 py-3 text-left text-sm hover:border-green-300 hover:bg-green-50"
-                >
-                  <p className="font-medium">{report.name}</p>
-                  <p className="text-xs text-gray-500">{report.programName}</p>
-                  {report.requiresSignature ? (
-                    <p className="text-xs text-green-700 mt-1">Signature required</p>
-                  ) : null}
-                  {report.templateKind === 'pdf_upload' ? (
-                    <p className="text-xs text-blue-700 mt-1">Download, print, and upload completed form</p>
-                  ) : null}
-                </button>
-              </li>
-            ))}
-          </ul>
+          <div className="space-y-4">
+            {builtinReports.length > 0 ? (
+              <ul className="space-y-2">
+                {builtinReports.map((report) => (
+                  <li key={report.slug}>
+                    <button
+                      type="button"
+                      onClick={() => onSelectBuiltin(report.slug)}
+                      className="w-full rounded-lg border border-gray-200 px-4 py-3 text-left text-sm hover:border-green-300 hover:bg-green-50"
+                    >
+                      <p className="font-medium">{report.name}</p>
+                      <p className="text-xs text-gray-500">Same form and Drive folders as Georgia</p>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
+            {enabledTnReports.length > 0 ? (
+              <ul className="space-y-2">
+                {enabledTnReports.map((report) => (
+                  <li key={report.id}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onSelectTn({
+                          id: report.id,
+                          slug: report.slug,
+                          name: report.name,
+                          requiresSignature: report.requiresSignature,
+                          templateKind: report.templateKind,
+                          tagSchema: report.tagSchema,
+                        })
+                      }
+                      className="w-full rounded-lg border border-gray-200 px-4 py-3 text-left text-sm hover:border-green-300 hover:bg-green-50"
+                    >
+                      <p className="font-medium">{report.name}</p>
+                      <p className="text-xs text-gray-500">{report.programName}</p>
+                      {report.requiresSignature ? (
+                        <p className="text-xs text-green-700 mt-1">Signature required</p>
+                      ) : null}
+                      {report.templateKind === 'pdf_upload' ? (
+                        <p className="text-xs text-blue-700 mt-1">Download, print, and upload completed form</p>
+                      ) : null}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : builtinReports.length === 0 ? (
+              <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-gray-700">
+                <p className="font-medium">No Tennessee reports are enabled yet.</p>
+                <p className="mt-2">
+                  Programs are seeded in admin. Enable a program and add report templates in the{' '}
+                  <a href="/admin" className="font-medium text-green-700 hover:underline">
+                    reports admin portal
+                  </a>{' '}
+                  when ready.
+                </p>
+                <ul className="mt-3 list-disc pl-5 space-y-1">
+                  {programs.map((p) => (
+                    <li key={p.id}>
+                      {p.name}
+                      {!p.enabled ? ' (disabled)' : ''}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
         )}
       </div>
       <div className="mt-6">

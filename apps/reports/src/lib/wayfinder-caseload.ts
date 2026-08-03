@@ -29,34 +29,11 @@ async function loadProfileRole(admin: SupabaseClient, userId: string): Promise<s
   return (data?.role as string | undefined)?.toLowerCase() ?? null;
 }
 
-/** States with enabled catalog entries — used for admin-tier users. */
-async function loadCatalogReportingStates(admin: SupabaseClient): Promise<ReportingState[]> {
-  const states: ReportingState[] = ["GA"];
-
-  const { data: programs } = await admin
-    .from("report_service_programs")
-    .select("id")
-    .eq("state", "TN")
-    .eq("enabled", true);
-
-  const programIds = (programs ?? []).map((p) => p.id as string);
-  if (programIds.length === 0) {
-    return states;
-  }
-
-  const { data: enabledTypes } = await admin
-    .from("report_type_definitions")
-    .select("id")
-    .eq("state", "TN")
-    .eq("enabled", true)
-    .in("program_id", programIds)
-    .limit(1);
-
-  if (enabledTypes?.length) {
-    states.push("TN");
-  }
-
-  return states;
+/** States available in the reporting app for admin-tier users. */
+async function loadCatalogReportingStates(_admin: SupabaseClient): Promise<ReportingState[]> {
+  // GA: hardcoded report list. TN: builtin Vocational Progress Report (+ optional catalog types).
+  void _admin;
+  return ["GA", "TN"];
 }
 
 async function loadSupervisorScope(admin: SupabaseClient, supervisorUserId: string): Promise<SupervisorScope> {

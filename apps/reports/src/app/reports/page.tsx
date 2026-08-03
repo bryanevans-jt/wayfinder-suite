@@ -288,6 +288,13 @@ function ReportsWorkspace() {
           user={user}
           state={selectedState}
           onSelectGa={afterReportType}
+          onSelectBuiltin={(slug) => {
+            if (slug === 'vpr') {
+              setReportType('vpr');
+              setTnReport(null);
+              setScreen('VPR_FORM');
+            }
+          }}
           onSelectTn={(report) => {
             setTnReport(report);
             setTnFieldLabels(tagSchemaLabels(report.tagSchema));
@@ -407,6 +414,8 @@ function ReportsWorkspace() {
         <VPRForm
           user={user}
           esName={esName}
+          reportingState={selectedState === 'TN' ? 'TN' : 'GA'}
+          wayfinderClientId={wayfinderClientId}
           onSuccess={(msg) => {
             setMessage(msg);
             setScreen('SUBMISSION_STATUS');

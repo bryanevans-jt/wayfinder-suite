@@ -2,9 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+type ReportingState = 'GA' | 'TN';
+
 interface Props {
   user: { email: string; displayName: string };
   esName?: string;
+  reportingState?: ReportingState;
+  wayfinderClientId?: string | null;
   onSuccess: (msg: string) => void;
   onError: (msg: string) => void;
 }
@@ -19,7 +23,14 @@ const VPR_SERVICE_STAGE_OPTIONS = [
   { value: 'Job Coaching', label: 'Job Coaching (Service)' },
 ];
 
-export function VPRForm({ user, esName = '', onSuccess, onError }: Props) {
+export function VPRForm({
+  user,
+  esName = '',
+  reportingState = 'GA',
+  wayfinderClientId = null,
+  onSuccess,
+  onError,
+}: Props) {
   const formRef = useRef<HTMLFormElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [employmentSpecialistName, setEmploymentSpecialistName] = useState(
@@ -43,7 +54,11 @@ export function VPRForm({ user, esName = '', onSuccess, onError }: Props) {
       const res = await fetch('/api/reports/vpr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reportData: vprData }),
+        body: JSON.stringify({
+          reportData: vprData,
+          state: reportingState,
+          wayfinderClientId: wayfinderClientId || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Submission failed');
