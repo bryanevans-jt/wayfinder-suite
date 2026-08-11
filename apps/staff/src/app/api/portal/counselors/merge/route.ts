@@ -9,7 +9,7 @@ type Body = {
 
 export async function POST(request: NextRequest) {
   try {
-    const { admin } = await assertPortalMutation("super_admin");
+    const { admin } = await assertPortalMutation("admin");
     const body = (await request.json()) as Body;
     const result = await mergeCounselors(admin, {
       keeperId: body.keeperId ?? "",

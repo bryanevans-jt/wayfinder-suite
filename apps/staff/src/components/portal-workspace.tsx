@@ -91,6 +91,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
   const [newCounselorName, setNewCounselorName] = useState("");
   const [newCounselorEmail, setNewCounselorEmail] = useState("");
   const [newCounselorOfficeIds, setNewCounselorOfficeIds] = useState<string[]>([]);
+  const [mergeSourceId, setMergeSourceId] = useState<string | null>(null);
   const [newSupervisorName, setNewSupervisorName] = useState("");
   const [newSupervisorEmail, setNewSupervisorEmail] = useState("");
   const [newSupervisorOfficeIds, setNewSupervisorOfficeIds] = useState<string[]>([]);
@@ -296,6 +297,17 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
       ) : nav.primary === "offices" ? (
         isOfficesCounselorsNav(nav) && canManageOrg ? (
           <section className="mt-6 max-w-4xl space-y-6">
+            {mode === "super_admin" || mode === "admin" ? (
+              <CounselorMergePanel
+                counselors={b.counselorStaff}
+                busy={busy}
+                preselectSourceId={mergeSourceId}
+                onMerged={async () => {
+                  setMergeSourceId(null);
+                  await reload();
+                }}
+              />
+            ) : null}
             <form
               className="space-y-4 rounded-xl border border-neutral-200 bg-white p-4"
               onSubmit={(e) => {
@@ -350,13 +362,6 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 Add counselor
               </button>
             </form>
-            {mode === "super_admin" ? (
-              <CounselorMergePanel
-                counselors={b.counselorStaff}
-                busy={busy}
-                onMerged={reload}
-              />
-            ) : null}
             <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white">
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-neutral-50 text-brand-black/70">
@@ -383,6 +388,13 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                         offices={b.offices}
                         busy={busy}
                         officeName={officeName}
+                        onCombine={() => {
+                          setMergeSourceId(c.id);
+                          document.getElementById("combine-counselors")?.scrollIntoView({
+                            behavior: "smooth",
+                            block: "start",
+                          });
+                        }}
                         onSave={(payload) =>
                           run(async () => {
                             const res = await fetch("/api/portal/counselors", {
@@ -2074,11 +2086,13 @@ function CounselorStaffListItem({
   officeName,
   onSave,
   onDelete,
+  onCombine,
 }: {
   counselor: CounselorStaffRow;
   offices: PortalBootstrap["offices"];
   busy: boolean;
   officeName: (id: string | null) => string;
+  onCombine?: () => void;
   onSave: (payload: {
     full_name: string;
     email?: string;
@@ -2228,6 +2242,16 @@ function CounselorStaffListItem({
         )}
       </td>
       <td className="whitespace-nowrap px-3 py-3">
+        {onCombine ? (
+          <button
+            type="button"
+            disabled={busy}
+            className="mr-3 font-medium text-brand-green hover:underline disabled:opacity-60"
+            onClick={onCombine}
+          >
+            Combine
+          </button>
+        ) : null}
         <button
           type="button"
           disabled={busy}

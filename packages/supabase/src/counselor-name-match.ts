@@ -1,7 +1,14 @@
 export type CounselorNameMatchKind = "exact" | "near";
 
 export function normalizeCounselorName(name: string): string {
-  return name
+  let trimmed = name.trim();
+  if (trimmed.includes(",")) {
+    const [last, first] = trimmed.split(",").map((part) => part.trim());
+    if (first && last) {
+      trimmed = `${first} ${last}`;
+    }
+  }
+  return trimmed
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/['.`]/g, "")
@@ -54,6 +61,11 @@ export function counselorNameMatchKind(
     if (ta[ta.length - 1] === tb[tb.length - 1]) {
       const firstA = ta[0];
       const firstB = tb[0];
+      const shorter = firstA.length <= firstB.length ? firstA : firstB;
+      const longer = firstA.length <= firstB.length ? firstB : firstA;
+      if (shorter.length === 1 && longer.startsWith(shorter)) {
+        return "near";
+      }
       if (
         Math.min(firstA.length, firstB.length) >= 3 &&
         levenshtein(firstA, firstB) <= 2
@@ -84,15 +96,39 @@ export type CounselorDuplicatePair<T extends { id: string; full_name: string }> 
   kind: CounselorNameMatchKind;
 };
 
-export function findCounselorDuplicatePairs<T extends { id: string; full_name: string }>(
-  rows: T[]
-): CounselorDuplicatePair<T>[] {
+function counselorEmails(row: {
+  email?: string | null;
+  contact_email?: string | null;
+}): string[] {
+  return [row.email, row.contact_email]
+    .map((value) => (value ?? "").trim().toLowerCase())
+    .filter((value) => value.includes("@"));
+}
+
+export function findCounselorDuplicatePairs<
+  T extends {
+    id: string;
+    full_name: string;
+    email?: string | null;
+    contact_email?: string | null;
+  },
+>(rows: T[]): CounselorDuplicatePair<T>[] {
   const pairs: CounselorDuplicatePair<T>[] = [];
   for (let i = 0; i < rows.length; i++) {
     for (let j = i + 1; j < rows.length; j++) {
       const kind = counselorNameMatchKind(rows[i].full_name, rows[j].full_name);
       if (kind) {
         pairs.push({ left: rows[i], right: rows[j], kind });
+        continue;
+      }
+      const emailsA = counselorEmails(rows[i]);
+      const emailsB = counselorEmails(rows[j]);
+      const sameEmail = emailsA.some((email) => emailsB.includes(email));
+      const sameLocal = emailsA.some((email) =>
+        emailsB.some((other) => email.split("@")[0] === other.split("@")[0] && email.split("@")[0])
+      );
+      if (sameEmail || sameLocal) {
+        pairs.push({ left: rows[i], right: rows[j], kind: "near" });
       }
     }
   }

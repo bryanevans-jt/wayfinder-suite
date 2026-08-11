@@ -14,10 +14,79 @@ export type MergeableCounselor = {
 type Props = {
   counselors: MergeableCounselor[];
   busy: boolean;
+  preselectSourceId?: string | null;
   onMerged: () => Promise<void>;
 };
 
-export function CounselorMergePanel({ counselors, busy, onMerged }: Props) {
+function counselorLabel(c: MergeableCounselor): string {
+  const email = c.email || c.contact_email;
+  return `${c.full_name}${email ? ` · ${email}` : ""} · ${c.client_count} client${c.client_count === 1 ? "" : "s"}`;
+}
+
+function CounselorSearchSelect({
+  label,
+  value,
+  onChange,
+  counselors,
+  excludeId,
+  disabled,
+}: {
+  label: string;
+  value: string;
+  onChange: (id: string) => void;
+  counselors: MergeableCounselor[];
+  excludeId?: string;
+  disabled?: boolean;
+}) {
+  const selected = counselors.find((c) => c.id === value);
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return counselors.filter((c) => {
+      if (c.id === excludeId) return false;
+      if (!q) return true;
+      const email = `${c.email ?? ""} ${c.contact_email ?? ""}`.toLowerCase();
+      return c.full_name.toLowerCase().includes(q) || email.includes(q);
+    });
+  }, [counselors, excludeId, query]);
+
+  return (
+    <label className="text-sm">
+      <span className="font-medium">{label}</span>
+      <input
+        className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search name or email…"
+        disabled={disabled}
+      />
+      <select
+        className="mt-2 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+      >
+        <option value="">Select…</option>
+        {selected && !filtered.some((c) => c.id === selected.id) ? (
+          <option value={selected.id}>{counselorLabel(selected)}</option>
+        ) : null}
+        {filtered.map((c) => (
+          <option key={c.id} value={c.id}>
+            {counselorLabel(c)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+export function CounselorMergePanel({
+  counselors,
+  busy,
+  preselectSourceId,
+  onMerged,
+}: Props) {
   const [keeperId, setKeeperId] = useState("");
   const [sourceId, setSourceId] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -30,6 +99,12 @@ export function CounselorMergePanel({ counselors, busy, onMerged }: Props) {
     if (keep && counselors.some((c) => c.id === keep)) setKeeperId(keep);
     if (source && counselors.some((c) => c.id === source)) setSourceId(source);
   }, [counselors]);
+
+  useEffect(() => {
+    if (preselectSourceId && counselors.some((c) => c.id === preselectSourceId)) {
+      setSourceId(preselectSourceId);
+    }
+  }, [preselectSourceId, counselors]);
 
   const pairs = useMemo(() => findCounselorDuplicatePairs(counselors), [counselors]);
 
@@ -70,21 +145,21 @@ export function CounselorMergePanel({ counselors, busy, onMerged }: Props) {
   }
 
   return (
-    <section className="space-y-4 rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+    <section id="combine-counselors" className="space-y-4 rounded-xl border border-amber-200 bg-amber-50/60 p-4">
       <div>
         <h2 className="text-lg font-semibold text-brand-black">Combine counselors</h2>
         <p className="mt-1 text-sm text-brand-black/70">
-          Referrals sometimes create a second record when a name is spelled differently. Keep one
-          counselor and fold the extra record into it.
+          Use this for records already in the list. Search and pick the one to keep, then the
+          duplicate to fold into it. You do not need a notification.
         </p>
       </div>
 
       {pairs.length > 0 ? (
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-amber-900/80">
-            Possible matches
+            Possible matches ({pairs.length})
           </p>
-          <ul className="mt-2 space-y-2">
+          <ul className="mt-2 max-h-64 space-y-2 overflow-y-auto">
             {pairs.map((pair) => (
               <li
                 key={`${pair.left.id}:${pair.right.id}`}
@@ -104,8 +179,11 @@ export function CounselorMergePanel({ counselors, busy, onMerged }: Props) {
                   type="button"
                   className="font-medium text-brand-green hover:underline"
                   onClick={() => {
-                    setKeeperId(pair.left.id);
-                    setSourceId(pair.right.id);
+                    const keep =
+                      pair.left.client_count >= pair.right.client_count ? pair.left : pair.right;
+                    const extra = keep.id === pair.left.id ? pair.right : pair.left;
+                    setKeeperId(keep.id);
+                    setSourceId(extra.id);
                   }}
                 >
                   Review
@@ -115,46 +193,28 @@ export function CounselorMergePanel({ counselors, busy, onMerged }: Props) {
           </ul>
         </div>
       ) : (
-        <p className="text-sm text-brand-black/60">No similar counselor names right now.</p>
+        <p className="text-sm text-brand-black/60">
+          No automatic matches. Search the two dropdowns below and combine any pair.
+        </p>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="text-sm">
-          <span className="font-medium">Keep this counselor</span>
-          <select
-            className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2"
-            value={keeperId}
-            onChange={(e) => setKeeperId(e.target.value)}
-            disabled={busy || saving}
-          >
-            <option value="">Select…</option>
-            {counselors.map((c) => (
-              <option key={c.id} value={c.id} disabled={c.id === sourceId}>
-                {c.full_name}
-                {c.email || c.contact_email ? ` · ${c.email || c.contact_email}` : ""}
-                {` · ${c.client_count} clients`}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm">
-          <span className="font-medium">Combine this record into them</span>
-          <select
-            className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2"
-            value={sourceId}
-            onChange={(e) => setSourceId(e.target.value)}
-            disabled={busy || saving}
-          >
-            <option value="">Select…</option>
-            {counselors.map((c) => (
-              <option key={c.id} value={c.id} disabled={c.id === keeperId}>
-                {c.full_name}
-                {c.email || c.contact_email ? ` · ${c.email || c.contact_email}` : ""}
-                {` · ${c.client_count} clients`}
-              </option>
-            ))}
-          </select>
-        </label>
+        <CounselorSearchSelect
+          label="Keep this counselor"
+          value={keeperId}
+          onChange={setKeeperId}
+          counselors={counselors}
+          excludeId={sourceId}
+          disabled={busy || saving}
+        />
+        <CounselorSearchSelect
+          label="Remove this duplicate"
+          value={sourceId}
+          onChange={setSourceId}
+          counselors={counselors}
+          excludeId={keeperId}
+          disabled={busy || saving}
+        />
       </div>
 
       {error ? (
