@@ -5,6 +5,10 @@ import {
   isHospitalitySpecialistRole,
   isHrRole,
 } from "@wayfinder/supabase/roles";
+import {
+  ensureScheduledIntakeBilling,
+  markIntakeReadyToBill,
+} from "@wayfinder/supabase/intake-billing";
 import { NextResponse } from "next/server";
 
 function canAccessIntakes(role: string | null | undefined) {
@@ -68,12 +72,25 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = (await request.json()) as { taskId?: string; action?: "complete" };
+  const body = (await request.json()) as {
+    taskId?: string;
+    action?: "complete";
+    scheduledAt?: string | null;
+  };
   if (!body.taskId || body.action !== "complete") {
     return NextResponse.json({ error: "taskId and action=complete required" }, { status: 400 });
   }
 
   const admin = createServiceRoleClient();
+  const { data: task, error: loadErr } = await admin
+    .from("hospitality_intake_tasks")
+    .select("id, client_id")
+    .eq("id", body.taskId)
+    .maybeSingle();
+  if (loadErr || !task) {
+    return NextResponse.json({ error: loadErr?.message ?? "Task not found" }, { status: 404 });
+  }
+
   const { error } = await admin
     .from("hospitality_intake_tasks")
     .update({
@@ -86,5 +103,22 @@ export async function PATCH(request: Request) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  const scheduledAt = (body.scheduledAt ?? "").trim() || null;
+  const created = await ensureScheduledIntakeBilling(admin, {
+    clientId: task.client_id as string,
+    hospitalityTaskId: task.id as string,
+    scheduledAt,
+  });
+  if ("error" in created) {
+    return NextResponse.json({ error: created.error }, { status: 500 });
+  }
+  if (scheduledAt && new Date(scheduledAt).getTime() <= Date.now()) {
+    await markIntakeReadyToBill(admin, {
+      clientId: task.client_id as string,
+      reason: "scheduled_time",
+    });
+  }
+
   return NextResponse.json({ ok: true });
 }

@@ -33,6 +33,7 @@ const COUNSELOR_BLOCKED_PREFIXES = [
   "/dashboard/operations",
   "/dashboard/compliance",
   "/dashboard/timesheet",
+  "/dashboard/intake-billing",
   "/dashboard/time-clock",
   "/dashboard/audit",
   "/dashboard/share-moments",
@@ -73,6 +74,12 @@ const dataExportsNav: StaffNavItem = {
   href: "/dashboard/exports",
   label: "Download Exports",
   match: (p) => p === "/dashboard/exports",
+};
+
+const intakeBillingNav: StaffNavItem = {
+  href: "/dashboard/intake-billing",
+  label: "Intake Billing",
+  match: (p) => p.startsWith("/dashboard/intake-billing"),
 };
 
 const communityPartnersNav: StaffNavItem = {
@@ -208,6 +215,7 @@ export function staffNavSectionsForRole(
               label: "Referral Queue",
               match: (p) => p.startsWith("/dashboard/referrals"),
             },
+            intakeBillingNav,
             communityPartnersNav,
           ],
         },
@@ -248,6 +256,7 @@ export function staffNavSectionsForRole(
               label: "Referral Queue",
               match: (p) => p.startsWith("/dashboard/referrals"),
             },
+            intakeBillingNav,
             communityPartnersNav,
           ],
         },
@@ -298,6 +307,7 @@ export function staffNavSectionsForRole(
       {
         label: "Accounts",
         items: [
+          intakeBillingNav,
           {
             href: "/dashboard/timesheet",
             label: "Weekly Timesheet",
@@ -329,6 +339,7 @@ export function staffNavSectionsForRole(
             label: "Referral Queue",
             match: (p) => p.startsWith("/dashboard/referrals"),
           },
+          intakeBillingNav,
           {
             href: "/dashboard/timesheet",
             label: "Weekly Timesheet",

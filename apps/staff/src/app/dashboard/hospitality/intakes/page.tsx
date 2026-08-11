@@ -23,7 +23,8 @@ export default async function HospitalityIntakesPage() {
       <h1 className="text-2xl font-semibold text-brand-black">Intake Calls</h1>
       <p className="mt-2 max-w-2xl text-sm text-brand-black/75">
         Activated referrals ready to start. Review client info, assign a supervisor, and mark
-        Complete when the intake is set. Oldest Incomplete stays at the top.
+        Complete when the intake meeting is scheduled. Optional date and time help Accounts
+        know when the meeting should have happened. Oldest Incomplete stays at the top.
       </p>
       <HospitalityIntakeWorkspace />
     </main>

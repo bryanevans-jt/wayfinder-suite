@@ -92,5 +92,13 @@ export async function saveClientContactLog(
     }
   }
 
+  const { markIntakeReadyIfHospitalityComplete } = await import(
+    "@wayfinder/supabase/intake-billing"
+  );
+  await markIntakeReadyIfHospitalityComplete(admin, {
+    clientId: input.clientId,
+    reason: "contact_log",
+  });
+
   return warning ? { ok: true, warning } : { ok: true };
 }

@@ -123,7 +123,7 @@ export function staffHomePath(role: string | null | undefined): string {
   if (r === "super_admin") return "/dashboard/super-admin";
   if (r === "admin") return "/dashboard/admin";
   if (r === "supervisor") return "/dashboard/supervisor";
-  if (r === "accountant") return "/dashboard/timesheet";
+  if (r === "accountant") return "/dashboard/intake-billing";
   if (r === "hr") return "/dashboard/hr";
   if (r === "hospitality_specialist") return "/dashboard/hospitality";
   if (r === "wrt_admin") return "/dashboard/profile";

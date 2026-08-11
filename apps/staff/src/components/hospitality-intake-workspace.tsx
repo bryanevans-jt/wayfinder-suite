@@ -21,6 +21,7 @@ export function HospitalityIntakeWorkspace() {
   const [filter, setFilter] = useState<"open" | "completed" | "all">("open");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [schedule, setSchedule] = useState<Record<string, { date: string; time: string }>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -42,10 +43,13 @@ export function HospitalityIntakeWorkspace() {
   }, [load]);
 
   async function complete(id: string) {
+    const slot = schedule[id];
+    const scheduledAt =
+      slot?.date && slot?.time ? new Date(`${slot.date}T${slot.time}:00`).toISOString() : null;
     const res = await fetch("/api/hospitality/intakes", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ taskId: id, action: "complete" }),
+      body: JSON.stringify({ taskId: id, action: "complete", scheduledAt }),
     });
     if (!res.ok) {
       const data = (await res.json()) as { error?: string };
@@ -105,13 +109,43 @@ export function HospitalityIntakeWorkspace() {
                 </p>
               </div>
               {t.status === "open" ? (
-                <button
-                  type="button"
-                  onClick={() => void complete(t.id)}
-                  className="rounded-lg bg-brand-gold px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-gold/90"
-                >
-                  Mark complete
-                </button>
+                <div className="flex flex-wrap items-end gap-2">
+                  <label className="text-xs font-medium text-brand-black/70">
+                    Intake date
+                    <input
+                      type="date"
+                      value={schedule[t.id]?.date ?? ""}
+                      onChange={(e) =>
+                        setSchedule((prev) => ({
+                          ...prev,
+                          [t.id]: { date: e.target.value, time: prev[t.id]?.time ?? "" },
+                        }))
+                      }
+                      className="mt-1 block rounded-lg border border-neutral-300 px-2 py-1.5 text-sm"
+                    />
+                  </label>
+                  <label className="text-xs font-medium text-brand-black/70">
+                    Time
+                    <input
+                      type="time"
+                      value={schedule[t.id]?.time ?? ""}
+                      onChange={(e) =>
+                        setSchedule((prev) => ({
+                          ...prev,
+                          [t.id]: { date: prev[t.id]?.date ?? "", time: e.target.value },
+                        }))
+                      }
+                      className="mt-1 block rounded-lg border border-neutral-300 px-2 py-1.5 text-sm"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => void complete(t.id)}
+                    className="rounded-lg bg-brand-gold px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-gold/90"
+                  >
+                    Mark complete
+                  </button>
+                </div>
               ) : (
                 <span className="text-xs font-medium uppercase tracking-wide text-brand-black/45">
                   Complete

@@ -282,8 +282,9 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Sidebar Layout",
         body:
-          "Accounts Specialist tools focus on timesheets, Time Clock, and payment/billing exports. Community Partners is shared reference data.",
+          "Accounts Specialist tools focus on intake billing, timesheets, Time Clock, and payment/billing exports. Community Partners is shared reference data.",
         steps: [
+          "Accounts → Intake Billing (bill the state after intake, then mark payment received).",
           "Accounts → Weekly Timesheet, Time Clock, Download Exports.",
           "Reference → Community Partners.",
         ],

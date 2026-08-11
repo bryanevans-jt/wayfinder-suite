@@ -144,27 +144,8 @@ export async function updateClientCurrentStage(clientId: string, milestoneId: st
       .eq("id", client.current_service_id)
       .maybeSingle();
     if ((service?.name as string) === "Traditional Supported Employment (GA)") {
-      const label =
-        (client.full_name as string)?.trim() ||
-        (client.contact_email as string)?.trim() ||
-        clientId;
-      const { data: accountants } = await admin
-        .from("profiles")
-        .select("id")
-        .eq("role", "accountant")
-        .eq("is_active", true);
-      const { notifyUser } = await import("@wayfinder/supabase/notify-user");
-      for (const a of accountants ?? []) {
-        await notifyUser(admin, {
-          userId: a.id as string,
-          app: "staff",
-          kind: "referral_intake_billing",
-          title: `Bill intake: ${label}`,
-          body: "Client moved from Phase 1: Intake to Phase 2: Job Development.",
-          link_path: `/dashboard/clients/${clientId}`,
-          metadata: { clientId },
-        });
-      }
+      const { markIntakeReadyToBill } = await import("@wayfinder/supabase/intake-billing");
+      await markIntakeReadyToBill(admin, { clientId, reason: "tse_phase" });
     }
   }
 

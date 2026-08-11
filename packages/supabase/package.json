@@ -52,7 +52,8 @@
     "./referral-intake": "./src/referral-intake.ts",
     "./referral-labels": "./src/referral-labels.ts",
     "./counselor-dedupe": "./src/counselor-dedupe.ts",
-    "./counselor-name-match": "./src/counselor-name-match.ts"
+    "./counselor-name-match": "./src/counselor-name-match.ts",
+    "./intake-billing": "./src/intake-billing.ts"
   },
   "scripts": {
     "lint": "tsc --noEmit"
