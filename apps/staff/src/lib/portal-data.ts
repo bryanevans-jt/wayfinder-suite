@@ -240,11 +240,12 @@ export async function loadPortalBootstrap(
     contact_email?: string | null;
   }>;
   if (counselorsQuery.error?.message.includes("contact_email")) {
-    counselorsQuery = await admin
+    const withoutEmail = await admin
       .from("counselors")
       .select("id, full_name, office_id, user_id")
       .order("full_name");
-    counselors = (counselorsQuery.data ?? []) as typeof counselors;
+    counselorsQuery = withoutEmail as typeof counselorsQuery;
+    counselors = (withoutEmail.data ?? []) as typeof counselors;
   }
   if (counselorsQuery.error?.message.includes("user_id")) {
     const fallback = await admin

@@ -88,7 +88,7 @@ export function HrTimesheetsPanel() {
     return () => window.clearInterval(timer);
   }, [load, week]);
 
-  const signedIn = data?.signedIn ?? [];
+  const signedIn = useMemo(() => data?.signedIn ?? [], [data?.signedIn]);
   const totalPages = pageSize === "all" || signedIn.length === 0 ? 1 : Math.ceil(signedIn.length / pageSize);
   const safePage = Math.min(Math.max(1, page), totalPages);
   const pagedSignedIn = useMemo(() => {
