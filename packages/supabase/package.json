@@ -50,7 +50,9 @@
     "./contact-logs-query": "./src/contact-logs-query.ts",
     "./client-archive": "./src/client-archive.ts",
     "./referral-intake": "./src/referral-intake.ts",
-    "./referral-labels": "./src/referral-labels.ts"
+    "./referral-labels": "./src/referral-labels.ts",
+    "./counselor-dedupe": "./src/counselor-dedupe.ts",
+    "./counselor-name-match": "./src/counselor-name-match.ts"
   },
   "scripts": {
     "lint": "tsc --noEmit"

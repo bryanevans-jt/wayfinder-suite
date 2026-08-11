@@ -45,6 +45,7 @@ import {
   isTeamSupervisorsNav,
   type PortalNavState,
 } from "@/components/portal-nav";
+import { CounselorMergePanel } from "@/components/counselor-merge-panel";
 import { PortalSetupChecklist } from "@/components/portal-setup-checklist";
 import { friendlyClientError, USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -148,6 +149,13 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("offices") === "counselors") {
+      setNav({ primary: "offices", offices: "counselors" });
+    }
+  }, []);
 
   useEffect(() => {
     if (isActivityLogsNav(nav)) {
@@ -342,6 +350,13 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 Add counselor
               </button>
             </form>
+            {mode === "super_admin" ? (
+              <CounselorMergePanel
+                counselors={b.counselorStaff}
+                busy={busy}
+                onMerged={reload}
+              />
+            ) : null}
             <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white">
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-neutral-50 text-brand-black/70">
@@ -2187,6 +2202,8 @@ function CounselorStaffListItem({
         <p className="font-medium text-brand-black">{counselor.full_name}</p>
         {counselor.email ? (
           <p className="text-xs text-brand-black/60">{counselor.email}</p>
+        ) : counselor.contact_email ? (
+          <p className="text-xs text-brand-black/60">{counselor.contact_email}</p>
         ) : (
           <p className="text-xs text-amber-700">No login linked</p>
         )}

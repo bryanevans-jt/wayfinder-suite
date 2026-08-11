@@ -1,12 +1,23 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { insertRosterClientRecord } from "./client-roster-insert";
+import {
+  findExactNormalizedCounselor,
+  findNearCounselorMatches,
+  notifySuperAdminsOfCounselorNearMatch,
+} from "./counselor-dedupe";
 import { notifyUser } from "./notify-user";
 import {
   counselorDisplayStatus,
   intakeStatusLabel,
   referralStageLabel,
 } from "./referral-labels";
-import { isAdminRole, isAdminTierRole, isHrRole, isSuperAdminRole } from "./roles";
+import {
+  isAdminRole,
+  isAdminTierRole,
+  isHospitalitySpecialistRole,
+  isHrRole,
+  isSuperAdminRole,
+} from "./roles";
 
 export type ReferralState = "GA" | "TN";
 export type IntakeStatus = "new_referral" | "pending_authorization" | "active" | "discarded";
@@ -109,12 +120,16 @@ export function canManageReferrals(role: string | null | undefined): boolean {
   return isHrRole(role) || isAdminRole(role) || isSuperAdminRole(role) || isAdminTierRole(role);
 }
 
+export function canAccessHospitalityIntake(role: string | null | undefined): boolean {
+  return isHospitalitySpecialistRole(role) || canManageReferrals(role);
+}
+
 export async function findOrCreateReferralCounselor(
   admin: SupabaseClient,
   opts: { fullName: string; email: string; phone?: string }
 ): Promise<{ counselorId: string } | { error: string }> {
   const email = opts.email.toLowerCase().trim();
-  const fullName = opts.fullName.trim();
+  const fullName = opts.fullName.replace(/\s+/g, " ").trim();
   if (!email || !fullName) return { error: "Counselor name and email are required" };
 
   const { data: byEmail } = await admin
@@ -127,21 +142,12 @@ export async function findOrCreateReferralCounselor(
     return { counselorId: byEmail.id as string };
   }
 
-  // Match linked login email via profiles
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("id")
-    .eq("role", "counselor")
-    .limit(500);
-
-  // Prefer contact_email column match only for directory; also try auth email via counselors.user_id
   const { data: withUser } = await admin
     .from("counselors")
     .select("id, user_id, contact_email")
     .not("user_id", "is", null)
     .limit(2000);
 
-  // Soft match: if an auth user exists with this email and is linked to a counselor, reuse
   try {
     const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
     const authUser = list?.users?.find((u) => (u.email ?? "").toLowerCase() === email);
@@ -156,10 +162,20 @@ export async function findOrCreateReferralCounselor(
       }
     }
   } catch {
-    // ignore auth list failures; fall through to create directory row
+    // ignore auth list failures; fall through
   }
 
-  void profile;
+  const exactNameHits = await findExactNormalizedCounselor(admin, fullName);
+  if (exactNameHits.length === 1) {
+    const hit = exactNameHits[0];
+    const existingEmail = (hit.contact_email ?? "").trim().toLowerCase();
+    if (!existingEmail || existingEmail === email) {
+      if (!existingEmail) {
+        await admin.from("counselors").update({ contact_email: email }).eq("id", hit.id);
+      }
+      return { counselorId: hit.id };
+    }
+  }
 
   const { data: inserted, error } = await admin
     .from("counselors")
@@ -174,6 +190,18 @@ export async function findOrCreateReferralCounselor(
 
   if (error || !inserted?.id) {
     return { error: error?.message ?? "Could not create counselor directory entry" };
+  }
+
+  const near = await findNearCounselorMatches(admin, {
+    fullName,
+    excludeId: inserted.id as string,
+  });
+  if (near.length) {
+    await notifySuperAdminsOfCounselorNearMatch(admin, {
+      newCounselorId: inserted.id as string,
+      newCounselorName: fullName,
+      matches: near,
+    });
   }
 
   return { counselorId: inserted.id as string };
@@ -621,35 +649,31 @@ export async function activateReferralToFirstStage(
     });
   }
 
-  const gaTse = await isGaTseService(admin, serviceId);
-  const phase1 = await isPhase1IntakeStage(admin, stageId);
-  if (gaTse && phase1) {
-    await admin.from("hospitality_intake_tasks").upsert(
-      {
-        client_id: opts.clientId,
-        status: "open",
-        created_at: nowIso,
-        completed_at: null,
-        completed_by: null,
-      },
-      { onConflict: "client_id" }
-    );
-    const { data: hospitality } = await admin
-      .from("profiles")
-      .select("id")
-      .eq("role", "hospitality_specialist")
-      .eq("is_active", true);
-    for (const h of hospitality ?? []) {
-      await notifyUser(admin, {
-        userId: h.id as string,
-        app: "staff",
-        kind: "referral_needs_intake",
-        title: `Schedule intake: ${clientLabel}`,
-        body: "GA TSE Phase 1 — call to set up the intake meeting.",
-        link_path: "/dashboard/hospitality/intakes",
-        metadata: { clientId: opts.clientId },
-      });
-    }
+  await admin.from("hospitality_intake_tasks").upsert(
+    {
+      client_id: opts.clientId,
+      status: "open",
+      created_at: nowIso,
+      completed_at: null,
+      completed_by: null,
+    },
+    { onConflict: "client_id" }
+  );
+  const { data: hospitality } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("role", "hospitality_specialist")
+    .eq("is_active", true);
+  for (const h of hospitality ?? []) {
+    await notifyUser(admin, {
+      userId: h.id as string,
+      app: "staff",
+      kind: "referral_needs_intake",
+      title: `New client ready to start: ${clientLabel}`,
+      body: "New client ready to start — review referral and assign supervisor.",
+      link_path: `/dashboard/hospitality/intakes/${opts.clientId}`,
+      metadata: { clientId: opts.clientId },
+    });
   }
 
   return { ok: true };
@@ -711,6 +735,10 @@ export type ReferralClientInfoUpdate = {
   counselorPhone?: string | null;
   /** Website form service label (e.g. "Job Coaching") or full services.name */
   serviceLabel?: string | null;
+  officeId?: string | null;
+  counselorId?: string | null;
+  /** Sets client office to this supervisor's first assigned office. */
+  supervisorUserId?: string | null;
 };
 
 export async function updateReferralClientInfo(
@@ -791,6 +819,41 @@ export async function updateReferralClientInfo(
     update.referral_state = p.referralState;
   }
 
+  if (p.supervisorUserId !== undefined && (p.supervisorUserId ?? "").trim()) {
+    const supervisorId = (p.supervisorUserId ?? "").trim();
+    const { data: supervisor } = await admin
+      .from("profiles")
+      .select("id, role")
+      .eq("id", supervisorId)
+      .eq("role", "supervisor")
+      .eq("is_active", true)
+      .maybeSingle();
+    if (!supervisor) {
+      return { error: "Supervisor not found" };
+    }
+    const { data: offices } = await admin
+      .from("staff_office_assignments")
+      .select("office_id")
+      .eq("user_id", supervisorId)
+      .limit(1);
+    const supervisorOfficeId = (offices?.[0]?.office_id as string | undefined) ?? null;
+    if (supervisorOfficeId && p.officeId === undefined) {
+      update.office_id = supervisorOfficeId;
+    } else if (!supervisorOfficeId && !(p.officeId ?? "").trim()) {
+      return { error: "That supervisor has no office assigned" };
+    }
+  }
+
+  if (p.officeId !== undefined) {
+    const officeId = (p.officeId ?? "").trim();
+    update.office_id = officeId || null;
+  }
+
+  if (p.counselorId !== undefined) {
+    const counselorId = (p.counselorId ?? "").trim();
+    update.counselor_id = counselorId || null;
+  }
+
   const counselorName = (p.counselorName ?? "").trim();
   const counselorEmail = (p.counselorEmail ?? "").trim().toLowerCase();
   if (counselorName || counselorEmail) {
@@ -809,7 +872,7 @@ export async function updateReferralClientInfo(
       .select("office_id")
       .eq("id", counselor.counselorId)
       .maybeSingle();
-    if (cRow?.office_id) {
+    if (cRow?.office_id && p.officeId === undefined && p.supervisorUserId === undefined) {
       update.office_id = cRow.office_id;
     }
   }

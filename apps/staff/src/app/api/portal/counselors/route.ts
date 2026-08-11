@@ -7,6 +7,10 @@ import {
   replaceCounselorOfficeAssignments,
   upsertStaffProfile,
 } from "@/lib/portal-staff-users";
+import {
+  findNearCounselorMatches,
+  notifySuperAdminsOfCounselorNearMatch,
+} from "@wayfinder/supabase/counselor-dedupe";
 import { NextRequest } from "next/server";
 
 type CreateBody = {
@@ -89,7 +93,11 @@ export async function POST(request: NextRequest) {
 
     const { data: counselor, error: insertErr } = await admin
       .from("counselors")
-      .insert({ full_name: fullName, office_id: officeIds[0] })
+      .insert({
+        full_name: fullName,
+        office_id: officeIds[0],
+        ...(email ? { contact_email: email } : {}),
+      })
       .select("id")
       .single();
 
@@ -107,6 +115,18 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       await admin.from("counselors").delete().eq("id", counselorId);
       throw error;
+    }
+
+    const near = await findNearCounselorMatches(admin, {
+      fullName,
+      excludeId: counselorId,
+    });
+    if (near.length) {
+      await notifySuperAdminsOfCounselorNearMatch(admin, {
+        newCounselorId: counselorId,
+        newCounselorName: fullName,
+        matches: near,
+      });
     }
 
     return Response.json({ ok: true, id: counselorId });

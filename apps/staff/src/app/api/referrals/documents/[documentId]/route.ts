@@ -1,5 +1,5 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
-import { canManageReferrals } from "@wayfinder/supabase/referral-intake";
+import { canAccessHospitalityIntake } from "@wayfinder/supabase/referral-intake";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { NextResponse } from "next/server";
 
@@ -15,7 +15,7 @@ function contentDisposition(filename: string, disposition: "inline" | "attachmen
 
 export async function GET(request: Request, { params }: RouteParams) {
   const session = await getAppSession();
-  if (!session || !canManageReferrals(session.effectiveRole)) {
+  if (!session || !canAccessHospitalityIntake(session.effectiveRole)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

@@ -2,6 +2,7 @@ import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import {
   activateReferralToFirstStage,
+  canAccessHospitalityIntake,
   canManageReferrals,
   createPublicReferral,
   findPossibleDuplicateClients,
@@ -150,7 +151,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   const session = await getAppSession();
-  if (!session || !canManageReferrals(session.effectiveRole)) {
+  if (!session) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -165,6 +166,13 @@ export async function PATCH(request: Request) {
 
   if (!body.clientId || !body.action) {
     return NextResponse.json({ error: "clientId and action required" }, { status: 400 });
+  }
+
+  const canQueue = canManageReferrals(session.effectiveRole);
+  const canIntakeEdit =
+    canQueue || (body.action === "update_info" && canAccessHospitalityIntake(session.effectiveRole));
+  if (!canIntakeEdit) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const admin = createServiceRoleClient();

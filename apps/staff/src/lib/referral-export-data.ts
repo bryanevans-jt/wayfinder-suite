@@ -23,6 +23,8 @@ export type ReferralExportRow = {
   home_city: string | null;
   home_state: string | null;
   home_zip: string | null;
+  office_id: string | null;
+  counselor_id: string | null;
   counselorName: string | null;
   counselorEmail: string | null;
   serviceName: string | null;
@@ -32,7 +34,7 @@ export type ReferralExportRow = {
 };
 
 const CLIENT_FIELDS =
-  "id, full_name, contact_email, intake_status, referral_state, referred_at, date_of_birth, primary_phone, secondary_phone, gender, ethnicity, disability_history, meeting_preference, counselor_availability, authorization_number, authorization_override_reason, employment_goal_primary, home_address_line1, home_city, home_state, home_zip, current_service_id, current_stage_id, counselor_id";
+  "id, full_name, contact_email, intake_status, referral_state, referred_at, date_of_birth, primary_phone, secondary_phone, gender, ethnicity, disability_history, meeting_preference, counselor_availability, authorization_number, authorization_override_reason, employment_goal_primary, home_address_line1, home_city, home_state, home_zip, current_service_id, current_stage_id, counselor_id, office_id";
 
 function formatAddress(row: {
   home_address_line1: string | null;
@@ -149,6 +151,8 @@ export async function loadReferralExportRows(
       home_city: (row.home_city as string | null) ?? null,
       home_state: (row.home_state as string | null) ?? null,
       home_zip: (row.home_zip as string | null) ?? null,
+      office_id: (row.office_id as string | null) ?? null,
+      counselor_id: (row.counselor_id as string | null) ?? null,
       counselorName: counselor?.name ?? null,
       counselorEmail: counselor?.email ?? null,
       serviceName: row.current_service_id

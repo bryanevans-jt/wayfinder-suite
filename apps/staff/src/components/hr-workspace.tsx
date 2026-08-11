@@ -5,7 +5,7 @@ import {
   ClientListPaginationControls,
   useClientListPagination,
 } from "@/components/client-list-pagination";
-import Link from "next/link";
+import { HrTimesheetsPanel } from "@/components/hr-timesheets-panel";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -275,21 +275,7 @@ export function HrWorkspace({
         </section>
       ) : null}
 
-      {tab === "timesheets" ? (
-        <section className="rounded-xl border border-neutral-200 bg-white p-5">
-          <h2 className="text-base font-semibold text-brand-black">Timesheets</h2>
-          <p className="mt-1 text-sm text-brand-black/70">
-            View all Employment Specialist timesheets (approved and unapproved) and export CSV/PDF
-            from the Timesheet page.
-          </p>
-          <Link
-            href="/dashboard/timesheet"
-            className="mt-4 inline-flex rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white"
-          >
-            Open timesheets
-          </Link>
-        </section>
-      ) : null}
+      {tab === "timesheets" ? <HrTimesheetsPanel /> : null}
 
       {tab === "activity" ? (
         <section className="rounded-xl border border-neutral-200 bg-white p-5">

@@ -102,6 +102,7 @@ export type PortalBootstrap = {
     id: string;
     full_name: string;
     email: string | null;
+    contact_email: string | null;
     user_id: string | null;
     has_login: boolean;
     is_active: boolean;
@@ -223,19 +224,28 @@ export async function loadPortalBootstrap(
 
   let counselorsQuery = await admin
     .from("counselors")
-    .select("id, full_name, office_id, user_id")
+    .select("id, full_name, office_id, user_id, contact_email")
     .order("full_name");
   let counselors: Array<{
     id: string;
     full_name: string;
     office_id: string | null;
     user_id?: string | null;
+    contact_email?: string | null;
   }> = (counselorsQuery.data ?? []) as Array<{
     id: string;
     full_name: string;
     office_id: string | null;
     user_id?: string | null;
+    contact_email?: string | null;
   }>;
+  if (counselorsQuery.error?.message.includes("contact_email")) {
+    counselorsQuery = await admin
+      .from("counselors")
+      .select("id, full_name, office_id, user_id")
+      .order("full_name");
+    counselors = (counselorsQuery.data ?? []) as typeof counselors;
+  }
   if (counselorsQuery.error?.message.includes("user_id")) {
     const fallback = await admin
       .from("counselors")
@@ -606,6 +616,9 @@ export async function loadPortalBootstrap(
           id,
           full_name: c.full_name as string,
           email: loginId ? (emailById.get(loginId) ?? null) : null,
+          contact_email: ((c as { contact_email?: string | null }).contact_email ?? null) as
+            | string
+            | null,
           user_id: loginId,
           has_login: Boolean(loginId),
           is_active: loginId ? profile?.is_active !== false : true,
