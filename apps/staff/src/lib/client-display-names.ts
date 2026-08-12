@@ -1,7 +1,5 @@
 import { clientDisplayName } from "@wayfinder/branding";
-import type { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
-
-type Admin = ReturnType<typeof createServiceRoleClient>;
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type ClientNameRow = {
   id: string;
@@ -13,7 +11,7 @@ type ClientNameRow = {
 
 /** Roster names first, then login profile, then email — never a UUID. */
 export async function loadClientDisplayNameById(
-  admin: Admin,
+  admin: SupabaseClient,
   clientIds: string[]
 ): Promise<Map<string, string>> {
   const ids = [...new Set(clientIds.filter(Boolean))];

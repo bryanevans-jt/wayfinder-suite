@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { driveFileUrl } from "@/lib/formal-report-utils";
 import { requireAppSession, requireStaffClientAccess } from "@/lib/app-session";
+import { canOverseeFormalReportSubmissions } from "@wayfinder/supabase/roles";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { NextResponse } from "next/server";
 
@@ -21,8 +22,9 @@ export async function GET(
   const route = "api/clients/[id]/formal-reports";
   const { id: clientId } = await context.params;
   const session = await requireAppSession();
-  const allowed = await requireStaffClientAccess(session, clientId);
-  if (!allowed) {
+  const caseworkAccess = await requireStaffClientAccess(session, clientId);
+  const oversight = canOverseeFormalReportSubmissions(session.effectiveRole);
+  if (!caseworkAccess && !oversight) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

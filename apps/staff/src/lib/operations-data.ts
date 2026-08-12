@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { isEsReplyOverdue } from "@wayfinder/supabase/business-hours";
 import { MIN_CONTACTS_PER_MONTH } from "@wayfinder/supabase/caseload-triage";
+import { loadClientDisplayNameById } from "@/lib/client-display-names";
 import { loadStaffNameById } from "@/lib/staff-names";
 
 export { loadStaffNameById } from "@/lib/staff-names";
@@ -82,22 +83,15 @@ export async function loadComplianceCalendar(
   const clientIds = [...new Set((alerts ?? []).map((a) => a.wayfinder_client_id as string).filter(Boolean))];
   const esUserIds = [...new Set((alerts ?? []).map((a) => a.es_user_id as string))];
 
-  const [{ data: clients }, esName] = await Promise.all([
-    clientIds.length
-      ? admin.from("clients").select("id, contact_email, user_id, profile_id").in("id", clientIds)
-      : { data: [] },
+  const [esName, nameById] = await Promise.all([
     loadStaffNameById(admin, esUserIds),
+    loadClientDisplayNameById(admin, clientIds),
   ]);
-
-  const clientName = new Map<string, string>();
-  for (const c of clients ?? []) {
-    clientName.set(c.id as string, (c.contact_email as string) ?? "Client");
-  }
 
   const reports: ComplianceReportRow[] = (alerts ?? []).map((a) => ({
     id: a.id as string,
     alertType: a.alert_type as string,
-    clientName: clientName.get(a.wayfinder_client_id as string) ?? "Client",
+    clientName: nameById.get(a.wayfinder_client_id as string) ?? "Client",
     esName: esName.get(a.es_user_id as string) ?? "Employment Specialist",
     reportingMonth: a.reporting_month as string,
     dueAt: (a.due_at as string | null) ?? null,
@@ -190,13 +184,14 @@ export async function loadCoachingQueue(
       .in("id", clientIds)
       .is("archived_at", null);
 
+    const thinNames = await loadClientDisplayNameById(admin, clientIds);
     const esName = esNameMap.get(esUserId) ?? "Employment Specialist";
     for (const c of clientRows ?? []) {
       const count = countByClient.get(c.id as string) ?? 0;
       if (count < MIN_CONTACTS_PER_MONTH) {
         thinLogs.push({
           clientId: c.id as string,
-          clientLabel: (c.contact_email as string) ?? "Client",
+          clientLabel: thinNames.get(c.id as string) ?? (c.contact_email as string) ?? "Client",
           esName,
           contactsThisMonth: count,
         });

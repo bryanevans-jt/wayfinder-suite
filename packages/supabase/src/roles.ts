@@ -126,6 +126,20 @@ export function canLogHospitalityCheckIns(role: string | null | undefined): bool
   return isHospitalitySpecialistRole(role) || isAdminTierRole(role);
 }
 
+/** View hospitality dashboard / monthly check-ins (read). */
+export function canViewHospitalityWorkspace(role: string | null | undefined): boolean {
+  return (
+    isHospitalitySpecialistRole(role) ||
+    isAdminTierRole(role) ||
+    isHrRole(role)
+  );
+}
+
+/** Formal report submissions oversight (Admin / Super Admin / HR) on any client profile. */
+export function canOverseeFormalReportSubmissions(role: string | null | undefined): boolean {
+  return isAdminTierRole(role) || isHrRole(role);
+}
+
 export function isAssignableStaffRole(
   role: string | null | undefined
 ): role is AssignableStaffRole {
@@ -163,7 +177,7 @@ export function staffHomePath(role: string | null | undefined): string {
   if (r === "accountant") return "/dashboard/intake-billing";
   if (r === "hr") return "/dashboard/hr";
   if (r === "hospitality_specialist") return "/dashboard/hospitality";
-  if (r === "wrt_admin") return "/dashboard/profile";
+  if (r === "wrt_admin") return "/dashboard/wrt";
   return "/dashboard/clients";
 }
 

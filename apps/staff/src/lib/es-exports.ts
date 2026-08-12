@@ -1,5 +1,6 @@
 import { clientDisplayName, serviceDisplayName } from "@wayfinder/branding";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { loadClientDisplayNameById } from "@/lib/client-display-names";
 
 export type ApplicationExportRow = {
   application_id: string;
@@ -122,36 +123,27 @@ export async function loadApplicationsExportRows(
   const clientIds = [...new Set(apps.map((a) => a.client_id as string))];
   const { data: clients } = await supabase
     .from("clients")
-    .select("id, contact_email, user_id, office_id")
+    .select("id, contact_email, office_id")
     .in("id", clientIds);
 
   const clientRows = clients ?? [];
-  const userIds = [...new Set(clientRows.map((c) => c.user_id as string).filter(Boolean))];
   const officeIds = [...new Set(clientRows.map((c) => c.office_id as string).filter(Boolean))];
 
-  const [{ data: profiles }, { data: offices }] = await Promise.all([
-    userIds.length
-      ? supabase.from("profiles").select("id, full_name").in("id", userIds)
-      : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
+  const [nameById, { data: offices }] = await Promise.all([
+    loadClientDisplayNameById(supabase, clientIds),
     officeIds.length
       ? supabase.from("offices").select("id, name").in("id", officeIds)
       : Promise.resolve({ data: [] as { id: string; name: string }[] }),
   ]);
 
-  const profileName = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));
   const officeName = new Map((offices ?? []).map((o) => [o.id, o.name]));
   const clientById = new Map(
     clientRows.map((c) => {
       const id = c.id as string;
-      const userId = c.user_id as string | null;
       return [
         id,
         {
-          name: clientDisplayName({
-            id,
-            full_name: userId ? (profileName.get(userId) ?? null) : null,
-            contact_email: (c.contact_email as string | null) ?? null,
-          }),
+          name: nameById.get(id) ?? clientDisplayName({ id, contact_email: c.contact_email as string | null }),
           email: (c.contact_email as string | null) ?? "",
           office: c.office_id ? (officeName.get(c.office_id as string) ?? "") : "",
         },
@@ -195,12 +187,11 @@ export async function loadEsCaseloadRows(
   const { data: clients } = await supabase
     .from("clients")
     .select(
-      "id, user_id, contact_email, current_service_id, current_stage_id, office_id, counselor_id"
+      "id, contact_email, current_service_id, current_stage_id, office_id, counselor_id"
     )
     .in("id", clientIds);
 
   const rows = clients ?? [];
-  const userIds = [...new Set(rows.map((c) => c.user_id as string).filter(Boolean))];
   const serviceIds = [
     ...new Set(rows.map((c) => c.current_service_id as string).filter(Boolean)),
   ];
@@ -208,29 +199,22 @@ export async function loadEsCaseloadRows(
   const officeIds = [...new Set(rows.map((c) => c.office_id as string).filter(Boolean))];
   const counselorIds = [...new Set(rows.map((c) => c.counselor_id as string).filter(Boolean))];
 
-  const [
-    { data: profiles },
-    serviceQuery,
-    { data: stages },
-    { data: offices },
-    { data: counselors },
-  ] = await Promise.all([
-    userIds.length
-      ? supabase.from("profiles").select("id, full_name").in("id", userIds)
-      : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
-    serviceIds.length
-      ? supabase.from("services").select("id, name, state").in("id", serviceIds)
-      : Promise.resolve({ data: [] as { id: string; name: string; state?: string | null }[] }),
-    stageIds.length
-      ? supabase.from("service_milestones").select("id, title").in("id", stageIds)
-      : Promise.resolve({ data: [] as { id: string; title: string }[] }),
-    officeIds.length
-      ? supabase.from("offices").select("id, name").in("id", officeIds)
-      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
-    counselorIds.length
-      ? supabase.from("counselors").select("id, full_name").in("id", counselorIds)
-      : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
-  ]);
+  const [nameById, serviceQuery, { data: stages }, { data: offices }, { data: counselors }] =
+    await Promise.all([
+      loadClientDisplayNameById(supabase, clientIds),
+      serviceIds.length
+        ? supabase.from("services").select("id, name, state").in("id", serviceIds)
+        : Promise.resolve({ data: [] as { id: string; name: string; state?: string | null }[] }),
+      stageIds.length
+        ? supabase.from("service_milestones").select("id, title").in("id", stageIds)
+        : Promise.resolve({ data: [] as { id: string; title: string }[] }),
+      officeIds.length
+        ? supabase.from("offices").select("id, name").in("id", officeIds)
+        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      counselorIds.length
+        ? supabase.from("counselors").select("id, full_name").in("id", counselorIds)
+        : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
+    ]);
 
   let serviceRows = (serviceQuery.data ?? []) as Array<{
     id: string;
@@ -246,7 +230,6 @@ export async function loadEsCaseloadRows(
     serviceRows = (fallback.data ?? []) as Array<{ id: string; name: string; state?: string | null }>;
   }
 
-  const profileName = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));
   const serviceName = new Map(
     serviceRows.map((s) => [
       s.id,
@@ -260,14 +243,11 @@ export async function loadEsCaseloadRows(
   return rows
     .map((c) => {
       const id = c.id as string;
-      const userId = c.user_id as string | null;
       return {
         client_id: id,
-        client_name: clientDisplayName({
-          id,
-          full_name: userId ? (profileName.get(userId) ?? null) : null,
-          contact_email: (c.contact_email as string | null) ?? null,
-        }),
+        client_name:
+          nameById.get(id) ??
+          clientDisplayName({ id, contact_email: c.contact_email as string | null }),
         contact_email: (c.contact_email as string | null) ?? "",
         service: c.current_service_id
           ? (serviceName.get(c.current_service_id as string) ?? "")

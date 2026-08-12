@@ -1,7 +1,8 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
-  isAdminTierRole,
-  isHospitalitySpecialistRole,
+  canViewHospitalityWorkspace,
+  isHrRole,
+  staffHomePath,
 } from "@wayfinder/supabase/roles";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { redirect } from "next/navigation";
@@ -15,15 +16,15 @@ export default async function HospitalityDashboardPage() {
   }
 
   const role = session.effectiveRole ?? "";
-  if (!isHospitalitySpecialistRole(role) && !isAdminTierRole(role)) {
-    redirect("/dashboard");
+  if (!canViewHospitalityWorkspace(role)) {
+    redirect(staffHomePath(role));
   }
 
   let admin;
   try {
     admin = createServiceRoleClient();
   } catch {
-    redirect("/dashboard");
+    redirect(staffHomePath(role));
   }
 
   const data = await loadHrRegistry(admin, {});
@@ -36,12 +37,12 @@ export default async function HospitalityDashboardPage() {
     state: string | null;
   }> = [];
   try {
-    const { data } = await admin
+    const { data: employerRows } = await admin
       .from("employers")
       .select("id, name, status, city, state")
       .order("name")
       .limit(500);
-    employers = (data ?? []).map((e) => ({
+    employers = (employerRows ?? []).map((e) => ({
       id: e.id as string,
       name: e.name as string,
       status: ((e.status as string | null) ?? "unknown") as string,
@@ -58,6 +59,9 @@ export default async function HospitalityDashboardPage() {
       <p className="mt-2 max-w-2xl text-sm text-brand-black/75">
         View client activity, Community Network members (including pending), and org connections.
         Use Monthly Check-ins to track wellness calls, and open a client to add internal staff notes.
+        {isHrRole(role)
+          ? " HR can review this workspace; Hospitality Specialist logs check-ins and staff notes."
+          : ""}
       </p>
       <HospitalityWorkspace
         clients={data.clients}

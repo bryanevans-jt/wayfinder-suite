@@ -4,7 +4,7 @@ import {
   USER_FACING_AUTH_REQUIRED,
   USER_FACING_FORBIDDEN,
 } from "@wayfinder/supabase/error-log";
-import { isAdminTierRole, isEsRole, isSupervisorRole } from "@wayfinder/supabase/roles";
+import { isAdminTierRole, isEsRole, isSupervisorRole, isWrtAdminRole } from "@wayfinder/supabase/roles";
 import { NextResponse } from "next/server";
 
 /** JTSG staff who can view the Community Partners directory and map. */
@@ -14,6 +14,7 @@ export function isCommunityPartnersRole(role: string | null | undefined): boolea
     isEsRole(r) ||
     isAdminTierRole(r) ||
     isSupervisorRole(r) ||
+    isWrtAdminRole(r) ||
     r === "accountant" ||
     r === "hospitality_specialist" ||
     r === "hr"

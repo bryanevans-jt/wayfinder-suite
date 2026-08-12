@@ -55,7 +55,7 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "WRT Preview",
         body:
-          "Workplace Readiness Training curriculum and facilitation are admin-tier preview tools for now. The WRT Admin role can sign in, but WRT tools stay under Admin / Super Admin until rollout.",
+          "Workplace Readiness Training curriculum and facilitation are available to Admin, Super Admin, and WRT Admin.",
         steps: [
           "Settings → WRT Curriculum to review modules and lessons.",
           "Tools → WRT Preview (or the link under WRT Curriculum) for facilitation and presentation mode.",
@@ -321,6 +321,7 @@ function sectionsForRole(role: string | null): Section[] {
           "HR focuses on people and performance: timesheets, Time Clock / PTO approvals, aggregated analytics, and exports for hours worked and billable oversight. Client-named analytics dumps are not available.",
         steps: [
           "HR Dashboard for people tools.",
+          "Hospitality Overview / Monthly Check-ins for wellness-call oversight (view-only; Hospitality logs).",
           "Account → My Profile to update your name, city, and contact details.",
           "Weekly Timesheet to view any ES week.",
           "Time Clock for hours worked and the org PTO approval queue.",
@@ -370,12 +371,13 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "WRT Admin",
         body:
-          "Your account is set up for Workplace Readiness Training administration. Curriculum and facilitation previews stay under Admin / Super Admin until WRT is rolled out more broadly.",
+          "Your home screen is WRT Facilitation. You have admin permissions only for WRT (curriculum + facilitation)—not the full Admin portal.",
         steps: [
+          "WRT Facilitation → run sessions and presentation mode.",
+          "WRT Curriculum → manage modules, lessons, and blocks.",
           "My Profile → keep your name and contact details current.",
           "Time Clock → hours worked and your own PTO.",
-          "Community Partners → reference directory.",
-          "Ask an Admin or Super Admin to open WRT Curriculum / WRT Preview when you need to review content.",
+          "Community Partners → reference directory (view).",
         ],
       },
     ];

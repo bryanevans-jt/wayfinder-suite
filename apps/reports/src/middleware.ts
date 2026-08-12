@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import {
+  canAccessFormalReporting,
   getSupabaseAnonKey,
   getSupabaseUrl,
   type SupabaseCookieToSet,
@@ -8,7 +9,6 @@ import { reportsServerAuthOptions } from '@/lib/supabase/auth-options';
 import { NextResponse, type NextRequest } from 'next/server';
 
 const ORG_DOMAIN = 'thejoshuatree.org';
-const REPORTING_ROLES = new Set(['es', 'supervisor', 'admin', 'super_admin']);
 
 async function loadReportingRole(
   supabase: ReturnType<typeof createServerClient>
@@ -85,7 +85,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const role = (await loadReportingRole(supabase)) ?? '';
-  if (!REPORTING_ROLES.has(role)) {
+  if (!canAccessFormalReporting(role)) {
     const staffUrl = process.env.NEXT_PUBLIC_STAFF_APP_URL?.replace(/\/$/, '') || '';
     if (staffUrl) {
       return NextResponse.redirect(`${staffUrl}/dashboard`);

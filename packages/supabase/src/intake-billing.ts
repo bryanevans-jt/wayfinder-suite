@@ -1,18 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { notifyUser } from "./notify-user";
-import { isAdminTierRole, isHrRole, normalizeRole } from "./roles";
+import { isAccountantRole, isAdminTierRole, isHrRole, normalizeRole } from "./roles";
 
 export type IntakeBillingStatus = "scheduled" | "ready_to_bill" | "billed" | "paid";
 export type IntakeReadyReason = "contact_log" | "tse_phase" | "scheduled_time" | "manual";
 
 export function canAccessIntakeBilling(role: string | null | undefined): boolean {
   const r = normalizeRole(role);
-  return r === "accountant" || isHrRole(r) || isAdminTierRole(r);
+  return isAccountantRole(r) || isHrRole(r) || isAdminTierRole(r);
 }
 
-export function isAccountantRole(role: string | null | undefined): boolean {
-  return normalizeRole(role) === "accountant";
-}
+export { isAccountantRole } from "./roles";
 
 type BillingRow = {
   id: string;
@@ -40,14 +38,25 @@ async function loadBilling(
 async function clientLabel(admin: SupabaseClient, clientId: string): Promise<string> {
   const { data } = await admin
     .from("clients")
-    .select("full_name, contact_email")
+    .select("full_name, contact_email, user_id, profile_id")
     .eq("id", clientId)
     .maybeSingle();
-  return (
-    (data?.full_name as string | null)?.trim() ||
-    (data?.contact_email as string | null)?.trim() ||
-    clientId
-  );
+  const roster = (data?.full_name as string | null)?.trim() || null;
+  if (roster) return roster;
+
+  const authId =
+    ((data?.user_id as string | null) ?? (data?.profile_id as string | null)) || null;
+  if (authId) {
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("full_name")
+      .eq("id", authId)
+      .maybeSingle();
+    const profileName = (profile?.full_name as string | null)?.trim() || null;
+    if (profileName) return profileName;
+  }
+
+  return (data?.contact_email as string | null)?.trim() || "Client";
 }
 
 async function notifyAccountsReady(admin: SupabaseClient, clientId: string): Promise<void> {
@@ -57,17 +66,19 @@ async function notifyAccountsReady(admin: SupabaseClient, clientId: string): Pro
     .select("id")
     .eq("role", "accountant")
     .eq("is_active", true);
-  for (const row of accountants ?? []) {
-    await notifyUser(admin, {
-      userId: row.id as string,
-      app: "staff",
-      kind: "referral_intake_billing",
-      title: `Bill intake: ${label}`,
-      body: "Intake meeting is complete. Bill the state, then mark payment received.",
-      link_path: "/dashboard/intake-billing",
-      metadata: { clientId },
-    });
-  }
+  await Promise.all(
+    (accountants ?? []).map((row) =>
+      notifyUser(admin, {
+        userId: row.id as string,
+        app: "staff",
+        kind: "referral_intake_billing",
+        title: `Bill intake: ${label}`,
+        body: "Intake meeting is complete. Bill the state, then mark payment received.",
+        link_path: "/dashboard/intake-billing",
+        metadata: { clientId },
+      })
+    )
+  );
 }
 
 export async function ensureScheduledIntakeBilling(
@@ -163,15 +174,15 @@ export async function markDueScheduledIntakeBillings(
     .lte("scheduled_at", now)
     .limit(200);
 
-  let marked = 0;
-  for (const row of due ?? []) {
-    const result = await markIntakeReadyToBill(admin, {
-      clientId: row.client_id as string,
-      reason: "scheduled_time",
-    });
-    if (result.ready) marked += 1;
-  }
-  return { marked };
+  const results = await Promise.all(
+    (due ?? []).map((row) =>
+      markIntakeReadyToBill(admin, {
+        clientId: row.client_id as string,
+        reason: "scheduled_time",
+      })
+    )
+  );
+  return { marked: results.filter((r) => r.ready).length };
 }
 
 export async function updateIntakeBillingStatus(

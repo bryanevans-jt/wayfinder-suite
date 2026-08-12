@@ -9,6 +9,7 @@ import {
 } from "@wayfinder/supabase";
 import {
   canLogHospitalityCheckIns,
+  canOverseeFormalReportSubmissions,
   canViewClientProfiles,
   canViewStaffOnlyClientNotes,
   canWriteStaffOnlyClientNotes,
@@ -307,6 +308,8 @@ export default async function EsClientDetailPage({ params }: PageProps) {
   const showStaffNotes = canViewStaffOnlyClientNotes(role);
   const canWriteNotes = canWriteStaffOnlyClientNotes(role) && !session.isPreviewing;
   const showCheckIns = canLogHospitalityCheckIns(role) || showStaffNotes;
+  const showSubmittedFormalReports =
+    canWriteCasework || canOverseeFormalReportSubmissions(role);
 
   return (
     <main className="px-6 py-10">
@@ -445,7 +448,9 @@ export default async function EsClientDetailPage({ params }: PageProps) {
             defaultTo={reportDefaultTo}
           />
         ) : null}
-        {!readOnly ? <SubmittedFormalReportsPanel clientId={client.id} /> : null}
+        {showSubmittedFormalReports ? (
+          <SubmittedFormalReportsPanel clientId={client.id} />
+        ) : null}
         {!readOnly ? <NaturalSupportPanel clientId={client.id} /> : null}
       </section>
 

@@ -28,7 +28,11 @@ function formatWhen(iso: string | null): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-export function HospitalityCheckInsWorkspace() {
+type Props = {
+  canWrite?: boolean;
+};
+
+export function HospitalityCheckInsWorkspace({ canWrite = true }: Props) {
   const [clients, setClients] = useState<CheckInClient[]>([]);
   const [monthLabel, setMonthLabel] = useState("");
   const [contacted, setContacted] = useState(0);
@@ -170,28 +174,30 @@ export function HospitalityCheckInsWorkspace() {
         />
       </div>
 
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3">
-        <label className="text-sm">
-          <span className="font-medium text-brand-black/70">Log outcome</span>
-          <select
-            value={outcome}
-            onChange={(e) => setOutcome(e.target.value as CheckInOutcome)}
-            className="ml-2 rounded-lg border border-neutral-300 px-2 py-1.5 text-sm"
-          >
-            {CHECK_IN_OUTCOMES.map((o) => (
-              <option key={o} value={o}>
-                {checkInOutcomeLabel(o)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <input
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="Optional note for the next log"
-          className="min-w-[12rem] flex-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm"
-        />
-      </div>
+      {canWrite ? (
+        <div className="flex flex-wrap items-end gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3">
+          <label className="text-sm">
+            <span className="font-medium text-brand-black/70">Log outcome</span>
+            <select
+              value={outcome}
+              onChange={(e) => setOutcome(e.target.value as CheckInOutcome)}
+              className="ml-2 rounded-lg border border-neutral-300 px-2 py-1.5 text-sm"
+            >
+              {CHECK_IN_OUTCOMES.map((o) => (
+                <option key={o} value={o}>
+                  {checkInOutcomeLabel(o)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <input
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Optional note for the next log"
+            className="min-w-[12rem] flex-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm"
+          />
+        </div>
+      ) : null}
 
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
 
@@ -215,13 +221,13 @@ export function HospitalityCheckInsWorkspace() {
                   <th className="px-3 py-2">Phone</th>
                   <th className="px-3 py-2">This month</th>
                   <th className="px-3 py-2">Last check-in</th>
-                  <th className="px-3 py-2">Action</th>
+                  {canWrite ? <th className="px-3 py-2">Action</th> : null}
                 </tr>
               </thead>
               <tbody>
                 {pageItems.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-3 py-8 text-center text-brand-black/60">
+                    <td colSpan={canWrite ? 5 : 4} className="px-3 py-8 text-center text-brand-black/60">
                       {filter === "needs"
                         ? "Every client has a check-in this month."
                         : "No clients match this filter."}
@@ -263,16 +269,18 @@ export function HospitalityCheckInsWorkspace() {
                           ? `${formatWhen(c.last_contacted_at)}${c.last_outcome_label ? ` · ${c.last_outcome_label}` : ""}`
                           : "—"}
                       </td>
-                      <td className="px-3 py-3">
-                        <button
-                          type="button"
-                          onClick={() => void logContact(c.id)}
-                          disabled={savingId === c.id}
-                          className="rounded-lg border border-brand-green px-2.5 py-1 text-xs font-semibold text-brand-green hover:bg-brand-green/5 disabled:opacity-60"
-                        >
-                          {savingId === c.id ? "Saving…" : "Log check-in"}
-                        </button>
-                      </td>
+                      {canWrite ? (
+                        <td className="px-3 py-3">
+                          <button
+                            type="button"
+                            onClick={() => void logContact(c.id)}
+                            disabled={savingId === c.id}
+                            className="rounded-lg border border-brand-green px-2.5 py-1 text-xs font-semibold text-brand-green hover:bg-brand-green/5 disabled:opacity-60"
+                          >
+                            {savingId === c.id ? "Saving…" : "Log check-in"}
+                          </button>
+                        </td>
+                      ) : null}
                     </tr>
                   ))
                 )}

@@ -342,6 +342,16 @@ export function staffNavSectionsForRole(
             },
             intakeBillingNav,
             {
+              href: "/dashboard/hospitality",
+              label: "Hospitality Overview",
+              match: (p) => p === "/dashboard/hospitality",
+            },
+            {
+              href: "/dashboard/hospitality/check-ins",
+              label: "Monthly Check-ins",
+              match: (p) => p.startsWith("/dashboard/hospitality/check-ins"),
+            },
+            {
               href: "/dashboard/timesheet",
               label: "Weekly Timesheet",
               match: (p) => p.startsWith("/dashboard/timesheet"),
@@ -390,8 +400,20 @@ export function staffNavSectionsForRole(
     return withHelpAndProfile(
       [
         {
-          label: "Account",
-          items: [timeClockNav],
+          label: "WRT",
+          items: [
+            {
+              href: "/dashboard/wrt",
+              label: "WRT Facilitation",
+              match: (p) => p === "/dashboard/wrt",
+            },
+            {
+              href: "/dashboard/wrt/curriculum",
+              label: "WRT Curriculum",
+              match: (p) => p.startsWith("/dashboard/wrt/curriculum"),
+            },
+            timeClockNav,
+          ],
         },
         {
           label: "Reference",
@@ -509,7 +531,10 @@ export function showStaffNotifications(role: string | null | undefined): boolean
     r === "supervisor" ||
     r === "admin" ||
     r === "super_admin" ||
-    r === "counselor"
+    r === "counselor" ||
+    r === "accountant" ||
+    r === "hr" ||
+    r === "hospitality_specialist"
   );
 }
 

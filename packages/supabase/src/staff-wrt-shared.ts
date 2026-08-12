@@ -1,4 +1,4 @@
-import { isAdminTierRole } from "./roles";
+import { isAdminTierRole, isWrtAdminRole } from "./roles";
 
 export const WRT_BLOCK_TYPES = [
   "rich_text",
@@ -58,16 +58,16 @@ export type WrtLessonWithBlocks = WrtLessonRow & { blocks: WrtLessonBlockRow[] }
 
 export type WrtModuleWithLessons = WrtModuleRow & { lessons: WrtLessonWithBlocks[] };
 
-/** Admin-only curriculum + facilitation preview (same pattern as early PTO). */
+/** Admin tier + WRT Admin curriculum / facilitation access. */
 export function isWrtCurriculumPreviewUnlocked(role: string | null | undefined): boolean {
-  return isAdminTierRole(role);
+  return isAdminTierRole(role) || isWrtAdminRole(role);
 }
 
 export function canManageWrtCurriculum(role: string | null | undefined): boolean {
   return isWrtCurriculumPreviewUnlocked(role);
 }
 
-/** ES/TS facilitation UI is built, but preview access stays admin-tier only for now. */
+/** ES/TS facilitation UI is built; access is admin tier + WRT Admin. */
 export function canUseWrtFacilitationPreview(role: string | null | undefined): boolean {
   return isWrtCurriculumPreviewUnlocked(role);
 }

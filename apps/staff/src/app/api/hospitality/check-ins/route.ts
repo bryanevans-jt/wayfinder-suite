@@ -2,8 +2,10 @@ import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { getAppSession, assertNotPreviewMutation } from "@wayfinder/supabase/preview-server";
 import {
   canLogHospitalityCheckIns,
+  canViewHospitalityWorkspace,
   canViewStaffOnlyClientNotes,
 } from "@wayfinder/supabase/roles";
+import { clientDisplayName } from "@wayfinder/branding";
 import { loadClientDisplayNameById } from "@/lib/client-display-names";
 import { loadStaffNameById } from "@/lib/staff-names";
 import {
@@ -15,7 +17,11 @@ import {
 import { NextResponse } from "next/server";
 
 function canReadCheckIns(role: string | null | undefined) {
-  return canViewStaffOnlyClientNotes(role) || canLogHospitalityCheckIns(role);
+  return (
+    canViewHospitalityWorkspace(role) ||
+    canViewStaffOnlyClientNotes(role) ||
+    canLogHospitalityCheckIns(role)
+  );
 }
 
 export async function GET(request: Request) {
@@ -61,7 +67,7 @@ export async function GET(request: Request) {
     });
   }
 
-  if (!canLogHospitalityCheckIns(session.effectiveRole)) {
+  if (!canViewHospitalityWorkspace(session.effectiveRole)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -69,7 +75,7 @@ export async function GET(request: Request) {
     await Promise.all([
       admin
         .from("clients")
-        .select("id, primary_phone, contact_email")
+        .select("id, primary_phone, contact_email, full_name, user_id, profile_id")
         .is("archived_at", null)
         .order("created_at", { ascending: false })
         .limit(5000),
@@ -89,7 +95,37 @@ export async function GET(request: Request) {
 
   const clientIds = (clients ?? []).map((c) => c.id as string);
   const clientById = new Map((clients ?? []).map((c) => [c.id as string, c]));
-  const nameById = await loadClientDisplayNameById(admin, clientIds);
+
+  const missingNameAuthIds = [
+    ...new Set(
+      (clients ?? [])
+        .filter((c) => !(c.full_name as string | null)?.trim())
+        .flatMap((c) => [c.user_id as string | null, c.profile_id as string | null])
+        .filter((v): v is string => Boolean(v))
+    ),
+  ];
+  const { data: profiles } = missingNameAuthIds.length
+    ? await admin.from("profiles").select("id, full_name").in("id", missingNameAuthIds)
+    : { data: [] as { id: string; full_name: string | null }[] };
+  const profileName = new Map(
+    (profiles ?? []).map((p) => [p.id as string, p.full_name as string | null])
+  );
+
+  const nameById = new Map<string, string>();
+  for (const c of clients ?? []) {
+    const id = c.id as string;
+    const authId = ((c.user_id as string | null) ?? (c.profile_id as string | null)) || null;
+    nameById.set(
+      id,
+      clientDisplayName({
+        full_name:
+          (c.full_name as string | null) ||
+          (authId ? profileName.get(authId) ?? null : null),
+        contact_email: c.contact_email as string | null,
+        id,
+      })
+    );
+  }
 
   const latestByClient = new Map<
     string,
