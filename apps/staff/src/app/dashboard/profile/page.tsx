@@ -1,25 +1,13 @@
 import { StaffProfileWorkspace } from "@/components/staff-profile-workspace";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
-import {
-  isAdminTierRole,
-  isEsRole,
-  isSupervisorRole,
-  isWrtAdminRole,
-  staffHomePath,
-} from "@wayfinder/supabase/roles";
+import { canEditOwnStaffProfile, isWrtAdminRole, staffHomePath } from "@wayfinder/supabase/roles";
 import { redirect } from "next/navigation";
 
 export default async function StaffProfilePage() {
   const session = await getAppSession();
   const role = session?.effectiveRole ?? null;
 
-  if (
-    !session ||
-    (!isEsRole(role) &&
-      !isSupervisorRole(role) &&
-      !isAdminTierRole(role) &&
-      !isWrtAdminRole(role))
-  ) {
+  if (!session || !canEditOwnStaffProfile(role)) {
     redirect(staffHomePath(role));
   }
 

@@ -2,6 +2,7 @@
 
 import { displayServiceTimes, minutesToDecimalHours } from "@wayfinder/supabase/es-time-tracking";
 import {
+  canViewClientProfiles,
   isAdminTierRole,
   isEsRole,
   isSupervisorRole,
@@ -387,11 +388,17 @@ export function TimesheetWorkspace({
         <h3 className="text-base font-semibold text-brand-black">Line Items</h3>
         {visibleEntries.length === 0 ? (
           <p className="mt-2 text-sm text-brand-black/70">
-            No time entries this week. Log contact, applications, meetings, or stage updates from a{" "}
-            <Link href="/dashboard/clients" className="text-brand-green underline">
-              client profile
-            </Link>
-            , or add manual time there.
+            {isEsRole(role) || isSupervisorRole(role) ? (
+              <>
+                No time entries this week. Log contact, applications, meetings, or stage updates from a{" "}
+                <Link href="/dashboard/clients" className="text-brand-green underline">
+                  client profile
+                </Link>
+                , or add manual time there.
+              </>
+            ) : (
+              "No time entries this week for this specialist."
+            )}
           </p>
         ) : (
           <div className="mt-3 overflow-x-auto rounded-xl border border-neutral-200">
@@ -414,7 +421,20 @@ export function TimesheetWorkspace({
                   return (
                   <tr key={e.id} className="border-t border-neutral-100">
                     <td className="px-3 py-2 whitespace-nowrap">{e.service_date}</td>
-                    <td className="px-3 py-2">{e.client_name ?? "—"}</td>
+                    <td className="px-3 py-2">
+                      {e.client_id &&
+                      e.client_name &&
+                      (isEsRole(role) || isSupervisorRole(role) || canViewClientProfiles(role)) ? (
+                        <Link
+                          href={`/dashboard/clients/${e.client_id}`}
+                          className="font-medium text-brand-green hover:underline"
+                        >
+                          {e.client_name}
+                        </Link>
+                      ) : (
+                        (e.client_name ?? "—")
+                      )}
+                    </td>
                     <td className="px-3 py-2">{e.activity_name}</td>
                     <td className="px-3 py-2">{e.duration_minutes}</td>
                     <td className="px-3 py-2 whitespace-nowrap">{times.start}</td>

@@ -5,6 +5,7 @@ import {
   updateIntakeBillingStatus,
 } from "@wayfinder/supabase/intake-billing";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
+import { loadClientDisplayNameById } from "@/lib/client-display-names";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
@@ -34,24 +35,34 @@ export async function GET(request: Request) {
   }
 
   const clientIds = [...new Set((rows ?? []).map((r) => r.client_id as string))];
-  const { data: clients } = clientIds.length
-    ? await admin
-        .from("clients")
-        .select("id, full_name, contact_email, authorization_number, referral_state")
-        .in("id", clientIds)
-    : { data: [] as Array<{
-        id: string;
-        full_name: string | null;
-        contact_email: string | null;
-        authorization_number: string | null;
-        referral_state: string | null;
-      }> };
+  const [{ data: clients }, names] = await Promise.all([
+    clientIds.length
+      ? admin
+          .from("clients")
+          .select("id, full_name, contact_email, authorization_number, referral_state")
+          .in("id", clientIds)
+      : Promise.resolve({
+          data: [] as Array<{
+            id: string;
+            full_name: string | null;
+            contact_email: string | null;
+            authorization_number: string | null;
+            referral_state: string | null;
+          }>,
+        }),
+    loadClientDisplayNameById(admin, clientIds),
+  ]);
 
   const byId = Object.fromEntries((clients ?? []).map((c) => [c.id, c]));
-  const billings = (rows ?? []).map((row) => ({
-    ...row,
-    client: byId[row.client_id as string] ?? null,
-  }));
+  const billings = (rows ?? []).map((row) => {
+    const client = byId[row.client_id as string] ?? null;
+    return {
+      ...row,
+      client: client
+        ? { ...client, full_name: names.get(client.id) ?? client.full_name }
+        : null,
+    };
+  });
 
   return NextResponse.json({ billings });
 }

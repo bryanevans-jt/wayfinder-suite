@@ -9,6 +9,7 @@ import {
 import { getAppSession, assertNotPreviewMutation } from "@wayfinder/supabase/preview-server";
 import { canManageReferrals } from "@wayfinder/supabase/referral-intake";
 import {
+  canViewClientProfiles,
   isAdminTierRole,
   isEsRole,
   isHrRole,
@@ -58,6 +59,8 @@ export async function assertClientProfileAccess(clientId: string, forMutation = 
       allowed = await clientVisibleToSupervisor(clientId);
     }
   } else if (isAdminTierRole(role) || isHrRole(role) || canManageReferrals(role)) {
+    allowed = true;
+  } else if (!forMutation && canViewClientProfiles(role)) {
     allowed = true;
   }
 

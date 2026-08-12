@@ -99,7 +99,14 @@ export function HospitalityWorkspace({
                 ) : (
                   pagedClients.map((c) => (
                     <tr key={c.id} className="border-t border-neutral-100">
-                      <td className="px-3 py-3 font-medium">{c.name}</td>
+                      <td className="px-3 py-3 font-medium">
+                        <Link
+                          href={`/dashboard/clients/${c.id}`}
+                          className="text-brand-green hover:underline"
+                        >
+                          {c.name}
+                        </Link>
+                      </td>
                       <td className="px-3 py-3">{c.officeName ?? "—"}</td>
                       <td className="px-3 py-3">{c.esNames}</td>
                       <td className="px-3 py-3">{c.serviceName ?? "—"}</td>

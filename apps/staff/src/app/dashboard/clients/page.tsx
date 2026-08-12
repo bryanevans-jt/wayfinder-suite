@@ -1,4 +1,4 @@
-import { createServerClient, isEsReplyOverdue, isEsRole } from "@wayfinder/supabase";
+import { createServerClient, isEsReplyOverdue, isEsRole, staffHomePath } from "@wayfinder/supabase";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import {
   clientDisplayName,
@@ -40,15 +40,7 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
   const effectiveUserId = session.effectiveUserId;
 
   if (!isEsRole(effectiveRole)) {
-    return (
-      <main className="px-4 py-8 sm:px-6 sm:py-10">
-        <h1 className="text-2xl font-semibold text-brand-black">Clients</h1>
-        <p className="mt-2 max-w-xl text-brand-black/80">
-          Client management is available to Employer Services (ES) accounts. Your current role
-          does not include this workspace.
-        </p>
-      </main>
-    );
+    redirect(staffHomePath(effectiveRole));
   }
 
   const admin = getEsCaseloadAdmin();

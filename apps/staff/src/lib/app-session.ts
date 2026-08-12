@@ -1,4 +1,5 @@
 import { createServerClient, isCounselorRole, isEsRole, isSupervisorRole } from "@wayfinder/supabase";
+import { canViewClientProfiles } from "@wayfinder/supabase/roles";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { getAppSession, type AppSession } from "@wayfinder/supabase/preview-server";
 import { notFound, redirect } from "next/navigation";
@@ -78,4 +79,12 @@ export async function requireStaffClientAccess(session: AppSession, clientId: st
     return requireSupervisorClientAccess(session, clientId);
   }
   return false;
+}
+
+/** Assigned casework or org-wide view-only (Accounts, Hospitality, HR, Admin). */
+export async function requireStaffClientViewAccess(session: AppSession, clientId: string) {
+  if (canViewClientProfiles(session.effectiveRole)) {
+    return true;
+  }
+  return requireStaffClientAccess(session, clientId);
 }

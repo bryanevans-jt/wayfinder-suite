@@ -1,4 +1,3 @@
-import { clientDisplayName } from "@wayfinder/branding";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { minutesToDecimalHours } from "@wayfinder/supabase/es-time-tracking";
 import { resolvePayPeriod, type PayrollSettingsRow } from "@wayfinder/supabase/payroll-period";
@@ -10,6 +9,7 @@ import {
 } from "@wayfinder/supabase/roles";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { loadStaffNameById } from "@/lib/operations-data";
+import { loadClientDisplayNameById } from "@/lib/client-display-names";
 import { loadSupervisorScope } from "@/lib/supervisor-client-scope";
 import { NextResponse } from "next/server";
 
@@ -95,49 +95,10 @@ export async function GET(request: Request) {
       ),
     ];
 
-    const [{ data: clients }, esName] = await Promise.all([
-      clientIds.length
-        ? admin
-            .from("clients")
-            .select("id, contact_email, user_id, profile_id")
-            .in("id", clientIds)
-        : Promise.resolve({
-            data: [] as {
-              id: string;
-              contact_email: string | null;
-              user_id: string | null;
-              profile_id: string | null;
-            }[],
-          }),
+    const [clientName, esName] = await Promise.all([
+      loadClientDisplayNameById(admin, clientIds),
       loadStaffNameById(admin, esIds, "ES"),
     ]);
-
-    const profileIds = [
-      ...new Set(
-        (clients ?? [])
-          .map((c) => (c.user_id ?? c.profile_id) as string | null)
-          .filter((id): id is string => Boolean(id))
-      ),
-    ];
-    const { data: clientProfiles } = profileIds.length
-      ? await admin.from("profiles").select("id, full_name").in("id", profileIds)
-      : { data: [] as { id: string; full_name: string | null }[] };
-    const clientProfileName = new Map(
-      (clientProfiles ?? []).map((p) => [p.id as string, p.full_name as string | null])
-    );
-    const clientName = new Map(
-      (clients ?? []).map((c) => {
-        const pid = (c.user_id ?? c.profile_id) as string | null;
-        return [
-          c.id as string,
-          clientDisplayName({
-            full_name: pid ? clientProfileName.get(pid) ?? null : null,
-            contact_email: c.contact_email as string | null,
-            id: c.id as string,
-          }),
-        ];
-      })
-    );
 
     const header =
       "es_name,es_user_id,client_name,client_id,service_date,billable_minutes,billable_hours,activity_code,activity_name,start_time,end_time\n";

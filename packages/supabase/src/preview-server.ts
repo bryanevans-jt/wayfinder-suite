@@ -7,7 +7,7 @@ import {
   PREVIEW_TARGET_COOKIE,
   readPreviewCookies,
 } from "./preview-cookies";
-import { isKnownRole, isSuperAdminRole } from "./roles";
+import { isKnownRole, isSuperAdminRole, staffHomePath } from "./roles";
 
 export type PreviewSession = {
   isPreviewing: true;
@@ -111,22 +111,7 @@ export function previewRedirectUrl(role: string): string {
   if (r === "client" || r === "support") {
     return `${clientAppOrigin()}/dashboard`;
   }
-  if (r === "counselor") {
-    return `${staffAppOrigin()}/dashboard/counselor`;
-  }
-  if (r === "super_admin") {
-    return `${staffAppOrigin()}/dashboard/super-admin`;
-  }
-  if (r === "admin") {
-    return `${staffAppOrigin()}/dashboard/admin`;
-  }
-  if (r === "supervisor") {
-    return `${staffAppOrigin()}/dashboard/supervisor`;
-  }
-  if (r === "es" || r === "accountant") {
-    return `${staffAppOrigin()}/dashboard/clients`;
-  }
-  return `${staffAppOrigin()}/dashboard`;
+  return `${staffAppOrigin()}${staffHomePath(r)}`;
 }
 
 export {

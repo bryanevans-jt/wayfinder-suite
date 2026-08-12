@@ -8,6 +8,7 @@ import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { isAdminTierRole, isSupervisorRole } from "@wayfinder/supabase/roles";
 import { clientDisplayName } from "@wayfinder/branding";
 import { loadStaffNameById } from "@/lib/staff-names";
+import { loadClientDisplayNameById } from "@/lib/client-display-names";
 import { loadSupervisorScope } from "@/lib/supervisor-client-scope";
 import {
   summarizeTimeEntries,
@@ -69,48 +70,7 @@ export async function loadEsTimeEntriesForWeek(
     ),
   ];
 
-  const clientNameById = new Map<string, string>();
-  if (clientIds.length > 0) {
-    const { data: clients } = await admin
-      .from("clients")
-      .select("id, contact_email, user_id, profile_id")
-      .in("id", clientIds);
-
-    const authIds = [
-      ...new Set(
-        (clients ?? [])
-          .flatMap((c) => [
-            (c as { user_id?: string }).user_id,
-            (c as { profile_id?: string }).profile_id,
-          ])
-          .filter((v): v is string => typeof v === "string")
-      ),
-    ];
-
-    const { data: profiles } =
-      authIds.length > 0
-        ? await admin.from("profiles").select("id, full_name").in("id", authIds)
-        : { data: [] as { id: string; full_name: string | null }[] };
-
-    const profileNames = new Map(
-      (profiles ?? []).map((p) => [p.id as string, p.full_name as string | null])
-    );
-
-    for (const c of clients ?? []) {
-      const userId =
-        ((c as { user_id?: string }).user_id ??
-          (c as { profile_id?: string }).profile_id) ??
-        null;
-      clientNameById.set(
-        c.id as string,
-        clientDisplayName({
-          full_name: userId ? (profileNames.get(userId) ?? null) : null,
-          contact_email: c.contact_email as string | null,
-          id: c.id as string,
-        })
-      );
-    }
-  }
+  const clientNameById = await loadClientDisplayNameById(admin, clientIds);
 
   return (data ?? []).map((row) => {
     const embed = row.service_activity_types as

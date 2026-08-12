@@ -1,5 +1,6 @@
 import {
   canAccessFormalReporting,
+  canEditOwnStaffProfile,
   isAdminTierRole,
   isCounselorRole,
   isEsRole,
@@ -147,13 +148,9 @@ function withHelpSections(sections: StaffNavSection[]): StaffNavSection[] {
   return [...sections, { items: [helpNav] }];
 }
 
-function canEditStaffProfile(role: string | null | undefined): boolean {
-  return isEsRole(role) || isSupervisorRole(role) || isAdminTierRole(role);
-}
-
 function withHelpAndProfile(sections: StaffNavSection[], role: string | null): StaffNavSection[] {
   let out = sections;
-  if (canEditStaffProfile(role)) {
+  if (canEditOwnStaffProfile(role)) {
     out = [...out, { label: "Account", items: [profileNav] }];
   }
   return withCultureAndHelp(out);
@@ -303,76 +300,90 @@ export function staffNavSectionsForRole(
   }
 
   if (staffRole === "accountant") {
-    return withCultureAndHelp([
-      {
-        label: "Accounts",
-        items: [
-          intakeBillingNav,
-          {
-            href: "/dashboard/timesheet",
-            label: "Weekly Timesheet",
-            match: (p) => p.startsWith("/dashboard/timesheet"),
-          },
-          timeClockNav,
-          dataExportsNav,
-        ],
-      },
-      {
-        label: "Reference",
-        items: [communityPartnersNav],
-      },
-    ]);
+    return withHelpAndProfile(
+      [
+        {
+          label: "Accounts",
+          items: [
+            intakeBillingNav,
+            {
+              href: "/dashboard/timesheet",
+              label: "Weekly Timesheet",
+              match: (p) => p.startsWith("/dashboard/timesheet"),
+            },
+            timeClockNav,
+            dataExportsNav,
+          ],
+        },
+        {
+          label: "Reference",
+          items: [communityPartnersNav],
+        },
+      ],
+      staffRole
+    );
   }
 
   if (isHrRole(staffRole)) {
-    return withCultureAndHelp([
-      {
-        label: "HR",
-        items: [
-          {
-            href: "/dashboard/hr",
-            label: "HR Dashboard",
-            match: (p) => p.startsWith("/dashboard/hr"),
-          },
-          {
-            href: "/dashboard/referrals",
-            label: "Referral Queue",
-            match: (p) => p.startsWith("/dashboard/referrals"),
-          },
-          intakeBillingNav,
-          {
-            href: "/dashboard/timesheet",
-            label: "Weekly Timesheet",
-            match: (p) => p.startsWith("/dashboard/timesheet"),
-          },
-          timeClockNav,
-          analyticsNav,
-          dataExportsNav,
-        ],
-      },
-    ]);
+    return withHelpAndProfile(
+      [
+        {
+          label: "HR",
+          items: [
+            {
+              href: "/dashboard/hr",
+              label: "HR Dashboard",
+              match: (p) => p.startsWith("/dashboard/hr"),
+            },
+            {
+              href: "/dashboard/referrals",
+              label: "Referral Queue",
+              match: (p) => p.startsWith("/dashboard/referrals"),
+            },
+            intakeBillingNav,
+            {
+              href: "/dashboard/timesheet",
+              label: "Weekly Timesheet",
+              match: (p) => p.startsWith("/dashboard/timesheet"),
+            },
+            timeClockNav,
+            analyticsNav,
+            dataExportsNav,
+          ],
+        },
+      ],
+      staffRole
+    );
   }
 
   if (isHospitalitySpecialistRole(staffRole)) {
-    return withCultureAndHelp([
-      {
-        label: "Hospitality",
-        items: [
-          {
-            href: "/dashboard/hospitality",
-            label: "Hospitality Dashboard",
-            match: (p) => p === "/dashboard/hospitality",
-          },
-          {
-            href: "/dashboard/hospitality/intakes",
-            label: "Intake Calls",
-            match: (p) => p.startsWith("/dashboard/hospitality/intakes"),
-          },
-          communityPartnersNav,
-          timeClockNav,
-        ],
-      },
-    ]);
+    return withHelpAndProfile(
+      [
+        {
+          label: "Hospitality",
+          items: [
+            {
+              href: "/dashboard/hospitality",
+              label: "Hospitality Dashboard",
+              match: (p) => p === "/dashboard/hospitality",
+            },
+            {
+              href: "/dashboard/hospitality/intakes",
+              label: "Intake Calls",
+              match: (p) => p.startsWith("/dashboard/hospitality/intakes"),
+            },
+            {
+              href: "/dashboard/hospitality/check-ins",
+              label: "Monthly Check-ins",
+              match: (p) => p.startsWith("/dashboard/hospitality/check-ins"),
+            },
+            communityPartnersNav,
+            timeClockNav,
+          ],
+        },
+      ],
+      staffRole
+    );
   }
 
   if (isWrtAdminRole(staffRole)) {
@@ -425,23 +436,26 @@ export function staffNavSectionsForRole(
     );
   }
 
-  return withCultureAndHelp([
-    {
-      items: [
-        {
-          href: "/dashboard/clients",
-          label: "Clients",
-          match: (p) => p.startsWith("/dashboard/clients"),
-        },
-        {
-          href: "/dashboard/messages",
-          label: "Messages",
-          match: (p) => p === "/dashboard/messages",
-        },
-        dataExportsNav,
-      ],
-    },
-  ]);
+  return withHelpAndProfile(
+    [
+      {
+        items: [
+          {
+            href: "/dashboard/clients",
+            label: "Clients",
+            match: (p) => p.startsWith("/dashboard/clients"),
+          },
+          {
+            href: "/dashboard/messages",
+            label: "Messages",
+            match: (p) => p === "/dashboard/messages",
+          },
+          dataExportsNav,
+        ],
+      },
+    ],
+    staffRole
+  );
 }
 
 export function staffNavBadge(role: string | null | undefined): WayfinderNavBadge {
@@ -508,5 +522,6 @@ export function staffWorkspaceLabel(staffRole: string | null): string {
   if (isEsRole(staffRole)) return "Employment Specialist";
   if (staffRole === "accountant") return "Accounts Specialist";
   if (isHrRole(staffRole)) return "HR Workspace";
+  if (isHospitalitySpecialistRole(staffRole)) return "Hospitality Workspace";
   return "Team Member Workspace";
 }

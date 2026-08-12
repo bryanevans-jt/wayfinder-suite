@@ -6,11 +6,7 @@ import {
   USER_FACING_AUTH_REQUIRED,
   USER_FACING_FORBIDDEN,
 } from "@wayfinder/supabase/error-log";
-import {
-  isAdminTierRole,
-  isEsRole,
-  isSupervisorRole,
-} from "@wayfinder/supabase/roles";
+import { canEditOwnStaffProfile } from "@wayfinder/supabase/roles";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
@@ -18,10 +14,6 @@ const PROFILE_SELECT =
   "id, full_name, first_name, last_name, phone, home_city, bio, role";
 
 const PROFILE_SELECT_FALLBACK = "id, full_name, role";
-
-function canEditOwnStaffProfile(role: string | null | undefined): boolean {
-  return isEsRole(role) || isSupervisorRole(role) || isAdminTierRole(role);
-}
 
 function composeFullName(first: string, last: string): string | null {
   const name = [first, last].filter((p) => p.trim().length > 0).join(" ").trim();

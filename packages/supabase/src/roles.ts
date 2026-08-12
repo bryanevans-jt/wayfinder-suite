@@ -85,8 +85,45 @@ export function isHrRole(role: string | null | undefined): boolean {
   return normalizeRole(role) === "hr";
 }
 
+export function isAccountantRole(role: string | null | undefined): boolean {
+  return normalizeRole(role) === "accountant";
+}
+
 export function isHospitalitySpecialistRole(role: string | null | undefined): boolean {
   return normalizeRole(role) === "hospitality_specialist";
+}
+
+export function canEditOwnStaffProfile(role: string | null | undefined): boolean {
+  return isStaffRole(role) && !isCounselorRole(role);
+}
+
+/** View client names and profiles without caseload write access. */
+export function canViewClientProfiles(role: string | null | undefined): boolean {
+  return (
+    isAdminTierRole(role) ||
+    isHrRole(role) ||
+    isAccountantRole(role) ||
+    isHospitalitySpecialistRole(role)
+  );
+}
+
+/** Internal staff notes — never clients, supports, or counselors. */
+export function canViewStaffOnlyClientNotes(role: string | null | undefined): boolean {
+  return (
+    isAdminTierRole(role) ||
+    isHrRole(role) ||
+    isHospitalitySpecialistRole(role) ||
+    isSupervisorRole(role) ||
+    isEsRole(role)
+  );
+}
+
+export function canWriteStaffOnlyClientNotes(role: string | null | undefined): boolean {
+  return isHospitalitySpecialistRole(role) || isAdminTierRole(role);
+}
+
+export function canLogHospitalityCheckIns(role: string | null | undefined): boolean {
+  return isHospitalitySpecialistRole(role) || isAdminTierRole(role);
 }
 
 export function isAssignableStaffRole(

@@ -1,5 +1,7 @@
 "use client";
 
+import { clientDisplayName } from "@wayfinder/branding";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 type Billing = {
@@ -118,7 +120,20 @@ export function IntakeBillingWorkspace() {
                 <tr key={row.id} className="border-t border-neutral-100">
                   <td className="px-3 py-3">
                     <p className="font-medium">
-                      {row.client?.full_name || row.client?.contact_email || row.client?.id}
+                      {row.client ? (
+                        <Link
+                          href={`/dashboard/clients/${row.client.id}`}
+                          className="text-brand-green hover:underline"
+                        >
+                          {clientDisplayName({
+                            full_name: row.client.full_name,
+                            contact_email: row.client.contact_email,
+                            id: row.client.id,
+                          })}
+                        </Link>
+                      ) : (
+                        "Unknown client"
+                      )}
                     </p>
                     <p className="text-xs text-brand-black/55">
                       {row.client?.referral_state || "—"}

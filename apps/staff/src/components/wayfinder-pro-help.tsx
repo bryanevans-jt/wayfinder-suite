@@ -284,9 +284,11 @@ function sectionsForRole(role: string | null): Section[] {
         body:
           "Accounts Specialist tools focus on intake billing, timesheets, Time Clock, and payment/billing exports. Community Partners is shared reference data.",
         steps: [
-          "Accounts → Intake Billing (bill the state after intake, then mark payment received).",
+          "Accounts → Intake Billing (this is your home screen after login).",
           "Accounts → Weekly Timesheet, Time Clock, Download Exports.",
+          "Account → My Profile to update your name, city, and contact details.",
           "Reference → Community Partners.",
+          "Client names on timesheets and intake billing open a view-only profile.",
         ],
       },
       {
@@ -319,6 +321,7 @@ function sectionsForRole(role: string | null): Section[] {
           "HR focuses on people and performance: timesheets, Time Clock / PTO approvals, aggregated analytics, and exports for hours worked and billable oversight. Client-named analytics dumps are not available.",
         steps: [
           "HR Dashboard for people tools.",
+          "Account → My Profile to update your name, city, and contact details.",
           "Weekly Timesheet to view any ES week.",
           "Time Clock for hours worked and the org PTO approval queue.",
           "Explore Analytics for org-wide performance (hires, contacts/week, billable vs worked, time to hire by office/ES/supervisor/counselor).",
@@ -349,12 +352,14 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Hospitality Workspace",
         body:
-          "Your sidebar includes the Hospitality Dashboard, Community Partners, and Time Clock. Use Time Clock for hours worked and your own PTO.",
+          "Your sidebar includes the Hospitality Dashboard, Intake Calls, Monthly Check-ins, Community Partners, Time Clock, and My Profile.",
         steps: [
-          "Hospitality Dashboard → client logs, community network, and connections for hospitality work.",
-          "Community Partners → shared employer / partner reference.",
+          "Monthly Check-ins → call every client at least once each month and log the outcome.",
+          "Open a client to add internal staff notes (not visible to clients, natural supports, or counselors).",
+          "Hospitality Dashboard → client logs, community network, and connections.",
+          "Intake Calls → complete hospitality intake for new activations.",
+          "Account → My Profile to update your name, city, and contact details.",
           "Time Clock → clock in/out (America/New_York) and PTO Requests for your own leave.",
-          "Please request at least 14 days in advance when possible; sick and emergency may be sooner.",
         ],
       },
     ];

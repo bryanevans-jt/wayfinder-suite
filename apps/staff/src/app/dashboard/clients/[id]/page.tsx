@@ -7,6 +7,13 @@ import {
   isSupervisorRole,
   listContactLogsForClientIds,
 } from "@wayfinder/supabase";
+import {
+  canLogHospitalityCheckIns,
+  canViewClientProfiles,
+  canViewStaffOnlyClientNotes,
+  canWriteStaffOnlyClientNotes,
+  staffHomePath,
+} from "@wayfinder/supabase/roles";
 import { formatLocalDate, loadActiveActivityTypes, filterClientContactActivityTypes } from "@wayfinder/supabase/es-time-tracking";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -17,6 +24,8 @@ import { findEmployerMatches } from "@/lib/employer-matching";
 import { supabaseEmbedName } from "@/lib/supabase-embed";
 import { ClientProfileForm, type ClientProfileData } from "@/components/client-profile-form";
 import { EmployerMatchPanel } from "@/components/employer-match-panel";
+import { ClientStaffNotesPanel } from "@/components/client-staff-notes-panel";
+import { HospitalityCheckInPanel } from "@/components/hospitality-check-in-panel";
 import { ClientJobStartDateForm } from "./client-job-start-date-form";
 import { ClientApplicationForm } from "./client-application-form";
 import { ClientContactLogForm } from "./client-contact-log-form";
@@ -90,17 +99,17 @@ export default async function EsClientDetailPage({ params }: PageProps) {
   const { id: clientId } = await params;
 
   const session = await requireAppSession();
-  if (!isEsRole(session.effectiveRole) && !isSupervisorRole(session.effectiveRole)) {
+  const role = session.effectiveRole;
+  const hasWriteAccess = await requireStaffClientAccess(session, clientId);
+  const hasViewAccess = hasWriteAccess || canViewClientProfiles(role);
+  if (!hasViewAccess) {
     notFound();
   }
 
-  const hasAccess = await requireStaffClientAccess(session, clientId);
-  if (!hasAccess) {
-    notFound();
-  }
+  const canWriteCasework = hasWriteAccess && !session.isPreviewing;
+  const readOnly = !canWriteCasework;
 
   const supabase = await createServerClient();
-  const readOnly = session.isPreviewing;
 
   const admin = getEsCaseloadAdmin();
   if (!admin) {
@@ -289,7 +298,15 @@ export default async function EsClientDetailPage({ params }: PageProps) {
     name: e.name as string,
   }));
 
-  const backHref = portalPathForRole(session.effectiveRole) ?? "/dashboard/clients";
+  const backHref = portalPathForRole(session.effectiveRole) ?? staffHomePath(session.effectiveRole);
+  const backLabel = isSupervisorRole(session.effectiveRole)
+    ? "Back to supervisor portal"
+    : isEsRole(session.effectiveRole)
+      ? "Back to clients"
+      : "Back";
+  const showStaffNotes = canViewStaffOnlyClientNotes(role);
+  const canWriteNotes = canWriteStaffOnlyClientNotes(role) && !session.isPreviewing;
+  const showCheckIns = canLogHospitalityCheckIns(role) || showStaffNotes;
 
   return (
     <main className="px-6 py-10">
@@ -297,7 +314,7 @@ export default async function EsClientDetailPage({ params }: PageProps) {
         href={backHref}
         className="text-sm font-medium text-brand-green hover:underline"
       >
-        ← {isSupervisorRole(session.effectiveRole) ? "Back to supervisor portal" : "Back to clients"}
+        ← {backLabel}
       </Link>
 
       <header className="mt-6 border-b border-neutral-200 pb-6">
@@ -325,13 +342,19 @@ export default async function EsClientDetailPage({ params }: PageProps) {
           </div>
         </dl>
         <p className="mt-3 text-xs text-brand-black/55">
-          Email is optional in Contact &amp; Employment Goals below — leave it blank for a profile
-          without login, or add it later to create one. Counselor changes are made by a supervisor or
-          admin in the portal.
+          {canWriteCasework
+            ? "Email is optional in Contact & Employment Goals below — leave it blank for a profile without login, or add it later to create one. Counselor changes are made by a supervisor or admin in the portal."
+            : "View-only client profile."}
         </p>
       </header>
 
-      {readOnly ? (
+      {readOnly && !session.isPreviewing ? (
+        <p className="mt-6 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-brand-black/80">
+          This profile is view-only for your role.
+        </p>
+      ) : null}
+
+      {session.isPreviewing ? (
         <p className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
           Read-only preview — exit preview to update this client.
         </p>
@@ -353,6 +376,17 @@ export default async function EsClientDetailPage({ params }: PageProps) {
           missingGoals={missingGoals}
           missingGeocode={missingGeocode}
         />
+
+        {showStaffNotes ? (
+          <ClientStaffNotesPanel clientId={client.id} canWrite={canWriteNotes} />
+        ) : null}
+
+        {showCheckIns ? (
+          <HospitalityCheckInPanel
+            clientId={client.id}
+            canWrite={canLogHospitalityCheckIns(role) && !session.isPreviewing}
+          />
+        ) : null}
 
         {!readOnly && client.current_service_id && milestoneOptions.length > 0 ? (
           <ClientStageForm
