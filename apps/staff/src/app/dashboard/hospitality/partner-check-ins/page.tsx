@@ -6,9 +6,9 @@ import {
 } from "@wayfinder/supabase/roles";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { redirect } from "next/navigation";
-import { HospitalityCheckInsWorkspace } from "@/components/hospitality-check-ins-workspace";
+import { HospitalityPartnerCheckInsWorkspace } from "@/components/hospitality-partner-check-ins-workspace";
 
-export default async function HospitalityCheckInsPage() {
+export default async function HospitalityPartnerCheckInsPage() {
   const session = await getAppSession();
   if (!session) {
     redirect("/login");
@@ -23,15 +23,15 @@ export default async function HospitalityCheckInsPage() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <h1 className="text-2xl font-bold text-brand-green">Weekly Check-ins</h1>
+      <h1 className="text-2xl font-bold text-brand-green">Partner Check-ins</h1>
       <p className="mt-2 max-w-2xl text-sm text-brand-black/75">
         {canWrite
-          ? "Call every client at least once each week (Sunday–Saturday, Eastern Time) to see how they are doing and how services are going. Open a client to add internal staff notes."
+          ? "Contact every Community Partner at least once each calendar month (Eastern Time). Use Community Partners for the full directory and map."
           : isHrRole(role)
-            ? "Oversight view of weekly wellness calls (Eastern Time). Hospitality Specialist logs check-ins; you can review progress and open client profiles."
-            : "Review weekly wellness call progress. Logging is limited to Hospitality Specialist and Admin."}
+            ? "Oversight view of monthly Community Partner outreach (Eastern Time). Hospitality Specialist logs contacts."
+            : "Review monthly Community Partner outreach. Logging is limited to Hospitality Specialist and Admin."}
       </p>
-      <HospitalityCheckInsWorkspace canWrite={canWrite} />
+      <HospitalityPartnerCheckInsWorkspace canWrite={canWrite} />
     </main>
   );
 }

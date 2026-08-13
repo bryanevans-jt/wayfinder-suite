@@ -9,12 +9,15 @@ import { CHECK_IN_OUTCOMES, checkInOutcomeLabel, type CheckInOutcome } from "@/l
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-type CheckInClient = {
+type PartnerRow = {
   id: string;
   name: string;
-  primary_phone: string | null;
+  status: string;
+  city: string | null;
+  state: string | null;
+  contact_phone: string | null;
   contact_email: string | null;
-  contacted_this_week: boolean;
+  contacted_this_month: boolean;
   last_contacted_at: string | null;
   last_outcome_label: string | null;
 };
@@ -32,9 +35,9 @@ type Props = {
   canWrite?: boolean;
 };
 
-export function HospitalityCheckInsWorkspace({ canWrite = true }: Props) {
-  const [clients, setClients] = useState<CheckInClient[]>([]);
-  const [weekLabelText, setWeekLabelText] = useState("");
+export function HospitalityPartnerCheckInsWorkspace({ canWrite = true }: Props) {
+  const [partners, setPartners] = useState<PartnerRow[]>([]);
+  const [monthLabelText, setMonthLabelText] = useState("");
   const [contacted, setContacted] = useState(0);
   const [remaining, setRemaining] = useState(0);
   const [total, setTotal] = useState(0);
@@ -48,18 +51,18 @@ export function HospitalityCheckInsWorkspace({ canWrite = true }: Props) {
 
   const load = useCallback(async () => {
     setError(null);
-    const res = await fetch("/api/hospitality/check-ins");
+    const res = await fetch("/api/hospitality/partner-check-ins");
     const data = (await res.json()) as {
-      clients?: CheckInClient[];
-      weekLabel?: string;
+      partners?: PartnerRow[];
+      monthLabel?: string;
       contacted?: number;
       remaining?: number;
       total?: number;
       error?: string;
     };
     if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
-    setClients(data.clients ?? []);
-    setWeekLabelText(data.weekLabel ?? "");
+    setPartners(data.partners ?? []);
+    setMonthLabelText(data.monthLabel ?? "");
     setContacted(data.contacted ?? 0);
     setRemaining(data.remaining ?? 0);
     setTotal(data.total ?? 0);
@@ -82,17 +85,18 @@ export function HospitalityCheckInsWorkspace({ canWrite = true }: Props) {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return clients.filter((c) => {
-      if (filter === "needs" && c.contacted_this_week) return false;
-      if (filter === "done" && !c.contacted_this_week) return false;
+    return partners.filter((p) => {
+      if (filter === "needs" && p.contacted_this_month) return false;
+      if (filter === "done" && !p.contacted_this_month) return false;
       if (!q) return true;
       return (
-        c.name.toLowerCase().includes(q) ||
-        (c.primary_phone ?? "").includes(q) ||
-        (c.contact_email ?? "").toLowerCase().includes(q)
+        p.name.toLowerCase().includes(q) ||
+        (p.contact_phone ?? "").includes(q) ||
+        (p.contact_email ?? "").toLowerCase().includes(q) ||
+        (p.city ?? "").toLowerCase().includes(q)
       );
     });
-  }, [clients, filter, query]);
+  }, [partners, filter, query]);
 
   const {
     pageSize,
@@ -104,14 +108,14 @@ export function HospitalityCheckInsWorkspace({ canWrite = true }: Props) {
     totalCount,
   } = useClientListPagination(filtered);
 
-  async function logContact(clientId: string) {
-    setSavingId(clientId);
+  async function logContact(employerId: string) {
+    setSavingId(employerId);
     setError(null);
     try {
-      const res = await fetch("/api/hospitality/check-ins", {
+      const res = await fetch("/api/hospitality/partner-check-ins", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, outcome, notes: notes.trim() || null }),
+        body: JSON.stringify({ employerId, outcome, notes: notes.trim() || null }),
       });
       const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
@@ -128,8 +132,8 @@ export function HospitalityCheckInsWorkspace({ canWrite = true }: Props) {
     <div className="mt-6 space-y-4">
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3">
-          <p className="text-xs uppercase tracking-wide text-brand-black/55">This week</p>
-          <p className="mt-1 text-lg font-semibold">{weekLabelText || "—"}</p>
+          <p className="text-xs uppercase tracking-wide text-brand-black/55">This month</p>
+          <p className="mt-1 text-lg font-semibold">{monthLabelText || "—"}</p>
         </div>
         <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3">
           <p className="text-xs uppercase tracking-wide text-brand-black/55">Contacted</p>
@@ -149,7 +153,7 @@ export function HospitalityCheckInsWorkspace({ canWrite = true }: Props) {
             [
               ["needs", "Needs contact"],
               ["done", "Contacted"],
-              ["all", "All clients"],
+              ["all", "All partners"],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -169,7 +173,7 @@ export function HospitalityCheckInsWorkspace({ canWrite = true }: Props) {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search name or phone"
+          placeholder="Search name, phone, or city"
           className="min-w-[12rem] flex-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm"
         />
       </div>
@@ -202,7 +206,7 @@ export function HospitalityCheckInsWorkspace({ canWrite = true }: Props) {
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
 
       {loading ? (
-        <p className="text-sm text-brand-black/60">Loading clients…</p>
+        <p className="text-sm text-brand-black/60">Loading partners…</p>
       ) : (
         <>
           <ClientListPaginationControls
@@ -217,44 +221,49 @@ export function HospitalityCheckInsWorkspace({ canWrite = true }: Props) {
             <table className="min-w-full text-left text-sm">
               <thead className="bg-neutral-50 text-brand-black/70">
                 <tr>
-                  <th className="px-3 py-2">Client</th>
+                  <th className="px-3 py-2">Partner</th>
                   <th className="px-3 py-2">Phone</th>
-                  <th className="px-3 py-2">This week</th>
-                  <th className="px-3 py-2">Last check-in</th>
+                  <th className="px-3 py-2">Location</th>
+                  <th className="px-3 py-2">This month</th>
+                  <th className="px-3 py-2">Last contact</th>
                   {canWrite ? <th className="px-3 py-2">Action</th> : null}
                 </tr>
               </thead>
               <tbody>
                 {pageItems.length === 0 ? (
                   <tr>
-                    <td colSpan={canWrite ? 5 : 4} className="px-3 py-8 text-center text-brand-black/60">
+                    <td colSpan={canWrite ? 6 : 5} className="px-3 py-8 text-center text-brand-black/60">
                       {filter === "needs"
-                        ? "Every client has a check-in this week."
-                        : "No clients match this filter."}
+                        ? "Every community partner has a contact this month."
+                        : "No partners match this filter."}
                     </td>
                   </tr>
                 ) : (
-                  pageItems.map((c) => (
-                    <tr key={c.id} className="border-t border-neutral-100">
+                  pageItems.map((p) => (
+                    <tr key={p.id} className="border-t border-neutral-100">
                       <td className="px-3 py-3 font-medium">
                         <Link
-                          href={`/dashboard/clients/${c.id}`}
+                          href={`/dashboard/community-partners/${p.id}`}
                           className="text-brand-green hover:underline"
                         >
-                          {c.name}
+                          {p.name}
                         </Link>
+                        <span className="ml-2 text-xs capitalize text-brand-black/50">{p.status}</span>
                       </td>
                       <td className="px-3 py-3">
-                        {c.primary_phone ? (
-                          <a href={`tel:${c.primary_phone}`} className="text-brand-green hover:underline">
-                            {c.primary_phone}
+                        {p.contact_phone ? (
+                          <a href={`tel:${p.contact_phone}`} className="text-brand-green hover:underline">
+                            {p.contact_phone}
                           </a>
                         ) : (
                           "—"
                         )}
                       </td>
                       <td className="px-3 py-3">
-                        {c.contacted_this_week ? (
+                        {[p.city, p.state].filter(Boolean).join(", ") || "—"}
+                      </td>
+                      <td className="px-3 py-3">
+                        {p.contacted_this_month ? (
                           <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">
                             Contacted
                           </span>
@@ -265,19 +274,19 @@ export function HospitalityCheckInsWorkspace({ canWrite = true }: Props) {
                         )}
                       </td>
                       <td className="px-3 py-3">
-                        {c.last_contacted_at
-                          ? `${formatWhen(c.last_contacted_at)}${c.last_outcome_label ? ` · ${c.last_outcome_label}` : ""}`
+                        {p.last_contacted_at
+                          ? `${formatWhen(p.last_contacted_at)}${p.last_outcome_label ? ` · ${p.last_outcome_label}` : ""}`
                           : "—"}
                       </td>
                       {canWrite ? (
                         <td className="px-3 py-3">
                           <button
                             type="button"
-                            onClick={() => void logContact(c.id)}
-                            disabled={savingId === c.id}
+                            onClick={() => void logContact(p.id)}
+                            disabled={savingId === p.id}
                             className="rounded-lg border border-brand-green px-2.5 py-1 text-xs font-semibold text-brand-green hover:bg-brand-green/5 disabled:opacity-60"
                           >
-                            {savingId === c.id ? "Saving…" : "Log check-in"}
+                            {savingId === p.id ? "Saving…" : "Log contact"}
                           </button>
                         </td>
                       ) : null}

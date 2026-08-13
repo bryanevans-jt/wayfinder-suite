@@ -136,6 +136,12 @@ export function HospitalityWorkspace({
               Active and pending Community Network members.
             </p>
             <Link
+              href="/dashboard/hospitality/partner-check-ins"
+              className="text-sm font-semibold text-brand-green hover:underline"
+            >
+              Monthly Partner Check-ins →
+            </Link>
+            <Link
               href="/dashboard/community-partners"
               className="text-sm font-semibold text-brand-green hover:underline"
             >

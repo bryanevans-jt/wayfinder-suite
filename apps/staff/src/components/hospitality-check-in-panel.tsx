@@ -32,7 +32,7 @@ function formatWhen(iso: string): string {
 
 export function HospitalityCheckInPanel({ clientId, canWrite }: Props) {
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [monthLabel, setMonthLabel] = useState("");
+  const [weekLabelText, setWeekLabelText] = useState("");
   const [outcome, setOutcome] = useState<CheckInOutcome>("reached");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(true);
@@ -44,12 +44,12 @@ export function HospitalityCheckInPanel({ clientId, canWrite }: Props) {
     const res = await fetch(`/api/hospitality/check-ins?clientId=${encodeURIComponent(clientId)}`);
     const data = (await res.json()) as {
       contacts?: Contact[];
-      monthLabel?: string;
+      weekLabel?: string;
       error?: string;
     };
     if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
     setContacts(data.contacts ?? []);
-    setMonthLabel(data.monthLabel ?? "");
+    setWeekLabelText(data.weekLabel ?? "");
   }, [clientId]);
 
   useEffect(() => {
@@ -96,7 +96,8 @@ export function HospitalityCheckInPanel({ clientId, canWrite }: Props) {
         Hospitality check-ins
       </h2>
       <p className="mt-1 text-xs text-brand-black/60">
-        Monthly wellness calls. Goal: contact this client at least once in {monthLabel || "the current month"}.
+        Weekly wellness calls. Goal: contact this client at least once in{" "}
+        {weekLabelText || "the current week"}.
       </p>
 
       {canWrite ? (

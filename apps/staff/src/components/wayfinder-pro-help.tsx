@@ -321,7 +321,7 @@ function sectionsForRole(role: string | null): Section[] {
           "HR focuses on people and performance: timesheets, Time Clock / PTO approvals, aggregated analytics, and exports for hours worked and billable oversight. Client-named analytics dumps are not available.",
         steps: [
           "HR Dashboard for people tools.",
-          "Hospitality Overview / Monthly Check-ins for wellness-call oversight (view-only; Hospitality logs).",
+          "Hospitality Overview / Weekly Check-ins / Partner Check-ins for wellness and partner outreach oversight (view-only; Hospitality logs).",
           "Account → My Profile to update your name, city, and contact details.",
           "Weekly Timesheet to view any ES week.",
           "Time Clock for hours worked and the org PTO approval queue.",
@@ -353,9 +353,10 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Hospitality Workspace",
         body:
-          "Your sidebar includes the Hospitality Dashboard, Intake Calls, Monthly Check-ins, Community Partners, Time Clock, and My Profile.",
+          "Your sidebar includes the Hospitality Dashboard, Intake Calls, Weekly Check-ins, Partner Check-ins, Community Partners, Time Clock, and My Profile.",
         steps: [
-          "Monthly Check-ins → call every client at least once each month and log the outcome.",
+          "Weekly Check-ins → call every client at least once each week and log the outcome.",
+          "Partner Check-ins → contact every Community Partner at least once each month and log the outcome.",
           "Open a client to add internal staff notes (not visible to clients, natural supports, or counselors).",
           "Hospitality Dashboard → client logs, community network, and connections.",
           "Intake Calls → complete hospitality intake for new activations.",

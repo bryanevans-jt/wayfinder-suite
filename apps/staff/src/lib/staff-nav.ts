@@ -347,8 +347,13 @@ export function staffNavSectionsForRole(
             },
             {
               href: "/dashboard/hospitality/check-ins",
-              label: "Monthly Check-ins",
+              label: "Weekly Check-ins",
               match: (p) => p.startsWith("/dashboard/hospitality/check-ins"),
+            },
+            {
+              href: "/dashboard/hospitality/partner-check-ins",
+              label: "Partner Check-ins",
+              match: (p) => p.startsWith("/dashboard/hospitality/partner-check-ins"),
             },
             {
               href: "/dashboard/timesheet",
@@ -383,8 +388,13 @@ export function staffNavSectionsForRole(
             },
             {
               href: "/dashboard/hospitality/check-ins",
-              label: "Monthly Check-ins",
+              label: "Weekly Check-ins",
               match: (p) => p.startsWith("/dashboard/hospitality/check-ins"),
+            },
+            {
+              href: "/dashboard/hospitality/partner-check-ins",
+              label: "Partner Check-ins",
+              match: (p) => p.startsWith("/dashboard/hospitality/partner-check-ins"),
             },
             communityPartnersNav,
             timeClockNav,

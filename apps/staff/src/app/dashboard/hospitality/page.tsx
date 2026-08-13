@@ -58,7 +58,8 @@ export default async function HospitalityDashboardPage() {
       <h1 className="text-2xl font-bold text-brand-green">Hospitality Specialist</h1>
       <p className="mt-2 max-w-2xl text-sm text-brand-black/75">
         View client activity, Community Network members (including pending), and org connections.
-        Use Monthly Check-ins to track wellness calls, and open a client to add internal staff notes.
+        Use Weekly Check-ins for client wellness calls and Partner Check-ins for monthly Community
+        Partner outreach. Open a client to add internal staff notes.
         {isHrRole(role)
           ? " HR can review this workspace; Hospitality Specialist logs check-ins and staff notes."
           : ""}

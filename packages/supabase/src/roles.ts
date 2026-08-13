@@ -119,7 +119,7 @@ export function canLogHospitalityCheckIns(role: string | null | undefined): bool
   return isHospitalitySpecialistRole(role) || isAdminTierRole(role);
 }
 
-/** View hospitality dashboard / monthly check-ins (read). */
+/** View hospitality dashboard / weekly client and monthly partner check-ins (read). */
 export function canViewHospitalityWorkspace(role: string | null | undefined): boolean {
   return (
     isHospitalitySpecialistRole(role) ||
