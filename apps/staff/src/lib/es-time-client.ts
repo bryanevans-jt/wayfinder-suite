@@ -58,7 +58,9 @@ export function summarizeTimeEntries(entries: EsTimeEntryRow[]) {
 
   for (const e of entries) {
     const clientKey = e.client_id ?? "non-client";
-    const clientName = e.client_name ?? "Non-client time";
+    const clientName = e.client_id
+      ? (e.client_name ?? "Unknown client")
+      : "Non-client time";
     const clientRow = byClient.get(clientKey) ?? {
       clientId: e.client_id,
       name: clientName,

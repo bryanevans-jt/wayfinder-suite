@@ -6,7 +6,7 @@ import {
 } from "@wayfinder/supabase/es-time-tracking";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { isAdminTierRole, isSupervisorRole } from "@wayfinder/supabase/roles";
-import { clientDisplayName } from "@wayfinder/branding";
+import { shiftDurationMinutes } from "@wayfinder/supabase/staff-time-clock-shared";
 import { loadStaffNameById } from "@/lib/staff-names";
 import { loadClientDisplayNameById } from "@/lib/client-display-names";
 import { loadSupervisorScope } from "@/lib/supervisor-client-scope";
@@ -274,58 +274,12 @@ export async function loadEsCaseloadClientOptions(
     return [];
   }
 
-  let clientRows: Array<{
-    id: string;
-    contact_email: string | null;
-    user_id?: string | null;
-    profile_id?: string | null;
-    full_name?: string | null;
-  }> = [];
-
-  {
-    const withName = await admin
-      .from("clients")
-      .select("id, contact_email, user_id, profile_id, full_name")
-      .in("id", clientIds);
-    if (withName.error) {
-      const fallback = await admin
-        .from("clients")
-        .select("id, contact_email, user_id, profile_id")
-        .in("id", clientIds);
-      clientRows = (fallback.data ?? []) as typeof clientRows;
-    } else {
-      clientRows = (withName.data ?? []) as typeof clientRows;
-    }
-  }
-
-  const authIds = [
-    ...new Set(
-      clientRows
-        .flatMap((c) => [c.user_id, c.profile_id])
-        .filter((v): v is string => typeof v === "string" && v.length > 0)
-    ),
-  ];
-
-  const { data: profiles } = authIds.length
-    ? await admin.from("profiles").select("id, full_name").in("id", authIds)
-    : { data: [] as { id: string; full_name: string | null }[] };
-
-  const nameByAuth = new Map(
-    (profiles ?? []).map((p) => [p.id as string, p.full_name as string | null])
-  );
-
-  return clientRows
-    .map((c) => {
-      const authId = (c.user_id ?? c.profile_id) ?? null;
-      return {
-        id: c.id,
-        name: clientDisplayName({
-          full_name: (authId ? nameByAuth.get(authId) ?? null : null) ?? (c.full_name ?? null),
-          contact_email: c.contact_email,
-          id: c.id,
-        }),
-      };
-    })
+  const nameById = await loadClientDisplayNameById(admin, clientIds);
+  return clientIds
+    .map((id) => ({
+      id,
+      name: nameById.get(id) ?? "Unknown client",
+    }))
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
 }
 
@@ -340,17 +294,26 @@ export async function loadSupervisedEsOptions(
   }
 
   const [{ data: profiles }, nameById] = await Promise.all([
-    admin.from("profiles").select("id, is_active").in("id", esIds).eq("role", "es"),
+    admin
+      .from("profiles")
+      .select("id, is_active, role")
+      .in("id", esIds)
+      .eq("role", "es")
+      .neq("is_active", false),
     loadStaffNameById(admin, esIds, "Employment Specialist"),
   ]);
 
   return (profiles ?? [])
     .map((p) => {
       const name = nameById.get(p.id as string) ?? "Employment Specialist";
-      const inactive = p.is_active === false ? " (inactive)" : "";
-      return { id: p.id as string, name: `${name}${inactive}` };
+      return { id: p.id as string, name };
     })
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+}
+
+function roleSuffixLabel(role: string | null | undefined): string {
+  if (role === "supervisor") return " (Supervisor)";
+  return "";
 }
 
 export async function loadStaffEsPickerOptions(
@@ -365,20 +328,54 @@ export async function loadStaffEsPickerOptions(
   if (isAdminTierRole(role) || role === "accountant" || role === "hr") {
     const { data: profiles } = await admin
       .from("profiles")
-      .select("id, is_active")
-      .eq("role", "es");
+      .select("id, is_active, role")
+      .in("role", ["es", "supervisor"])
+      .neq("is_active", false);
 
     const ids = (profiles ?? []).map((p) => p.id as string);
-    const nameById = await loadStaffNameById(admin, ids, "Employment Specialist");
+    const nameById = await loadStaffNameById(admin, ids, "Team member");
 
     return (profiles ?? [])
       .map((p) => {
-        const name = nameById.get(p.id as string) ?? "Employment Specialist";
-        const inactive = p.is_active === false ? " (inactive)" : "";
-        return { id: p.id as string, name: `${name}${inactive}` };
+        const name = nameById.get(p.id as string) ?? "Team member";
+        return {
+          id: p.id as string,
+          name: `${name}${roleSuffixLabel(p.role as string | null)}`,
+        };
       })
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
   }
 
   return [];
+}
+
+/** Closed + open Time Clock minutes for a staff member in a Sun–Sat local-date week. */
+export async function loadStaffClockMinutesForWeek(
+  admin: ReturnType<typeof createServiceRoleClient>,
+  staffUserId: string,
+  weekStart: string
+): Promise<number> {
+  const weekEnd = weekEndSaturday(weekStart);
+  const { data: shifts, error } = await admin
+    .from("staff_time_clock_shifts")
+    .select("clock_in_at, clock_out_at")
+    .eq("staff_user_id", staffUserId)
+    .gte("local_date", weekStart)
+    .lte("local_date", weekEnd);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const now = new Date();
+  return (shifts ?? []).reduce(
+    (sum, s) =>
+      sum +
+      shiftDurationMinutes(
+        s.clock_in_at as string,
+        (s.clock_out_at as string | null) ?? null,
+        now
+      ),
+    0
+  );
 }

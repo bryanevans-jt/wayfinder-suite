@@ -349,7 +349,7 @@ export function WrtFacilitationWorkspace() {
       <div>
         <h2 className="text-lg font-semibold text-brand-black">WRT Facilitation Preview</h2>
         <p className="mt-1 max-w-2xl text-sm text-brand-black/70">
-          Admin-only preview of the Employment Specialist / Transition Specialist experience.
+          Admin-only preview of the Employment Specialist experience.
           Enrollments are opt-in and do not change a client&apos;s service assignment.
         </p>
       </div>

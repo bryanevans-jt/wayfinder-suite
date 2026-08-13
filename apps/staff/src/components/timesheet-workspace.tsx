@@ -33,6 +33,8 @@ type Props = {
   caseloadClients?: TimesheetClientOption[];
   initialClientFilter?: string;
   canPickEs?: boolean;
+  /** When set (Accounts/HR/admin), Hours worked (payroll) uses Time Clock minutes. */
+  payrollClockMinutes?: number | null;
 };
 
 function formatWeekLabel(start: string, end: string): string {
@@ -54,6 +56,7 @@ export function TimesheetWorkspace({
   caseloadClients = [],
   initialClientFilter = "",
   canPickEs = false,
+  payrollClockMinutes = null,
 }: Props) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -84,6 +87,9 @@ export function TimesheetWorkspace({
   }, [caseloadClients, entries]);
 
   const summary = summarizeTimeEntries(visibleEntries);
+  const payrollMinutes =
+    typeof payrollClockMinutes === "number" ? payrollClockMinutes : summary.workedMinutes;
+  const payrollFromClock = typeof payrollClockMinutes === "number";
   const canSubmit =
     isEsRole(role) &&
     !readOnly &&
@@ -231,7 +237,7 @@ export function TimesheetWorkspace({
           <div className="mb-4 space-y-3">
             <div className="flex flex-wrap items-end gap-3">
               <label className="block text-sm font-medium text-brand-black">
-                Employment Specialist
+                Team member
                 <select
                   value={esUserId}
                   onChange={(e) => onEsChange(e.target.value)}
@@ -239,7 +245,7 @@ export function TimesheetWorkspace({
                   disabled={supervisedEsOptions.length === 0}
                 >
                   {supervisedEsOptions.length === 0 ? (
-                    <option value="">No Employment Specialists in your scope</option>
+                    <option value="">No team members available</option>
                   ) : (
                     supervisedEsOptions.map((opt) => (
                       <option key={opt.id} value={opt.id}>
@@ -268,8 +274,9 @@ export function TimesheetWorkspace({
             </div>
             {supervisedEsOptions.length === 0 ? (
               <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-                No Employment Specialists are linked to you yet. Ask an admin to add Supervisor ↔ ES
-                links on the Connections tab, then refresh this page.
+                {isSupervisorRole(role) && !isAdminTierRole(role)
+                  ? "No Employment Specialists are linked to you yet. Ask an admin to add Supervisor ↔ ES links on the Connections tab, then refresh this page."
+                  : "No active Employment Specialists or Supervisors are available yet. Once staff profiles are set up with those roles, their timesheets will appear here."}
               </p>
             ) : null}
           </div>
@@ -321,7 +328,7 @@ export function TimesheetWorkspace({
         <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Stat
             label="Hours worked (payroll)"
-            value={minutesToDecimalHours(summary.workedMinutes)}
+            value={minutesToDecimalHours(payrollMinutes)}
           />
           <Stat
             label="Billable hours (by client)"
@@ -334,8 +341,9 @@ export function TimesheetWorkspace({
           />
         </div>
         <p className="mt-2 text-xs text-brand-black/55">
-          Hours worked merges overlapping clock times so the same canvass billed to multiple clients
-          counts once for payroll. Billable hours sum each client line (may be higher).
+          {payrollFromClock
+            ? "Hours worked come from staff Time Clock shifts (America/New_York) for this week. Billable hours sum each client line from the timesheet and may differ."
+            : "Hours worked merges overlapping clock times so the same canvass billed to multiple clients counts once for payroll. Billable hours sum each client line (may be higher)."}
         </p>
 
         {summary.byClient.length > 0 ? (
@@ -397,7 +405,7 @@ export function TimesheetWorkspace({
                 , or add manual time there.
               </>
             ) : (
-              "No time entries this week for this specialist."
+              "No time entries this week for this team member."
             )}
           </p>
         ) : (

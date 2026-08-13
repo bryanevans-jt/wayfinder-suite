@@ -44,7 +44,7 @@ async function assertSupervisedEsTarget(
     return "That specialist account was not found.";
   }
   if (!isEsRole(profile.role as string)) {
-    return "Caseload can only be assigned to an Employment Specialist or Transition Specialist.";
+    return "Caseload can only be assigned to an Employment Specialist.";
   }
   if (profile.is_active === false) {
     return "That specialist account is inactive.";

@@ -2,7 +2,7 @@ import { assertPortalMutation, jsonPortalError } from "@/lib/portal-auth";
 import { findAuthUserIdByEmail, sendStaffLoginEmail } from "@/lib/portal-staff-users";
 import { NextRequest } from "next/server";
 
-const ALLOWED_ROLES = new Set(["es", "transition_specialist", "supervisor"]);
+const ALLOWED_ROLES = new Set(["es", "supervisor"]);
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "user_id is required" }, { status: 400 });
     }
     if (!role || !ALLOWED_ROLES.has(role)) {
-      return Response.json({ error: "role must be es, transition_specialist, or supervisor" }, { status: 400 });
+      return Response.json({ error: "role must be es or supervisor" }, { status: 400 });
     }
 
     const { data: profile, error: profileErr } = await admin

@@ -18,7 +18,7 @@ export async function loadSupervisorScope(
         .select("es_user_id")
         .eq("supervisor_user_id", supervisorUserId),
       admin.from("staff_office_assignments").select("user_id, office_id"),
-      admin.from("profiles").select("id").in("role", ["es", "transition_specialist"]),
+      admin.from("profiles").select("id").eq("role", "es"),
     ]);
 
   const officeIds = (offices ?? []).map((o) => o.office_id as string);

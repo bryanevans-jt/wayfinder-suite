@@ -7,7 +7,6 @@ export const STAFF_ROLES = [
   "super_admin",
   "hr",
   "hospitality_specialist",
-  "transition_specialist",
   "wrt_admin",
 ] as const;
 
@@ -22,7 +21,6 @@ export const ASSIGNABLE_STAFF_ROLES = [
   "counselor",
   "hr",
   "hospitality_specialist",
-  "transition_specialist",
   "wrt_admin",
 ] as const;
 
@@ -51,14 +49,9 @@ export function isSupportRole(role: string | null | undefined): boolean {
   return normalizeRole(role) === "support";
 }
 
-/** Employment Specialist and Transition Specialist (same field access). */
+/** Employment Specialist field access. */
 export function isEsRole(role: string | null | undefined): boolean {
-  const r = normalizeRole(role);
-  return r === "es" || r === "transition_specialist";
-}
-
-export function isTransitionSpecialistRole(role: string | null | undefined): boolean {
-  return normalizeRole(role) === "transition_specialist";
+  return normalizeRole(role) === "es";
 }
 
 export function isWrtAdminRole(role: string | null | undefined): boolean {
@@ -201,7 +194,6 @@ export function roleDisplayName(role: string | null | undefined): string {
     accountant: "Accounts Specialist",
     hr: "HR",
     hospitality_specialist: "Hospitality Specialist",
-    transition_specialist: "Transition Specialist",
     wrt_admin: "WRT Admin",
   };
   const key = normalizeRole(role);

@@ -10,7 +10,6 @@ import {
   isSupervisorRole,
   isSupervisorTierRole,
   isWrtAdminRole,
-  normalizeRole,
   staffHomePath,
 } from "@wayfinder/supabase/roles";
 
@@ -543,7 +542,6 @@ export function staffWorkspaceLabel(staffRole: string | null): string {
   if (isSuperAdminRole(staffRole)) return "Super Admin";
   if (isAdminTierRole(staffRole)) return "Admin Workspace";
   if (isSupervisorRole(staffRole)) return "Supervisor Workspace";
-  if (normalizeRole(staffRole) === "transition_specialist") return "Transition Specialist";
   if (isEsRole(staffRole)) return "Employment Specialist";
   if (staffRole === "accountant") return "Accounts Specialist";
   if (isHrRole(staffRole)) return "HR Workspace";

@@ -321,12 +321,8 @@ export async function loadPortalBootstrap(
 
   const activeProfiles = (profiles ?? []).filter((p) => p.is_active !== false);
 
-  let esProfiles = activeProfiles.filter(
-    (p) => p.role === "es" || p.role === "transition_specialist"
-  );
-  const allEsProfiles = (profiles ?? []).filter(
-    (p) => p.role === "es" || p.role === "transition_specialist"
-  );
+  let esProfiles = activeProfiles.filter((p) => p.role === "es");
+  const allEsProfiles = (profiles ?? []).filter((p) => p.role === "es");
   const allSupervisorProfiles = (profiles ?? []).filter((p) => p.role === "supervisor");
   let clientRows = clientsQuery.data ?? [];
 
@@ -527,7 +523,7 @@ export async function loadPortalBootstrap(
     })(),
     caseloadAssignees: (() => {
       let assigneeProfiles = (profiles ?? []).filter(
-        (p) => p.role === "es" || p.role === "transition_specialist" || p.role === "supervisor"
+        (p) => p.role === "es" || p.role === "supervisor"
       );
 
       if (scope?.supervisorUserId) {

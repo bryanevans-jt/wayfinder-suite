@@ -12,6 +12,7 @@ import {
   loadEsCaseloadClientOptions,
   loadEsTimeEntriesForWeek,
   loadPendingWeekSubmissionsForSupervisor,
+  loadStaffClockMinutesForWeek,
   loadStaffEsPickerOptions,
   loadWeekSubmission,
 } from "@/lib/es-time-data";
@@ -57,6 +58,9 @@ export default async function TimesheetPage({ searchParams }: PageProps) {
     role === "accountant" ||
     role === "hr";
 
+  const useOrgPayrollClock =
+    canPickEs && !isEsRole(role) && (isAdminTierRole(role) || role === "accountant" || role === "hr");
+
   const esPickerOptions =
     canPickEs && !isEsRole(role)
       ? await loadStaffEsPickerOptions(admin, role ?? "", session.effectiveUserId)
@@ -66,6 +70,17 @@ export default async function TimesheetPage({ searchParams }: PageProps) {
 
   if (canPickEs && !isEsRole(role)) {
     if (params.es) {
+      const allowed = esPickerOptions.some((opt) => opt.id === params.es);
+      if (!allowed) {
+        const qs = new URLSearchParams({ week: weekStart });
+        if (esPickerOptions[0]) {
+          qs.set("es", esPickerOptions[0].id);
+        }
+        if (params.client) {
+          qs.set("client", params.client);
+        }
+        redirect(`/dashboard/timesheet?${qs.toString()}`);
+      }
       esUserId = params.es;
     } else if (esPickerOptions.length > 0) {
       const qs = new URLSearchParams({ es: esPickerOptions[0]!.id, week: weekStart });
@@ -83,9 +98,9 @@ export default async function TimesheetPage({ searchParams }: PageProps) {
     }
   }
 
-  const [esNames, entries, weekSubmission, pendingApprovals, caseloadClients] =
+  const [esNames, entries, weekSubmission, pendingApprovals, caseloadClients, clockPayrollMinutes] =
     await Promise.all([
-      loadStaffNameById(admin, [esUserId], "Employment Specialist"),
+      loadStaffNameById(admin, [esUserId], "Team member"),
       loadEsTimeEntriesForWeek(admin, esUserId, weekStart),
       loadWeekSubmission(admin, esUserId, weekStart),
       isSupervisorRole(role) || isAdminTierRole(role)
@@ -94,9 +109,12 @@ export default async function TimesheetPage({ searchParams }: PageProps) {
       canPickEs && !isEsRole(role)
         ? loadEsCaseloadClientOptions(admin, esUserId)
         : Promise.resolve([]),
+      useOrgPayrollClock
+        ? loadStaffClockMinutesForWeek(admin, esUserId, weekStart)
+        : Promise.resolve(null as number | null),
     ]);
 
-  const esName = esNames.get(esUserId) ?? "Employment Specialist";
+  const esName = esNames.get(esUserId) ?? "Team member";
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
@@ -120,6 +138,7 @@ export default async function TimesheetPage({ searchParams }: PageProps) {
         caseloadClients={caseloadClients}
         initialClientFilter={params.client ?? ""}
         canPickEs={canPickEs && !isEsRole(role)}
+        payrollClockMinutes={clockPayrollMinutes}
       />
     </main>
   );

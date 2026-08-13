@@ -1618,7 +1618,6 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                   <option value="accountant">Accounts Specialist</option>
                   <option value="hr">HR</option>
                   <option value="hospitality_specialist">Hospitality Specialist</option>
-                  <option value="transition_specialist">Transition Specialist</option>
                   <option value="wrt_admin">WRT Admin</option>
                 </select>
                 <button
