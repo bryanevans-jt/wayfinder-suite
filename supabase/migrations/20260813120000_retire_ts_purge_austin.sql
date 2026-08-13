@@ -93,7 +93,10 @@ begin
 
   if to_regclass('public.staff_pto_requests') is not null then
     update public.staff_pto_requests set decided_by = null where decided_by = target_id;
-    update public.staff_pto_requests set updated_by = null where updated_by = target_id;
+  end if;
+
+  if to_regclass('public.org_pto_settings') is not null then
+    update public.org_pto_settings set updated_by = null where updated_by = target_id;
   end if;
 
   if to_regclass('public.intake_billings') is not null then
