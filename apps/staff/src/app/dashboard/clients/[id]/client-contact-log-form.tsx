@@ -17,9 +17,20 @@ import { ContactLogDailyCopy } from "@/components/contact-log-daily-copy";
 type Props = {
   clientId: string;
   activities: ServiceActivityType[];
+  clientName: string;
+  currentStageTitle?: string | null;
+  esName?: string | null;
+  canSubmitVpr?: boolean;
 };
 
-export function ClientContactLogForm({ clientId, activities }: Props) {
+export function ClientContactLogForm({
+  clientId,
+  activities,
+  clientName,
+  currentStageTitle = "",
+  esName = "",
+  canSubmitVpr = true,
+}: Props) {
   const router = useRouter();
   const defaults = useTimeActivityDefaults(activities, DEFAULT_ACTIVITY_CODES.contact);
   const [contactNotes, setContactNotes] = useState("");
@@ -187,7 +198,13 @@ export function ClientContactLogForm({ clientId, activities }: Props) {
       {error ? <p className="mt-2 text-sm text-red-700">{error}</p> : null}
       {notice ? <p className="mt-2 text-sm text-amber-800">{notice}</p> : null}
       <div className="mt-4">
-        <ContactLogDailyCopy clientId={clientId} />
+        <ContactLogDailyCopy
+          clientId={clientId}
+          clientName={clientName}
+          currentStageTitle={currentStageTitle}
+          esName={esName}
+          canSubmit={canSubmitVpr}
+        />
       </div>
     </div>
   );

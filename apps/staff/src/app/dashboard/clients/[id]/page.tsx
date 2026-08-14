@@ -407,6 +407,10 @@ export default async function EsClientDetailPage({ params }: PageProps) {
           <ClientContactLogForm
             clientId={client.id}
             activities={filterClientContactActivityTypes(activities)}
+            clientName={displayName}
+            currentStageTitle={stage?.title ?? null}
+            esName={esDisplayName}
+            canSubmitVpr={!session.isPreviewing}
           />
         ) : null}
         {!readOnly ? (
