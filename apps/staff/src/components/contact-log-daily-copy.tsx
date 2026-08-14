@@ -39,7 +39,7 @@ export function ContactLogDailyCopy({
   const [open, setOpen] = useState(false);
   const [notes, setNotes] = useState("");
   const [serviceStage, setServiceStage] = useState(defaultStage);
-  const [specialistName, setSpecialistName] = useState(esName.trim());
+  const [specialistName, setSpecialistName] = useState((esName ?? "").trim());
 
   async function compileDay() {
     setBusy(true);
@@ -74,8 +74,8 @@ export function ContactLogDailyCopy({
       const data = (await res.json()) as { text?: string; error?: string };
       setNotes(data.text ?? "");
       setServiceStage((prev) => prev || defaultStage);
-      if (!specialistName.trim() && esName.trim()) {
-        setSpecialistName(esName.trim());
+      if (!specialistName.trim() && (esName ?? "").trim()) {
+        setSpecialistName((esName ?? "").trim());
       }
       setOpen(true);
     } catch (err) {
