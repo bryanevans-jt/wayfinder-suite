@@ -38,7 +38,7 @@ export function ContactLogDailyCopy({
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
   const [notes, setNotes] = useState("");
-  const [serviceStage, setServiceStage] = useState(defaultStage);
+  const [serviceStage, setServiceStage] = useState<string>(defaultStage);
   const [specialistName, setSpecialistName] = useState((esName ?? "").trim());
 
   async function compileDay() {
