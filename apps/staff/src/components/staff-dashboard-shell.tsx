@@ -12,10 +12,16 @@ import { StaffClockWidget } from "./staff-clock-widget";
 type Props = {
   staffRole: string | null;
   showAuditLink?: boolean;
+  showPreEtsNav?: boolean;
   children: React.ReactNode;
 };
 
-export function StaffDashboardShell({ staffRole, showAuditLink = false, children }: Props) {
+export function StaffDashboardShell({
+  staffRole,
+  showAuditLink = false,
+  showPreEtsNav = false,
+  children,
+}: Props) {
   const pathname = usePathname() ?? "";
   const [menuOpen, setMenuOpen] = useState(false);
   const showClock = canUseStaffClock(staffRole) && !pathname.startsWith("/dashboard/time-clock");
@@ -38,7 +44,11 @@ export function StaffDashboardShell({ staffRole, showAuditLink = false, children
   return (
     <div className="flex min-h-0 flex-1">
       <aside className="hidden w-64 shrink-0 flex-col border-r border-neutral-200 bg-white lg:flex">
-        <StaffSidebarPanel staffRole={staffRole} showAuditLink={showAuditLink} />
+        <StaffSidebarPanel
+          staffRole={staffRole}
+          showAuditLink={showAuditLink}
+          showPreEtsNav={showPreEtsNav}
+        />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -96,6 +106,7 @@ export function StaffDashboardShell({ staffRole, showAuditLink = false, children
             <StaffSidebarPanel
               staffRole={staffRole}
               showAuditLink={showAuditLink}
+              showPreEtsNav={showPreEtsNav}
               onNavigate={() => setMenuOpen(false)}
               className="flex-1 overflow-y-auto"
             />

@@ -41,7 +41,15 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    return NextResponse.json({ access, settings });
+    return NextResponse.json({
+      access,
+      settings: {
+        school_year: settings.school_year,
+        module_enabled: settings.module_enabled,
+        submission_deadline_hours: settings.submission_deadline_hours,
+        ytd_unit_warning_threshold: settings.ytd_unit_warning_threshold,
+      },
+    });
   } catch (err) {
     return respondWithLoggedError("staff", route, err, actor);
   }

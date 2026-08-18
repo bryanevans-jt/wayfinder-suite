@@ -1,5 +1,6 @@
 import { StaffDashboardShell } from "@/components/staff-dashboard-shell";
 import { PreviewBanner } from "@/components/preview-banner";
+import { preEtsAccessAllowedForRole } from "@/lib/pre-ets-access";
 import { getAppSession, staffAppOrigin } from "@wayfinder/supabase/preview-server";
 import { isSuperAdminRole } from "@wayfinder/supabase/roles";
 
@@ -14,6 +15,7 @@ export default async function DashboardLayout({
   const showAuditLink = Boolean(
     session && isSuperAdminRole(session.actorRole) && !session.isPreviewing
   );
+  const showPreEtsNav = await preEtsAccessAllowedForRole(navRole);
 
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col bg-white">
@@ -24,7 +26,11 @@ export default async function DashboardLayout({
           staffAppUrl={staffAppOrigin()}
         />
       ) : null}
-      <StaffDashboardShell staffRole={navRole} showAuditLink={showAuditLink}>
+      <StaffDashboardShell
+        staffRole={navRole}
+        showAuditLink={showAuditLink}
+        showPreEtsNav={showPreEtsNav}
+      >
         {children}
       </StaffDashboardShell>
     </div>

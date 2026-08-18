@@ -58,7 +58,8 @@
     "./pre-ets-worksheet-parser": "./src/pre-ets-worksheet-parser.ts",
     "./pre-ets-worksheet-import": "./src/pre-ets-worksheet-import.ts",
     "./pre-ets-compliance": "./src/pre-ets-compliance.ts",
-    "./pre-ets-session-attendance": "./src/pre-ets-session-attendance.ts"
+    "./pre-ets-session-attendance": "./src/pre-ets-session-attendance.ts",
+    "./pre-ets-invoice-packet": "./src/pre-ets-invoice-packet.ts"
   },
   "scripts": {
     "lint": "tsc --noEmit"

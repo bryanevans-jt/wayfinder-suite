@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
+import { insertInvoicePacketEvent } from "@wayfinder/supabase/pre-ets-invoice-packet";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
     let query = admin
       .from("pre_ets_invoice_packets")
       .select(
-        "id, service_month, status, provider_invoice_number, total_hours, total_amount_cents, submitted_at, paid_at, pre_ets_authorizations(auth_number, auth_type, service_code, pre_ets_schools(name))"
+        "id, service_month, status, provider_invoice_number, total_hours, total_amount_cents, drive_file_name, submitted_at, paid_at, pre_ets_authorizations(auth_number, auth_type, service_code, pre_ets_schools(name))"
       )
       .order("service_month", { ascending: false })
       .limit(100);
@@ -108,6 +109,14 @@ export async function POST(request: Request) {
         userRole: auth.role,
       });
     }
+
+    await insertInvoicePacketEvent(admin, {
+      packetId: packet.id as string,
+      actorUserId: auth.userId,
+      eventKind: "created",
+      toStatus: "draft",
+      metadata: { billableUnits, totalAmountCents },
+    });
 
     return NextResponse.json({ packetId: packet.id, billableUnits, totalAmountCents });
   } catch (err) {

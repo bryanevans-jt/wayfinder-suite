@@ -99,6 +99,12 @@ export function PreEtsSearchPanel() {
           <p className="text-brand-black/65">
             PID {(studentDetail.student as { participant_id: string })?.participant_id} · YTD units:{" "}
             {studentDetail.ytdUnits as number}
+            {(studentDetail.ytdUnits as number) >=
+            ((studentDetail.ytdWarningThreshold as number) ?? 15) ? (
+              <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-900">
+                At or above {studentDetail.ytdWarningThreshold as number}-unit warning
+              </span>
+            ) : null}
           </p>
           <ul className="mt-2 list-inside list-disc text-brand-black/70">
             {((studentDetail.authorizations as { pre_ets_authorizations: { auth_number: string } }[]) ??

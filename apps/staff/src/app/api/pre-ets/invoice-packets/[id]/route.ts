@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
+import { insertInvoicePacketEvent } from "@wayfinder/supabase/pre-ets-invoice-packet";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
@@ -34,12 +35,38 @@ export async function PATCH(
     if (body.status === "paid") patch.paid_at = new Date().toISOString();
 
     const admin = createServiceRoleClient();
+
+    const { data: existing } = await admin
+      .from("pre_ets_invoice_packets")
+      .select("status")
+      .eq("id", id)
+      .maybeSingle();
+
     const { error } = await admin.from("pre_ets_invoice_packets").update(patch).eq("id", id);
 
     if (error) {
       return respondWithLoggedError("staff", route, error, {
         userId: auth.userId,
         userRole: auth.role,
+      });
+    }
+
+    if (body.status && body.status !== existing?.status) {
+      await insertInvoicePacketEvent(admin, {
+        packetId: id,
+        actorUserId: auth.userId,
+        eventKind: "status_changed",
+        fromStatus: existing?.status as string | null,
+        toStatus: body.status,
+      });
+    }
+
+    if (body.notes !== undefined) {
+      await insertInvoicePacketEvent(admin, {
+        packetId: id,
+        actorUserId: auth.userId,
+        eventKind: "notes_updated",
+        metadata: { notes: body.notes },
       });
     }
 

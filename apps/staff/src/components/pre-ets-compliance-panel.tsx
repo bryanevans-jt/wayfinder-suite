@@ -16,8 +16,17 @@ type ComplianceRow = {
 export function PreEtsCompliancePanel() {
   const [sessions, setSessions] = useState<ComplianceRow[]>([]);
   const [onlyLate, setOnlyLate] = useState(true);
+  const [deadlineHours, setDeadlineHours] = useState(24);
 
   const load = useCallback(async () => {
+    const accessRes = await fetch("/api/pre-ets/access");
+    const accessData = (await accessRes.json()) as {
+      settings?: { submission_deadline_hours?: number };
+    };
+    if (accessRes.ok && accessData.settings?.submission_deadline_hours) {
+      setDeadlineHours(accessData.settings.submission_deadline_hours);
+    }
+
     const qs = onlyLate ? "?onlyLate=1" : "";
     const res = await fetch(`/api/pre-ets/compliance${qs}`);
     const data = (await res.json()) as { sessions?: ComplianceRow[] };
@@ -34,8 +43,8 @@ export function PreEtsCompliancePanel() {
         <div>
           <h2 className="text-lg font-semibold text-brand-black">Documentation compliance</h2>
           <p className="mt-1 text-sm text-brand-black/65">
-            Sessions past the {24}-hour deadline without a signed roster upload and/or submitted
-            class activity report. Cancelled sessions are excluded.
+            Sessions past the {deadlineHours}-hour deadline without a signed roster upload and/or
+            submitted class activity report. Cancelled sessions are excluded.
           </p>
         </div>
         <label className="flex items-center gap-2 text-sm">

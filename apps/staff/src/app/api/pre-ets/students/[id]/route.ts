@@ -41,6 +41,7 @@ export async function GET(
     return NextResponse.json({
       student,
       ytdUnits: ytd?.billable_units ?? 0,
+      ytdWarningThreshold: auth.settings.ytd_unit_warning_threshold,
       authorizations: entries ?? [],
     });
   } catch (err) {

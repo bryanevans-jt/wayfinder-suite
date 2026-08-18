@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 
 type Packet = {
   id: string;
@@ -9,12 +9,31 @@ type Packet = {
   provider_invoice_number: string | null;
   total_hours: number;
   total_amount_cents: number;
+  drive_file_name: string | null;
   pre_ets_authorizations: {
     auth_number: string | null;
     service_code: string;
-    pre_ets_schools: { name: string } | null;
+    pre_ets_schools: { name: string } | { name: string }[] | null;
   } | null;
 };
+
+type PacketEvent = {
+  id: string;
+  event_kind: string;
+  from_status: string | null;
+  to_status: string | null;
+  created_at: string;
+  profiles: { full_name: string } | { full_name: string }[] | null;
+};
+
+function schoolName(
+  auth: Packet["pre_ets_authorizations"]
+): string | undefined {
+  const school = auth?.pre_ets_schools;
+  if (!school) return undefined;
+  if (Array.isArray(school)) return school[0]?.name;
+  return school.name;
+}
 
 export function PreEtsInvoicePanel() {
   const [packets, setPackets] = useState<Packet[]>([]);
@@ -22,6 +41,8 @@ export function PreEtsInvoicePanel() {
   const [authorizations, setAuthorizations] = useState<
     { id: string; auth_number: string | null; auth_type: string }[]
   >([]);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [events, setEvents] = useState<PacketEvent[]>([]);
   const [message, setMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -42,6 +63,17 @@ export function PreEtsInvoicePanel() {
     void load();
   }, [load]);
 
+  async function loadEvents(packetId: string) {
+    if (expandedId === packetId) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(packetId);
+    const res = await fetch(`/api/pre-ets/invoice-packets/${packetId}/events`);
+    const data = (await res.json()) as { events?: PacketEvent[] };
+    if (res.ok) setEvents(data.events ?? []);
+  }
+
   async function generatePacket() {
     if (!authId) return;
     setMessage(null);
@@ -60,12 +92,28 @@ export function PreEtsInvoicePanel() {
   }
 
   async function updateStatus(id: string, status: string) {
-    await fetch(`/api/pre-ets/invoice-packets/${id}`, {
+    setMessage(null);
+    const res = await fetch(`/api/pre-ets/invoice-packets/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
+    if (!res.ok) {
+      setMessage("Could not update packet status.");
+      return;
+    }
+    if (status === "ready") {
+      const archiveRes = await fetch(`/api/pre-ets/invoice-packets/${id}/archive`, {
+        method: "POST",
+      });
+      if (archiveRes.ok) {
+        setMessage("Packet marked ready and archived to Google Drive.");
+      } else {
+        setMessage("Packet marked ready. Drive archive skipped or failed — download PDF manually.");
+      }
+    }
     void load();
+    if (expandedId === id) void loadEvents(id);
   }
 
   return (
@@ -73,8 +121,8 @@ export function PreEtsInvoicePanel() {
       <div>
         <h2 className="text-lg font-semibold text-brand-black">Group invoice packets</h2>
         <p className="mt-1 text-sm text-brand-black/65">
-          Build draft packets from completed sessions with billable attendance. Mark submitted after
-          GVRA portal upload and paid when received.
+          Build draft packets from completed sessions with billable attendance. Download the PDF
+          cover sheet and participant list, then mark ready to archive to Drive.
         </p>
       </div>
 
@@ -124,47 +172,87 @@ export function PreEtsInvoicePanel() {
               </tr>
             ) : (
               packets.map((p) => (
-                <tr key={p.id} className="border-t border-neutral-100">
-                  <td className="px-3 py-2">{p.service_month?.slice(0, 7)}</td>
-                  <td className="px-3 py-2">{p.pre_ets_authorizations?.pre_ets_schools?.name}</td>
-                  <td className="px-3 py-2 font-mono text-xs">
-                    {p.pre_ets_authorizations?.auth_number}
-                  </td>
-                  <td className="px-3 py-2">{p.total_hours}</td>
-                  <td className="px-3 py-2">${(p.total_amount_cents / 100).toFixed(2)}</td>
-                  <td className="px-3 py-2 capitalize">{p.status}</td>
-                  <td className="px-3 py-2">
-                    <div className="flex flex-wrap gap-1">
-                      {p.status === "draft" ? (
+                <Fragment key={p.id}>
+                  <tr className="border-t border-neutral-100">
+                    <td className="px-3 py-2">{p.service_month?.slice(0, 7)}</td>
+                    <td className="px-3 py-2">{schoolName(p.pre_ets_authorizations)}</td>
+                    <td className="px-3 py-2 font-mono text-xs">
+                      {p.pre_ets_authorizations?.auth_number}
+                    </td>
+                    <td className="px-3 py-2">{p.total_hours}</td>
+                    <td className="px-3 py-2">${(p.total_amount_cents / 100).toFixed(2)}</td>
+                    <td className="px-3 py-2 capitalize">{p.status}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-wrap gap-2">
+                        <a
+                          href={`/api/pre-ets/invoice-packets/${p.id}/pdf`}
+                          className="text-xs text-brand-green hover:underline"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Download PDF
+                        </a>
                         <button
                           type="button"
-                          className="text-xs text-brand-green hover:underline"
-                          onClick={() => void updateStatus(p.id, "ready")}
+                          className="text-xs text-brand-black/60 hover:underline"
+                          onClick={() => void loadEvents(p.id)}
                         >
-                          Mark ready
+                          {expandedId === p.id ? "Hide log" : "Audit log"}
                         </button>
+                        {p.status === "draft" ? (
+                          <button
+                            type="button"
+                            className="text-xs text-brand-green hover:underline"
+                            onClick={() => void updateStatus(p.id, "ready")}
+                          >
+                            Mark ready
+                          </button>
+                        ) : null}
+                        {p.status === "ready" ? (
+                          <button
+                            type="button"
+                            className="text-xs text-brand-green hover:underline"
+                            onClick={() => void updateStatus(p.id, "submitted")}
+                          >
+                            Mark submitted
+                          </button>
+                        ) : null}
+                        {p.status === "submitted" ? (
+                          <button
+                            type="button"
+                            className="text-xs text-brand-green hover:underline"
+                            onClick={() => void updateStatus(p.id, "paid")}
+                          >
+                            Mark paid
+                          </button>
+                        ) : null}
+                      </div>
+                      {p.drive_file_name ? (
+                        <p className="mt-1 text-xs text-brand-black/50">Drive: {p.drive_file_name}</p>
                       ) : null}
-                      {p.status === "ready" ? (
-                        <button
-                          type="button"
-                          className="text-xs text-brand-green hover:underline"
-                          onClick={() => void updateStatus(p.id, "submitted")}
-                        >
-                          Mark submitted
-                        </button>
-                      ) : null}
-                      {p.status === "submitted" ? (
-                        <button
-                          type="button"
-                          className="text-xs text-brand-green hover:underline"
-                          onClick={() => void updateStatus(p.id, "paid")}
-                        >
-                          Mark paid
-                        </button>
-                      ) : null}
-                    </div>
-                  </td>
-                </tr>
+                    </td>
+                  </tr>
+                  {expandedId === p.id ? (
+                    <tr className="border-t border-neutral-50 bg-neutral-50/50">
+                      <td colSpan={7} className="px-3 py-3">
+                        <ul className="space-y-1 text-xs text-brand-black/70">
+                          {events.length === 0 ? (
+                            <li>No audit events yet.</li>
+                          ) : (
+                            events.map((e) => (
+                              <li key={e.id}>
+                                {new Date(e.created_at).toLocaleString()} · {e.event_kind}
+                                {e.from_status && e.to_status
+                                  ? ` (${e.from_status} → ${e.to_status})`
+                                  : ""}
+                              </li>
+                            ))
+                          )}
+                        </ul>
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
               ))
             )}
           </tbody>

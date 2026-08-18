@@ -37,6 +37,24 @@ export function PreEtsSettingsPanel() {
   const [serviceCodes, setServiceCodes] = useState<PreEtsServiceCodeRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [driveTestMessage, setDriveTestMessage] = useState<string | null>(null);
+
+  async function testDriveFolder(folderId: string | null) {
+    setDriveTestMessage(null);
+    if (!folderId?.trim()) {
+      setDriveTestMessage("Enter a folder ID first.");
+      return;
+    }
+    const res = await fetch("/api/admin/pre-ets-settings/test-drive", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ folderId }),
+    });
+    const data = (await res.json()) as { folderName?: string; error?: string };
+    setDriveTestMessage(
+      res.ok ? `Connected: ${data.folderName}` : data.error ?? "Drive test failed."
+    );
+  }
 
   useEffect(() => {
     void (async () => {
@@ -162,44 +180,80 @@ export function PreEtsSettingsPanel() {
         <div className="mt-4 space-y-3 text-sm">
           <label className="block">
             <span className="font-medium">Signed roster upload folder ID</span>
-            <input
-              className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2 font-mono text-xs"
-              value={settings.drive_signed_roster_folder_id ?? ""}
-              onChange={(e) =>
-                setSettings({
-                  ...settings,
-                  drive_signed_roster_folder_id: e.target.value || null,
-                })
-              }
-              placeholder="Google Drive folder ID"
-            />
+            <div className="mt-1 flex flex-wrap gap-2">
+              <input
+                className="min-w-[240px] flex-1 rounded-lg border border-neutral-300 px-3 py-2 font-mono text-xs"
+                value={settings.drive_signed_roster_folder_id ?? ""}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    drive_signed_roster_folder_id: e.target.value || null,
+                  })
+                }
+                placeholder="Google Drive folder ID"
+              />
+              <button
+                type="button"
+                className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium"
+                onClick={() =>
+                  void testDriveFolder(settings.drive_signed_roster_folder_id)
+                }
+              >
+                Test
+              </button>
+            </div>
           </label>
           <label className="block">
             <span className="font-medium">Invoice packet archive folder ID</span>
-            <input
-              className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2 font-mono text-xs"
-              value={settings.drive_invoice_archive_folder_id ?? ""}
-              onChange={(e) =>
-                setSettings({
-                  ...settings,
-                  drive_invoice_archive_folder_id: e.target.value || null,
-                })
-              }
-            />
+            <div className="mt-1 flex flex-wrap gap-2">
+              <input
+                className="min-w-[240px] flex-1 rounded-lg border border-neutral-300 px-3 py-2 font-mono text-xs"
+                value={settings.drive_invoice_archive_folder_id ?? ""}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    drive_invoice_archive_folder_id: e.target.value || null,
+                  })
+                }
+              />
+              <button
+                type="button"
+                className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium"
+                onClick={() =>
+                  void testDriveFolder(settings.drive_invoice_archive_folder_id)
+                }
+              >
+                Test
+              </button>
+            </div>
           </label>
           <label className="block">
             <span className="font-medium">Worksheet import archive folder ID</span>
-            <input
-              className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2 font-mono text-xs"
-              value={settings.drive_worksheet_archive_folder_id ?? ""}
-              onChange={(e) =>
-                setSettings({
-                  ...settings,
-                  drive_worksheet_archive_folder_id: e.target.value || null,
-                })
-              }
-            />
+            <div className="mt-1 flex flex-wrap gap-2">
+              <input
+                className="min-w-[240px] flex-1 rounded-lg border border-neutral-300 px-3 py-2 font-mono text-xs"
+                value={settings.drive_worksheet_archive_folder_id ?? ""}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    drive_worksheet_archive_folder_id: e.target.value || null,
+                  })
+                }
+              />
+              <button
+                type="button"
+                className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium"
+                onClick={() =>
+                  void testDriveFolder(settings.drive_worksheet_archive_folder_id)
+                }
+              >
+                Test
+              </button>
+            </div>
           </label>
+          {driveTestMessage ? (
+            <p className="text-xs text-brand-black/65">{driveTestMessage}</p>
+          ) : null}
           <label className="block">
             <span className="font-medium">Folder path template (display)</span>
             <input

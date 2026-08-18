@@ -36,6 +36,7 @@ const StaffNotificationsBell = dynamic(
 export type StaffSidebarPanelProps = {
   staffRole: string | null;
   showAuditLink?: boolean;
+  showPreEtsNav?: boolean;
   onNavigate?: () => void;
   className?: string;
 };
@@ -43,11 +44,12 @@ export type StaffSidebarPanelProps = {
 export function StaffSidebarPanel({
   staffRole,
   showAuditLink = false,
+  showPreEtsNav = false,
   onNavigate,
   className = "",
 }: StaffSidebarPanelProps) {
   const pathname = usePathname() ?? "";
-  const sections = staffNavSectionsForRole(staffRole, showAuditLink);
+  const sections = staffNavSectionsForRole(staffRole, showAuditLink, showPreEtsNav);
 
   return (
     <div className={`flex min-h-0 flex-col ${className}`.trim()}>
@@ -101,13 +103,22 @@ export function StaffSidebarPanel({
 type StaffSidebarProps = {
   staffRole: string | null;
   showAuditLink?: boolean;
+  showPreEtsNav?: boolean;
 };
 
 /** @deprecated Prefer StaffDashboardShell for responsive layout. */
-export function StaffSidebar({ staffRole, showAuditLink = false }: StaffSidebarProps) {
+export function StaffSidebar({
+  staffRole,
+  showAuditLink = false,
+  showPreEtsNav = false,
+}: StaffSidebarProps) {
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-neutral-200 bg-white">
-      <StaffSidebarPanel staffRole={staffRole} showAuditLink={showAuditLink} />
+      <StaffSidebarPanel
+        staffRole={staffRole}
+        showAuditLink={showAuditLink}
+        showPreEtsNav={showPreEtsNav}
+      />
     </aside>
   );
 }

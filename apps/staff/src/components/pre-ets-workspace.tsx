@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { PreEtsAuthorizationsPanel } from "@/components/pre-ets-authorizations-panel";
 import { PreEtsCompliancePanel } from "@/components/pre-ets-compliance-panel";
+import { PreEtsHrPanel } from "@/components/pre-ets-hr-panel";
 import { PreEtsInvoicePanel } from "@/components/pre-ets-invoice-panel";
 import { PreEtsSchedulePanel } from "@/components/pre-ets-schedule-panel";
 import { PreEtsSearchPanel } from "@/components/pre-ets-search-panel";
@@ -17,6 +18,7 @@ type Tab =
   | "sessions"
   | "compliance"
   | "invoices"
+  | "hr"
   | "search";
 
 type AccessPayload = {
@@ -31,6 +33,8 @@ type AccessPayload = {
   settings?: {
     school_year: string;
     module_enabled: boolean;
+    submission_deadline_hours: number;
+    ytd_unit_warning_threshold: number;
   };
 };
 
@@ -48,6 +52,9 @@ export function PreEtsWorkspace() {
         return;
       }
       setData(json);
+      if (json.access?.canViewHr && !json.access.canAccounts && !json.access.canSupervise && !json.access.canDeliver) {
+        setTab("hr");
+      }
     })();
   }, []);
 
@@ -65,14 +72,21 @@ export function PreEtsWorkspace() {
 
   const { access, settings } = data;
 
+  const isHrOnly =
+    access.canViewHr &&
+    !access.canAccounts &&
+    !access.canSupervise &&
+    !access.canDeliver;
+
   const tabs: { id: Tab; label: string; show: boolean }[] = [
+    { id: "hr", label: "HR overview", show: access.canViewHr },
     { id: "worksheets", label: "Worksheets", show: access.canAccounts },
-    { id: "authorizations", label: "Rosters & auths", show: access.canAccess },
+    { id: "authorizations", label: "Rosters & auths", show: access.canAccess && !isHrOnly },
     { id: "schedule", label: "Schedule", show: access.canSupervise },
     { id: "sessions", label: "Sessions & reports", show: access.canDeliver || access.canSupervise },
     { id: "compliance", label: "Compliance", show: access.canSupervise },
     { id: "invoices", label: "Invoices", show: access.canAccounts },
-    { id: "search", label: "Search", show: access.canAccess },
+    { id: "search", label: "Search", show: access.canAccess && !isHrOnly },
   ];
 
   return (
@@ -118,6 +132,7 @@ export function PreEtsWorkspace() {
           ))}
       </nav>
 
+      {tab === "hr" && access.canViewHr ? <PreEtsHrPanel /> : null}
       {tab === "worksheets" && access.canAccounts ? <PreEtsWorksheetPanel /> : null}
       {tab === "authorizations" ? <PreEtsAuthorizationsPanel /> : null}
       {tab === "schedule" && access.canSupervise ? <PreEtsSchedulePanel /> : null}

@@ -165,9 +165,16 @@ function withHelpAndProfile(sections: StaffNavSection[], role: string | null): S
   return withCultureAndHelp(out);
 }
 
-/** Pre-ETS nav visibility — super admin always; others when enabled in pre_ets_settings (server checks on route). */
-export function showPreEtsNavForRole(staffRole: string | null): boolean {
-  return isSuperAdminRole(staffRole);
+/** Pre-ETS nav visibility — resolved server-side from pre_ets_settings.enabled_roles. */
+export function showPreEtsNavForRole(_staffRole: string | null, showPreEtsNav = false): boolean {
+  return showPreEtsNav;
+}
+
+function withPreEtsNav(items: StaffNavItem[], showPreEtsNav: boolean): StaffNavItem[] {
+  if (!showPreEtsNav || items.some((item) => item.href === PRE_ETS_DASHBOARD_PATH)) {
+    return items;
+  }
+  return [preEtsNav, ...items];
 }
 
 export function isPreEtsStaffPath(pathname: string): boolean {
@@ -177,7 +184,8 @@ export function isPreEtsStaffPath(pathname: string): boolean {
 /** Sidebar navigation grouped for clarity — daily work first, then oversight tools. */
 export function staffNavSectionsForRole(
   staffRole: string | null,
-  showAuditLink = false
+  showAuditLink = false,
+  showPreEtsNav = false
 ): StaffNavSection[] {
   if (isCounselorRole(staffRole)) {
     return withHelpSections([
@@ -231,7 +239,7 @@ export function staffNavSectionsForRole(
               match: (p) => p.startsWith("/dashboard/referrals"),
             },
             intakeBillingNav,
-            ...(showPreEtsNavForRole(staffRole) ? [preEtsNav] : []),
+            ...(showPreEtsNav ? [preEtsNav] : []),
             communityPartnersNav,
           ],
         },
@@ -273,7 +281,7 @@ export function staffNavSectionsForRole(
               match: (p) => p.startsWith("/dashboard/referrals"),
             },
             intakeBillingNav,
-            ...(showPreEtsNavForRole(staffRole) ? [preEtsNav] : []),
+            ...(showPreEtsNav ? [preEtsNav] : []),
             communityPartnersNav,
           ],
         },
@@ -312,7 +320,7 @@ export function staffNavSectionsForRole(
         },
         {
           label: "Tools",
-          items: [dataExportsNav, communityPartnersNav],
+          items: withPreEtsNav([dataExportsNav, communityPartnersNav], showPreEtsNav),
         },
       ],
       staffRole
@@ -324,7 +332,8 @@ export function staffNavSectionsForRole(
       [
         {
           label: "Accounts",
-          items: [
+          items: withPreEtsNav(
+            [
             intakeBillingNav,
             {
               href: "/dashboard/timesheet",
@@ -333,7 +342,9 @@ export function staffNavSectionsForRole(
             },
             timeClockNav,
             dataExportsNav,
-          ],
+            ],
+            showPreEtsNav
+          ),
         },
         {
           label: "Reference",
@@ -349,7 +360,8 @@ export function staffNavSectionsForRole(
       [
         {
           label: "HR",
-          items: [
+          items: withPreEtsNav(
+            [
             {
               href: "/dashboard/hr",
               label: "HR Dashboard",
@@ -384,7 +396,9 @@ export function staffNavSectionsForRole(
             timeClockNav,
             analyticsNav,
             dataExportsNav,
-          ],
+            ],
+            showPreEtsNav
+          ),
         },
       ],
       staffRole
@@ -432,7 +446,7 @@ export function staffNavSectionsForRole(
         {
           label: "Pre-ETS",
           items: [
-            ...(showPreEtsNavForRole(staffRole) ? [preEtsNav] : []),
+            ...(showPreEtsNav ? [preEtsNav] : []),
             timeClockNav,
           ],
         },
@@ -474,7 +488,8 @@ export function staffNavSectionsForRole(
       [
         {
           label: "Daily Work",
-          items: [
+          items: withPreEtsNav(
+            [
             {
               href: "/dashboard/clients",
               label: "Clients",
@@ -492,7 +507,9 @@ export function staffNavSectionsForRole(
               match: (p) => p.startsWith("/dashboard/timesheet"),
             },
             reportingNav,
-          ],
+            ],
+            showPreEtsNav
+          ),
         },
         {
           label: "Resources",

@@ -271,3 +271,11 @@ export function parsePreEtsRateDollars(value: string): number {
   if (!Number.isFinite(n) || n < 0) return DEFAULT_PRE_ETS_SETTINGS.default_rate_cents;
   return Math.round(n * 100);
 }
+
+/** Soft YTD warning — no hard cap. */
+export function isPreEtsYtdAtOrAboveWarning(
+  billableUnits: number,
+  threshold = DEFAULT_PRE_ETS_SETTINGS.ytd_unit_warning_threshold
+): boolean {
+  return billableUnits >= threshold;
+}
