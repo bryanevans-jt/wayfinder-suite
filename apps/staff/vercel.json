@@ -31,6 +31,10 @@
     {
       "path": "/api/cron/intake-billing",
       "schedule": "10 * * * *"
+    },
+    {
+      "path": "/api/cron/pre-ets-compliance",
+      "schedule": "0 * * * *"
     }
   ]
 }

@@ -37,6 +37,30 @@ export async function PATCH(
 
     if (body.status === "submitted" || body.status === "late_submitted") {
       patch.submitted_at = new Date().toISOString();
+
+      const admin = createServiceRoleClient();
+      const { data: report } = await admin
+        .from("pre_ets_activity_reports")
+        .select("session_id, session_date")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (report?.session_id && body.status === "submitted") {
+        const { data: session } = await admin
+          .from("pre_ets_sessions")
+          .select("session_date")
+          .eq("id", report.session_id)
+          .maybeSingle();
+
+        const sessionDate = (body.session_date as string) || (session?.session_date as string);
+        if (sessionDate) {
+          const deadlineMs = auth.settings.submission_deadline_hours * 60 * 60 * 1000;
+          const dueAt = new Date(`${sessionDate}T23:59:59.000Z`).getTime() + deadlineMs;
+          if (Date.now() > dueAt) {
+            patch.status = "late_submitted";
+          }
+        }
+      }
     }
 
     const admin = createServiceRoleClient();
@@ -47,6 +71,28 @@ export async function PATCH(
         userId: auth.userId,
         userRole: auth.role,
       });
+    }
+
+    if (
+      patch.status === "submitted" ||
+      patch.status === "late_submitted"
+    ) {
+      const { data: report } = await admin
+        .from("pre_ets_activity_reports")
+        .select("session_id")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (report?.session_id) {
+        const { maybeCompleteSessionDocumentation } = await import(
+          "@wayfinder/supabase/pre-ets-session-attendance"
+        );
+        await maybeCompleteSessionDocumentation(
+          admin,
+          report.session_id as string,
+          auth.settings.school_year
+        );
+      }
     }
 
     return NextResponse.json({ ok: true });

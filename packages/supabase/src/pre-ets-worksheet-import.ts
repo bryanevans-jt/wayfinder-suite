@@ -131,23 +131,50 @@ export async function commitWorksheetImport(
               ? "group"
               : "pending";
 
-        const { data: auth, error: authErr } = await admin
-          .from("pre_ets_authorizations")
-          .insert({
-            program_group_id: programGroupId,
-            school_id: schoolId,
-            service_month: parsed.serviceMonth,
-            auth_number: first.authNumber || null,
-            auth_type: authType,
-            service_code: first.serviceCode || group.serviceCode || "UNKNOWN",
-            service_label: first.service || group.serviceLabel,
-            status: "active",
-          })
-          .select("id")
-          .single();
+        let authId: string | null = null;
 
-        if (authErr || !auth) continue;
-        const authId = auth.id as string;
+        if (first.authNumber) {
+          const { data: existingAuth } = await admin
+            .from("pre_ets_authorizations")
+            .select("id")
+            .eq("school_id", schoolId)
+            .eq("service_month", parsed.serviceMonth)
+            .eq("auth_number", first.authNumber)
+            .maybeSingle();
+
+          if (existingAuth?.id) {
+            authId = existingAuth.id as string;
+            await admin
+              .from("pre_ets_authorizations")
+              .update({
+                auth_type: authType,
+                service_code: first.serviceCode || group.serviceCode || "UNKNOWN",
+                service_label: first.service || group.serviceLabel,
+                program_group_id: programGroupId,
+              })
+              .eq("id", authId);
+          }
+        }
+
+        if (!authId) {
+          const { data: auth, error: authErr } = await admin
+            .from("pre_ets_authorizations")
+            .insert({
+              program_group_id: programGroupId,
+              school_id: schoolId,
+              service_month: parsed.serviceMonth,
+              auth_number: first.authNumber || null,
+              auth_type: authType,
+              service_code: first.serviceCode || group.serviceCode || "UNKNOWN",
+              service_label: first.service || group.serviceLabel,
+              status: "active",
+            })
+            .select("id")
+            .single();
+
+          if (authErr || !auth) continue;
+          authId = auth.id as string;
+        }
 
         for (const row of students) {
           const { data: student, error: stuErr } = await admin

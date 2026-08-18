@@ -3,11 +3,21 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { PreEtsAuthorizationsPanel } from "@/components/pre-ets-authorizations-panel";
+import { PreEtsCompliancePanel } from "@/components/pre-ets-compliance-panel";
+import { PreEtsInvoicePanel } from "@/components/pre-ets-invoice-panel";
+import { PreEtsSchedulePanel } from "@/components/pre-ets-schedule-panel";
 import { PreEtsSearchPanel } from "@/components/pre-ets-search-panel";
 import { PreEtsSessionsPanel } from "@/components/pre-ets-sessions-panel";
 import { PreEtsWorksheetPanel } from "@/components/pre-ets-worksheet-panel";
 
-type Tab = "worksheets" | "authorizations" | "sessions" | "search";
+type Tab =
+  | "worksheets"
+  | "authorizations"
+  | "schedule"
+  | "sessions"
+  | "compliance"
+  | "invoices"
+  | "search";
 
 type AccessPayload = {
   access?: {
@@ -58,7 +68,10 @@ export function PreEtsWorkspace() {
   const tabs: { id: Tab; label: string; show: boolean }[] = [
     { id: "worksheets", label: "Worksheets", show: access.canAccounts },
     { id: "authorizations", label: "Rosters & auths", show: access.canAccess },
+    { id: "schedule", label: "Schedule", show: access.canSupervise },
     { id: "sessions", label: "Sessions & reports", show: access.canDeliver || access.canSupervise },
+    { id: "compliance", label: "Compliance", show: access.canSupervise },
+    { id: "invoices", label: "Invoices", show: access.canAccounts },
     { id: "search", label: "Search", show: access.canAccess },
   ];
 
@@ -107,7 +120,10 @@ export function PreEtsWorkspace() {
 
       {tab === "worksheets" && access.canAccounts ? <PreEtsWorksheetPanel /> : null}
       {tab === "authorizations" ? <PreEtsAuthorizationsPanel /> : null}
+      {tab === "schedule" && access.canSupervise ? <PreEtsSchedulePanel /> : null}
       {tab === "sessions" ? <PreEtsSessionsPanel /> : null}
+      {tab === "compliance" && access.canSupervise ? <PreEtsCompliancePanel /> : null}
+      {tab === "invoices" && access.canAccounts ? <PreEtsInvoicePanel /> : null}
       {tab === "search" ? <PreEtsSearchPanel /> : null}
     </div>
   );

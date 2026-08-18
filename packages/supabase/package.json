@@ -56,7 +56,9 @@
     "./intake-billing": "./src/intake-billing.ts",
     "./pre-ets-settings": "./src/pre-ets-settings.ts",
     "./pre-ets-worksheet-parser": "./src/pre-ets-worksheet-parser.ts",
-    "./pre-ets-worksheet-import": "./src/pre-ets-worksheet-import.ts"
+    "./pre-ets-worksheet-import": "./src/pre-ets-worksheet-import.ts",
+    "./pre-ets-compliance": "./src/pre-ets-compliance.ts",
+    "./pre-ets-session-attendance": "./src/pre-ets-session-attendance.ts"
   },
   "scripts": {
     "lint": "tsc --noEmit"
