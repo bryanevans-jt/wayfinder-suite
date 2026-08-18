@@ -14,8 +14,10 @@ import { NextResponse } from "next/server";
 import {
   isCounselorBlockedStaffPath,
   isPortalPath,
+  isPreEtsStaffPath,
   portalPathAllowedForRole,
 } from "@/lib/staff-nav";
+import { isPreEtsApiPath, preEtsAccessAllowedForRole } from "@/lib/pre-ets-access";
 
 export async function middleware(request: NextRequest) {
   const response = await wayfinderAuthMiddleware(request, { app: "staff" });
@@ -61,6 +63,18 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = staffHomePath(role);
     return NextResponse.redirect(url);
+  }
+
+  if (isPreEtsStaffPath(pathname) || isPreEtsApiPath(pathname)) {
+    const allowed = await preEtsAccessAllowedForRole(role);
+    if (!allowed) {
+      if (isPreEtsApiPath(pathname)) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      const url = request.nextUrl.clone();
+      url.pathname = staffHomePath(role);
+      return NextResponse.redirect(url);
+    }
   }
 
   if (!isCounselorBlockedStaffPath(pathname)) {

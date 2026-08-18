@@ -6,6 +6,7 @@ import {
   isEsRole,
   isHospitalitySpecialistRole,
   isHrRole,
+  isInstructorRole,
   isSuperAdminRole,
   isSupervisorRole,
   isSupervisorTierRole,
@@ -38,6 +39,7 @@ const COUNSELOR_BLOCKED_PREFIXES = [
   "/dashboard/audit",
   "/dashboard/share-moments",
   "/dashboard/core-four",
+  "/dashboard/pre-ets",
 ];
 
 const PORTAL_PREFIXES = [
@@ -131,6 +133,14 @@ const shareMomentsNav: StaffNavItem = {
   match: (p) => p === "/dashboard/share-moments",
 };
 
+const preEtsNav: StaffNavItem = {
+  href: "/dashboard/pre-ets",
+  label: "Pre-ETS",
+  match: (p) => p.startsWith("/dashboard/pre-ets"),
+};
+
+export const PRE_ETS_DASHBOARD_PATH = preEtsNav.href;
+
 const cultureNavSection: StaffNavSection = {
   label: "Our Team",
   items: [coreFourNav, shareMomentsNav],
@@ -153,6 +163,15 @@ function withHelpAndProfile(sections: StaffNavSection[], role: string | null): S
     out = [...out, { label: "Account", items: [profileNav] }];
   }
   return withCultureAndHelp(out);
+}
+
+/** Pre-ETS nav visibility — super admin always; others when enabled in pre_ets_settings (server checks on route). */
+export function showPreEtsNavForRole(staffRole: string | null): boolean {
+  return isSuperAdminRole(staffRole);
+}
+
+export function isPreEtsStaffPath(pathname: string): boolean {
+  return pathname === PRE_ETS_DASHBOARD_PATH || pathname.startsWith(`${PRE_ETS_DASHBOARD_PATH}/`);
 }
 
 /** Sidebar navigation grouped for clarity — daily work first, then oversight tools. */
@@ -212,6 +231,7 @@ export function staffNavSectionsForRole(
               match: (p) => p.startsWith("/dashboard/referrals"),
             },
             intakeBillingNav,
+            ...(showPreEtsNavForRole(staffRole) ? [preEtsNav] : []),
             communityPartnersNav,
           ],
         },
@@ -253,6 +273,7 @@ export function staffNavSectionsForRole(
               match: (p) => p.startsWith("/dashboard/referrals"),
             },
             intakeBillingNav,
+            ...(showPreEtsNavForRole(staffRole) ? [preEtsNav] : []),
             communityPartnersNav,
           ],
         },
@@ -397,6 +418,21 @@ export function staffNavSectionsForRole(
               match: (p) => p.startsWith("/dashboard/hospitality/partner-check-ins"),
             },
             communityPartnersNav,
+            timeClockNav,
+          ],
+        },
+      ],
+      staffRole
+    );
+  }
+
+  if (isInstructorRole(staffRole)) {
+    return withHelpAndProfile(
+      [
+        {
+          label: "Pre-ETS",
+          items: [
+            ...(showPreEtsNavForRole(staffRole) ? [preEtsNav] : []),
             timeClockNav,
           ],
         },

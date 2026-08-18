@@ -8,6 +8,7 @@ export const STAFF_ROLES = [
   "hr",
   "hospitality_specialist",
   "wrt_admin",
+  "instructor",
 ] as const;
 
 export const CLIENT_ROLES = ["client", "support"] as const;
@@ -22,6 +23,7 @@ export const ASSIGNABLE_STAFF_ROLES = [
   "hr",
   "hospitality_specialist",
   "wrt_admin",
+  "instructor",
 ] as const;
 
 export type StaffRole = (typeof STAFF_ROLES)[number];
@@ -84,6 +86,10 @@ export function isAccountantRole(role: string | null | undefined): boolean {
 
 export function isHospitalitySpecialistRole(role: string | null | undefined): boolean {
   return normalizeRole(role) === "hospitality_specialist";
+}
+
+export function isInstructorRole(role: string | null | undefined): boolean {
+  return normalizeRole(role) === "instructor";
 }
 
 export function canEditOwnStaffProfile(role: string | null | undefined): boolean {
@@ -171,6 +177,7 @@ export function staffHomePath(role: string | null | undefined): string {
   if (r === "hr") return "/dashboard/hr";
   if (r === "hospitality_specialist") return "/dashboard/hospitality";
   if (r === "wrt_admin") return "/dashboard/wrt";
+  if (r === "instructor") return "/dashboard/pre-ets";
   return "/dashboard/clients";
 }
 
@@ -195,6 +202,7 @@ export function roleDisplayName(role: string | null | undefined): string {
     hr: "HR",
     hospitality_specialist: "Hospitality Specialist",
     wrt_admin: "WRT Admin",
+    instructor: "Instructor",
   };
   const key = normalizeRole(role);
   return labels[key] ?? key;

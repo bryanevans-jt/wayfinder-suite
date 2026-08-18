@@ -27,6 +27,7 @@ import { OfficeDistrictRegionSelect } from "@/components/office-district-region-
 import { SupervisorWeekPack } from "@/components/supervisor-week-pack";
 import { DemoTrainingWorkspace } from "@/components/demo-training-workspace";
 import { PayrollSettingsPanel } from "@/components/payroll-settings-panel";
+import { PreEtsSettingsPanel } from "@/components/pre-ets-settings-panel";
 import { ReferralTrainingPhasePanel } from "@/components/referral-training-phase-panel";
 import { PtoSettingsPanel } from "@/components/pto-settings-panel";
 import { WrtCurriculumPanel } from "@/components/wrt-curriculum-panel";
@@ -1521,6 +1522,10 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
       ) : nav.primary === "settings" && nav.settings === "referrals" && mode === "super_admin" ? (
         <div className="mt-6">
           <ReferralTrainingPhasePanel />
+        </div>
+      ) : nav.primary === "settings" && nav.settings === "pre_ets" && mode === "super_admin" ? (
+        <div className="mt-6">
+          <PreEtsSettingsPanel />
         </div>
       ) : nav.primary === "settings" && (nav.settings ?? "users") === "users" && canManageOrg ? (
         <section className="mt-6 max-w-3xl space-y-6">
