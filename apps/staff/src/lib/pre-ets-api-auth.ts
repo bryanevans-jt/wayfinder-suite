@@ -45,7 +45,7 @@ export async function requirePreEtsApi(
 
   return {
     userId: session.effectiveUserId,
-    role,
+    role: session.effectiveRole ?? "",
     settings,
   };
 }

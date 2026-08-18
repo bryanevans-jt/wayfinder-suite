@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import {
+  canManagePreEtsSettings,
   DEFAULT_PRE_ETS_SETTINGS,
   loadPreEtsSettings,
   normalizePreEtsSettingsRow,
@@ -11,7 +12,7 @@ import {
   type PreEtsSettingsRow,
 } from "@wayfinder/supabase/pre-ets-settings";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
-import { canManagePreEtsSettings, normalizeRole } from "@wayfinder/supabase/roles";
+import { normalizeRole } from "@wayfinder/supabase/roles";
 import { NextResponse } from "next/server";
 
 function sanitizeEnabledRoles(roles: unknown): string[] {

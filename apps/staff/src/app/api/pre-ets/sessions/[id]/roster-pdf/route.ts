@@ -4,6 +4,18 @@ import { generatePreEtsRosterPdf } from "@/lib/pre-ets-roster-pdf";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
+type AuthRow = {
+  auth_number: string | null;
+  service_code: string;
+  service_label: string | null;
+  auth_type: string;
+};
+
+function relationOne<T>(raw: T | T[] | null | undefined): T | null {
+  if (!raw) return null;
+  return Array.isArray(raw) ? (raw[0] ?? null) : raw;
+}
+
 export async function GET(
   request: Request,
   context: { params: Promise<{ id: string }> }
@@ -31,13 +43,8 @@ export async function GET(
     }
 
     const authId = session.authorization_id as string;
-    const authRow = session.pre_ets_authorizations as {
-      auth_number: string | null;
-      service_code: string;
-      service_label: string | null;
-      auth_type: string;
-    } | null;
-    const school = session.pre_ets_schools as { name: string } | null;
+    const authRow = relationOne(session.pre_ets_authorizations as AuthRow | AuthRow[] | null);
+    const school = relationOne(session.pre_ets_schools as { name: string } | { name: string }[] | null);
 
     const { data: rosterEntries } = await admin
       .from("pre_ets_roster_entries")
@@ -49,10 +56,12 @@ export async function GET(
     const students =
       (rosterEntries ?? [])
         .map((row) => {
-          const st = row.pre_ets_students as {
-            participant_id: string;
-            full_name: string;
-          } | null;
+          const st = relationOne(
+            row.pre_ets_students as
+              | { participant_id: string; full_name: string }
+              | { participant_id: string; full_name: string }[]
+              | null
+          );
           if (!st) return null;
           return { participantId: st.participant_id, fullName: st.full_name };
         })

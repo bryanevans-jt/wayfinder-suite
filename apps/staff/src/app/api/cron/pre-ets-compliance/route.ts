@@ -73,10 +73,11 @@ export async function GET(request: Request) {
 
           await notifyUser(admin, {
             userId,
+            app: "staff",
             kind: "pre_ets_compliance",
             title: "Pre-ETS documentation overdue",
             body: `${session.schoolName ?? "School"} · Auth ${session.authNumber ?? "—"} · Session ${session.sessionDate ?? "—"} — ${kind === "late_roster" ? "signed roster upload" : "class activity report"} is past due.`,
-            href: "/dashboard/pre-ets",
+            link_path: "/dashboard/pre-ets",
           });
           notified++;
         }
