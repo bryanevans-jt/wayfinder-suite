@@ -12,6 +12,7 @@ export async function GET(request: Request) {
   const schoolId = url.searchParams.get("schoolId");
   const month = url.searchParams.get("month");
   const studentId = url.searchParams.get("studentId");
+  const authType = url.searchParams.get("authType");
 
   try {
     const admin = createServiceRoleClient();
@@ -45,6 +46,9 @@ export async function GET(request: Request) {
     if (month) {
       const serviceMonth = month.length === 7 ? `${month}-01` : month;
       query = query.eq("service_month", serviceMonth);
+    }
+    if (authType && authType !== "all") {
+      query = query.eq("auth_type", authType);
     }
 
     const { data, error } = await query;

@@ -4,11 +4,21 @@ import type { ParsedDistrictWorksheet } from "./pre-ets-worksheet-parser";
 
 export type WorksheetImportPhase = "planning" | "auth_match";
 
+export type PreEtsYtdWarning = {
+  participantId: string;
+  fullName: string;
+  currentYtd: number;
+  unitsAdding: number;
+  threshold: number;
+};
+
 export async function commitWorksheetImport(
   admin: SupabaseClient,
   importId: string,
   userId: string
-): Promise<{ ok: true; districtId: string } | { ok: false; error: string }> {
+): Promise<
+  { ok: true; districtId: string; ytdWarnings: PreEtsYtdWarning[] } | { ok: false; error: string }
+> {
   const { data: imp, error: impErr } = await admin
     .from("pre_ets_worksheet_imports")
     .select("*")
@@ -30,6 +40,8 @@ export async function commitWorksheetImport(
 
   const settings = await loadPreEtsSettings(admin);
   const ytdThreshold = settings.ytd_unit_warning_threshold;
+  const ytdWarnings: PreEtsYtdWarning[] = [];
+  const warnedParticipants = new Set<string>();
 
   const { data: district, error: distErr } = await admin
     .from("pre_ets_districts")
@@ -211,8 +223,18 @@ export async function commitWorksheetImport(
             .maybeSingle();
 
           const currentYtd = (ytd?.billable_units as number) ?? 0;
-          if (currentYtd + row.units > ytdThreshold) {
-            // Soft warning only — stored in import issues if needed
+          if (
+            currentYtd + row.units > ytdThreshold &&
+            !warnedParticipants.has(row.participantId)
+          ) {
+            warnedParticipants.add(row.participantId);
+            ytdWarnings.push({
+              participantId: row.participantId,
+              fullName: row.studentName,
+              currentYtd,
+              unitsAdding: row.units,
+              threshold: ytdThreshold,
+            });
           }
 
           let billedCents: number | null = null;
@@ -245,8 +267,9 @@ export async function commitWorksheetImport(
       status: "committed",
       committed_at: new Date().toISOString(),
       approved_by: userId,
+      commit_warnings: ytdWarnings,
     })
     .eq("id", importId);
 
-  return { ok: true, districtId };
+  return { ok: true, districtId, ytdWarnings };
 }

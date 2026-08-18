@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { seedSessionAttendance } from "@wayfinder/supabase/pre-ets-session-attendance";
+import { loadPreEtsAssignedSchoolIds } from "@wayfinder/supabase/pre-ets-staff-assignments";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
@@ -25,6 +26,11 @@ export async function GET(request: Request) {
 
     if (authorizationId) query = query.eq("authorization_id", authorizationId);
     if (schoolId) query = query.eq("school_id", schoolId);
+
+    const assignedSchoolIds = await loadPreEtsAssignedSchoolIds(admin, auth.userId, auth.role);
+    if (assignedSchoolIds?.length) {
+      query = query.in("school_id", assignedSchoolIds);
+    }
 
     const { data, error } = await query;
     if (error) {

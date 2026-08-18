@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { PreEtsAssignmentsPanel } from "@/components/pre-ets-assignments-panel";
 import { PreEtsAuthorizationsPanel } from "@/components/pre-ets-authorizations-panel";
 import { PreEtsCompliancePanel } from "@/components/pre-ets-compliance-panel";
 import { PreEtsHrPanel } from "@/components/pre-ets-hr-panel";
@@ -19,7 +20,8 @@ type Tab =
   | "compliance"
   | "invoices"
   | "hr"
-  | "search";
+  | "search"
+  | "assignments";
 
 type AccessPayload = {
   access?: {
@@ -83,6 +85,7 @@ export function PreEtsWorkspace() {
     { id: "worksheets", label: "Worksheets", show: access.canAccounts },
     { id: "authorizations", label: "Rosters & auths", show: access.canAccess && !isHrOnly },
     { id: "schedule", label: "Schedule", show: access.canSupervise },
+    { id: "assignments", label: "Assignments", show: access.canSupervise },
     { id: "sessions", label: "Sessions & reports", show: access.canDeliver || access.canSupervise },
     { id: "compliance", label: "Compliance", show: access.canSupervise },
     { id: "invoices", label: "Invoices", show: access.canAccounts },
@@ -136,6 +139,7 @@ export function PreEtsWorkspace() {
       {tab === "worksheets" && access.canAccounts ? <PreEtsWorksheetPanel /> : null}
       {tab === "authorizations" ? <PreEtsAuthorizationsPanel /> : null}
       {tab === "schedule" && access.canSupervise ? <PreEtsSchedulePanel /> : null}
+      {tab === "assignments" && access.canSupervise ? <PreEtsAssignmentsPanel /> : null}
       {tab === "sessions" ? <PreEtsSessionsPanel /> : null}
       {tab === "compliance" && access.canSupervise ? <PreEtsCompliancePanel /> : null}
       {tab === "invoices" && access.canAccounts ? <PreEtsInvoicePanel /> : null}

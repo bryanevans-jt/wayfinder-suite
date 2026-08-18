@@ -10,8 +10,18 @@ type ImportRow = {
   phase: string;
   status: string;
   file_name: string | null;
+  drive_file_name: string | null;
+  archived_at: string | null;
   created_at: string;
   committed_at: string | null;
+};
+
+type YtdWarning = {
+  participantId: string;
+  fullName: string;
+  currentYtd: number;
+  unitsAdding: number;
+  threshold: number;
 };
 
 export function PreEtsWorksheetPanel() {
@@ -23,6 +33,7 @@ export function PreEtsWorksheetPanel() {
   } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [ytdWarnings, setYtdWarnings] = useState<YtdWarning[]>([]);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/pre-ets/worksheets");
@@ -65,9 +76,32 @@ export function PreEtsWorksheetPanel() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "commit" }),
     });
-    const data = (await res.json()) as { error?: string };
+    const data = (await res.json()) as {
+      ok?: boolean;
+      districtId?: string;
+      ytdWarnings?: YtdWarning[];
+      archivedToDrive?: boolean;
+      archiveError?: string | null;
+      error?: string;
+    };
     setBusy(false);
-    setMessage(res.ok ? "Worksheet committed to rosters and authorizations." : data.error ?? "Commit failed");
+    if (!res.ok) {
+      setMessage(data.error ?? "Commit failed");
+      return;
+    }
+    setYtdWarnings(data.ytdWarnings ?? []);
+    const archiveNote = data.archivedToDrive
+      ? " Archived to Google Drive."
+      : data.archiveError
+        ? ` Drive archive skipped: ${data.archiveError}`
+        : "";
+    setMessage(
+      `Worksheet committed to rosters and authorizations.${archiveNote}${
+        (data.ytdWarnings?.length ?? 0) > 0
+          ? ` ${data.ytdWarnings?.length} YTD warning(s) — review below.`
+          : ""
+      }`
+    );
     setPreview(null);
     void load();
   }
@@ -152,6 +186,23 @@ export function PreEtsWorksheetPanel() {
         </div>
       ) : null}
 
+      {ytdWarnings.length > 0 ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">
+          <h3 className="font-semibold text-amber-950">YTD unit warnings</h3>
+          <p className="mt-1 text-amber-900/80">
+            These students meet or exceed the configured warning threshold. Import was not blocked.
+          </p>
+          <ul className="mt-2 max-h-40 overflow-y-auto text-xs text-amber-950">
+            {ytdWarnings.map((w) => (
+              <li key={w.participantId}>
+                {w.fullName} (PID {w.participantId}) — current YTD {w.currentYtd}, adding{" "}
+                {w.unitsAdding} (threshold {w.threshold})
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="overflow-x-auto rounded-xl border border-neutral-200">
         <table className="min-w-full text-left text-sm">
           <thead className="bg-neutral-50 text-brand-black/70">
@@ -161,12 +212,13 @@ export function PreEtsWorksheetPanel() {
               <th className="px-3 py-2">Month</th>
               <th className="px-3 py-2">Phase</th>
               <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2">Drive</th>
             </tr>
           </thead>
           <tbody>
             {imports.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-3 py-6 text-center text-brand-black/55">
+                <td colSpan={6} className="px-3 py-6 text-center text-brand-black/55">
                   No worksheet imports yet.
                 </td>
               </tr>
@@ -178,6 +230,9 @@ export function PreEtsWorksheetPanel() {
                   <td className="px-3 py-2">{row.service_month?.slice(0, 7)}</td>
                   <td className="px-3 py-2">{row.phase}</td>
                   <td className="px-3 py-2">{row.status}</td>
+                  <td className="px-3 py-2 text-xs text-brand-black/60">
+                    {row.drive_file_name ?? (row.archived_at ? "archived" : "—")}
+                  </td>
                 </tr>
               ))
             )}

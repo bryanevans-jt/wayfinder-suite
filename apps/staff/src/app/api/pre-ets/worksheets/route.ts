@@ -37,6 +37,7 @@ export async function POST(request: Request) {
         phase,
         status: "parsed",
         file_name: file.name,
+        file_content: text,
         parse_result: parsed,
         created_by: auth.userId,
       })
@@ -68,7 +69,7 @@ export async function GET() {
     const admin = createServiceRoleClient();
     const { data, error } = await admin
       .from("pre_ets_worksheet_imports")
-      .select("id, service_month, school_year, phase, status, file_name, created_at, committed_at")
+      .select("id, service_month, school_year, phase, status, file_name, drive_file_name, archived_at, created_at, committed_at")
       .order("created_at", { ascending: false })
       .limit(50);
 

@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { loadPreEtsSessionCompliance } from "@wayfinder/supabase/pre-ets-compliance";
+import { loadPreEtsAssignedSchoolIds } from "@wayfinder/supabase/pre-ets-staff-assignments";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
@@ -15,7 +16,12 @@ export async function GET(request: Request) {
 
   try {
     const admin = createServiceRoleClient();
-    const sessions = await loadPreEtsSessionCompliance(admin, { schoolId, onlyLate });
+    const assignedSchoolIds = await loadPreEtsAssignedSchoolIds(admin, auth.userId, auth.role);
+    const sessions = await loadPreEtsSessionCompliance(admin, {
+      schoolId,
+      schoolIds: assignedSchoolIds ?? undefined,
+      onlyLate,
+    });
     return NextResponse.json({ sessions });
   } catch (err) {
     return respondWithLoggedError("staff", route, err, {

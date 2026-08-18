@@ -67,14 +67,19 @@ export async function GET(
         })
         .filter((s): s is { participantId: string; fullName: string } => s !== null) ?? [];
 
+    const authType = authRow?.auth_type as "group" | "individual" | "pending" | undefined;
+    const pdfStudents =
+      authType === "individual" && students.length > 0 ? [students[0]] : students;
+
     const pdfBytes = await generatePreEtsRosterPdf({
       authorizationNumber: authRow?.auth_number ?? "",
+      authType,
       sessionDate: sessionDate ?? (session.session_date as string | null),
       schoolName: school?.name ?? "",
       instructorName: (session.instructor_name as string) ?? "",
       topic: authRow?.service_label ?? "",
       serviceCode: authRow?.service_code ?? "",
-      students,
+      students: pdfStudents,
     });
 
     return new NextResponse(Buffer.from(pdfBytes), {

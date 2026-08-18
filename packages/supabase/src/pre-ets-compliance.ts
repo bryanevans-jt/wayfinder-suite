@@ -107,7 +107,7 @@ export function evaluateSessionDocumentation(
 
 export async function loadPreEtsSessionCompliance(
   admin: SupabaseClient,
-  filters?: { schoolId?: string; onlyLate?: boolean }
+  filters?: { schoolId?: string; schoolIds?: string[]; onlyLate?: boolean }
 ): Promise<PreEtsSessionDocStatus[]> {
   const settings = await loadPreEtsSettings(admin);
   const deadlineHours = settings.submission_deadline_hours;
@@ -124,6 +124,8 @@ export async function loadPreEtsSessionCompliance(
 
   if (filters?.schoolId) {
     query = query.eq("school_id", filters.schoolId);
+  } else if (filters?.schoolIds?.length) {
+    query = query.in("school_id", filters.schoolIds);
   }
 
   const { data, error } = await query;

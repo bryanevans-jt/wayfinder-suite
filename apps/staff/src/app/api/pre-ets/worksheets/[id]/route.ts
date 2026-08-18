@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { commitWorksheetImport } from "@wayfinder/supabase/pre-ets-worksheet-import";
+import { archiveWorksheetImportToDrive } from "@/lib/pre-ets-worksheet-archive";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
@@ -62,7 +63,16 @@ export async function POST(
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
-    return NextResponse.json({ ok: true, districtId: result.districtId });
+
+    const archive = await archiveWorksheetImportToDrive(admin, id);
+
+    return NextResponse.json({
+      ok: true,
+      districtId: result.districtId,
+      ytdWarnings: result.ytdWarnings,
+      archivedToDrive: archive.ok,
+      archiveError: archive.ok ? null : archive.error,
+    });
   } catch (err) {
     return respondWithLoggedError("staff", route, err, {
       userId: auth.userId,

@@ -72,9 +72,9 @@ function activityReportStatus(session: Session): string | null {
 
 export function PreEtsSessionsPanel() {
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [authorizations, setAuthorizations] = useState<{ id: string; auth_number: string | null }[]>(
-    []
-  );
+  const [authorizations, setAuthorizations] = useState<
+    { id: string; auth_number: string | null; auth_type: string }[]
+  >([]);
   const [newAuthId, setNewAuthId] = useState("");
   const [newDate, setNewDate] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -96,9 +96,7 @@ export function PreEtsSessionsPanel() {
       authorizations?: { id: string; auth_number: string | null; auth_type: string }[];
     };
     if (authRes.ok) {
-      setAuthorizations(
-        (authData.authorizations ?? []).filter((a) => a.auth_type === "group")
-      );
+      setAuthorizations(authData.authorizations ?? []);
     }
   }, []);
 
@@ -267,10 +265,10 @@ export function PreEtsSessionsPanel() {
             value={newAuthId}
             onChange={(e) => setNewAuthId(e.target.value)}
           >
-            <option value="">Group authorization…</option>
+            <option value="">Authorization…</option>
             {authorizations.map((a) => (
               <option key={a.id} value={a.id}>
-                {a.auth_number ?? a.id.slice(0, 8)}
+                [{a.auth_type}] {a.auth_number ?? a.id.slice(0, 8)}
               </option>
             ))}
           </select>

@@ -59,7 +59,9 @@
     "./pre-ets-worksheet-import": "./src/pre-ets-worksheet-import.ts",
     "./pre-ets-compliance": "./src/pre-ets-compliance.ts",
     "./pre-ets-session-attendance": "./src/pre-ets-session-attendance.ts",
-    "./pre-ets-invoice-packet": "./src/pre-ets-invoice-packet.ts"
+    "./pre-ets-invoice-packet": "./src/pre-ets-invoice-packet.ts",
+    "./pre-ets-schedule-plans": "./src/pre-ets-schedule-plans.ts",
+    "./pre-ets-staff-assignments": "./src/pre-ets-staff-assignments.ts"
   },
   "scripts": {
     "lint": "tsc --noEmit"

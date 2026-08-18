@@ -14,11 +14,30 @@ type ProgramGroup = {
   pre_ets_authorizations: { id: string; auth_number: string | null; auth_type: string }[] | null;
 };
 
+type PlanMode = "custom" | "recurring" | "monthly";
+
+const WEEKDAYS = [
+  { value: 0, label: "Sunday" },
+  { value: 1, label: "Monday" },
+  { value: 2, label: "Tuesday" },
+  { value: 3, label: "Wednesday" },
+  { value: 4, label: "Thursday" },
+  { value: 5, label: "Friday" },
+  { value: 6, label: "Saturday" },
+];
+
 export function PreEtsSchedulePanel() {
   const [groups, setGroups] = useState<ProgramGroup[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState("");
+  const [planMode, setPlanMode] = useState<PlanMode>("custom");
   const [datesText, setDatesText] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [weekday, setWeekday] = useState(2);
+  const [dayOfMonth, setDayOfMonth] = useState(15);
+  const [excludedMonths, setExcludedMonths] = useState("");
   const [plannedCode, setPlannedCode] = useState("");
+  const [previewDates, setPreviewDates] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -31,47 +50,86 @@ export function PreEtsSchedulePanel() {
     void load();
   }, [load]);
 
-  async function createSchedule() {
-    if (!selectedGroupId) return;
-    const sessionDates = datesText
-      .split(/[\n,]+/)
-      .map((d) => d.trim())
-      .filter(Boolean);
-
-    const res = await fetch("/api/pre-ets/schedule-plans", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        programGroupId: selectedGroupId,
-        planType: sessionDates.length > 5 ? "intensive" : "custom",
-        plannedServiceCode: plannedCode || null,
-        sessionDates,
-      }),
-    });
-    const data = (await res.json()) as { sessionsCreated?: number; error?: string };
-    setMessage(
-      res.ok
-        ? `Created ${data.sessionsCreated ?? 0} scheduled session(s) with activity report drafts.`
-        : data.error ?? "Schedule failed"
-    );
-    setDatesText("");
-  }
-
   const selected = groups.find((g) => g.id === selectedGroupId);
   const groupAuth = selected?.pre_ets_authorizations?.find((a) => a.auth_type === "group");
+  const fallbackAuth = selected?.pre_ets_authorizations?.[0];
   const codeMismatch =
     plannedCode &&
     groupAuth?.auth_number &&
     selected?.service_code &&
     plannedCode !== selected.service_code;
 
+  function buildPayload() {
+    const excluded = excludedMonths
+      .split(/[\n,]+/)
+      .map((m) => m.trim().slice(0, 7))
+      .filter(Boolean);
+
+    if (planMode === "custom") {
+      const sessionDates = datesText
+        .split(/[\n,]+/)
+        .map((d) => d.trim())
+        .filter(Boolean);
+      return {
+        programGroupId: selectedGroupId,
+        planType: sessionDates.length > 5 ? "intensive" : "custom",
+        plannedServiceCode: plannedCode || null,
+        sessionDates,
+      };
+    }
+
+    if (planMode === "recurring") {
+      return {
+        programGroupId: selectedGroupId,
+        planType: "recurring" as const,
+        plannedServiceCode: plannedCode || null,
+        startDate: startDate || null,
+        endDate: endDate || null,
+        excludedMonths: excluded,
+        recurrenceRule: { weekday, intervalWeeks: 1 },
+      };
+    }
+
+    return {
+      programGroupId: selectedGroupId,
+      planType: "monthly" as const,
+      plannedServiceCode: plannedCode || null,
+      startDate: startDate || null,
+      endDate: endDate || null,
+      excludedMonths: excluded,
+      recurrenceRule: { dayOfMonth },
+    };
+  }
+
+  async function createSchedule() {
+    if (!selectedGroupId) return;
+    setMessage(null);
+    const res = await fetch("/api/pre-ets/schedule-plans", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(buildPayload()),
+    });
+    const data = (await res.json()) as {
+      sessionsCreated?: number;
+      sessionDates?: string[];
+      error?: string;
+    };
+    if (res.ok) {
+      setPreviewDates(data.sessionDates ?? []);
+      setMessage(`Created ${data.sessionsCreated ?? 0} scheduled session(s).`);
+      setDatesText("");
+    } else {
+      setMessage(data.error ?? "Schedule failed");
+    }
+  }
+
   return (
     <section className="space-y-4">
       <div>
         <h2 className="text-lg font-semibold text-brand-black">Session planning</h2>
         <p className="mt-1 text-sm text-brand-black/65">
-          Schedule instruction dates for a program group. Each date creates a session and an empty
-          Lesson Activity Report draft.
+          Schedule instruction dates for a program group using custom dates, weekly recurring, or
+          monthly patterns.
         </p>
       </div>
 
@@ -97,6 +155,19 @@ export function PreEtsSchedulePanel() {
         </label>
 
         <label className="block">
+          <span className="font-medium">Plan type</span>
+          <select
+            className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2"
+            value={planMode}
+            onChange={(e) => setPlanMode(e.target.value as PlanMode)}
+          >
+            <option value="custom">Custom dates</option>
+            <option value="recurring">Weekly recurring</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </label>
+
+        <label className="block">
           <span className="font-medium">Planned service code</span>
           <input
             className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2"
@@ -111,16 +182,76 @@ export function PreEtsSchedulePanel() {
           ) : null}
         </label>
 
-        <label className="block lg:col-span-2">
-          <span className="font-medium">Session dates (one per line or comma-separated)</span>
-          <textarea
-            className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2 font-mono text-xs"
-            rows={4}
-            placeholder="2025-09-12&#10;2025-09-19&#10;2025-09-26"
-            value={datesText}
-            onChange={(e) => setDatesText(e.target.value)}
-          />
-        </label>
+        {planMode === "custom" ? (
+          <label className="block lg:col-span-2">
+            <span className="font-medium">Session dates (one per line or comma-separated)</span>
+            <textarea
+              className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2 font-mono text-xs"
+              rows={4}
+              placeholder="2025-09-12&#10;2025-09-19"
+              value={datesText}
+              onChange={(e) => setDatesText(e.target.value)}
+            />
+          </label>
+        ) : (
+          <>
+            <label className="block">
+              <span className="font-medium">Start date</span>
+              <input
+                type="date"
+                className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </label>
+            <label className="block">
+              <span className="font-medium">End date</span>
+              <input
+                type="date"
+                className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </label>
+            {planMode === "recurring" ? (
+              <label className="block">
+                <span className="font-medium">Weekday</span>
+                <select
+                  className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2"
+                  value={weekday}
+                  onChange={(e) => setWeekday(Number(e.target.value))}
+                >
+                  {WEEKDAYS.map((d) => (
+                    <option key={d.value} value={d.value}>
+                      {d.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <label className="block">
+                <span className="font-medium">Day of month</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={28}
+                  className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2"
+                  value={dayOfMonth}
+                  onChange={(e) => setDayOfMonth(Number(e.target.value))}
+                />
+              </label>
+            )}
+            <label className="block lg:col-span-2">
+              <span className="font-medium">Excluded months (YYYY-MM, comma-separated)</span>
+              <input
+                className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2 font-mono text-xs"
+                placeholder="2025-12, 2026-03"
+                value={excludedMonths}
+                onChange={(e) => setExcludedMonths(e.target.value)}
+              />
+            </label>
+          </>
+        )}
 
         <div className="lg:col-span-2">
           <button
@@ -131,6 +262,11 @@ export function PreEtsSchedulePanel() {
             Create sessions
           </button>
           {message ? <p className="mt-2 text-brand-black/70">{message}</p> : null}
+          {previewDates.length > 0 ? (
+            <p className="mt-2 text-xs text-brand-black/60">
+              Dates: {previewDates.join(", ")}
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -144,8 +280,9 @@ export function PreEtsSchedulePanel() {
             {selected.class_time ?? "—"}
           </p>
           <p>
-            Authorized code: {selected.service_code ?? "—"} · Group auth{" "}
-            {groupAuth?.auth_number ?? "pending"}
+            Authorized code: {selected.service_code ?? "—"} · Auth{" "}
+            {groupAuth?.auth_number ?? fallbackAuth?.auth_number ?? "pending"} (
+            {groupAuth?.auth_type ?? fallbackAuth?.auth_type ?? "—"})
           </p>
         </div>
       ) : null}

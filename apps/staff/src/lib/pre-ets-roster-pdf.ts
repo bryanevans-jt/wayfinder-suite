@@ -7,6 +7,7 @@ export type RosterPdfStudent = {
 
 export type RosterPdfInput = {
   authorizationNumber: string;
+  authType?: "group" | "individual" | "pending";
   sessionDate: string | null;
   schoolName: string;
   instructorName: string;
@@ -58,10 +59,12 @@ export async function generatePreEtsRosterPdf(input: RosterPdfInput): Promise<Ui
   };
 
   draw("Joshua Tree Service Group", { bold: true, size: 14 });
-  draw("Pre-ETS Time Sheet", { bold: true, size: 12 });
+  draw(`Pre-ETS Time Sheet`, { bold: true, size: 12 });
   y -= 8;
 
-  draw(`Group Authorization #: ${input.authorizationNumber || "_______________"}`);
+  const authLabel =
+    input.authType === "individual" ? "Individual Authorization #" : "Group Authorization #";
+  draw(`${authLabel}: ${input.authorizationNumber || "_______________"}`);
   draw(`Date: ${input.sessionDate || "_______________"}`);
   draw(`School: ${input.schoolName}`);
   draw(`Instructor: ${input.instructorName || "_______________"}`);
