@@ -34,7 +34,7 @@
     },
     {
       "path": "/api/cron/pre-ets-compliance",
-      "schedule": "0 9,12,16 * * *"
+      "schedule": "0 13,14,16,17,20,21 * * *"
     }
   ]
 }

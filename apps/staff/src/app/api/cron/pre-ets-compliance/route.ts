@@ -6,7 +6,19 @@ import {
 } from "@wayfinder/supabase/pre-ets-compliance";
 import { loadPreEtsSettings } from "@wayfinder/supabase/pre-ets-settings";
 import { notifyUser } from "@wayfinder/supabase/notify-user";
+import {
+  STAFF_CLOCK_TIMEZONE,
+  zonedDateTimeParts,
+} from "@wayfinder/supabase/staff-time-clock-shared";
 import { NextResponse } from "next/server";
+
+/** 9am, 12pm, and 4pm US Eastern (DST-aware via IANA timezone). */
+const PRE_ETS_COMPLIANCE_EASTERN_HOURS = new Set([9, 12, 16]);
+
+function isPreEtsComplianceEasternRunTime(now = new Date()): boolean {
+  const parts = zonedDateTimeParts(now, STAFF_CLOCK_TIMEZONE);
+  return parts.minute === 0 && PRE_ETS_COMPLIANCE_EASTERN_HOURS.has(parts.hour);
+}
 
 function authorizeCron(request: Request): boolean {
   const secret = process.env.CRON_SECRET;
@@ -20,6 +32,14 @@ export async function GET(request: Request) {
   const route = "api/cron/pre-ets-compliance";
   if (!authorizeCron(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!isPreEtsComplianceEasternRunTime()) {
+    return NextResponse.json({
+      ok: true,
+      skipped: "outside_eastern_schedule",
+      timezone: STAFF_CLOCK_TIMEZONE,
+    });
   }
 
   try {
