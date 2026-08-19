@@ -164,7 +164,6 @@ export function ManualReferralModal({ open, onClose, onCreated }: Props) {
                 }}
               >
                 <option value="GA">Georgia (GVRA)</option>
-                <option value="TN">Tennessee (TDHS VR)</option>
               </select>
             </label>
             <label className="text-sm">

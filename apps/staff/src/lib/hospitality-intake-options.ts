@@ -1,5 +1,10 @@
 import type { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { loadStaffNameById } from "@/lib/staff-names";
+import {
+  filterSunsetCounselors,
+  filterSunsetOffices,
+  loadSunsetKeepIds,
+} from "@/lib/sunset-tn";
 
 type Admin = ReturnType<typeof createServiceRoleClient>;
 
@@ -56,6 +61,8 @@ export async function loadHospitalityIntakeOptions(admin: Admin): Promise<{
     }
   }
 
+  const sunset = await loadSunsetKeepIds(admin);
+
   const supervisors = supervisorIds
     .map((id) => ({
       id,
@@ -66,25 +73,33 @@ export async function loadHospitalityIntakeOptions(admin: Admin): Promise<{
 
   return {
     supervisors,
-    offices: (officeRows ?? []).map((o) => ({
-      id: o.id as string,
-      name: o.name as string,
-      state: (o.state as string | null) ?? null,
-    })),
-    counselors: (counselorRows ?? []).map((c) => {
-      const officeIds = new Set<string>();
-      if (c.office_id) officeIds.add(c.office_id as string);
-      for (const link of counselorOffices ?? []) {
-        if (link.counselor_id === c.id && link.office_id) {
-          officeIds.add(link.office_id as string);
+    offices: filterSunsetOffices(
+      (officeRows ?? []).map((o) => ({
+        id: o.id as string,
+        name: o.name as string,
+        state: (o.state as string | null) ?? null,
+      })),
+      sunset.keepOfficeIds
+    ),
+    counselors: filterSunsetCounselors(
+      (counselorRows ?? []).map((c) => {
+        const officeIds = new Set<string>();
+        if (c.office_id) officeIds.add(c.office_id as string);
+        for (const link of counselorOffices ?? []) {
+          if (link.counselor_id === c.id && link.office_id) {
+            officeIds.add(link.office_id as string);
+          }
         }
-      }
-      return {
-        id: c.id as string,
-        name: (c.full_name as string) || "Counselor",
-        email: (c.contact_email as string | null) ?? null,
-        officeIds: [...officeIds],
-      };
-    }),
+        return {
+          id: c.id as string,
+          name: (c.full_name as string) || "Counselor",
+          email: (c.contact_email as string | null) ?? null,
+          office_id: (c.office_id as string | null) ?? null,
+          office_ids: [...officeIds],
+          officeIds: [...officeIds],
+        };
+      }),
+      sunset
+    ).map(({ office_id: _officeId, office_ids: _officeIds, ...counselor }) => counselor),
   };
 }

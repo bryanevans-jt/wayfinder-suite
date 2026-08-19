@@ -9,6 +9,7 @@ import {
   filterOfficesForPicker,
   queryAllOffices,
 } from "@/lib/office-visibility";
+import { loadSunsetKeepIds } from "@/lib/sunset-tn";
 import { loadStaffNameById } from "@/lib/operations-data";
 import type { AnalyticsScope } from "./access";
 import {
@@ -645,16 +646,20 @@ export async function loadAnalyticsFilterOptions(
       .select("id, name, is_hidden")
       .in("id", officeIds)
       .order("name");
+    const sunset = await loadSunsetKeepIds(admin);
     officeOptions = filterOfficesForPicker(
       (offices ?? []).map((office) => ({
         id: office.id as string,
         name: office.name as string,
         is_hidden: (office as { is_hidden?: boolean | null }).is_hidden,
       })),
-      { alwaysIncludeIds: officeIds }
+      { alwaysIncludeIds: officeIds, sunsetKeepOfficeIds: sunset.keepOfficeIds }
     ).map((office) => ({ id: office.id, name: office.name }));
   } else if (scope.kind === "org") {
-    officeOptions = filterOfficesForPicker(await queryAllOffices(admin)).map((office) => ({
+    const sunset = await loadSunsetKeepIds(admin);
+    officeOptions = filterOfficesForPicker(await queryAllOffices(admin), {
+      sunsetKeepOfficeIds: sunset.keepOfficeIds,
+    }).map((office) => ({
       id: office.id,
       name: office.name,
     }));

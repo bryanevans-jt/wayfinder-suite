@@ -16,6 +16,11 @@ import {
   queryAllOffices,
   type OfficeRecord,
 } from "@/lib/office-visibility";
+import {
+  filterSunsetCounselors,
+  filterSunsetServices,
+  sunsetKeepIdsFromLoadedData,
+} from "@/lib/sunset-tn";
 
 export async function requirePortalPage(minTier: PortalTier) {
   const session = await getAppSession();
@@ -433,15 +438,45 @@ export async function loadPortalBootstrap(
       ])
     : null;
 
+  const sunset = sunsetKeepIdsFromLoadedData({
+    offices: officesRows,
+    clients: (clientsQuery.data ?? []).map((row) => ({
+      office_id: (row.office_id as string | null) ?? null,
+      counselor_id: (row.counselor_id as string | null) ?? null,
+      current_service_id: (row.current_service_id as string | null) ?? null,
+      archived_at: (row as { archived_at?: string | null }).archived_at ?? null,
+    })),
+    counselors: counselors.map((c) => ({
+      id: c.id as string,
+      office_id: (c.office_id as string | null) ?? null,
+    })),
+    counselorOfficeLinks: (counselorOfficeLinks ?? []).map((l) => ({
+      counselor_id: l.counselor_id as string,
+      office_id: l.office_id as string,
+    })),
+  });
+
   const referencedOfficeIds = collectReferencedOfficeIds(
-    clientRows.map((client) => client.office_id as string | null),
-    staffOfficeLinksOut.map((link) => link.office_id),
-    counselorOfficeLinksOut.map((link) => link.office_id)
+    clientRows
+      .filter((client) => !(client as { archived_at?: string | null }).archived_at)
+      .map((client) => client.office_id as string | null)
   );
   officesRows = filterOfficesForPicker(officesRows, {
     includeHidden: options?.includeHiddenOffices ?? false,
     alwaysIncludeIds: referencedOfficeIds,
+    sunsetKeepOfficeIds: sunset.keepOfficeIds,
   });
+  const visibleOfficeIds = new Set(officesRows.map((o) => o.id));
+  counselorOfficeLinksOut = counselorOfficeLinksOut.filter((l) => visibleOfficeIds.has(l.office_id));
+  staffOfficeLinksOut = staffOfficeLinksOut.filter((l) => visibleOfficeIds.has(l.office_id));
+  servicesRaw = filterSunsetServices(servicesRaw, sunset.keepServiceIds);
+  counselors = filterSunsetCounselors(
+    counselors.map((c) => ({
+      ...c,
+      office_ids: [...(counselorOfficeIds.get(c.id as string) ?? [])],
+    })),
+    sunset
+  );
 
   return {
     offices: officesRows.map((o) => ({
@@ -457,7 +492,9 @@ export async function loadPortalBootstrap(
       name: s.name,
       state: s.state ?? null,
     })),
-    serviceMilestones: milestones.map((m) => ({
+    serviceMilestones: milestones
+      .filter((m) => servicesRaw.some((s) => s.id === m.service_id))
+      .map((m) => ({
       id: m.id,
       service_id: m.service_id,
       title: m.title,
@@ -467,8 +504,13 @@ export async function loadPortalBootstrap(
       .map((c) => ({
       id: c.id as string,
       full_name: c.full_name as string,
-      office_id: (c.office_id as string | null) ?? null,
-      office_ids: [...(counselorOfficeIds.get(c.id as string) ?? [])],
+      office_id:
+        (c.office_id as string | null) && visibleOfficeIds.has(c.office_id as string)
+          ? (c.office_id as string)
+          : null,
+      office_ids: [...(counselorOfficeIds.get(c.id as string) ?? [])].filter((id) =>
+        visibleOfficeIds.has(id)
+      ),
     }))
       .sort((a, b) =>
         (a.full_name ?? "").localeCompare(b.full_name ?? "", undefined, { sensitivity: "base" })

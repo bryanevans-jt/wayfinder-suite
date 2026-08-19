@@ -53,6 +53,14 @@ export function OfficeDirectoryList({ offices, renderOffice }: Props) {
     return counts;
   }, [offices]);
 
+  const visibleStates = (["GA", "TN"] as const).filter((state) => state === "GA" || stateCounts[state] > 0);
+
+  useEffect(() => {
+    if (stateFilter === "TN" && stateCounts.TN === 0) {
+      setStateFilter("GA");
+    }
+  }, [stateFilter, stateCounts.TN]);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -61,7 +69,7 @@ export function OfficeDirectoryList({ offices, renderOffice }: Props) {
           role="group"
           aria-label="Office state"
         >
-          {(["GA", "TN"] as const).map((state) => (
+          {visibleStates.map((state) => (
             <button
               key={state}
               type="button"

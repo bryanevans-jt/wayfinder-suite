@@ -480,7 +480,6 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 aria-label="State"
               >
                 <option value="GA">GA</option>
-                <option value="TN">TN</option>
               </select>
               <OfficeDistrictRegionSelect
                 state={newOfficeState}
@@ -2487,7 +2486,6 @@ function OfficeListItem({
             disabled={busy}
           >
             <option value="GA">GA</option>
-            <option value="TN">TN</option>
           </select>
           <OfficeDistrictRegionSelect
             state={state}

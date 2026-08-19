@@ -21,6 +21,11 @@ import { EsClientsTodayStrip } from "@/components/es-clients-today-strip";
 import { loadCaseloadTriageFlags } from "@/lib/caseload-operations";
 import { fetchEsCaseloadClients, getEsCaseloadAdmin } from "@/lib/es-caseload-data";
 import { fetchOfficesForPicker } from "@/lib/office-visibility";
+import {
+  filterSunsetCounselors,
+  filterSunsetServices,
+  loadSunsetKeepIds,
+} from "@/lib/sunset-tn";
 import { AddClientLauncher } from "./add-client-launcher";
 
 type PageProps = {
@@ -47,14 +52,17 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
   const supabase = await createServerClient();
   const lookupClient = admin ?? supabase;
 
-  const [caseload, servicesQuery, offices, { data: counselorsRaw }] = await Promise.all([
-    fetchEsCaseloadClients(effectiveUserId, { includeArchived }),
+  const caseload = await fetchEsCaseloadClients(effectiveUserId, { includeArchived });
+  const pinServiceIds = (caseload.clients ?? []).map((c) => c.current_service_id);
+
+  const [servicesQuery, offices, { data: counselorsRaw }, sunset] = await Promise.all([
     lookupClient.from("services").select("id, name, state").order("name", { ascending: true }),
     fetchOfficesForPicker(lookupClient),
     lookupClient
       .from("counselors")
       .select("id, full_name, office_id, offices(name)")
       .order("full_name", { ascending: true }),
+    loadSunsetKeepIds(lookupClient),
   ]);
 
   let servicesRaw: Array<{ id: string; name: string; state?: string | null }> =
@@ -150,19 +158,25 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
   }
 
   const counselors =
-    (counselorsRaw ?? []).map((c) => {
-      const rawOffices = (c as { offices?: { name: string } | { name: string }[] | null })
-        .offices;
-      const officesEmbed = Array.isArray(rawOffices)
-        ? (rawOffices[0] ?? null)
-        : (rawOffices ?? null);
-      return {
-        id: c.id as string,
-        full_name: c.full_name as string,
-        office_id: c.office_id as string,
-        offices: officesEmbed,
-      };
-    }) ?? [];
+    filterSunsetCounselors(
+      (counselorsRaw ?? []).map((c) => {
+        const rawOffices = (c as { offices?: { name: string } | { name: string }[] | null })
+          .offices;
+        const officesEmbed = Array.isArray(rawOffices)
+          ? (rawOffices[0] ?? null)
+          : (rawOffices ?? null);
+        return {
+          id: c.id as string,
+          full_name: c.full_name as string,
+          office_id: c.office_id as string,
+          office_ids: c.office_id ? [c.office_id as string] : [],
+          offices: officesEmbed,
+        };
+      }),
+      sunset
+    ) ?? [];
+
+  servicesRaw = filterSunsetServices(servicesRaw, sunset.keepServiceIds, pinServiceIds);
 
   const clientRows = clients.map((c) => {
     const profileId = c.user_id ?? c.profile_id;

@@ -1,5 +1,6 @@
 import { clientDisplayName } from "@wayfinder/branding";
 import type { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { filterSunsetOffices, sunsetKeepIdsFromLoadedData } from "@/lib/sunset-tn";
 
 type Admin = ReturnType<typeof createServiceRoleClient>;
 
@@ -180,14 +181,6 @@ export async function loadHrRegistry(
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const states = [
-    ...new Set(
-      (offices ?? [])
-        .map((o) => (o.state as string | null)?.toUpperCase() ?? null)
-        .filter((s): s is string => Boolean(s))
-    ),
-  ].sort();
-
   const clientNameById = new Map(rows.map((r) => [r.id, r.name]));
   // Rebuild client name map for assignment labels from unfiltered clients if needed
   for (const c of clients ?? []) {
@@ -203,13 +196,47 @@ export async function loadHrRegistry(
     }
   }
 
-  return {
-    clients: rows,
+  const sunset = sunsetKeepIdsFromLoadedData({
     offices: (offices ?? []).map((o) => ({
+      id: o.id as string,
+      state: (o.state as string | null) ?? null,
+      name: (o.name as string | null) ?? null,
+    })),
+    clients: (clients ?? []).map((c) => ({
+      office_id: (c.office_id as string | null) ?? null,
+      counselor_id: null,
+      current_service_id: (c.current_service_id as string | null) ?? null,
+      archived_at: null,
+    })),
+    counselors: (counselors ?? []).map((c) => ({
+      id: c.id as string,
+      office_id: (c.office_id as string | null) ?? null,
+    })),
+    counselorOfficeLinks: (counselorOffices ?? []).map((l) => ({
+      counselor_id: l.counselor_id as string,
+      office_id: l.office_id as string,
+    })),
+  });
+  const visibleOffices = filterSunsetOffices(
+    (offices ?? []).map((o) => ({
       id: o.id as string,
       name: o.name as string,
       state: (o.state as string | null) ?? null,
     })),
+    sunset.keepOfficeIds
+  );
+  const visibleOfficeIds = new Set(visibleOffices.map((o) => o.id));
+  const states = [
+    ...new Set(
+      visibleOffices
+        .map((o) => o.state?.toUpperCase() ?? null)
+        .filter((s): s is string => Boolean(s))
+    ),
+  ].sort();
+
+  return {
+    clients: rows,
+    offices: visibleOffices,
     esUsers,
     states,
     supervisorEsLinks: (supervisorEs ?? []).map((l) => ({
@@ -224,7 +251,9 @@ export async function loadHrRegistry(
         clientNameById.get(l.client_id as string) ?? "Client"
       }`,
     })),
-    staffOfficeLinks: (staffOffice ?? []).map((l) => ({
+    staffOfficeLinks: (staffOffice ?? [])
+      .filter((l) => visibleOfficeIds.has(l.office_id as string))
+      .map((l) => ({
       id: l.id as string,
       label: `${nameById.get(l.user_id as string) ?? "Staff"} · ${
         officeById.get(l.office_id as string)?.name ?? "Office"
@@ -251,6 +280,7 @@ export async function loadHrRegistry(
           continue;
         }
         for (const officeId of officeIds) {
+          if (!visibleOfficeIds.has(officeId) && sunset.tnOfficeIds.has(officeId)) continue;
           const id = `${c.id}:${officeId}`;
           if (seen.has(id)) continue;
           seen.add(id);
