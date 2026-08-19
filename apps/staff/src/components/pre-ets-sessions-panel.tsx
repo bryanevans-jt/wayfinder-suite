@@ -29,6 +29,8 @@ type ActivityReport = {
   id: string;
   session_date: string | null;
   lesson_topic: string | null;
+  learning_objective: string | null;
+  lesson_structure: string | null;
   students_on_time: boolean | null;
   students_engaged: boolean | null;
   students_participated: boolean | null;
@@ -82,6 +84,7 @@ export function PreEtsSessionsPanel() {
   const [attendance, setAttendance] = useState<AttendanceRow[]>([]);
   const [sessionDate, setSessionDate] = useState("");
   const [cancelReason, setCancelReason] = useState("");
+  const [rescheduleDate, setRescheduleDate] = useState("");
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -135,6 +138,9 @@ export function PreEtsSessionsPanel() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         session_date: sessionDate || null,
+        lesson_topic: report.lesson_topic,
+        learning_objective: report.learning_objective,
+        lesson_structure: report.lesson_structure,
         students_on_time: report.students_on_time,
         students_engaged: report.students_engaged,
         students_participated: report.students_participated,
@@ -198,7 +204,33 @@ export function PreEtsSessionsPanel() {
     }
   }
 
-  async function cancelOrReschedule(status: "cancelled" | "rescheduled") {
+  async function rescheduleSession() {
+    if (!selectedId || !cancelReason.trim() || !rescheduleDate) {
+      setError("Reason and replacement session date are required to reschedule.");
+      return;
+    }
+    setError(null);
+    const res = await fetch(`/api/pre-ets/sessions/${selectedId}/reschedule`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reason: cancelReason.trim(),
+        newSessionDate: rescheduleDate,
+      }),
+    });
+    const data = (await res.json()) as { error?: string; newSessionId?: string };
+    if (!res.ok) {
+      setError(data.error ?? "Could not reschedule session.");
+      return;
+    }
+    setMessage("Session rescheduled. Replacement session created.");
+    setCancelReason("");
+    setRescheduleDate("");
+    void load();
+    if (data.newSessionId) void loadSessionDetails(data.newSessionId);
+  }
+
+  async function cancelOrReschedule(status: "cancelled") {
     if (!selectedId || !cancelReason.trim()) {
       setError("Reason is required to cancel or reschedule.");
       return;
@@ -430,6 +462,38 @@ export function PreEtsSessionsPanel() {
                     />
                   </label>
 
+                  <label className="block">
+                    <span className="font-medium">Lesson topic</span>
+                    <input
+                      className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2"
+                      disabled={!isEditable}
+                      value={report.lesson_topic ?? ""}
+                      onChange={(e) => setReport({ ...report, lesson_topic: e.target.value })}
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="font-medium">Learning objective</span>
+                    <textarea
+                      className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2"
+                      rows={2}
+                      disabled={!isEditable}
+                      value={report.learning_objective ?? ""}
+                      onChange={(e) => setReport({ ...report, learning_objective: e.target.value })}
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="font-medium">Lesson structure</span>
+                    <textarea
+                      className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2"
+                      rows={2}
+                      disabled={!isEditable}
+                      value={report.lesson_structure ?? ""}
+                      onChange={(e) => setReport({ ...report, lesson_structure: e.target.value })}
+                    />
+                  </label>
+
                   {CAR_QUESTIONS.map((q) => (
                     <div key={q.key} className="flex flex-wrap items-start justify-between gap-2">
                       <span className="flex-1">{q.label}</span>
@@ -504,7 +568,8 @@ export function PreEtsSessionsPanel() {
               <div className="rounded-xl border border-neutral-200 bg-white p-4 text-sm">
                 <h3 className="font-semibold text-brand-black">Cancel / reschedule</h3>
                 <p className="mt-1 text-brand-black/60">
-                  Clears compliance requirements for this session.
+                  Cancelling or rescheduling clears compliance requirements for this session.
+                  Rescheduling creates a linked replacement session.
                 </p>
                 <textarea
                   className="mt-3 block w-full rounded-lg border border-neutral-300 px-3 py-2"
@@ -513,6 +578,15 @@ export function PreEtsSessionsPanel() {
                   value={cancelReason}
                   onChange={(e) => setCancelReason(e.target.value)}
                 />
+                <label className="mt-3 block">
+                  <span className="font-medium">Replacement session date</span>
+                  <input
+                    type="date"
+                    className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2"
+                    value={rescheduleDate}
+                    onChange={(e) => setRescheduleDate(e.target.value)}
+                  />
+                </label>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <button
                     type="button"
@@ -524,9 +598,9 @@ export function PreEtsSessionsPanel() {
                   <button
                     type="button"
                     className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium"
-                    onClick={() => void cancelOrReschedule("rescheduled")}
+                    onClick={() => void rescheduleSession()}
                   >
-                    Mark rescheduled
+                    Reschedule with replacement
                   </button>
                 </div>
               </div>

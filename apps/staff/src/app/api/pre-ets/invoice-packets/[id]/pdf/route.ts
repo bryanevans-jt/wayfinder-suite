@@ -5,7 +5,7 @@ import {
   loadInvoicePacketPdfData,
 } from "@wayfinder/supabase/pre-ets-invoice-packet";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
-import { generatePreEtsInvoicePacketPdf } from "@/lib/pre-ets-invoice-pdf";
+import { buildInvoicePacketExport } from "@/lib/pre-ets-invoice-export";
 import { NextResponse } from "next/server";
 
 export async function GET(
@@ -25,13 +25,17 @@ export async function GET(
       return NextResponse.json({ error: "Invoice packet not found" }, { status: 404 });
     }
 
-    const pdfBytes = await generatePreEtsInvoicePacketPdf(data);
+    const exported = await buildInvoicePacketExport(data, auth.settings);
 
     await insertInvoicePacketEvent(admin, {
       packetId: id,
       actorUserId: auth.userId,
       eventKind: "pdf_generated",
-      metadata: { totalUnits: data.totalUnits },
+      metadata: {
+        totalUnits: data.totalUnits,
+        exportKind: exported.exportKind,
+        exportMode: auth.settings.invoice_export_mode,
+      },
     });
 
     await admin
@@ -39,10 +43,10 @@ export async function GET(
       .update({ generated_at: new Date().toISOString() })
       .eq("id", id);
 
-    return new NextResponse(Buffer.from(pdfBytes), {
+    return new NextResponse(Buffer.from(exported.buffer), {
       headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="pre-ets-invoice-${data.authNumber || id.slice(0, 8)}.pdf"`,
+        "Content-Type": exported.contentType,
+        "Content-Disposition": `attachment; filename="${exported.fileName}"`,
       },
     });
   } catch (err) {

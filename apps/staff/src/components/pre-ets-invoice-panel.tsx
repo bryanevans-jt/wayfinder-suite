@@ -130,7 +130,8 @@ export function PreEtsInvoicePanel() {
         <h2 className="text-lg font-semibold text-brand-black">Invoice packets</h2>
         <p className="mt-1 text-sm text-brand-black/65">
           Build draft packets from completed sessions with billable attendance for group or
-          individual authorizations. Download the PDF, then mark ready to archive to Drive.
+          individual authorizations. Download follows the export mode in Super Admin settings
+          (combined PDF, section ZIP, or both).
         </p>
       </div>
 
@@ -212,7 +213,7 @@ export function PreEtsInvoicePanel() {
                           target="_blank"
                           rel="noreferrer"
                         >
-                          Download PDF
+                          Download
                         </a>
                         <button
                           type="button"
