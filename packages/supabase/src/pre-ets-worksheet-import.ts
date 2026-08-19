@@ -86,6 +86,106 @@ async function upsertProgramGroup(
   return programGroup.id as string;
 }
 
+export type WorksheetImportActionResult = { ok: true } | { ok: false; error: string };
+
+type WorksheetParseMeta = {
+  rejectionReason?: string;
+  rejectedAt?: string;
+  rejectedBy?: string;
+};
+
+function parseMetaFromResult(parseResult: unknown): WorksheetParseMeta | null {
+  if (!parseResult || typeof parseResult !== "object") return null;
+  const meta = (parseResult as Record<string, unknown>)._meta;
+  if (!meta || typeof meta !== "object") return null;
+  return meta as WorksheetParseMeta;
+}
+
+export async function approveWorksheetImport(
+  admin: SupabaseClient,
+  importId: string,
+  userId: string
+): Promise<WorksheetImportActionResult> {
+  const { data: imp, error } = await admin
+    .from("pre_ets_worksheet_imports")
+    .select("id, status, parse_result")
+    .eq("id", importId)
+    .maybeSingle();
+
+  if (error || !imp) {
+    return { ok: false, error: error?.message ?? "Import not found" };
+  }
+  if (imp.status === "committed") {
+    return { ok: false, error: "Import already committed" };
+  }
+  if (imp.status === "rejected") {
+    return { ok: false, error: "Import was rejected — upload a new file" };
+  }
+
+  const parsed = imp.parse_result as Record<string, unknown>;
+  const { _meta: _removed, ...worksheetData } = parsed;
+
+  await admin
+    .from("pre_ets_worksheet_imports")
+    .update({
+      status: "approved",
+      approved_by: userId,
+      parse_result: worksheetData,
+    })
+    .eq("id", importId);
+
+  return { ok: true };
+}
+
+export async function rejectWorksheetImport(
+  admin: SupabaseClient,
+  importId: string,
+  userId: string,
+  reason: string
+): Promise<WorksheetImportActionResult> {
+  const trimmed = reason.trim();
+  if (!trimmed) {
+    return { ok: false, error: "Rejection reason is required" };
+  }
+
+  const { data: imp, error } = await admin
+    .from("pre_ets_worksheet_imports")
+    .select("id, status, parse_result")
+    .eq("id", importId)
+    .maybeSingle();
+
+  if (error || !imp) {
+    return { ok: false, error: error?.message ?? "Import not found" };
+  }
+  if (imp.status === "committed") {
+    return { ok: false, error: "Cannot reject a committed import" };
+  }
+
+  const parsed = (imp.parse_result ?? {}) as Record<string, unknown>;
+
+  await admin
+    .from("pre_ets_worksheet_imports")
+    .update({
+      status: "rejected",
+      approved_by: null,
+      parse_result: {
+        ...parsed,
+        _meta: {
+          rejectionReason: trimmed,
+          rejectedAt: new Date().toISOString(),
+          rejectedBy: userId,
+        },
+      },
+    })
+    .eq("id", importId);
+
+  return { ok: true };
+}
+
+export function worksheetRejectionReason(parseResult: unknown): string | null {
+  return parseMetaFromResult(parseResult)?.rejectionReason ?? null;
+}
+
 export async function commitWorksheetImport(
   admin: SupabaseClient,
   importId: string,
@@ -103,6 +203,13 @@ export async function commitWorksheetImport(
 
   if (imp.status === "committed") {
     return { ok: false, error: "Import already committed" };
+  }
+  if (imp.status === "rejected") {
+    const reason = worksheetRejectionReason(imp.parse_result) ?? "Worksheet was rejected";
+    return { ok: false, error: reason };
+  }
+  if (imp.status !== "approved") {
+    return { ok: false, error: "Worksheet must be approved before commit" };
   }
 
   const parsed = imp.parse_result as ParsedDistrictWorksheet;

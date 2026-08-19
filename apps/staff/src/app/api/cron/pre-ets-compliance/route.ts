@@ -3,6 +3,7 @@ import { respondWithCronLoggedError } from "@wayfinder/supabase/error-log";
 import {
   loadPreEtsSessionCompliance,
   loadSupervisorNotifyUserIds,
+  sessionInstructorNotifyUserIds,
 } from "@wayfinder/supabase/pre-ets-compliance";
 import { loadPreEtsSettings } from "@wayfinder/supabase/pre-ets-settings";
 import { notifyUser } from "@wayfinder/supabase/notify-user";
@@ -28,6 +29,41 @@ function authorizeCron(request: Request): boolean {
   return request.headers.get("authorization") === `Bearer ${secret}`;
 }
 
+type AlertKind = "late_roster" | "late_car";
+
+async function notifyComplianceRecipients(
+  admin: ReturnType<typeof createServiceRoleClient>,
+  session: Awaited<ReturnType<typeof loadPreEtsSessionCompliance>>[number],
+  kind: AlertKind,
+  userIds: string[],
+  linkPath: string
+): Promise<number> {
+  let notified = 0;
+  for (const userId of userIds) {
+    const { error } = await admin.from("pre_ets_compliance_alerts").insert({
+      session_id: session.sessionId,
+      alert_kind: kind,
+      notified_user_id: userId,
+    });
+    if (error) {
+      if (error.code === "23505") continue;
+      console.error("pre_ets compliance alert insert:", error.message);
+      continue;
+    }
+
+    await notifyUser(admin, {
+      userId,
+      app: "staff",
+      kind: "pre_ets_compliance",
+      title: "Pre-ETS documentation overdue",
+      body: `${session.schoolName ?? "School"} · Auth ${session.authNumber ?? "—"} · Session ${session.sessionDate ?? "—"} — ${kind === "late_roster" ? "signed roster upload" : "class activity report"} is past due.`,
+      link_path: linkPath,
+    });
+    notified++;
+  }
+  return notified;
+}
+
 export async function GET(request: Request) {
   const route = "api/cron/pre-ets-compliance";
   if (!authorizeCron(request)) {
@@ -50,36 +86,32 @@ export async function GET(request: Request) {
     }
 
     const lateSessions = await loadPreEtsSessionCompliance(admin, { onlyLate: true });
-    const recipients = await loadSupervisorNotifyUserIds(admin);
+    const supervisorRecipients = await loadSupervisorNotifyUserIds(admin);
     let notified = 0;
 
     for (const session of lateSessions) {
-      const missing: ("late_roster" | "late_car")[] = [];
+      const missing: AlertKind[] = [];
       if (session.missingRoster) missing.push("late_roster");
       if (session.missingCar) missing.push("late_car");
 
       for (const kind of missing) {
-        for (const userId of recipients) {
-          const { error } = await admin.from("pre_ets_compliance_alerts").insert({
-            session_id: session.sessionId,
-            alert_kind: kind,
-            notified_user_id: userId,
-          });
-          if (error) {
-            if (error.code === "23505") continue;
-            console.error("pre_ets compliance alert insert:", error.message);
-            continue;
-          }
+        notified += await notifyComplianceRecipients(
+          admin,
+          session,
+          kind,
+          supervisorRecipients,
+          "/dashboard/pre-ets"
+        );
 
-          await notifyUser(admin, {
-            userId,
-            app: "staff",
-            kind: "pre_ets_compliance",
-            title: "Pre-ETS documentation overdue",
-            body: `${session.schoolName ?? "School"} · Auth ${session.authNumber ?? "—"} · Session ${session.sessionDate ?? "—"} — ${kind === "late_roster" ? "signed roster upload" : "class activity report"} is past due.`,
-            link_path: "/dashboard/pre-ets",
-          });
-          notified++;
+        const instructorIds = sessionInstructorNotifyUserIds(session);
+        if (instructorIds.length > 0) {
+          notified += await notifyComplianceRecipients(
+            admin,
+            session,
+            kind,
+            instructorIds,
+            "/dashboard/pre-ets"
+          );
         }
       }
     }

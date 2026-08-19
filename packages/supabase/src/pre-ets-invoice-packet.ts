@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PreEtsSettingsRow } from "./pre-ets-settings";
+import { resolvePreEtsServiceLabel } from "./pre-ets-settings";
 
 export type InvoicePacketParticipant = {
   participantId: string;
@@ -66,7 +67,10 @@ export function resolvePreEtsDrivePath(
 export async function loadInvoicePacketPdfData(
   admin: SupabaseClient,
   packetId: string,
-  settings: Pick<PreEtsSettingsRow, "provider_name" | "remit_address" | "default_rate_cents">
+  settings: Pick<
+    PreEtsSettingsRow,
+    "provider_name" | "remit_address" | "default_rate_cents" | "service_codes"
+  >
 ): Promise<InvoicePacketPdfData | null> {
   const { data: packet } = await admin
     .from("pre_ets_invoice_packets")
@@ -167,7 +171,7 @@ export async function loadInvoicePacketPdfData(
     authNumber: auth.auth_number ?? "",
     invoiceNumber,
     serviceCode: auth.service_code,
-    serviceLabel: auth.service_label,
+    serviceLabel: resolvePreEtsServiceLabel(auth.service_code, auth.service_label, settings),
     serviceMonth: String(packet.service_month).slice(0, 7),
     rateCents: settings.default_rate_cents,
     totalUnits: packet.total_hours as number,

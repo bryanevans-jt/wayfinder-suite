@@ -48,6 +48,7 @@ export async function GET() {
         module_enabled: settings.module_enabled,
         submission_deadline_hours: settings.submission_deadline_hours,
         ytd_unit_warning_threshold: settings.ytd_unit_warning_threshold,
+        service_codes: settings.service_codes,
       },
     });
   } catch (err) {

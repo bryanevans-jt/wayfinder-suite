@@ -14,6 +14,7 @@ type ImportRow = {
   archived_at: string | null;
   created_at: string;
   committed_at: string | null;
+  parse_result?: { _meta?: { rejectionReason?: string } };
 };
 
 type YtdWarning = {
@@ -77,17 +78,18 @@ export function PreEtsWorksheetPanel() {
     void load();
   }
 
-  async function commitImport(importId: string) {
+  async function worksheetAction(importId: string, action: "approve" | "reject" | "commit", reason?: string) {
     setBusy(true);
     setMessage(null);
     setAuthMatchStats(null);
     const res = await fetch(`/api/pre-ets/worksheets/${importId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "commit" }),
+      body: JSON.stringify({ action, reason }),
     });
     const data = (await res.json()) as {
       ok?: boolean;
+      status?: string;
       districtId?: string;
       ytdWarnings?: YtdWarning[];
       authMatchStats?: AuthMatchStats | null;
@@ -97,9 +99,24 @@ export function PreEtsWorksheetPanel() {
     };
     setBusy(false);
     if (!res.ok) {
-      setMessage(data.error ?? "Commit failed");
+      setMessage(data.error ?? `${action} failed`);
       return;
     }
+
+    if (action === "approve") {
+      setMessage("Worksheet approved. You can now commit to rosters and authorizations.");
+      setPreview(null);
+      void load();
+      return;
+    }
+
+    if (action === "reject") {
+      setMessage("Worksheet rejected.");
+      setPreview(null);
+      void load();
+      return;
+    }
+
     setYtdWarnings(data.ytdWarnings ?? []);
     setAuthMatchStats(data.authMatchStats ?? null);
     const archiveNote = data.archivedToDrive
@@ -119,6 +136,20 @@ export function PreEtsWorksheetPanel() {
     );
     setPreview(null);
     void load();
+  }
+
+  async function commitImport(importId: string) {
+    await worksheetAction(importId, "commit");
+  }
+
+  async function approveImport(importId: string) {
+    await worksheetAction(importId, "approve");
+  }
+
+  async function rejectImport(importId: string) {
+    const reason = window.prompt("Rejection reason (required):");
+    if (!reason?.trim()) return;
+    await worksheetAction(importId, "reject", reason.trim());
   }
 
   return (
@@ -194,9 +225,17 @@ export function PreEtsWorksheetPanel() {
             type="button"
             disabled={busy}
             className="mt-4 rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white"
-            onClick={() => void commitImport(preview.importId)}
+            onClick={() => void approveImport(preview.importId)}
           >
-            Commit to rosters &amp; authorizations
+            Approve worksheet
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            className="mt-4 ml-2 rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-800"
+            onClick={() => void rejectImport(preview.importId)}
+          >
+            Reject
           </button>
         </div>
       ) : null}
@@ -261,12 +300,13 @@ export function PreEtsWorksheetPanel() {
               <th className="px-3 py-2">Phase</th>
               <th className="px-3 py-2">Status</th>
               <th className="px-3 py-2">Drive</th>
+              <th className="px-3 py-2">Actions</th>
             </tr>
           </thead>
           <tbody>
             {imports.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-brand-black/55">
+                <td colSpan={7} className="px-3 py-6 text-center text-brand-black/55">
                   No worksheet imports yet.
                 </td>
               </tr>
@@ -280,6 +320,45 @@ export function PreEtsWorksheetPanel() {
                   <td className="px-3 py-2">{row.status}</td>
                   <td className="px-3 py-2 text-xs text-brand-black/60">
                     {row.drive_file_name ?? (row.archived_at ? "archived" : "—")}
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      {row.status === "parsed" ? (
+                        <>
+                          <button
+                            type="button"
+                            className="text-brand-green hover:underline"
+                            disabled={busy}
+                            onClick={() => void approveImport(row.id)}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            className="text-red-700 hover:underline"
+                            disabled={busy}
+                            onClick={() => void rejectImport(row.id)}
+                          >
+                            Reject
+                          </button>
+                        </>
+                      ) : null}
+                      {row.status === "approved" ? (
+                        <button
+                          type="button"
+                          className="text-brand-green hover:underline"
+                          disabled={busy}
+                          onClick={() => void commitImport(row.id)}
+                        >
+                          Commit
+                        </button>
+                      ) : null}
+                      {row.status === "rejected" && row.parse_result?._meta?.rejectionReason ? (
+                        <span className="text-brand-black/55">
+                          {row.parse_result._meta.rejectionReason}
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))

@@ -1,7 +1,7 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { seedSessionAttendance } from "@wayfinder/supabase/pre-ets-session-attendance";
-import { resolvePrimaryInstructorForSchool } from "@wayfinder/supabase/pre-ets-staff-assignments";
+import { resolveCoInstructorForSchool, resolvePrimaryInstructorForSchool } from "@wayfinder/supabase/pre-ets-staff-assignments";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
@@ -34,7 +34,7 @@ export async function POST(
     const { data: existing } = await admin
       .from("pre_ets_sessions")
       .select(
-        "id, status, authorization_id, school_id, program_group_id, instructor_name, primary_instructor_user_id"
+        "id, status, authorization_id, school_id, program_group_id, instructor_name, primary_instructor_user_id, co_instructor_user_id"
       )
       .eq("id", sessionId)
       .maybeSingle();
@@ -68,8 +68,13 @@ export async function POST(
       admin,
       existing.school_id as string
     );
+    const coInstructor = await resolveCoInstructorForSchool(admin, existing.school_id as string);
     const instructorUserId =
-      (existing.primary_instructor_user_id as string | null) ?? assignedInstructor?.userId ?? null;
+      (existing.primary_instructor_user_id as string | null) ??
+      assignedInstructor?.userId ??
+      null;
+    const coInstructorUserId =
+      (existing.co_instructor_user_id as string | null) ?? coInstructor?.userId ?? null;
     const instructorName =
       (existing.instructor_name as string | null) ?? assignedInstructor?.fullName ?? null;
 
@@ -83,6 +88,7 @@ export async function POST(
         start_time: body.newStartTime ?? null,
         end_time: body.newEndTime ?? null,
         primary_instructor_user_id: instructorUserId,
+        co_instructor_user_id: coInstructorUserId,
         instructor_name: instructorName,
         rescheduled_from_session_id: sessionId,
         status: "scheduled",

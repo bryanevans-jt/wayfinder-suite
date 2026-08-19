@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
+import { canSupervisePreEts } from "@wayfinder/supabase/pre-ets-settings";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
@@ -21,7 +22,12 @@ export async function PATCH(
       status?: string;
       cancelledReason?: string | null;
       instructorName?: string | null;
+      coInstructorUserId?: string | null;
     };
+
+    if (body.coInstructorUserId !== undefined && !canSupervisePreEts(auth.role, auth.settings)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const patch: Record<string, unknown> = {};
     if (body.sessionDate !== undefined) patch.session_date = body.sessionDate;
@@ -30,6 +36,9 @@ export async function PATCH(
     if (body.status !== undefined) patch.status = body.status;
     if (body.cancelledReason !== undefined) patch.cancelled_reason = body.cancelledReason;
     if (body.instructorName !== undefined) patch.instructor_name = body.instructorName;
+    if (body.coInstructorUserId !== undefined) {
+      patch.co_instructor_user_id = body.coInstructorUserId;
+    }
 
     const admin = createServiceRoleClient();
     const { error } = await admin.from("pre_ets_sessions").update(patch).eq("id", id);

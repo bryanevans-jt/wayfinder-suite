@@ -59,3 +59,22 @@ export async function resolvePrimaryInstructorForSchool(
 
   return null;
 }
+
+/** Co-instructor for a school from staff assignments, or null if none. */
+export async function resolveCoInstructorForSchool(
+  admin: SupabaseClient,
+  schoolId: string
+): Promise<PreEtsSchoolInstructor | null> {
+  const { data } = await admin
+    .from("pre_ets_staff_school_assignments")
+    .select("user_id, profiles(full_name)")
+    .eq("school_id", schoolId)
+    .eq("assignment_role", "co_instructor")
+    .limit(1)
+    .maybeSingle();
+
+  if (!data) return null;
+  const profile = data.profiles as { full_name: string | null } | { full_name: string | null }[] | null;
+  const fullName = Array.isArray(profile) ? profile[0]?.full_name ?? null : profile?.full_name ?? null;
+  return { userId: data.user_id as string, fullName };
+}

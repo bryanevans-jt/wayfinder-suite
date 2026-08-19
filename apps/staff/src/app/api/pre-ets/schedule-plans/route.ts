@@ -2,7 +2,7 @@ import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { expandPreEtsScheduleDates } from "@wayfinder/supabase/pre-ets-schedule-plans";
 import { seedSessionAttendance } from "@wayfinder/supabase/pre-ets-session-attendance";
-import { resolvePrimaryInstructorForSchool } from "@wayfinder/supabase/pre-ets-staff-assignments";
+import { resolveCoInstructorForSchool, resolvePrimaryInstructorForSchool } from "@wayfinder/supabase/pre-ets-staff-assignments";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
@@ -117,6 +117,7 @@ export async function POST(request: Request) {
       admin,
       group.school_id as string
     );
+    const coInstructor = await resolveCoInstructorForSchool(admin, group.school_id as string);
     const instructorName = assignedInstructor?.fullName ?? group.instructor_name;
     const instructorUserId = assignedInstructor?.userId ?? null;
 
@@ -130,6 +131,7 @@ export async function POST(request: Request) {
           program_group_id: body.programGroupId,
           session_date: d,
           primary_instructor_user_id: instructorUserId,
+          co_instructor_user_id: coInstructor?.userId ?? null,
           instructor_name: instructorName,
           status: "scheduled",
         })

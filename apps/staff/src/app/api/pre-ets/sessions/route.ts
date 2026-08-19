@@ -3,6 +3,7 @@ import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { seedSessionAttendance } from "@wayfinder/supabase/pre-ets-session-attendance";
 import {
   loadPreEtsAssignedSchoolIds,
+  resolveCoInstructorForSchool,
   resolvePrimaryInstructorForSchool,
 } from "@wayfinder/supabase/pre-ets-staff-assignments";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
     let query = admin
       .from("pre_ets_sessions")
       .select(
-        "id, session_date, start_time, end_time, status, instructor_name, authorization_id, school_id, signed_roster_drive_file_id, signed_roster_drive_file_name, signed_roster_uploaded_at, documentation_completed_at, pre_ets_schools(name), pre_ets_authorizations(auth_number, service_code, service_label), pre_ets_activity_reports(status)"
+        "id, session_date, start_time, end_time, status, instructor_name, primary_instructor_user_id, co_instructor_user_id, authorization_id, school_id, signed_roster_drive_file_id, signed_roster_drive_file_name, signed_roster_uploaded_at, documentation_completed_at, pre_ets_schools(name), pre_ets_authorizations(auth_number, service_code, service_label), pre_ets_activity_reports(status)"
       )
       .order("session_date", { ascending: true })
       .limit(200);
@@ -86,6 +87,8 @@ export async function POST(request: Request) {
       ? { userId: null as string | null, fullName: body.instructorName }
       : await resolvePrimaryInstructorForSchool(admin, authRow.school_id as string);
 
+    const coInstructor = await resolveCoInstructorForSchool(admin, authRow.school_id as string);
+
     const { data, error } = await admin
       .from("pre_ets_sessions")
       .insert({
@@ -96,6 +99,7 @@ export async function POST(request: Request) {
         start_time: body.startTime || null,
         end_time: body.endTime || null,
         primary_instructor_user_id: instructor?.userId ?? null,
+        co_instructor_user_id: coInstructor?.userId ?? null,
         instructor_name: instructor?.fullName ?? body.instructorName ?? null,
         status: "scheduled",
       })

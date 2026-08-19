@@ -46,6 +46,7 @@ export function PreEtsInvoicePanel() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [events, setEvents] = useState<PacketEvent[]>([]);
   const [message, setMessage] = useState<string | null>(null);
+  const [invoiceEdits, setInvoiceEdits] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     const res = await fetch("/api/pre-ets/invoice-packets");
@@ -96,6 +97,22 @@ export function PreEtsInvoicePanel() {
         ? `Draft packet created with ${data.billableUnits ?? 0} billable unit(s).`
         : data.error ?? "Could not create packet"
     );
+    void load();
+  }
+
+  async function saveProviderInvoiceNumber(id: string) {
+    const value = invoiceEdits[id] ?? "";
+    setMessage(null);
+    const res = await fetch(`/api/pre-ets/invoice-packets/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ providerInvoiceNumber: value.trim() || null }),
+    });
+    if (!res.ok) {
+      setMessage("Could not save provider invoice number.");
+      return;
+    }
+    setMessage("Provider invoice number saved.");
     void load();
   }
 
@@ -177,6 +194,7 @@ export function PreEtsInvoicePanel() {
               <th className="px-3 py-2">Month</th>
               <th className="px-3 py-2">School</th>
               <th className="px-3 py-2">Auth #</th>
+              <th className="px-3 py-2">Invoice #</th>
               <th className="px-3 py-2">Units</th>
               <th className="px-3 py-2">Amount</th>
               <th className="px-3 py-2">Status</th>
@@ -186,7 +204,7 @@ export function PreEtsInvoicePanel() {
           <tbody>
             {packets.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-center text-brand-black/55">
+                <td colSpan={9} className="px-3 py-6 text-center text-brand-black/55">
                   No invoice packets yet.
                 </td>
               </tr>
@@ -201,6 +219,29 @@ export function PreEtsInvoicePanel() {
                     <td className="px-3 py-2">{schoolName(p.pre_ets_authorizations)}</td>
                     <td className="px-3 py-2 font-mono text-xs">
                       {p.pre_ets_authorizations?.auth_number}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex min-w-[10rem] items-center gap-1">
+                        <input
+                          className="w-full rounded border border-neutral-300 px-2 py-1 font-mono text-xs"
+                          value={
+                            invoiceEdits[p.id] ??
+                            p.provider_invoice_number ??
+                            ""
+                          }
+                          placeholder="Provider #"
+                          onChange={(e) =>
+                            setInvoiceEdits((prev) => ({ ...prev, [p.id]: e.target.value }))
+                          }
+                        />
+                        <button
+                          type="button"
+                          className="shrink-0 text-xs text-brand-green hover:underline"
+                          onClick={() => void saveProviderInvoiceNumber(p.id)}
+                        >
+                          Save
+                        </button>
+                      </div>
                     </td>
                     <td className="px-3 py-2">{p.total_hours}</td>
                     <td className="px-3 py-2">${(p.total_amount_cents / 100).toFixed(2)}</td>
@@ -257,7 +298,7 @@ export function PreEtsInvoicePanel() {
                   </tr>
                   {expandedId === p.id ? (
                     <tr className="border-t border-neutral-50 bg-neutral-50/50">
-                      <td colSpan={8} className="px-3 py-3">
+                      <td colSpan={9} className="px-3 py-3">
                         <ul className="space-y-1 text-xs text-brand-black/70">
                           {events.length === 0 ? (
                             <li>No audit events yet.</li>

@@ -271,6 +271,49 @@ export function parsePreEtsRateDollars(value: string): number {
   return Math.round(n * 100);
 }
 
+/** Look up a configured GVRA service code row by code. */
+export function lookupPreEtsServiceCode(
+  code: string,
+  settings: Pick<PreEtsSettingsRow, "service_codes">
+): PreEtsServiceCodeRow | null {
+  const normalized = code.trim();
+  if (!normalized) return null;
+  return (
+    settings.service_codes.find((row) => row.code.trim() === normalized) ?? null
+  );
+}
+
+/** Prefer settings catalog description, then worksheet label, then short service name. */
+export function resolvePreEtsServiceLabel(
+  code: string,
+  fallbackLabel: string | null | undefined,
+  settings: Pick<PreEtsSettingsRow, "service_codes">
+): string {
+  const row = lookupPreEtsServiceCode(code, settings);
+  if (row?.description) return row.description;
+  if (fallbackLabel?.trim()) return fallbackLabel.trim();
+  if (row?.service) return row.service;
+  return code.trim();
+}
+
+/** Short service name from catalog when configured. */
+export function resolvePreEtsServiceName(
+  code: string,
+  settings: Pick<PreEtsSettingsRow, "service_codes">
+): string {
+  const row = lookupPreEtsServiceCode(code, settings);
+  return row?.service?.trim() || code.trim();
+}
+
+/** Whether a code appears in the configured catalog (empty catalog = allow any). */
+export function isKnownPreEtsServiceCode(
+  code: string,
+  settings: Pick<PreEtsSettingsRow, "service_codes">
+): boolean {
+  if (settings.service_codes.length === 0) return true;
+  return lookupPreEtsServiceCode(code, settings) !== null;
+}
+
 /** Soft YTD warning — no hard cap. */
 export function isPreEtsYtdAtOrAboveWarning(
   billableUnits: number,

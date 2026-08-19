@@ -1,6 +1,6 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
-import { loadPreEtsSettings } from "@wayfinder/supabase/pre-ets-settings";
+import { loadPreEtsSettings, resolvePreEtsServiceLabel } from "@wayfinder/supabase/pre-ets-settings";
 import { buildPreEtsRosterPdf } from "@/lib/pre-ets-roster-export";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
@@ -73,6 +73,8 @@ export async function GET(
       authType === "individual" && students.length > 0 ? [students[0]] : students;
 
     const settings = await loadPreEtsSettings(admin);
+    const serviceCode = authRow?.service_code ?? "";
+    const topic = resolvePreEtsServiceLabel(serviceCode, authRow?.service_label, settings);
     const pdfBytes = await buildPreEtsRosterPdf(
       {
         authorizationNumber: authRow?.auth_number ?? "",
@@ -80,8 +82,8 @@ export async function GET(
         sessionDate: sessionDate ?? (session.session_date as string | null),
         schoolName: school?.name ?? "",
         instructorName: (session.instructor_name as string) ?? "",
-        topic: authRow?.service_label ?? "",
-        serviceCode: authRow?.service_code ?? "",
+        topic,
+        serviceCode,
         students: pdfStudents,
       },
       settings

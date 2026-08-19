@@ -371,7 +371,7 @@ export function PreEtsSettingsPanel() {
           />
           <PlaceholderReferenceTable
             title="Class Activity Report"
-            note="CAR Google Doc export is not wired yet — reserved placeholders for when you build that template."
+            note="Export from Sessions & reports after submitting a CAR. Requires template_car_doc_id in settings."
             placeholders={PRE_ETS_CAR_PLACEHOLDERS}
           />
           <div>

@@ -79,12 +79,21 @@ export const PRE_ETS_DRIVE_PATH_TOKENS: PreEtsTemplatePlaceholder[] = [
 export const PRE_ETS_DEFAULT_DRIVE_PATH_TEMPLATE =
   "Pre-ETS/{SchoolYear}/{Month}/{School}/{AuthNumber}";
 
-/** Class Activity Report — template export not wired yet; reserved for future use. */
+/** Class Activity Report — template export uses these tokens when configured. */
 export const PRE_ETS_CAR_PLACEHOLDERS: PreEtsTemplatePlaceholder[] = [
   { token: "SessionDate", description: "Session date" },
   { token: "SchoolName", description: "School name" },
   { token: "AuthNumber", description: "Authorization number" },
   { token: "InstructorName", description: "Instructor display name" },
-  { token: "Topic", description: "Session topic" },
+  { token: "Topic", description: "Lesson topic (alias of LessonTopic)" },
+  { token: "LessonTopic", description: "Lesson topic" },
   { token: "ServiceCode", description: "GVRA service code" },
+  { token: "LearningObjective", description: "Learning objective" },
+  { token: "LessonStructure", description: "Lesson structure / activities" },
+  { token: "StudentsOnTime", description: "Yes / No" },
+  { token: "StudentsEngaged", description: "Yes / No" },
+  { token: "StudentsParticipated", description: "Yes / No" },
+  { token: "StudentsDisruptive", description: "Yes / No" },
+  { token: "FacultyPresent", description: "Yes / No" },
+  { token: "AdditionalNotes", description: "Additional notes" },
 ];

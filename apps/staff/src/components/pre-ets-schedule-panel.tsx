@@ -1,5 +1,6 @@
 "use client";
 
+import type { PreEtsServiceCodeRow } from "@wayfinder/supabase/pre-ets-settings";
 import { useCallback, useEffect, useState } from "react";
 
 type ProgramGroup = {
@@ -51,6 +52,7 @@ export function PreEtsSchedulePanel() {
   const [previewDates, setPreviewDates] = useState<string[]>([]);
   const [plans, setPlans] = useState<SchedulePlan[]>([]);
   const [message, setMessage] = useState<string | null>(null);
+  const [serviceCodes, setServiceCodes] = useState<PreEtsServiceCodeRow[]>([]);
 
   const loadPlans = useCallback(async (programGroupId: string) => {
     if (!programGroupId) {
@@ -72,6 +74,11 @@ export function PreEtsSchedulePanel() {
 
   useEffect(() => {
     void load();
+    void (async () => {
+      const res = await fetch("/api/pre-ets/access");
+      const data = (await res.json()) as { settings?: { service_codes?: PreEtsServiceCodeRow[] } };
+      if (res.ok) setServiceCodes(data.settings?.service_codes ?? []);
+    })();
   }, [load]);
 
   useEffect(() => {
@@ -86,6 +93,11 @@ export function PreEtsSchedulePanel() {
     groupAuth?.auth_number &&
     selected?.service_code &&
     plannedCode !== selected.service_code;
+  const unknownCatalogCode =
+    plannedCode &&
+    serviceCodes.length > 0 &&
+    !serviceCodes.some((row) => row.code === plannedCode.trim());
+  const selectedCatalog = serviceCodes.find((row) => row.code === plannedCode.trim());
 
   function buildPayload() {
     const excluded = excludedMonths
@@ -198,15 +210,39 @@ export function PreEtsSchedulePanel() {
 
         <label className="block">
           <span className="font-medium">Planned service code</span>
-          <input
-            className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2"
-            value={plannedCode}
-            onChange={(e) => setPlannedCode(e.target.value)}
-            placeholder={selected?.service_code ?? "Code"}
-          />
+          {serviceCodes.length > 0 ? (
+            <select
+              className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2"
+              value={plannedCode}
+              onChange={(e) => setPlannedCode(e.target.value)}
+            >
+              <option value="">Select code…</option>
+              {serviceCodes.map((row) => (
+                <option key={row.code} value={row.code}>
+                  {row.code}
+                  {row.service ? ` — ${row.service}` : ""}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2"
+              value={plannedCode}
+              onChange={(e) => setPlannedCode(e.target.value)}
+              placeholder={selected?.service_code ?? "Code"}
+            />
+          )}
+          {selectedCatalog?.description ? (
+            <p className="mt-1 text-xs text-brand-black/55">{selectedCatalog.description}</p>
+          ) : null}
           {codeMismatch ? (
             <p className="mt-1 text-xs text-amber-800">
               Planned code differs from worksheet service code ({selected?.service_code}).
+            </p>
+          ) : null}
+          {unknownCatalogCode ? (
+            <p className="mt-1 text-xs text-amber-800">
+              Code is not in the Super Admin service code catalog.
             </p>
           ) : null}
         </label>

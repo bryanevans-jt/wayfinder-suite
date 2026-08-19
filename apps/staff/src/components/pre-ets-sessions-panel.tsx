@@ -9,6 +9,8 @@ type Session = {
   end_time: string | null;
   status: string;
   instructor_name: string | null;
+  primary_instructor_user_id?: string | null;
+  co_instructor_user_id?: string | null;
   signed_roster_drive_file_id: string | null;
   signed_roster_drive_file_name?: string | null;
   signed_roster_uploaded_at: string | null;
@@ -88,6 +90,9 @@ export function PreEtsSessionsPanel() {
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [canSupervise, setCanSupervise] = useState(false);
+  const [staffOptions, setStaffOptions] = useState<{ id: string; full_name: string | null }[]>([]);
+  const [coInstructorId, setCoInstructorId] = useState("");
 
   const load = useCallback(async () => {
     const res = await fetch("/api/pre-ets/sessions");
@@ -105,6 +110,18 @@ export function PreEtsSessionsPanel() {
 
   useEffect(() => {
     void load();
+    void (async () => {
+      const accessRes = await fetch("/api/pre-ets/access");
+      const accessData = (await accessRes.json()) as { access?: { canSupervise?: boolean } };
+      if (accessRes.ok && accessData.access?.canSupervise) {
+        setCanSupervise(true);
+        const staffRes = await fetch("/api/pre-ets/instructors");
+        const staffData = (await staffRes.json()) as {
+          staff?: { id: string; full_name: string | null }[];
+        };
+        if (staffRes.ok) setStaffOptions(staffData.staff ?? []);
+      }
+    })();
   }, [load]);
 
   const selected = sessions.find((s) => s.id === selectedId) ?? null;
@@ -114,6 +131,9 @@ export function PreEtsSessionsPanel() {
     setSelectedId(sessionId);
     setMessage(null);
     setError(null);
+
+    const session = sessions.find((s) => s.id === sessionId);
+    setCoInstructorId(session?.co_instructor_user_id ?? "");
 
     const reportRes = await fetch(`/api/pre-ets/sessions/${sessionId}/activity-report`);
     const reportData = (await reportRes.json()) as { report?: ActivityReport };
@@ -128,6 +148,22 @@ export function PreEtsSessionsPanel() {
     const attRes = await fetch(`/api/pre-ets/sessions/${sessionId}/attendance`);
     const attData = (await attRes.json()) as { attendance?: AttendanceRow[] };
     if (attRes.ok) setAttendance(attData.attendance ?? []);
+  }
+
+  async function saveCoInstructor() {
+    if (!selectedId) return;
+    setError(null);
+    const res = await fetch(`/api/pre-ets/sessions/${selectedId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ coInstructorUserId: coInstructorId || null }),
+    });
+    if (!res.ok) {
+      setError("Could not update co-instructor.");
+      return;
+    }
+    setMessage("Co-instructor updated.");
+    void load();
   }
 
   async function saveReport(submit: boolean) {
@@ -373,7 +409,44 @@ export function PreEtsSessionsPanel() {
                 >
                   Print roster PDF
                 </button>
+                {report ? (
+                  <a
+                    href={`/api/pre-ets/sessions/${selected.id}/car-pdf`}
+                    className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-brand-black/80"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Download CAR PDF
+                  </a>
+                ) : null}
               </div>
+
+              {canSupervise ? (
+                <div className="mt-4 space-y-2 text-sm">
+                  <p className="font-medium">Co-instructor</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      className="rounded-lg border border-neutral-300 px-2 py-1.5"
+                      value={coInstructorId}
+                      onChange={(e) => setCoInstructorId(e.target.value)}
+                    >
+                      <option value="">None</option>
+                      {staffOptions.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.full_name ?? s.id.slice(0, 8)}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium"
+                      onClick={() => void saveCoInstructor()}
+                    >
+                      Save co-instructor
+                    </button>
+                  </div>
+                </div>
+              ) : null}
 
               <div className="mt-4 space-y-2 text-sm">
                 <p className="font-medium">Signed roster PDF (Google Drive)</p>
