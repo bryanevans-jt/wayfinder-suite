@@ -294,6 +294,16 @@ export function PreEtsSettingsPanel() {
             </label>
           ))}
         </div>
+        <p className="mt-3 text-xs text-brand-black/55">
+          Use {"{{Placeholder}}"} tokens in Google Docs. Roster templates support{" "}
+          <code className="font-mono">AuthorizationNumber</code>, <code className="font-mono">SessionDate</code>,{" "}
+          <code className="font-mono">SchoolName</code>, <code className="font-mono">InstructorName</code>,{" "}
+          <code className="font-mono">Topic</code>, <code className="font-mono">ServiceCode</code>,{" "}
+          <code className="font-mono">StudentList</code>, and numbered rows like{" "}
+          <code className="font-mono">StudentName1</code> / <code className="font-mono">PID1</code>. Invoice
+          templates support <code className="font-mono">ProviderName</code>, <code className="font-mono">TotalUnits</code>,{" "}
+          <code className="font-mono">TotalAmount</code>, and related fields.
+        </p>
       </section>
 
       <section className="rounded-xl border border-neutral-200 bg-white p-5">

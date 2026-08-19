@@ -1,6 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadPreEtsSettings } from "./pre-ets-settings";
-import type { ParsedDistrictWorksheet } from "./pre-ets-worksheet-parser";
+import type { ParsedDistrictWorksheet, ParsedWorksheetGroup } from "./pre-ets-worksheet-parser";
+import {
+  assertPlanningCommittedForAuthMatch,
+  countPendingAuthorizationsForDistrictMonth,
+  findProgramGroupId,
+  resolveAuthorizationForWorksheetRow,
+  type AuthMatchStats,
+} from "./pre-ets-worksheet-auth-match";
 
 export type WorksheetImportPhase = "planning" | "auth_match";
 
@@ -12,13 +19,78 @@ export type PreEtsYtdWarning = {
   threshold: number;
 };
 
+export type CommitWorksheetImportResult =
+  | {
+      ok: true;
+      districtId: string;
+      ytdWarnings: PreEtsYtdWarning[];
+      authMatchStats?: AuthMatchStats;
+    }
+  | { ok: false; error: string };
+
+async function upsertProgramGroup(
+  admin: SupabaseClient,
+  input: {
+    phase: WorksheetImportPhase;
+    schoolId: string;
+    officeId: string;
+    importId: string;
+    serviceMonth: string;
+    group: ParsedWorksheetGroup;
+  }
+): Promise<string | null> {
+  const existingId = await findProgramGroupId(
+    admin,
+    input.schoolId,
+    input.serviceMonth,
+    input.group.groupName
+  );
+
+  if (existingId) {
+    if (input.phase === "auth_match") {
+      await admin
+        .from("pre_ets_program_groups")
+        .update({
+          worksheet_import_id: input.importId,
+          header_raw: input.group.headerRaw,
+          frequency: input.group.frequency,
+          instructor_name: input.group.instructorName,
+          class_time: input.group.classTime,
+          service_code: input.group.serviceCode,
+          service_label: input.group.serviceLabel,
+        })
+        .eq("id", existingId);
+    }
+    return existingId;
+  }
+
+  const { data: programGroup, error: pgErr } = await admin
+    .from("pre_ets_program_groups")
+    .insert({
+      school_id: input.schoolId,
+      gvra_office_id: input.officeId,
+      worksheet_import_id: input.importId,
+      service_month: input.serviceMonth,
+      header_raw: input.group.headerRaw,
+      group_name: input.group.groupName,
+      frequency: input.group.frequency,
+      instructor_name: input.group.instructorName,
+      class_time: input.group.classTime,
+      service_code: input.group.serviceCode,
+      service_label: input.group.serviceLabel,
+    })
+    .select("id")
+    .single();
+
+  if (pgErr || !programGroup) return null;
+  return programGroup.id as string;
+}
+
 export async function commitWorksheetImport(
   admin: SupabaseClient,
   importId: string,
   userId: string
-): Promise<
-  { ok: true; districtId: string; ytdWarnings: PreEtsYtdWarning[] } | { ok: false; error: string }
-> {
+): Promise<CommitWorksheetImportResult> {
   const { data: imp, error: impErr } = await admin
     .from("pre_ets_worksheet_imports")
     .select("*")
@@ -38,10 +110,32 @@ export async function commitWorksheetImport(
     return { ok: false, error: "Parsed worksheet missing district, month, or school year" };
   }
 
+  const phase = (imp.phase as WorksheetImportPhase) ?? "planning";
+
+  if (phase === "auth_match") {
+    const planningCheck = await assertPlanningCommittedForAuthMatch(
+      admin,
+      parsed.districtNumber,
+      parsed.schoolYear,
+      parsed.serviceMonth
+    );
+    if (!planningCheck.ok) {
+      return { ok: false, error: planningCheck.error };
+    }
+  }
+
   const settings = await loadPreEtsSettings(admin);
   const ytdThreshold = settings.ytd_unit_warning_threshold;
   const ytdWarnings: PreEtsYtdWarning[] = [];
   const warnedParticipants = new Set<string>();
+
+  const authMatchStats: AuthMatchStats = {
+    authorizationsMatched: 0,
+    authorizationsCreated: 0,
+    rosterEntriesUpdated: 0,
+    unmatchedStudents: [],
+    pendingAuthsRemaining: 0,
+  };
 
   const { data: district, error: distErr } = await admin
     .from("pre_ets_districts")
@@ -98,26 +192,16 @@ export async function commitWorksheetImport(
       if (schoolErr || !school) continue;
       const schoolId = school.id as string;
 
-      const { data: programGroup, error: pgErr } = await admin
-        .from("pre_ets_program_groups")
-        .insert({
-          school_id: schoolId,
-          gvra_office_id: officeId,
-          worksheet_import_id: importId,
-          service_month: parsed.serviceMonth,
-          header_raw: group.headerRaw,
-          group_name: group.groupName,
-          frequency: group.frequency,
-          instructor_name: group.instructorName,
-          class_time: group.classTime,
-          service_code: group.serviceCode,
-          service_label: group.serviceLabel,
-        })
-        .select("id")
-        .single();
+      const programGroupId = await upsertProgramGroup(admin, {
+        phase,
+        schoolId,
+        officeId,
+        importId,
+        serviceMonth: parsed.serviceMonth,
+        group,
+      });
 
-      if (pgErr || !programGroup) continue;
-      const programGroupId = programGroup.id as string;
+      if (!programGroupId) continue;
 
       const groupStudents = group.students.filter((s) => !s.notApproved);
       const byAuth = new Map<string, typeof groupStudents>();
@@ -143,49 +227,34 @@ export async function commitWorksheetImport(
               ? "group"
               : "pending";
 
-        let authId: string | null = null;
+        const resolved = await resolveAuthorizationForWorksheetRow(admin, {
+          phase,
+          schoolId,
+          serviceMonth: parsed.serviceMonth,
+          schoolYear: parsed.schoolYear,
+          programGroupId,
+          group,
+          students,
+          first,
+          authType,
+        });
 
-        if (first.authNumber) {
-          const { data: existingAuth } = await admin
-            .from("pre_ets_authorizations")
-            .select("id")
-            .eq("school_id", schoolId)
-            .eq("service_month", parsed.serviceMonth)
-            .eq("auth_number", first.authNumber)
-            .maybeSingle();
+        if (!resolved) continue;
 
-          if (existingAuth?.id) {
-            authId = existingAuth.id as string;
-            await admin
-              .from("pre_ets_authorizations")
-              .update({
-                auth_type: authType,
-                service_code: first.serviceCode || group.serviceCode || "UNKNOWN",
-                service_label: first.service || group.serviceLabel,
-                program_group_id: programGroupId,
-              })
-              .eq("id", authId);
+        const authId = resolved.authId;
+
+        if (phase === "auth_match") {
+          if (resolved.matchedPending) authMatchStats.authorizationsMatched++;
+          if (resolved.createdNew) {
+            authMatchStats.authorizationsCreated++;
+            if (first.authNumber) {
+              authMatchStats.unmatchedStudents.push({
+                participantId: first.participantId,
+                fullName: first.studentName,
+                reason: "No pending authorization found — created new authorization",
+              });
+            }
           }
-        }
-
-        if (!authId) {
-          const { data: auth, error: authErr } = await admin
-            .from("pre_ets_authorizations")
-            .insert({
-              program_group_id: programGroupId,
-              school_id: schoolId,
-              service_month: parsed.serviceMonth,
-              auth_number: first.authNumber || null,
-              auth_type: authType,
-              service_code: first.serviceCode || group.serviceCode || "UNKNOWN",
-              service_label: first.service || group.serviceLabel,
-              status: "active",
-            })
-            .select("id")
-            .single();
-
-          if (authErr || !auth) continue;
-          authId = auth.id as string;
         }
 
         for (const row of students) {
@@ -256,10 +325,27 @@ export async function commitWorksheetImport(
             },
             { onConflict: "authorization_id,student_id" }
           );
+
+          if (phase === "auth_match") {
+            authMatchStats.rosterEntriesUpdated++;
+          }
         }
       }
     }
   }
+
+  if (phase === "auth_match") {
+    authMatchStats.pendingAuthsRemaining = await countPendingAuthorizationsForDistrictMonth(
+      admin,
+      districtId,
+      parsed.serviceMonth
+    );
+  }
+
+  const commitWarnings = {
+    ytdWarnings,
+    ...(phase === "auth_match" ? { authMatchStats } : {}),
+  };
 
   await admin
     .from("pre_ets_worksheet_imports")
@@ -267,9 +353,14 @@ export async function commitWorksheetImport(
       status: "committed",
       committed_at: new Date().toISOString(),
       approved_by: userId,
-      commit_warnings: ytdWarnings,
+      commit_warnings: commitWarnings,
     })
     .eq("id", importId);
 
-  return { ok: true, districtId, ytdWarnings };
+  return {
+    ok: true,
+    districtId,
+    ytdWarnings,
+    ...(phase === "auth_match" ? { authMatchStats } : {}),
+  };
 }

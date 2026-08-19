@@ -24,6 +24,14 @@ type YtdWarning = {
   threshold: number;
 };
 
+type AuthMatchStats = {
+  authorizationsMatched: number;
+  authorizationsCreated: number;
+  rosterEntriesUpdated: number;
+  unmatchedStudents: Array<{ participantId: string; fullName: string; reason: string }>;
+  pendingAuthsRemaining: number;
+};
+
 export function PreEtsWorksheetPanel() {
   const [imports, setImports] = useState<ImportRow[]>([]);
   const [phase, setPhase] = useState<"planning" | "auth_match">("planning");
@@ -34,6 +42,7 @@ export function PreEtsWorksheetPanel() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [ytdWarnings, setYtdWarnings] = useState<YtdWarning[]>([]);
+  const [authMatchStats, setAuthMatchStats] = useState<AuthMatchStats | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/pre-ets/worksheets");
@@ -71,6 +80,7 @@ export function PreEtsWorksheetPanel() {
   async function commitImport(importId: string) {
     setBusy(true);
     setMessage(null);
+    setAuthMatchStats(null);
     const res = await fetch(`/api/pre-ets/worksheets/${importId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -80,6 +90,7 @@ export function PreEtsWorksheetPanel() {
       ok?: boolean;
       districtId?: string;
       ytdWarnings?: YtdWarning[];
+      authMatchStats?: AuthMatchStats | null;
       archivedToDrive?: boolean;
       archiveError?: string | null;
       error?: string;
@@ -90,13 +101,17 @@ export function PreEtsWorksheetPanel() {
       return;
     }
     setYtdWarnings(data.ytdWarnings ?? []);
+    setAuthMatchStats(data.authMatchStats ?? null);
     const archiveNote = data.archivedToDrive
       ? " Archived to Google Drive."
       : data.archiveError
         ? ` Drive archive skipped: ${data.archiveError}`
         : "";
+    const matchNote = data.authMatchStats
+      ? ` Matched ${data.authMatchStats.authorizationsMatched} pending authorization(s); ${data.authMatchStats.authorizationsCreated} new; ${data.authMatchStats.pendingAuthsRemaining} pending remaining.`
+      : "";
     setMessage(
-      `Worksheet committed to rosters and authorizations.${archiveNote}${
+      `Worksheet committed to rosters and authorizations.${archiveNote}${matchNote}${
         (data.ytdWarnings?.length ?? 0) > 0
           ? ` ${data.ytdWarnings?.length} YTD warning(s) — review below.`
           : ""
@@ -183,6 +198,39 @@ export function PreEtsWorksheetPanel() {
           >
             Commit to rosters &amp; authorizations
           </button>
+        </div>
+      ) : null}
+
+      {authMatchStats ? (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm">
+          <h3 className="font-semibold text-brand-black">Auth match results</h3>
+          <dl className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
+            <div>
+              <dt className="text-brand-black/55">Pending auths matched</dt>
+              <dd className="font-semibold">{authMatchStats.authorizationsMatched}</dd>
+            </div>
+            <div>
+              <dt className="text-brand-black/55">New auths created</dt>
+              <dd className="font-semibold">{authMatchStats.authorizationsCreated}</dd>
+            </div>
+            <div>
+              <dt className="text-brand-black/55">Roster rows updated</dt>
+              <dd className="font-semibold">{authMatchStats.rosterEntriesUpdated}</dd>
+            </div>
+            <div>
+              <dt className="text-brand-black/55">Pending auths remaining</dt>
+              <dd className="font-semibold">{authMatchStats.pendingAuthsRemaining}</dd>
+            </div>
+          </dl>
+          {authMatchStats.unmatchedStudents.length > 0 ? (
+            <ul className="mt-3 max-h-32 overflow-y-auto text-xs text-amber-950">
+              {authMatchStats.unmatchedStudents.map((row) => (
+                <li key={`${row.participantId}-${row.fullName}`}>
+                  {row.fullName} (PID {row.participantId}) — {row.reason}
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       ) : null}
 

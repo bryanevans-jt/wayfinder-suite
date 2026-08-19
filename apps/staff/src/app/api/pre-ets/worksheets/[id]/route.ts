@@ -70,6 +70,7 @@ export async function POST(
       ok: true,
       districtId: result.districtId,
       ytdWarnings: result.ytdWarnings,
+      authMatchStats: result.authMatchStats ?? null,
       archivedToDrive: archive.ok,
       archiveError: archive.ok ? null : archive.error,
     });

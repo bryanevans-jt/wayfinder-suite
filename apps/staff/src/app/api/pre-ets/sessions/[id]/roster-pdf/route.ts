@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
-import { generatePreEtsRosterPdf } from "@/lib/pre-ets-roster-pdf";
+import { loadPreEtsSettings } from "@wayfinder/supabase/pre-ets-settings";
+import { buildPreEtsRosterPdf } from "@/lib/pre-ets-roster-export";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
@@ -71,16 +72,20 @@ export async function GET(
     const pdfStudents =
       authType === "individual" && students.length > 0 ? [students[0]] : students;
 
-    const pdfBytes = await generatePreEtsRosterPdf({
-      authorizationNumber: authRow?.auth_number ?? "",
-      authType,
-      sessionDate: sessionDate ?? (session.session_date as string | null),
-      schoolName: school?.name ?? "",
-      instructorName: (session.instructor_name as string) ?? "",
-      topic: authRow?.service_label ?? "",
-      serviceCode: authRow?.service_code ?? "",
-      students: pdfStudents,
-    });
+    const settings = await loadPreEtsSettings(admin);
+    const pdfBytes = await buildPreEtsRosterPdf(
+      {
+        authorizationNumber: authRow?.auth_number ?? "",
+        authType,
+        sessionDate: sessionDate ?? (session.session_date as string | null),
+        schoolName: school?.name ?? "",
+        instructorName: (session.instructor_name as string) ?? "",
+        topic: authRow?.service_label ?? "",
+        serviceCode: authRow?.service_code ?? "",
+        students: pdfStudents,
+      },
+      settings
+    );
 
     return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
