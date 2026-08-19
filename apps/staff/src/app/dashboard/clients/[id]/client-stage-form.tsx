@@ -6,7 +6,7 @@ import {
   isTerminalStageTitle,
 } from "@wayfinder/supabase/client-archive";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { updateClientCurrentStage } from "./actions";
 
 export type MilestoneOption = { id: string; title: string; order_index: number };
@@ -26,6 +26,17 @@ export function ClientStageForm({
   const [value, setValue] = useState(currentStageId ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setValue(currentStageId ?? "");
+  }, [currentStageId]);
+
+  const milestoneOptions = useMemo(() => {
+    if (value && !milestones.some((m) => m.id === value)) {
+      return [{ id: value, title: "Current stage", order_index: -1 }, ...milestones];
+    }
+    return milestones;
+  }, [milestones, value]);
 
   function save() {
     setError(null);
@@ -72,7 +83,7 @@ export function ClientStageForm({
             onChange={(ev) => setValue(ev.target.value)}
           >
             <option value="">Select a milestone</option>
-            {milestones.map((m) => (
+            {milestoneOptions.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.title}
               </option>

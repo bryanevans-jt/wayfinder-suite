@@ -124,6 +124,27 @@ export function canAccessHospitalityIntake(role: string | null | undefined): boo
   return isHospitalitySpecialistRole(role) || canManageReferrals(role);
 }
 
+/** Prefer the counselor directory office, then the first counselor ↔ office assignment. */
+export async function resolveCounselorOfficeId(
+  admin: SupabaseClient,
+  counselorId: string
+): Promise<string | null> {
+  const { data: counselor } = await admin
+    .from("counselors")
+    .select("office_id")
+    .eq("id", counselorId)
+    .maybeSingle();
+  const fromDirectory = (counselor?.office_id as string | null) ?? null;
+  if (fromDirectory) return fromDirectory;
+
+  const { data: links } = await admin
+    .from("counselor_office_assignments")
+    .select("office_id")
+    .eq("counselor_id", counselorId)
+    .limit(1);
+  return ((links?.[0]?.office_id as string | null) ?? null);
+}
+
 export async function findOrCreateReferralCounselor(
   admin: SupabaseClient,
   opts: { fullName: string; email: string; phone?: string }
@@ -363,13 +384,7 @@ export async function createPublicReferral(
     return { error: counselor.error, status: 500 };
   }
 
-  const { data: counselorRow } = await admin
-    .from("counselors")
-    .select("id, office_id")
-    .eq("id", counselor.counselorId)
-    .maybeSingle();
-
-  const officeId = (counselorRow?.office_id as string | null) ?? null;
+  const officeId = await resolveCounselorOfficeId(admin, counselor.counselorId);
   const addr = parseAddress(payload.clientAddress);
   const nowIso = new Date().toISOString();
 
@@ -852,6 +867,12 @@ export async function updateReferralClientInfo(
   if (p.counselorId !== undefined) {
     const counselorId = (p.counselorId ?? "").trim();
     update.counselor_id = counselorId || null;
+    if (counselorId && p.officeId === undefined && p.supervisorUserId === undefined) {
+      const counselorOfficeId = await resolveCounselorOfficeId(admin, counselorId);
+      if (counselorOfficeId) {
+        update.office_id = counselorOfficeId;
+      }
+    }
   }
 
   const counselorName = (p.counselorName ?? "").trim();
@@ -867,13 +888,11 @@ export async function updateReferralClientInfo(
     });
     if ("error" in counselor) return { error: counselor.error };
     update.counselor_id = counselor.counselorId;
-    const { data: cRow } = await admin
-      .from("counselors")
-      .select("office_id")
-      .eq("id", counselor.counselorId)
-      .maybeSingle();
-    if (cRow?.office_id && p.officeId === undefined && p.supervisorUserId === undefined) {
-      update.office_id = cRow.office_id;
+    if (p.officeId === undefined && p.supervisorUserId === undefined) {
+      const counselorOfficeId = await resolveCounselorOfficeId(admin, counselor.counselorId);
+      if (counselorOfficeId) {
+        update.office_id = counselorOfficeId;
+      }
     }
   }
 

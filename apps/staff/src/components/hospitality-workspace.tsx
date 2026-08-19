@@ -22,6 +22,7 @@ type Props = {
   supervisorEsLinks: HrAssignmentLink[];
   esClientLinks: HrAssignmentLink[];
   staffOfficeLinks: HrAssignmentLink[];
+  counselorOfficeLinks: HrAssignmentLink[];
 };
 
 export function HospitalityWorkspace({
@@ -30,6 +31,7 @@ export function HospitalityWorkspace({
   supervisorEsLinks,
   esClientLinks,
   staffOfficeLinks,
+  counselorOfficeLinks,
 }: Props) {
   const [tab, setTab] = useState<"logs" | "network" | "connections">("logs");
   const {
@@ -182,7 +184,7 @@ export function HospitalityWorkspace({
       ) : null}
 
       {tab === "connections" ? (
-        <section className="grid gap-6 lg:grid-cols-3">
+        <section className="grid gap-6 lg:grid-cols-2">
           <ReadOnlyList
             title="Supervisor ↔ Employment Specialist"
             links={supervisorEsLinks}
@@ -197,6 +199,11 @@ export function HospitalityWorkspace({
             title="Employment Specialist ↔ Office"
             links={staffOfficeLinks}
             empty="No links."
+          />
+          <ReadOnlyList
+            title="Counselor ↔ Office"
+            links={counselorOfficeLinks}
+            empty="No counselor office assignments."
           />
         </section>
       ) : null}

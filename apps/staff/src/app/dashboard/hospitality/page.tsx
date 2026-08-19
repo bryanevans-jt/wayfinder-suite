@@ -70,6 +70,7 @@ export default async function HospitalityDashboardPage() {
         supervisorEsLinks={data.supervisorEsLinks}
         esClientLinks={data.esClientLinks}
         staffOfficeLinks={data.staffOfficeLinks}
+        counselorOfficeLinks={data.counselorOfficeLinks}
       />
     </main>
   );

@@ -104,17 +104,18 @@ export function ClientDetailDrawer({
     setEsEmail("");
     const nextServiceId =
       resolveClientServiceIdForEdit(serviceCatalog, client.current_service_id) ??
-      serviceOptions[0]?.id ??
+      client.current_service_id ??
       "";
     setServiceId(nextServiceId);
     setStageId(client.current_stage_id ?? "");
-  }, [client, offices, serviceCatalog, serviceOptions]);
+  }, [client, offices, serviceCatalog]);
 
   useEffect(() => {
     if (!serviceId) return;
     if (serviceOptions.some((option) => option.id === serviceId)) return;
+    if (client?.current_service_id === serviceId) return;
     setServiceId(serviceOptions[0]?.id ?? "");
-  }, [serviceId, serviceOptions]);
+  }, [serviceId, serviceOptions, client?.current_service_id]);
 
   function handleOfficeChange(nextOfficeId: string) {
     setOfficeId(nextOfficeId);
@@ -131,23 +132,24 @@ export function ClientDetailDrawer({
       const nextStages = serviceMilestones
         .filter((milestone) => milestone.service_id === nextServiceId)
         .sort((a, b) => a.order_index - b.order_index);
-      setStageId(nextStages[0]?.id ?? "");
+      const currentTitle = serviceMilestones.find((m) => m.id === stageId)?.title;
+      const titleMatch = currentTitle
+        ? nextStages.find((m) => m.title === currentTitle)
+        : null;
+      setStageId(titleMatch?.id ?? stageId);
     }
   }
 
-  const stagesForService = useMemo(
-    () =>
-      serviceMilestones
-        .filter((m) => m.service_id === serviceId)
-        .sort((a, b) => a.order_index - b.order_index),
-    [serviceMilestones, serviceId]
-  );
-
-  useEffect(() => {
-    if (!open) return;
-    if (stagesForService.some((m) => m.id === stageId)) return;
-    setStageId(stagesForService[0]?.id ?? "");
-  }, [open, stagesForService, stageId]);
+  const stagesForService = useMemo(() => {
+    const list = serviceMilestones
+      .filter((m) => m.service_id === serviceId)
+      .sort((a, b) => a.order_index - b.order_index);
+    if (stageId && !list.some((m) => m.id === stageId)) {
+      const extra = serviceMilestones.find((m) => m.id === stageId);
+      if (extra) return [extra, ...list];
+    }
+    return list;
+  }, [serviceMilestones, serviceId, stageId]);
 
   const esPickerOptions = useMemo(() => {
     const currentId = client?.es_user_ids[0];
@@ -305,7 +307,17 @@ export function ClientDetailDrawer({
             <span className="font-medium text-brand-black">Counselor</span>
             <select
               value={counselorId}
-              onChange={(e) => setCounselorId(e.target.value)}
+              onChange={(e) => {
+                const nextCounselorId = e.target.value;
+                setCounselorId(nextCounselorId);
+                const counselor = counselors.find((c) => c.id === nextCounselorId);
+                const ids = counselor?.office_ids?.length
+                  ? counselor.office_ids
+                  : [counselor?.office_id].filter(Boolean);
+                if (ids[0] && !ids.includes(officeId)) {
+                  setOfficeId(ids[0] as string);
+                }
+              }}
               className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
               disabled={busy}
             >

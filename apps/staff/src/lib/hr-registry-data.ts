@@ -41,6 +41,7 @@ export async function loadHrRegistry(
   supervisorEsLinks: HrAssignmentLink[];
   esClientLinks: HrAssignmentLink[];
   staffOfficeLinks: HrAssignmentLink[];
+  counselorOfficeLinks: HrAssignmentLink[];
 }> {
   const [
     { data: offices },
@@ -51,6 +52,8 @@ export async function loadHrRegistry(
     { data: supervisorEs },
     { data: services },
     { data: milestones },
+    { data: counselors },
+    { data: counselorOffices },
   ] = await Promise.all([
     admin.from("offices").select("id, name, state").order("name"),
     admin.from("profiles").select("id, full_name, is_active").eq("role", "es"),
@@ -67,6 +70,8 @@ export async function loadHrRegistry(
     admin.from("supervisor_es_assignments").select("id, supervisor_user_id, es_user_id"),
     admin.from("services").select("id, name"),
     admin.from("service_milestones").select("id, title"),
+    admin.from("counselors").select("id, full_name, office_id").order("full_name"),
+    admin.from("counselor_office_assignments").select("id, counselor_id, office_id"),
   ]);
 
   const officeById = new Map(
@@ -225,5 +230,37 @@ export async function loadHrRegistry(
         officeById.get(l.office_id as string)?.name ?? "Office"
       }`,
     })),
+    counselorOfficeLinks: (() => {
+      const seen = new Set<string>();
+      const links: HrAssignmentLink[] = [];
+      for (const c of counselors ?? []) {
+        const counselorName = ((c.full_name as string | null) ?? "").trim() || "Counselor";
+        const officeIds = new Set<string>();
+        if (c.office_id) officeIds.add(c.office_id as string);
+        for (const row of counselorOffices ?? []) {
+          if (row.counselor_id === c.id && row.office_id) {
+            officeIds.add(row.office_id as string);
+          }
+        }
+        if (officeIds.size === 0) {
+          const id = `${c.id}:unassigned`;
+          if (!seen.has(id)) {
+            seen.add(id);
+            links.push({ id, label: `${counselorName} · No office` });
+          }
+          continue;
+        }
+        for (const officeId of officeIds) {
+          const id = `${c.id}:${officeId}`;
+          if (seen.has(id)) continue;
+          seen.add(id);
+          links.push({
+            id,
+            label: `${counselorName} · ${officeById.get(officeId)?.name ?? "Office"}`,
+          });
+        }
+      }
+      return links.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
+    })(),
   };
 }
