@@ -2,7 +2,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   isAccountantRole,
   isAdminRole,
-  isAdminTierRole,
   isEsRole,
   isHrRole,
   isInstructorRole,
@@ -229,7 +228,7 @@ export function canDeliverPreEtsSessions(
   if (isInstructorRole(r) || isEsRole(r)) {
     return canAccessPreEts(r, settings);
   }
-  if (isSuperAdminRole(r) || isAdminTierRole(r)) {
+  if (isSuperAdminRole(r)) {
     return true;
   }
   return false;
@@ -244,7 +243,7 @@ export function canSupervisePreEts(
   if (isSupervisorRole(r)) {
     return canAccessPreEts(r, settings);
   }
-  if (isSuperAdminRole(r) || isAdminTierRole(r)) {
+  if (isSuperAdminRole(r)) {
     return true;
   }
   return false;

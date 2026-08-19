@@ -55,6 +55,7 @@
     "./counselor-name-match": "./src/counselor-name-match.ts",
     "./intake-billing": "./src/intake-billing.ts",
     "./pre-ets-settings": "./src/pre-ets-settings.ts",
+    "./pre-ets-template-placeholders": "./src/pre-ets-template-placeholders.ts",
     "./pre-ets-worksheet-parser": "./src/pre-ets-worksheet-parser.ts",
     "./pre-ets-worksheet-import": "./src/pre-ets-worksheet-import.ts",
     "./pre-ets-worksheet-auth-match": "./src/pre-ets-worksheet-auth-match.ts",

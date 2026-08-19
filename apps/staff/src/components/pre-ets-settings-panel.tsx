@@ -7,6 +7,16 @@ import {
   type PreEtsServiceCodeRow,
   type PreEtsSettingsRow,
 } from "@wayfinder/supabase/pre-ets-settings";
+import {
+  formatPreEtsPlaceholderToken,
+  PRE_ETS_CAR_PLACEHOLDERS,
+  PRE_ETS_DEFAULT_DRIVE_PATH_TEMPLATE,
+  PRE_ETS_DRIVE_PATH_TOKENS,
+  PRE_ETS_INVOICE_PLACEHOLDERS,
+  PRE_ETS_ROSTER_CORE_PLACEHOLDERS,
+  PRE_ETS_ROSTER_ROW_PLACEHOLDER_NOTE,
+  type PreEtsTemplatePlaceholder,
+} from "@wayfinder/supabase/pre-ets-template-placeholders";
 import { roleDisplayName } from "@wayfinder/supabase/roles";
 
 type RolloutRole = string;
@@ -28,6 +38,43 @@ const ROLLOUT_ROLE_LABELS: Record<string, string> = {
 
 function emptyServiceCode(): PreEtsServiceCodeRow {
   return { code: "", service: "", description: "" };
+}
+
+function PlaceholderReferenceTable({
+  title,
+  note,
+  placeholders,
+}: {
+  title: string;
+  note?: string;
+  placeholders: PreEtsTemplatePlaceholder[];
+}) {
+  return (
+    <div>
+      <h3 className="text-sm font-semibold text-brand-black">{title}</h3>
+      {note ? <p className="mt-1 text-xs text-brand-black/60">{note}</p> : null}
+      <div className="mt-2 overflow-x-auto rounded-lg border border-neutral-200">
+        <table className="min-w-full text-left text-xs">
+          <thead className="bg-neutral-50 text-brand-black/70">
+            <tr>
+              <th className="px-2 py-1.5 font-medium">Token</th>
+              <th className="px-2 py-1.5 font-medium">Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {placeholders.map((row) => (
+              <tr key={row.token} className="border-t border-neutral-100">
+                <td className="px-2 py-1.5 font-mono text-[11px]">
+                  {formatPreEtsPlaceholderToken(row.token)}
+                </td>
+                <td className="px-2 py-1.5 text-brand-black/75">{row.description}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 export function PreEtsSettingsPanel() {
@@ -300,16 +347,59 @@ export function PreEtsSettingsPanel() {
             </label>
           ))}
         </div>
-        <p className="mt-3 text-xs text-brand-black/55">
-          Use {"{{Placeholder}}"} tokens in Google Docs. Roster templates support{" "}
-          <code className="font-mono">AuthorizationNumber</code>, <code className="font-mono">SessionDate</code>,{" "}
-          <code className="font-mono">SchoolName</code>, <code className="font-mono">InstructorName</code>,{" "}
-          <code className="font-mono">Topic</code>, <code className="font-mono">ServiceCode</code>,{" "}
-          <code className="font-mono">StudentList</code>, and numbered rows like{" "}
-          <code className="font-mono">StudentName1</code> / <code className="font-mono">PID1</code>. Invoice
-          templates support <code className="font-mono">ProviderName</code>, <code className="font-mono">TotalUnits</code>,{" "}
-          <code className="font-mono">TotalAmount</code>, and related fields.
+      </section>
+
+      <section className="rounded-xl border border-neutral-200 bg-white p-5">
+        <h2 className="text-lg font-semibold text-brand-black">Template placeholder reference</h2>
+        <p className="mt-1 text-sm text-brand-black/65">
+          Copy these tokens into your Google Doc templates before pasting document IDs above. The
+          canonical list also lives in{" "}
+          <code className="rounded bg-neutral-100 px-1 py-0.5 font-mono text-[11px]">
+            packages/supabase/src/pre-ets-template-placeholders.ts
+          </code>
+          .
         </p>
+        <div className="mt-4 space-y-6">
+          <PlaceholderReferenceTable
+            title="Roster templates"
+            note={`Blank roster, individual auth roster, and session sign-in sheets. ${PRE_ETS_ROSTER_ROW_PLACEHOLDER_NOTE}`}
+            placeholders={PRE_ETS_ROSTER_CORE_PLACEHOLDERS}
+          />
+          <PlaceholderReferenceTable
+            title="Invoice cover & attestation"
+            placeholders={PRE_ETS_INVOICE_PLACEHOLDERS}
+          />
+          <PlaceholderReferenceTable
+            title="Class Activity Report"
+            note="CAR Google Doc export is not wired yet — reserved placeholders for when you build that template."
+            placeholders={PRE_ETS_CAR_PLACEHOLDERS}
+          />
+          <div>
+            <h3 className="text-sm font-semibold text-brand-black">Drive folder path</h3>
+            <p className="mt-1 text-xs text-brand-black/60">
+              Use single braces in the path template field (not double). Default:{" "}
+              <code className="font-mono">{PRE_ETS_DEFAULT_DRIVE_PATH_TEMPLATE}</code>
+            </p>
+            <div className="mt-2 overflow-x-auto rounded-lg border border-neutral-200">
+              <table className="min-w-full text-left text-xs">
+                <thead className="bg-neutral-50 text-brand-black/70">
+                  <tr>
+                    <th className="px-2 py-1.5 font-medium">Token</th>
+                    <th className="px-2 py-1.5 font-medium">Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {PRE_ETS_DRIVE_PATH_TOKENS.map((row) => (
+                    <tr key={row.token} className="border-t border-neutral-100">
+                      <td className="px-2 py-1.5 font-mono text-[11px]">{`{${row.token}}`}</td>
+                      <td className="px-2 py-1.5 text-brand-black/75">{row.description}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section className="rounded-xl border border-neutral-200 bg-white p-5">
