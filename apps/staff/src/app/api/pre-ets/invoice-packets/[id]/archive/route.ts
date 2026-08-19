@@ -3,11 +3,10 @@ import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import {
   insertInvoicePacketEvent,
   loadInvoicePacketPdfData,
-  resolvePreEtsDrivePath,
 } from "@wayfinder/supabase/pre-ets-invoice-packet";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { buildInvoicePacketExport } from "@/lib/pre-ets-invoice-export";
-import { uploadPreEtsFileToDrive } from "@/lib/pre-ets-drive";
+import { uploadPreEtsFileToDrivePath } from "@/lib/pre-ets-drive";
 import { NextResponse } from "next/server";
 
 export async function POST(
@@ -36,16 +35,17 @@ export async function POST(
     }
 
     const exported = await buildInvoicePacketExport(data, auth.settings);
-    const subpath = resolvePreEtsDrivePath(auth.settings.drive_folder_path_template, {
-      schoolYear: auth.settings.school_year,
-      month: data.serviceMonth,
-      school: data.schoolName,
-      authNumber: data.authNumber || "unknown",
-    });
-    const fileName = `${subpath.replace(/\//g, "_") || "pre-ets-invoice"}_${exported.fileName}`;
+    const fileName = exported.fileName;
 
-    const uploaded = await uploadPreEtsFileToDrive({
-      folderId,
+    const uploaded = await uploadPreEtsFileToDrivePath({
+      rootFolderId: folderId,
+      pathTemplate: auth.settings.drive_folder_path_template,
+      pathVars: {
+        schoolYear: auth.settings.school_year,
+        month: data.serviceMonth,
+        school: data.schoolName,
+        authNumber: data.authNumber || "unknown",
+      },
       fileName,
       mimeType: exported.contentType,
       buffer: Buffer.from(exported.buffer),

@@ -1,8 +1,7 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { loadPreEtsSettings } from "@wayfinder/supabase/pre-ets-settings";
-import { resolvePreEtsDrivePath } from "@wayfinder/supabase/pre-ets-invoice-packet";
-import { driveFileViewUrl, uploadPreEtsFileToDrive } from "@/lib/pre-ets-drive";
+import { driveFileViewUrl, uploadPreEtsFileToDrivePath } from "@/lib/pre-ets-drive";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
@@ -60,18 +59,20 @@ export async function POST(
       ? String(authorization.service_month).slice(0, 7)
       : sessionRow?.session_date?.slice(0, 7) ?? new Date().toISOString().slice(0, 7);
 
-    const subpath = resolvePreEtsDrivePath(settings.drive_folder_path_template, {
+    const pathVars = {
       schoolYear: settings.school_year,
       month: serviceMonth,
       school: school?.name ?? "school",
       authNumber: authorization?.auth_number ?? sessionId.slice(0, 8),
-    });
+    };
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const baseName = file.name || `signed-roster-${sessionId.slice(0, 8)}.pdf`;
-    const uploaded = await uploadPreEtsFileToDrive({
-      folderId,
-      fileName: `${subpath.replace(/\//g, "_")}_${baseName}`,
+    const uploaded = await uploadPreEtsFileToDrivePath({
+      rootFolderId: folderId,
+      pathTemplate: settings.drive_folder_path_template,
+      pathVars,
+      fileName: baseName,
       mimeType: file.type || "application/pdf",
       buffer,
     });

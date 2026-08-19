@@ -255,14 +255,20 @@ export function PreEtsSettingsPanel() {
             <p className="text-xs text-brand-black/65">{driveTestMessage}</p>
           ) : null}
           <label className="block">
-            <span className="font-medium">Folder path template (display)</span>
+            <span className="font-medium">Folder path template</span>
             <input
               className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2 font-mono text-xs"
               value={settings.drive_folder_path_template}
               onChange={(e) =>
                 setSettings({ ...settings, drive_folder_path_template: e.target.value })
               }
+              placeholder="Pre-ETS/{SchoolYear}/{Month}/{School}/{AuthNumber}"
             />
+            <p className="mt-1 text-xs text-brand-black/55">
+              Creates nested subfolders under each configured root folder. Tokens:{" "}
+              <code className="font-mono">{"{SchoolYear}"}</code>, <code className="font-mono">{"{Month}"}</code>,{" "}
+              <code className="font-mono">{"{School}"}</code>, <code className="font-mono">{"{AuthNumber}"}</code>.
+            </p>
           </label>
         </div>
       </section>
