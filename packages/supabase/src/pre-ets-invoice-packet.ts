@@ -15,10 +15,12 @@ export type InvoicePacketSessionLine = {
 
 export type InvoicePacketPdfData = {
   packetId: string;
+  authType: "group" | "individual";
   providerName: string;
   remitAddress: string;
   schoolName: string;
   authNumber: string;
+  invoiceNumber: string | null;
   serviceCode: string;
   serviceLabel: string | null;
   serviceMonth: string;
@@ -31,6 +33,7 @@ export type InvoicePacketPdfData = {
 
 type AuthRow = {
   auth_number: string | null;
+  auth_type: string;
   service_code: string;
   service_label: string | null;
   service_month: string;
@@ -68,7 +71,7 @@ export async function loadInvoicePacketPdfData(
   const { data: packet } = await admin
     .from("pre_ets_invoice_packets")
     .select(
-      "id, authorization_id, service_month, total_hours, total_amount_cents, pre_ets_authorizations(auth_number, service_code, service_label, service_month, pre_ets_schools(name))"
+      "id, authorization_id, service_month, total_hours, total_amount_cents, provider_invoice_number, pre_ets_authorizations(auth_number, auth_type, service_code, service_label, service_month, pre_ets_schools(name))"
     )
     .eq("id", packetId)
     .maybeSingle();
@@ -80,6 +83,20 @@ export async function loadInvoicePacketPdfData(
 
   const school = relationOne(auth.pre_ets_schools);
   const authorizationId = packet.authorization_id as string;
+  const authType = auth.auth_type === "individual" ? "individual" : "group";
+
+  const { data: rosterEntry } = await admin
+    .from("pre_ets_roster_entries")
+    .select("invoice_number")
+    .eq("authorization_id", authorizationId)
+    .not("invoice_number", "is", null)
+    .limit(1)
+    .maybeSingle();
+
+  const invoiceNumber =
+    (packet.provider_invoice_number as string | null) ??
+    (rosterEntry?.invoice_number as string | null) ??
+    null;
 
   const { data: sessions } = await admin
     .from("pre_ets_sessions")
@@ -143,10 +160,12 @@ export async function loadInvoicePacketPdfData(
 
   return {
     packetId,
+    authType,
     providerName: settings.provider_name,
     remitAddress: settings.remit_address,
     schoolName: school?.name ?? "",
     authNumber: auth.auth_number ?? "",
+    invoiceNumber,
     serviceCode: auth.service_code,
     serviceLabel: auth.service_label,
     serviceMonth: String(packet.service_month).slice(0, 7),
@@ -156,6 +175,27 @@ export async function loadInvoicePacketPdfData(
     participants,
     sessionLines,
   };
+}
+
+export async function countBillableAttendanceUnits(
+  admin: SupabaseClient,
+  authorizationId: string
+): Promise<number> {
+  const { data: sessions } = await admin
+    .from("pre_ets_sessions")
+    .select("id")
+    .eq("authorization_id", authorizationId)
+    .eq("status", "completed");
+
+  const sessionIds = (sessions ?? []).map((s) => s.id as string);
+  if (!sessionIds.length) return 0;
+
+  const { data: attendance } = await admin
+    .from("pre_ets_session_attendance")
+    .select("id, present, signed_on_roster")
+    .in("session_id", sessionIds);
+
+  return (attendance ?? []).filter((a) => a.present && a.signed_on_roster).length;
 }
 
 export async function insertInvoicePacketEvent(

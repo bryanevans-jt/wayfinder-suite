@@ -1,7 +1,10 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { seedSessionAttendance } from "@wayfinder/supabase/pre-ets-session-attendance";
-import { loadPreEtsAssignedSchoolIds } from "@wayfinder/supabase/pre-ets-staff-assignments";
+import {
+  loadPreEtsAssignedSchoolIds,
+  resolvePrimaryInstructorForSchool,
+} from "@wayfinder/supabase/pre-ets-staff-assignments";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
@@ -79,6 +82,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Authorization not found" }, { status: 404 });
     }
 
+    const instructor = body.instructorName
+      ? { userId: null as string | null, fullName: body.instructorName }
+      : await resolvePrimaryInstructorForSchool(admin, authRow.school_id as string);
+
     const { data, error } = await admin
       .from("pre_ets_sessions")
       .insert({
@@ -88,7 +95,8 @@ export async function POST(request: Request) {
         session_date: body.sessionDate || null,
         start_time: body.startTime || null,
         end_time: body.endTime || null,
-        instructor_name: body.instructorName || null,
+        primary_instructor_user_id: instructor?.userId ?? null,
+        instructor_name: instructor?.fullName ?? body.instructorName ?? null,
         status: "scheduled",
       })
       .select("id")

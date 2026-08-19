@@ -12,6 +12,7 @@ type Packet = {
   drive_file_name: string | null;
   pre_ets_authorizations: {
     auth_number: string | null;
+    auth_type: string;
     service_code: string;
     pre_ets_schools: { name: string } | { name: string }[] | null;
   } | null;
@@ -38,6 +39,7 @@ function schoolName(
 export function PreEtsInvoicePanel() {
   const [packets, setPackets] = useState<Packet[]>([]);
   const [authId, setAuthId] = useState("");
+  const [invoiceKind, setInvoiceKind] = useState<"group" | "individual">("group");
   const [authorizations, setAuthorizations] = useState<
     { id: string; auth_number: string | null; auth_type: string }[]
   >([]);
@@ -55,9 +57,15 @@ export function PreEtsInvoicePanel() {
       authorizations?: { id: string; auth_number: string | null; auth_type: string }[];
     };
     if (authRes.ok) {
-      setAuthorizations((authData.authorizations ?? []).filter((a) => a.auth_type === "group"));
+      setAuthorizations(authData.authorizations ?? []);
     }
   }, []);
+
+  const filteredAuths = authorizations.filter((a) => a.auth_type === invoiceKind);
+
+  useEffect(() => {
+    setAuthId("");
+  }, [invoiceKind]);
 
   useEffect(() => {
     void load();
@@ -119,21 +127,31 @@ export function PreEtsInvoicePanel() {
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold text-brand-black">Group invoice packets</h2>
+        <h2 className="text-lg font-semibold text-brand-black">Invoice packets</h2>
         <p className="mt-1 text-sm text-brand-black/65">
-          Build draft packets from completed sessions with billable attendance. Download the PDF
-          cover sheet and participant list, then mark ready to archive to Drive.
+          Build draft packets from completed sessions with billable attendance for group or
+          individual authorizations. Download the PDF, then mark ready to archive to Drive.
         </p>
       </div>
 
       <div className="flex flex-wrap gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-sm">
         <select
           className="rounded-lg border border-neutral-300 px-2 py-1.5"
+          value={invoiceKind}
+          onChange={(e) => setInvoiceKind(e.target.value as "group" | "individual")}
+        >
+          <option value="group">Group authorization</option>
+          <option value="individual">Individual authorization</option>
+        </select>
+        <select
+          className="rounded-lg border border-neutral-300 px-2 py-1.5"
           value={authId}
           onChange={(e) => setAuthId(e.target.value)}
         >
-          <option value="">Group authorization…</option>
-          {authorizations.map((a) => (
+          <option value="">
+            {invoiceKind === "group" ? "Group authorization…" : "Individual authorization…"}
+          </option>
+          {filteredAuths.map((a) => (
             <option key={a.id} value={a.id}>
               {a.auth_number ?? a.id.slice(0, 8)}
             </option>
@@ -154,6 +172,7 @@ export function PreEtsInvoicePanel() {
         <table className="min-w-full text-left text-sm">
           <thead className="bg-neutral-50 text-brand-black/70">
             <tr>
+              <th className="px-3 py-2">Type</th>
               <th className="px-3 py-2">Month</th>
               <th className="px-3 py-2">School</th>
               <th className="px-3 py-2">Auth #</th>
@@ -166,7 +185,7 @@ export function PreEtsInvoicePanel() {
           <tbody>
             {packets.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-brand-black/55">
+                <td colSpan={8} className="px-3 py-6 text-center text-brand-black/55">
                   No invoice packets yet.
                 </td>
               </tr>
@@ -174,6 +193,9 @@ export function PreEtsInvoicePanel() {
               packets.map((p) => (
                 <Fragment key={p.id}>
                   <tr className="border-t border-neutral-100">
+                    <td className="px-3 py-2 capitalize">
+                      {p.pre_ets_authorizations?.auth_type ?? "—"}
+                    </td>
                     <td className="px-3 py-2">{p.service_month?.slice(0, 7)}</td>
                     <td className="px-3 py-2">{schoolName(p.pre_ets_authorizations)}</td>
                     <td className="px-3 py-2 font-mono text-xs">
@@ -234,7 +256,7 @@ export function PreEtsInvoicePanel() {
                   </tr>
                   {expandedId === p.id ? (
                     <tr className="border-t border-neutral-50 bg-neutral-50/50">
-                      <td colSpan={7} className="px-3 py-3">
+                      <td colSpan={8} className="px-3 py-3">
                         <ul className="space-y-1 text-xs text-brand-black/70">
                           {events.length === 0 ? (
                             <li>No audit events yet.</li>

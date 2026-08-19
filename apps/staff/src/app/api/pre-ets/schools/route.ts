@@ -12,8 +12,7 @@ export async function GET() {
     const admin = createServiceRoleClient();
     const { data, error } = await admin
       .from("pre_ets_schools")
-      .select("id, name, district_id, is_active")
-      .eq("is_active", true)
+      .select("id, name, district_id")
       .order("name");
 
     if (error) {

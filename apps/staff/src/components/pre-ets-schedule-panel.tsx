@@ -16,6 +16,17 @@ type ProgramGroup = {
 
 type PlanMode = "custom" | "recurring" | "monthly";
 
+type SchedulePlan = {
+  id: string;
+  plan_type: string;
+  recurrence_rule: Record<string, unknown> | null;
+  excluded_months: string[] | null;
+  planned_service_code: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  created_at: string;
+};
+
 const WEEKDAYS = [
   { value: 0, label: "Sunday" },
   { value: 1, label: "Monday" },
@@ -38,7 +49,20 @@ export function PreEtsSchedulePanel() {
   const [excludedMonths, setExcludedMonths] = useState("");
   const [plannedCode, setPlannedCode] = useState("");
   const [previewDates, setPreviewDates] = useState<string[]>([]);
+  const [plans, setPlans] = useState<SchedulePlan[]>([]);
   const [message, setMessage] = useState<string | null>(null);
+
+  const loadPlans = useCallback(async (programGroupId: string) => {
+    if (!programGroupId) {
+      setPlans([]);
+      return;
+    }
+    const res = await fetch(
+      `/api/pre-ets/schedule-plans?programGroupId=${encodeURIComponent(programGroupId)}`
+    );
+    const data = (await res.json()) as { plans?: SchedulePlan[] };
+    if (res.ok) setPlans(data.plans ?? []);
+  }, []);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/pre-ets/program-groups");
@@ -49,6 +73,10 @@ export function PreEtsSchedulePanel() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void loadPlans(selectedGroupId);
+  }, [selectedGroupId, loadPlans]);
 
   const selected = groups.find((g) => g.id === selectedGroupId);
   const groupAuth = selected?.pre_ets_authorizations?.find((a) => a.auth_type === "group");
@@ -118,6 +146,7 @@ export function PreEtsSchedulePanel() {
       setPreviewDates(data.sessionDates ?? []);
       setMessage(`Created ${data.sessionsCreated ?? 0} scheduled session(s).`);
       setDatesText("");
+      void loadPlans(selectedGroupId);
     } else {
       setMessage(data.error ?? "Schedule failed");
     }
@@ -284,6 +313,61 @@ export function PreEtsSchedulePanel() {
             {groupAuth?.auth_number ?? fallbackAuth?.auth_number ?? "pending"} (
             {groupAuth?.auth_type ?? fallbackAuth?.auth_type ?? "—"})
           </p>
+        </div>
+      ) : null}
+
+      {selectedGroupId ? (
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-brand-black">Schedule plan history</h3>
+          <div className="overflow-x-auto rounded-xl border border-neutral-200">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-neutral-50 text-brand-black/70">
+                <tr>
+                  <th className="px-3 py-2">Created</th>
+                  <th className="px-3 py-2">Plan type</th>
+                  <th className="px-3 py-2">Date range</th>
+                  <th className="px-3 py-2">Service code</th>
+                  <th className="px-3 py-2">Pattern</th>
+                </tr>
+              </thead>
+              <tbody>
+                {plans.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-3 py-6 text-center text-brand-black/55">
+                      No schedule plans for this group yet.
+                    </td>
+                  </tr>
+                ) : (
+                  plans.map((plan) => (
+                    <tr key={plan.id} className="border-t border-neutral-100">
+                      <td className="px-3 py-2">
+                        {new Date(plan.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-3 py-2 capitalize">{plan.plan_type}</td>
+                      <td className="px-3 py-2">
+                        {plan.start_date && plan.end_date
+                          ? `${plan.start_date} → ${plan.end_date}`
+                          : "Custom dates"}
+                      </td>
+                      <td className="px-3 py-2 font-mono text-xs">
+                        {plan.planned_service_code ?? "—"}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-brand-black/65">
+                        {plan.plan_type === "recurring"
+                          ? `Weekday ${String(plan.recurrence_rule?.weekday ?? "—")}`
+                          : plan.plan_type === "monthly"
+                            ? `Day ${String(plan.recurrence_rule?.dayOfMonth ?? "—")}`
+                            : "—"}
+                        {plan.excluded_months?.length
+                          ? ` · Excludes ${plan.excluded_months.join(", ")}`
+                          : ""}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : null}
     </section>

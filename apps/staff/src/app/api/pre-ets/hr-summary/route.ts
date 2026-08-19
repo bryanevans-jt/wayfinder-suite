@@ -8,7 +8,7 @@ import {
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(request: Request) {
   const route = "api/pre-ets/hr-summary";
   const session = await getAppSession();
   if (!session) {
@@ -16,6 +16,8 @@ export async function GET() {
   }
 
   const actor = { userId: session.effectiveUserId, userRole: session.effectiveRole };
+  const url = new URL(request.url);
+  const schoolId = url.searchParams.get("schoolId") ?? undefined;
 
   try {
     const admin = createServiceRoleClient();
@@ -26,12 +28,26 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const lateSessions = await loadPreEtsSessionCompliance(admin, { onlyLate: true });
+    const lateSessions = await loadPreEtsSessionCompliance(admin, {
+      schoolId,
+      onlyLate: true,
+    });
 
-    const { data: packets } = await admin
-      .from("pre_ets_invoice_packets")
-      .select("status")
-      .limit(500);
+    let packetQuery = admin.from("pre_ets_invoice_packets").select("status").limit(500);
+    if (schoolId) {
+      const { data: auths } = await admin
+        .from("pre_ets_authorizations")
+        .select("id")
+        .eq("school_id", schoolId);
+      const authIds = (auths ?? []).map((a) => a.id as string);
+      if (!authIds.length) {
+        packetQuery = packetQuery.eq("authorization_id", "00000000-0000-0000-0000-000000000000");
+      } else {
+        packetQuery = packetQuery.in("authorization_id", authIds);
+      }
+    }
+
+    const { data: packets } = await packetQuery;
 
     const packetCounts = {
       draft: 0,
@@ -44,17 +60,22 @@ export async function GET() {
       if (status in packetCounts) packetCounts[status]++;
     }
 
-    const { count: activeSchools } = await admin
-      .from("pre_ets_schools")
-      .select("id", { count: "exact", head: true })
-      .eq("is_active", true);
+    let activeSchools = 0;
+    if (schoolId) {
+      activeSchools = 1;
+    } else {
+      const { count } = await admin
+        .from("pre_ets_schools")
+        .select("id", { count: "exact", head: true });
+      activeSchools = count ?? 0;
+    }
 
     return NextResponse.json({
       summary: {
         overdueSessions: lateSessions.length,
         missingRoster: lateSessions.filter((s) => s.missingRoster).length,
         missingCar: lateSessions.filter((s) => s.missingCar).length,
-        activeSchools: activeSchools ?? 0,
+        activeSchools,
         invoicePackets: packetCounts,
         submissionDeadlineHours: settings.submission_deadline_hours,
         ytdWarningThreshold: settings.ytd_unit_warning_threshold,

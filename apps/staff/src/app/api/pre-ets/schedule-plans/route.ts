@@ -2,6 +2,7 @@ import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { expandPreEtsScheduleDates } from "@wayfinder/supabase/pre-ets-schedule-plans";
 import { seedSessionAttendance } from "@wayfinder/supabase/pre-ets-session-attendance";
+import { resolvePrimaryInstructorForSchool } from "@wayfinder/supabase/pre-ets-staff-assignments";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
@@ -112,6 +113,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ planId: plan.id, sessionsCreated: 0, sessionDates: dates });
     }
 
+    const assignedInstructor = await resolvePrimaryInstructorForSchool(
+      admin,
+      group.school_id as string
+    );
+    const instructorName = assignedInstructor?.fullName ?? group.instructor_name;
+    const instructorUserId = assignedInstructor?.userId ?? null;
+
     let created = 0;
     for (const d of dates) {
       const { data: sess } = await admin
@@ -121,7 +129,8 @@ export async function POST(request: Request) {
           school_id: group.school_id,
           program_group_id: body.programGroupId,
           session_date: d,
-          instructor_name: group.instructor_name,
+          primary_instructor_user_id: instructorUserId,
+          instructor_name: instructorName,
           status: "scheduled",
         })
         .select("id")

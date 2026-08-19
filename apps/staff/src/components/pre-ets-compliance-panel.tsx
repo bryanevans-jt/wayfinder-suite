@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+type School = { id: string; name: string };
+
 type ComplianceRow = {
   sessionId: string;
   sessionDate: string | null;
@@ -14,6 +16,8 @@ type ComplianceRow = {
 };
 
 export function PreEtsCompliancePanel() {
+  const [schools, setSchools] = useState<School[]>([]);
+  const [schoolId, setSchoolId] = useState("");
   const [sessions, setSessions] = useState<ComplianceRow[]>([]);
   const [onlyLate, setOnlyLate] = useState(true);
   const [deadlineHours, setDeadlineHours] = useState(24);
@@ -27,11 +31,18 @@ export function PreEtsCompliancePanel() {
       setDeadlineHours(accessData.settings.submission_deadline_hours);
     }
 
-    const qs = onlyLate ? "?onlyLate=1" : "";
+    const schoolRes = await fetch("/api/pre-ets/schools");
+    const schoolData = (await schoolRes.json()) as { schools?: School[] };
+    if (schoolRes.ok) setSchools(schoolData.schools ?? []);
+
+    const params = new URLSearchParams();
+    if (onlyLate) params.set("onlyLate", "1");
+    if (schoolId) params.set("schoolId", schoolId);
+    const qs = params.toString() ? `?${params.toString()}` : "";
     const res = await fetch(`/api/pre-ets/compliance${qs}`);
     const data = (await res.json()) as { sessions?: ComplianceRow[] };
     if (res.ok) setSessions(data.sessions ?? []);
-  }, [onlyLate]);
+  }, [onlyLate, schoolId]);
 
   useEffect(() => {
     void load();
@@ -47,6 +58,21 @@ export function PreEtsCompliancePanel() {
             submitted class activity report. Cancelled sessions are excluded.
           </p>
         </div>
+        <label className="flex items-center gap-2 text-sm">
+          <span className="text-brand-black/70">School</span>
+          <select
+            className="rounded-lg border border-neutral-300 px-2 py-1"
+            value={schoolId}
+            onChange={(e) => setSchoolId(e.target.value)}
+          >
+            <option value="">All schools</option>
+            {schools.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"

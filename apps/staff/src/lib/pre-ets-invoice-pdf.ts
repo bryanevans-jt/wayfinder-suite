@@ -60,18 +60,29 @@ export async function generatePreEtsInvoicePacketPdf(
   }
   y -= 8;
 
-  draw("Pre-ETS Group Invoice Packet", { bold: true, size: 12 });
+  draw(data.authType === "individual" ? "Pre-ETS Individual Invoice Packet" : "Pre-ETS Group Invoice Packet", {
+    bold: true,
+    size: 12,
+  });
   y -= 4;
   draw(`Service month: ${data.serviceMonth}`);
   draw(`School: ${data.schoolName}`);
-  draw(`Group authorization #: ${data.authNumber || "—"}`);
+  draw(
+    `${data.authType === "individual" ? "Individual" : "Group"} authorization #: ${data.authNumber || "—"}`
+  );
+  if (data.invoiceNumber) {
+    draw(`Provider invoice #: ${data.invoiceNumber}`);
+  }
   draw(`Service code: ${data.serviceCode}${data.serviceLabel ? ` — ${data.serviceLabel}` : ""}`);
   draw(`Rate per unit: $${formatPreEtsRateDollars(data.rateCents)}`);
   draw(`Total billable units: ${data.totalUnits}`);
   draw(`Total amount: $${(data.totalAmountCents / 100).toFixed(2)}`, { bold: true });
   y -= 8;
 
-  draw("Participants (billable attendance)", { bold: true, size: 11 });
+  draw(
+    data.authType === "individual" ? "Student (billable attendance)" : "Participants (billable attendance)",
+    { bold: true, size: 11 }
+  );
   y -= 4;
 
   const colX = { pid: MARGIN, name: MARGIN + 100, units: MARGIN + 380 };

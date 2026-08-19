@@ -1,6 +1,6 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
-import { insertInvoicePacketEvent } from "@wayfinder/supabase/pre-ets-invoice-packet";
+import { insertInvoicePacketEvent, countBillableAttendanceUnits } from "@wayfinder/supabase/pre-ets-invoice-packet";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
@@ -62,30 +62,32 @@ export async function POST(request: Request) {
       .eq("id", body.authorizationId)
       .maybeSingle();
 
-    if (!authorization || authorization.auth_type !== "group") {
-      return NextResponse.json({ error: "Group authorization required" }, { status: 400 });
+    if (!authorization || !["group", "individual"].includes(authorization.auth_type as string)) {
+      return NextResponse.json(
+        { error: "Group or individual authorization required" },
+        { status: 400 }
+      );
     }
 
-    const { data: sessions } = await admin
-      .from("pre_ets_sessions")
-      .select("id")
-      .eq("authorization_id", body.authorizationId)
-      .eq("status", "completed");
-
-    const { data: attendance } = await admin
-      .from("pre_ets_session_attendance")
-      .select("id, present, signed_on_roster, session_id")
-      .in(
-        "session_id",
-        (sessions ?? []).map((s) => s.id as string)
-      );
-
-    const billableUnits = (attendance ?? []).filter(
-      (a) => a.present && a.signed_on_roster
-    ).length;
+    const billableUnits = await countBillableAttendanceUnits(admin, body.authorizationId);
 
     const settings = auth.settings;
-    const totalAmountCents = billableUnits * settings.default_rate_cents;
+    let totalAmountCents = billableUnits * settings.default_rate_cents;
+    let providerInvoiceNumber: string | null = null;
+
+    if (authorization.auth_type === "individual") {
+      const { data: rosterEntry } = await admin
+        .from("pre_ets_roster_entries")
+        .select("invoice_number, billed_cents")
+        .eq("authorization_id", body.authorizationId)
+        .limit(1)
+        .maybeSingle();
+
+      providerInvoiceNumber = (rosterEntry?.invoice_number as string | null) ?? null;
+      if (rosterEntry?.billed_cents != null && billableUnits > 0) {
+        totalAmountCents = rosterEntry.billed_cents as number;
+      }
+    }
 
     const { data: packet, error } = await admin
       .from("pre_ets_invoice_packets")
@@ -95,6 +97,7 @@ export async function POST(request: Request) {
           service_month: authorization.service_month,
           total_hours: billableUnits,
           total_amount_cents: totalAmountCents,
+          provider_invoice_number: providerInvoiceNumber,
           status: "draft",
           updated_at: new Date().toISOString(),
         },

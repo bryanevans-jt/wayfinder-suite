@@ -28,13 +28,22 @@ type OverdueRow = {
   hoursPastDue: number | null;
 };
 
+type School = { id: string; name: string };
+
 export function PreEtsHrPanel() {
+  const [schools, setSchools] = useState<School[]>([]);
+  const [schoolId, setSchoolId] = useState("");
   const [summary, setSummary] = useState<HrSummary | null>(null);
   const [overdue, setOverdue] = useState<OverdueRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/pre-ets/hr-summary");
+    const schoolRes = await fetch("/api/pre-ets/schools");
+    const schoolData = (await schoolRes.json()) as { schools?: School[] };
+    if (schoolRes.ok) setSchools(schoolData.schools ?? []);
+
+    const qs = schoolId ? `?schoolId=${encodeURIComponent(schoolId)}` : "";
+    const res = await fetch(`/api/pre-ets/hr-summary${qs}`);
     const data = (await res.json()) as {
       summary?: HrSummary;
       overdueSessions?: OverdueRow[];
@@ -46,7 +55,7 @@ export function PreEtsHrPanel() {
     }
     setSummary(data.summary ?? null);
     setOverdue(data.overdueSessions ?? []);
-  }, []);
+  }, [schoolId]);
 
   useEffect(() => {
     void load();
@@ -62,19 +71,36 @@ export function PreEtsHrPanel() {
 
   return (
     <section className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-brand-black">HR oversight (view only)</h2>
-        <p className="mt-1 text-sm text-brand-black/65">
-          School year {summary.schoolYear}. Read-only snapshot of documentation compliance and
-          invoice packet status. Contact Accounts or Supervisors for changes.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold text-brand-black">HR oversight (view only)</h2>
+          <p className="mt-1 text-sm text-brand-black/65">
+            School year {summary.schoolYear}. Read-only snapshot of documentation compliance and
+            invoice packet status. Contact Accounts or Supervisors for changes.
+          </p>
+        </div>
+        <label className="text-sm">
+          <span className="mr-2 text-brand-black/70">School</span>
+          <select
+            className="rounded-lg border border-neutral-300 px-2 py-1.5"
+            value={schoolId}
+            onChange={(e) => setSchoolId(e.target.value)}
+          >
+            <option value="">All schools</option>
+            {schools.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Overdue sessions" value={summary.overdueSessions} highlight={summary.overdueSessions > 0} />
         <StatCard label="Missing roster" value={summary.missingRoster} />
         <StatCard label="Missing CAR" value={summary.missingCar} />
-        <StatCard label="Active schools" value={summary.activeSchools} />
+        <StatCard label="Schools" value={summary.activeSchools} />
       </div>
 
       <div className="rounded-xl border border-neutral-200 bg-white p-4">
