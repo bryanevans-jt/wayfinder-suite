@@ -157,6 +157,7 @@ export function ReferralQueueWorkspace() {
   const [authById, setAuthById] = useState<Record<string, string>>({});
   const [overrideById, setOverrideById] = useState<Record<string, string>>({});
 
+  const [clientQuery, setClientQuery] = useState("");
   const [counselorId, setCounselorId] = useState("");
   const [stateFilter, setStateFilter] = useState("");
   const [serviceFilter, setServiceFilter] = useState("");
@@ -214,7 +215,14 @@ export function ReferralQueueWorkspace() {
 
   const filteredClients = useMemo(() => {
     const cutoff = timeCutoff(timeFilter);
+    const q = clientQuery.trim().toLowerCase();
     const copy = clients.filter((c) => {
+      if (q) {
+        const name = (c.full_name ?? "").toLowerCase();
+        const email = (c.contact_email ?? "").toLowerCase();
+        const auth = (c.authorization_number ?? "").toLowerCase();
+        if (!name.includes(q) && !email.includes(q) && !auth.includes(q)) return false;
+      }
       if (counselorId) {
         if (counselorId.startsWith("name:")) {
           if (c.counselorName !== counselorId.slice(5)) return false;
@@ -233,10 +241,11 @@ export function ReferralQueueWorkspace() {
     });
     copy.sort((a, b) => referredMs(a) - referredMs(b));
     return copy;
-  }, [clients, counselorId, stateFilter, serviceFilter, stageFilter, timeFilter]);
+  }, [clients, clientQuery, counselorId, stateFilter, serviceFilter, stageFilter, timeFilter]);
 
   const hasFilters =
-    Boolean(counselorId || stateFilter || serviceFilter || stageFilter) || timeFilter !== "all";
+    Boolean(clientQuery.trim() || counselorId || stateFilter || serviceFilter || stageFilter) ||
+    timeFilter !== "all";
 
   async function runAction(
     clientId: string,
@@ -271,6 +280,7 @@ export function ReferralQueueWorkspace() {
       : null;
 
   function clearFilters() {
+    setClientQuery("");
     setCounselorId("");
     setStateFilter("");
     setServiceFilter("");
@@ -337,6 +347,17 @@ export function ReferralQueueWorkspace() {
           ) : null}
         </div>
         <div className="mt-3 flex flex-wrap gap-3">
+          <label className="min-w-[14rem] flex-1 text-xs font-medium text-brand-black/70">
+            Client
+            <input
+              type="search"
+              className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+              placeholder="Search name, email, or auth #…"
+              value={clientQuery}
+              onChange={(e) => setClientQuery(e.target.value)}
+              autoComplete="off"
+            />
+          </label>
           <CounselorFilter
             counselors={counselorOptions}
             value={counselorId}
