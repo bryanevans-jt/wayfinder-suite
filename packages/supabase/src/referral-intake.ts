@@ -257,34 +257,67 @@ function parseAddress(address: string | undefined): {
 export async function findPossibleDuplicateClients(
   admin: SupabaseClient,
   opts: { fullName: string; dateOfBirth?: string | null; contactEmail?: string | null }
-): Promise<Array<{ id: string; full_name: string | null; contact_email: string | null }>> {
-  const results: Array<{ id: string; full_name: string | null; contact_email: string | null }> = [];
+): Promise<
+  Array<{
+    id: string;
+    full_name: string | null;
+    contact_email: string | null;
+    archived_at?: string | null;
+  }>
+> {
+  const results: Array<{
+    id: string;
+    full_name: string | null;
+    contact_email: string | null;
+    archived_at?: string | null;
+  }> = [];
   const email = (opts.contactEmail ?? "").trim().toLowerCase();
   if (email) {
-    const { data } = await admin
+    const emailQuery = await admin
       .from("clients")
-      .select("id, full_name, contact_email")
+      .select("id, full_name, contact_email, archived_at")
       .ilike("contact_email", email)
       .neq("intake_status", "discarded")
       .limit(5);
-    for (const row of data ?? []) results.push(row as (typeof results)[number]);
+    const emailRows = emailQuery.error?.message.includes("archived_at")
+      ? (
+          await admin
+            .from("clients")
+            .select("id, full_name, contact_email")
+            .ilike("contact_email", email)
+            .neq("intake_status", "discarded")
+            .limit(5)
+        ).data
+      : emailQuery.data;
+    for (const row of emailRows ?? []) results.push(row as (typeof results)[number]);
   }
   const name = opts.fullName.trim();
   const dob = (opts.dateOfBirth ?? "").trim();
   if (name && dob) {
-    const { data } = await admin
+    const dobQuery = await admin
       .from("clients")
-      .select("id, full_name, contact_email, date_of_birth")
+      .select("id, full_name, contact_email, date_of_birth, archived_at")
       .eq("date_of_birth", dob)
       .neq("intake_status", "discarded")
       .limit(20);
-    for (const row of data ?? []) {
+    const dobRows = dobQuery.error?.message.includes("archived_at")
+      ? (
+          await admin
+            .from("clients")
+            .select("id, full_name, contact_email, date_of_birth")
+            .eq("date_of_birth", dob)
+            .neq("intake_status", "discarded")
+            .limit(20)
+        ).data
+      : dobQuery.data;
+    for (const row of dobRows ?? []) {
       const n = ((row as { full_name?: string }).full_name ?? "").trim().toLowerCase();
       if (n && n === name.toLowerCase() && !results.some((r) => r.id === row.id)) {
         results.push({
           id: row.id as string,
           full_name: (row as { full_name?: string }).full_name ?? null,
           contact_email: (row as { contact_email?: string }).contact_email ?? null,
+          archived_at: (row as { archived_at?: string | null }).archived_at ?? null,
         });
       }
     }
@@ -407,8 +440,13 @@ export async function createPublicReferral(
     return { error: created.error, status: 500 };
   }
 
+  const closedPrior = [...duplicates]
+    .filter((d) => d.archived_at)
+    .sort((a, b) => String(b.archived_at).localeCompare(String(a.archived_at)))[0];
+
   const patch: Record<string, unknown> = {
     intake_status: "new_referral",
+    ...(closedPrior ? { prior_client_id: closedPrior.id } : {}),
     intake_status_changed_at: nowIso,
     referral_state: state,
     referred_at: nowIso,
@@ -427,7 +465,12 @@ export async function createPublicReferral(
     home_zip: addr.zip,
   };
 
-  const { error: patchErr } = await admin.from("clients").update(patch).eq("id", created.id);
+  let { error: patchErr } = await admin.from("clients").update(patch).eq("id", created.id);
+  if (patchErr?.message.includes("prior_client_id") && patch.prior_client_id) {
+    delete patch.prior_client_id;
+    const retry = await admin.from("clients").update(patch).eq("id", created.id);
+    patchErr = retry.error;
+  }
   if (patchErr) {
     return { error: patchErr.message, status: 500 };
   }
@@ -691,6 +734,49 @@ export async function activateReferralToFirstStage(
     });
   }
 
+  return { ok: true };
+}
+
+export async function linkReferralPriorEnrollment(
+  admin: SupabaseClient,
+  opts: { clientId: string; priorClientId: string | null; actorUserId: string }
+): Promise<{ ok: true } | { error: string }> {
+  if (opts.priorClientId) {
+    if (opts.priorClientId === opts.clientId) {
+      return { error: "Cannot link a referral to itself." };
+    }
+    const { data: prior, error: priorErr } = await admin
+      .from("clients")
+      .select("id, archived_at")
+      .eq("id", opts.priorClientId)
+      .maybeSingle();
+    if (priorErr) return { error: priorErr.message };
+    if (!prior) return { error: "Previous enrollment not found." };
+    if (!(prior as { archived_at?: string | null }).archived_at) {
+      return { error: "Previous enrollment must be a closed case." };
+    }
+  }
+
+  const { error } = await admin
+    .from("clients")
+    .update({ prior_client_id: opts.priorClientId })
+    .eq("id", opts.clientId);
+  if (error) {
+    if (error.message.includes("prior_client_id")) {
+      return {
+        error:
+          "Previous enrollment linking is not available yet. Apply the latest database migration.",
+      };
+    }
+    return { error: error.message };
+  }
+
+  await admin.from("client_intake_events").insert({
+    client_id: opts.clientId,
+    actor_user_id: opts.actorUserId,
+    event_type: "prior_enrollment_linked",
+    to_value: opts.priorClientId,
+  });
   return { ok: true };
 }
 

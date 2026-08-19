@@ -21,7 +21,7 @@ export const ANALYTICS_METRIC_DEFINITIONS = {
   hireRate: {
     label: "Hire rate",
     description:
-      "Clients hired in the period ÷ active assigned caseload (clients not in Closed or Dismissed stage).",
+      "Clients hired in the period ÷ active assigned caseload (clients not in Closed, Dismissed, or Services Interrupted).",
   },
   medianDaysToHire: {
     label: "Median days intake → hire",
@@ -31,7 +31,7 @@ export const ANALYTICS_METRIC_DEFINITIONS = {
   activeCaseload: {
     label: "Active caseload",
     description:
-      "Assigned clients in scope whose current stage is not Closed or Dismissed.",
+      "Assigned clients in scope whose current stage is not Closed, Dismissed, or Services Interrupted.",
   },
   applicationsSubmitted: {
     label: "Applications submitted",
@@ -76,7 +76,8 @@ export const ANALYTICS_METRIC_DEFINITIONS = {
 /** Soft guidance for active ES caseload size — not enforced. */
 export const SOFT_ACTIVE_CASELOAD_GUIDANCE = 20;
 
-export const CLOSED_STAGE_PATTERN = /^(closed(\s+successfully)?|dismissed)$/i;
+export const CLOSED_STAGE_PATTERN =
+  /^(closed(\s+successfully)?|dismissed|services\s+interrupted)$/i;
 
 export const INTAKE_STAGE_PATTERN = /intake|phase\s*1/i;
 

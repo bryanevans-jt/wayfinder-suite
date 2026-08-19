@@ -18,7 +18,8 @@ type ReferralRow = {
   stageName: string | null;
   authorization_number: string | null;
   hasEsAssignment: boolean;
-  possibleDuplicates: Array<{ id: string; full_name: string | null }>;
+  prior_client_id?: string | null;
+  possibleDuplicates: Array<{ id: string; full_name: string | null; archived_at?: string | null }>;
 };
 
 type TimeFilter = "all" | "48h" | "7d" | "30d" | "90d" | "ytd";
@@ -249,7 +250,8 @@ export function ReferralQueueWorkspace() {
 
   async function runAction(
     clientId: string,
-    action: "pending_authorization" | "activate" | "discard"
+    action: "pending_authorization" | "activate" | "discard" | "link_prior",
+    extra?: { priorClientId?: string | null }
   ) {
     setBusyId(clientId);
     setError(null);
@@ -262,6 +264,7 @@ export function ReferralQueueWorkspace() {
           action,
           authorizationNumber: authById[clientId] ?? "",
           overrideReason: overrideById[clientId] ?? "",
+          priorClientId: extra?.priorClientId,
         }),
       });
       const data = (await res.json()) as { error?: string };
@@ -485,10 +488,41 @@ export function ReferralQueueWorkspace() {
               </div>
 
               {c.possibleDuplicates.length > 0 ? (
-                <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-                  Possible Duplicate Of{" "}
-                  {c.possibleDuplicates.map((d) => d.full_name || d.id).join(", ")}
-                </p>
+                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                  <p>
+                    Possible Duplicate Of{" "}
+                    {c.possibleDuplicates.map((d) => d.full_name || d.id).join(", ")}
+                  </p>
+                  <ul className="mt-2 space-y-1">
+                    {c.possibleDuplicates.map((d) => {
+                      const linked = c.prior_client_id === d.id;
+                      const closed = Boolean(d.archived_at);
+                      return (
+                        <li key={d.id} className="flex flex-wrap items-center gap-2">
+                          <span>
+                            {d.full_name || d.id}
+                            {closed ? " (closed)" : ""}
+                            {linked ? " — linked as previous enrollment" : ""}
+                          </span>
+                          {closed ? (
+                            <button
+                              type="button"
+                              disabled={busyId === c.id}
+                              className="rounded border border-amber-300 bg-white px-2 py-0.5 text-xs font-medium hover:bg-amber-100 disabled:opacity-50"
+                              onClick={() =>
+                                void runAction(c.id, "link_prior", {
+                                  priorClientId: linked ? null : d.id,
+                                })
+                              }
+                            >
+                              {linked ? "Clear link" : "Link previous enrollment"}
+                            </button>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
               ) : null}
 
               <div className="mt-3 grid gap-2 sm:grid-cols-2">

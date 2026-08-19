@@ -65,6 +65,15 @@ export function StaffNotificationsBell() {
     void load();
   }
 
+  async function dismissOne(id: string) {
+    await fetch("/api/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: [id], dismiss: true }),
+    });
+    void load();
+  }
+
   async function markAllRead() {
     await fetch("/api/notifications", {
       method: "PATCH",
@@ -117,32 +126,42 @@ export function StaffNotificationsBell() {
           ) : (
             <ul className="divide-y divide-neutral-100">
               {notifications.map((n) => (
-                <li key={n.id} className={n.read_at ? "opacity-70" : ""}>
-                  {n.link_path ? (
-                    <Link
-                      href={n.link_path}
-                      onClick={() => {
-                        if (!n.read_at) void markRead([n.id]);
-                        setOpen(false);
-                      }}
-                      className="block px-3 py-3 hover:bg-neutral-50"
-                    >
-                      <p className="text-sm font-semibold text-brand-black">{n.title}</p>
-                      {n.body ? (
-                        <p className="mt-0.5 text-xs text-brand-black/70 line-clamp-2">{n.body}</p>
-                      ) : null}
-                      <p className="mt-1 text-xs text-brand-black/50">
-                        {formatPortalDateTime(n.created_at)}
-                      </p>
-                    </Link>
-                  ) : (
-                    <div className="px-3 py-3">
-                      <p className="text-sm font-semibold text-brand-black">{n.title}</p>
-                      {n.body ? (
-                        <p className="mt-0.5 text-xs text-brand-black/70">{n.body}</p>
-                      ) : null}
-                    </div>
-                  )}
+                <li key={n.id} className={`flex items-start gap-1 ${n.read_at ? "opacity-70" : ""}`}>
+                  <div className="min-w-0 flex-1">
+                    {n.link_path ? (
+                      <Link
+                        href={n.link_path}
+                        onClick={() => {
+                          if (!n.read_at) void markRead([n.id]);
+                          setOpen(false);
+                        }}
+                        className="block px-3 py-3 hover:bg-neutral-50"
+                      >
+                        <p className="text-sm font-semibold text-brand-black">{n.title}</p>
+                        {n.body ? (
+                          <p className="mt-0.5 line-clamp-2 text-xs text-brand-black/70">{n.body}</p>
+                        ) : null}
+                        <p className="mt-1 text-xs text-brand-black/50">
+                          {formatPortalDateTime(n.created_at)}
+                        </p>
+                      </Link>
+                    ) : (
+                      <div className="px-3 py-3">
+                        <p className="text-sm font-semibold text-brand-black">{n.title}</p>
+                        {n.body ? (
+                          <p className="mt-0.5 text-xs text-brand-black/70">{n.body}</p>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="mt-2 mr-2 shrink-0 rounded px-2 py-1 text-xs font-medium text-brand-black/55 hover:bg-neutral-100 hover:text-brand-black"
+                    onClick={() => void dismissOne(n.id)}
+                    aria-label="Clear notification"
+                  >
+                    Clear
+                  </button>
                 </li>
               ))}
             </ul>

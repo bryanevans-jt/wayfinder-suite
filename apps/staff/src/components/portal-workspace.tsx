@@ -49,6 +49,11 @@ import { CounselorMergePanel } from "@/components/counselor-merge-panel";
 import { PortalSetupChecklist } from "@/components/portal-setup-checklist";
 import { friendlyClientError, USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  clientPipelineWhere,
+  CLIENT_PIPELINE_WHERE_LABELS,
+  type ClientPipelineWhere,
+} from "@/lib/client-pipeline-where";
 
 type PortalMode = "super_admin" | "admin" | "supervisor";
 
@@ -83,7 +88,18 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
   const [addClientOpen, setAddClientOpen] = useState(false);
   const [clientFilterOffice, setClientFilterOffice] = useState("");
   const [clientFilterEs, setClientFilterEs] = useState("");
+  const [clientFilterCounselor, setClientFilterCounselor] = useState("");
+  const [clientFilterSupervisorId, setClientFilterSupervisorId] = useState("");
+  const [clientWhere, setClientWhere] = useState<"" | ClientPipelineWhere>("");
   const [clientSearch, setClientSearch] = useState("");
+  const [staffProfile, setStaffProfile] = useState<{
+    title: string;
+    name: string;
+    email: string | null;
+    role: string;
+    offices: string;
+    active: boolean;
+  } | null>(null);
   const [newEsName, setNewEsName] = useState("");
   const [newEsEmail, setNewEsEmail] = useState("");
   const [newEsOfficeIds, setNewEsOfficeIds] = useState<string[]>([]);
@@ -217,19 +233,33 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
     });
   }, [b]);
 
+  const supervisorEsIds = useMemo(() => {
+    if (!b || !clientFilterSupervisorId) return null;
+    return new Set(
+      b.supervisorEsLinks
+        .filter((l) => l.supervisor_user_id === clientFilterSupervisorId)
+        .map((l) => l.es_user_id)
+    );
+  }, [b, clientFilterSupervisorId]);
+
   const filteredClients = useMemo(() => {
     if (!b) return [];
     const q = clientSearch.trim().toLowerCase();
+    const showClosed = clientWhere === "closed" || showArchivedClients;
     return b.clients.filter((c) => {
+      const where = clientPipelineWhere(c);
       if (
         (mode === "supervisor" || mode === "admin" || mode === "super_admin") &&
-        !showArchivedClients &&
+        !showClosed &&
         isArchivedClient(c.archived_at)
       ) {
         return false;
       }
+      if (clientWhere && where !== clientWhere) return false;
       if (clientFilterOffice && c.office_id !== clientFilterOffice) return false;
       if (clientFilterEs && !c.es_user_ids.includes(clientFilterEs)) return false;
+      if (clientFilterCounselor && c.counselor_id !== clientFilterCounselor) return false;
+      if (supervisorEsIds && !c.es_user_ids.some((id) => supervisorEsIds.has(id))) return false;
       if (!q) return true;
       const hay = [
         c.full_name,
@@ -243,7 +273,17 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [b, clientFilterOffice, clientFilterEs, clientSearch, mode, showArchivedClients]);
+  }, [
+    b,
+    clientFilterOffice,
+    clientFilterEs,
+    clientFilterCounselor,
+    clientSearch,
+    clientWhere,
+    mode,
+    showArchivedClients,
+    supervisorEsIds,
+  ]);
 
   const {
     pageSize: clientPageSize,
@@ -274,6 +314,19 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
     } finally {
       setBusy(false);
     }
+  }
+
+  function goToClients(opts: {
+    esId?: string;
+    counselorId?: string;
+    supervisorId?: string;
+  }) {
+    setClientFilterEs(opts.esId ?? "");
+    setClientFilterCounselor(opts.counselorId ?? "");
+    setClientFilterSupervisorId(opts.supervisorId ?? "");
+    setClientWhere("");
+    setShowArchivedClients(false);
+    setNav({ primary: "clients" });
   }
 
   return (
@@ -388,6 +441,25 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                         offices={b.offices}
                         busy={busy}
                         officeName={officeName}
+                        onViewProfile={() =>
+                          setStaffProfile({
+                            title: "Counselor",
+                            name: c.full_name,
+                            email: c.email || c.contact_email,
+                            role: "Counselor",
+                            offices:
+                              (c.office_ids.length
+                                ? c.office_ids
+                                : c.office_id
+                                  ? [c.office_id]
+                                  : []
+                              )
+                                .map((id) => officeName(id))
+                                .join(", ") || "—",
+                            active: c.is_active,
+                          })
+                        }
+                        onViewClients={() => goToClients({ counselorId: c.id })}
                         onCombine={() => {
                           setMergeSourceId(c.id);
                           document.getElementById("combine-counselors")?.scrollIntoView({
@@ -652,14 +724,48 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 </option>
               ))}
             </select>
+            <select
+              value={clientFilterCounselor}
+              onChange={(e) => setClientFilterCounselor(e.target.value)}
+              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+            >
+              <option value="">All counselors</option>
+              {b.counselors.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.full_name}
+                </option>
+              ))}
+            </select>
+            <select
+              value={clientWhere}
+              onChange={(e) => {
+                const next = e.target.value as "" | ClientPipelineWhere;
+                setClientWhere(next);
+                if (next === "closed") setShowArchivedClients(true);
+                if (next && next !== "closed") setShowArchivedClients(false);
+              }}
+              aria-label="Where they are"
+              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+            >
+              <option value="">Where they are</option>
+              {(Object.keys(CLIENT_PIPELINE_WHERE_LABELS) as ClientPipelineWhere[]).map((key) => (
+                <option key={key} value={key}>
+                  {CLIENT_PIPELINE_WHERE_LABELS[key]}
+                </option>
+              ))}
+            </select>
             <label className="inline-flex items-center gap-2 text-sm text-brand-black/80">
               <input
                 type="checkbox"
                 checked={showArchivedClients}
-                onChange={(e) => setShowArchivedClients(e.target.checked)}
+                onChange={(e) => {
+                  setShowArchivedClients(e.target.checked);
+                  if (e.target.checked) setClientWhere("closed");
+                  else if (clientWhere === "closed") setClientWhere("");
+                }}
                 className="size-4 rounded border-neutral-300 text-brand-green focus:ring-brand-green"
               />
-              View archived
+              Closed
             </label>
           </div>
           <ClientListPaginationControls
@@ -676,16 +782,18 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 <tr>
                   <th className="px-3 py-2">Client</th>
                   <th className="px-3 py-2">Office</th>
+                  <th className="px-3 py-2">Counselor</th>
                   <th className="px-3 py-2">Employment Specialist</th>
                   <th className="px-3 py-2">Service</th>
                   <th className="px-3 py-2">Current stage</th>
+                  <th className="px-3 py-2">Where</th>
                   <th className="px-3 py-2"> </th>
                 </tr>
               </thead>
               <tbody>
                 {filteredClients.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-3 py-8 text-center text-brand-black/60">
+                    <td colSpan={8} className="px-3 py-8 text-center text-brand-black/60">
                       {b.clients.length === 0 && canManageOrg
                         ? "No clients yet. Add one above or use CSV import for bulk onboarding."
                         : "No clients match your filters."}
@@ -844,6 +952,17 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                       offices={b.offices}
                       busy={busy}
                       officeName={officeName}
+                      onViewProfile={() =>
+                        setStaffProfile({
+                          title: "Employment Specialist",
+                          name: es.display_name,
+                          email: es.email || null,
+                          role: "Employment Specialist",
+                          offices: es.office_ids.map((id) => officeName(id)).join(", ") || "—",
+                          active: es.is_active,
+                        })
+                      }
+                      onViewClients={() => goToClients({ esId: es.id })}
                       onSave={(payload) =>
                         run(async () => {
                           const res = await fetch("/api/portal/es-users", {
@@ -897,13 +1016,36 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                     return (
                       <tr key={es.id} className="border-t border-neutral-100">
                         <td className="px-3 py-3">
-                          <p className="font-medium text-brand-black">{es.display_name}</p>
+                          <button
+                            type="button"
+                            className="font-medium text-brand-green hover:underline"
+                            onClick={() =>
+                              setStaffProfile({
+                                title: "Employment Specialist",
+                                name: es.display_name,
+                                email: es.email || null,
+                                role: "Employment Specialist",
+                                offices: officeLabels,
+                                active: es.is_active,
+                              })
+                            }
+                          >
+                            {es.display_name}
+                          </button>
                           {es.email && es.display_name !== es.email ? (
                             <p className="text-xs text-brand-black/60">{es.email}</p>
                           ) : null}
                         </td>
                         <td className="px-3 py-3">{officeLabels}</td>
-                        <td className="px-3 py-3">{es.client_count}</td>
+                        <td className="px-3 py-3">
+                          <button
+                            type="button"
+                            className="font-medium text-brand-green hover:underline"
+                            onClick={() => goToClients({ esId: es.id })}
+                          >
+                            {es.client_count}
+                          </button>
+                        </td>
                         <td className="px-3 py-3">
                           <span
                             className={`rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -1027,6 +1169,17 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                       offices={b.offices}
                       busy={busy}
                       officeName={officeName}
+                      onViewProfile={() =>
+                        setStaffProfile({
+                          title: "Supervisor",
+                          name: s.display_name,
+                          email: s.email || null,
+                          role: "Supervisor",
+                          offices: s.office_ids.map((id) => officeName(id)).join(", ") || "—",
+                          active: s.is_active,
+                        })
+                      }
+                      onViewClients={() => goToClients({ supervisorId: s.id })}
                       onSave={(payload) =>
                         run(async () => {
                           const res = await fetch("/api/portal/supervisors", {
@@ -1665,7 +1818,11 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
           busy={busy}
           allowDelete={canDeleteClients}
           allowEsEmail={mode === "supervisor"}
-          caseworkHref={mode === "supervisor" ? `/dashboard/clients/${drawerClient.id}` : null}
+          caseworkHref={
+            mode === "supervisor" || canManageOrg
+              ? `/dashboard/clients/${drawerClient.id}`
+              : null
+          }
           onClose={() => setDrawerClient(null)}
           onSave={(payload) =>
             run(async () => {
@@ -1723,6 +1880,41 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
         clientLabel={profileModalClient?.label ?? ""}
         onClose={() => setProfileModalClient(null)}
       />
+      {staffProfile ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-green">
+              {staffProfile.title}
+            </p>
+            <h2 className="mt-1 text-lg font-semibold text-brand-black">{staffProfile.name}</h2>
+            <dl className="mt-4 space-y-2 text-sm">
+              <div>
+                <dt className="text-brand-black/55">Email</dt>
+                <dd className="text-brand-black">{staffProfile.email || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-brand-black/55">Role</dt>
+                <dd className="text-brand-black">{staffProfile.role}</dd>
+              </div>
+              <div>
+                <dt className="text-brand-black/55">Offices</dt>
+                <dd className="text-brand-black">{staffProfile.offices}</dd>
+              </div>
+              <div>
+                <dt className="text-brand-black/55">Status</dt>
+                <dd className="text-brand-black">{staffProfile.active ? "Active" : "Inactive"}</dd>
+              </div>
+            </dl>
+            <button
+              type="button"
+              className="mt-5 rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white"
+              onClick={() => setStaffProfile(null)}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
@@ -1930,6 +2122,8 @@ function EsStaffListItem({
   offices,
   busy,
   officeName,
+  onViewProfile,
+  onViewClients,
   onSave,
   onSendLoginEmail,
   onDelete,
@@ -1938,6 +2132,8 @@ function EsStaffListItem({
   offices: PortalBootstrap["offices"];
   busy: boolean;
   officeName: (id: string | null) => string;
+  onViewProfile?: () => void;
+  onViewClients?: () => void;
   onSave: (payload: {
     full_name: string;
     is_active: boolean;
@@ -2027,13 +2223,35 @@ function EsStaffListItem({
   return (
     <tr className="border-t border-neutral-100">
       <td className="px-3 py-3">
-        <p className="font-medium text-brand-black">{staff.display_name}</p>
+        {onViewProfile ? (
+          <button
+            type="button"
+            className="font-medium text-brand-green hover:underline"
+            onClick={onViewProfile}
+          >
+            {staff.display_name}
+          </button>
+        ) : (
+          <p className="font-medium text-brand-black">{staff.display_name}</p>
+        )}
         {staff.email && staff.display_name !== staff.email ? (
           <p className="text-xs text-brand-black/60">{staff.email}</p>
         ) : null}
       </td>
       <td className="px-3 py-3">{officeLabels}</td>
-      <td className="px-3 py-3">{staff.client_count}</td>
+      <td className="px-3 py-3">
+        {onViewClients ? (
+          <button
+            type="button"
+            className="font-medium text-brand-green hover:underline"
+            onClick={onViewClients}
+          >
+            {staff.client_count}
+          </button>
+        ) : (
+          staff.client_count
+        )}
+      </td>
       <td className="px-3 py-3">
         <span
           className={`rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -2082,6 +2300,8 @@ function CounselorStaffListItem({
   offices,
   busy,
   officeName,
+  onViewProfile,
+  onViewClients,
   onSave,
   onDelete,
   onCombine,
@@ -2090,6 +2310,8 @@ function CounselorStaffListItem({
   offices: PortalBootstrap["offices"];
   busy: boolean;
   officeName: (id: string | null) => string;
+  onViewProfile?: () => void;
+  onViewClients?: () => void;
   onCombine?: () => void;
   onSave: (payload: {
     full_name: string;
@@ -2211,7 +2433,17 @@ function CounselorStaffListItem({
   return (
     <tr className="border-t border-neutral-100">
       <td className="px-3 py-3">
-        <p className="font-medium text-brand-black">{counselor.full_name}</p>
+        {onViewProfile ? (
+          <button
+            type="button"
+            className="font-medium text-brand-green hover:underline"
+            onClick={onViewProfile}
+          >
+            {counselor.full_name}
+          </button>
+        ) : (
+          <p className="font-medium text-brand-black">{counselor.full_name}</p>
+        )}
         {counselor.email ? (
           <p className="text-xs text-brand-black/60">{counselor.email}</p>
         ) : counselor.contact_email ? (
@@ -2221,7 +2453,19 @@ function CounselorStaffListItem({
         )}
       </td>
       <td className="px-3 py-3">{officeLabels}</td>
-      <td className="px-3 py-3">{counselor.client_count}</td>
+      <td className="px-3 py-3">
+        {onViewClients ? (
+          <button
+            type="button"
+            className="font-medium text-brand-green hover:underline"
+            onClick={onViewClients}
+          >
+            {counselor.client_count}
+          </button>
+        ) : (
+          counselor.client_count
+        )}
+      </td>
       <td className="px-3 py-3">
         {!counselor.has_login ? (
           <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
@@ -2276,6 +2520,8 @@ function SupervisorStaffListItem({
   offices,
   busy,
   officeName,
+  onViewProfile,
+  onViewClients,
   onSave,
   onSendLoginEmail,
   onDelete,
@@ -2284,6 +2530,8 @@ function SupervisorStaffListItem({
   offices: PortalBootstrap["offices"];
   busy: boolean;
   officeName: (id: string | null) => string;
+  onViewProfile?: () => void;
+  onViewClients?: () => void;
   onSave: (payload: {
     full_name: string;
     is_active: boolean;
@@ -2372,13 +2620,35 @@ function SupervisorStaffListItem({
   return (
     <tr className="border-t border-neutral-100">
       <td className="px-3 py-3">
-        <p className="font-medium text-brand-black">{staff.display_name}</p>
+        {onViewProfile ? (
+          <button
+            type="button"
+            className="font-medium text-brand-green hover:underline"
+            onClick={onViewProfile}
+          >
+            {staff.display_name}
+          </button>
+        ) : (
+          <p className="font-medium text-brand-black">{staff.display_name}</p>
+        )}
         {staff.email && staff.display_name !== staff.email ? (
           <p className="text-xs text-brand-black/60">{staff.email}</p>
         ) : null}
       </td>
       <td className="px-3 py-3">{officeLabels}</td>
-      <td className="px-3 py-3">{staff.es_count}</td>
+      <td className="px-3 py-3">
+        {onViewClients ? (
+          <button
+            type="button"
+            className="font-medium text-brand-green hover:underline"
+            onClick={onViewClients}
+          >
+            {staff.es_count}
+          </button>
+        ) : (
+          staff.es_count
+        )}
+      </td>
       <td className="px-3 py-3">
         <span
           className={`rounded-full px-2 py-0.5 text-xs font-medium ${

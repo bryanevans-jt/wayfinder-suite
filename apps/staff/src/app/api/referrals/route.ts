@@ -6,6 +6,7 @@ import {
   canManageReferrals,
   createPublicReferral,
   findPossibleDuplicateClients,
+  linkReferralPriorEnrollment,
   setReferralPendingAuthorization,
   updateReferralClientInfo,
   type PublicReferralPayload,
@@ -32,7 +33,7 @@ export async function GET(request: Request) {
   let query = admin
     .from("clients")
     .select(
-      "id, full_name, contact_email, intake_status, referral_state, referred_at, intake_status_changed_at, current_service_id, current_stage_id, office_id, counselor_id, authorization_number, date_of_birth, primary_phone, gender, ethnicity, disability_history, created_at"
+      "id, full_name, contact_email, intake_status, referral_state, referred_at, intake_status_changed_at, current_service_id, current_stage_id, office_id, counselor_id, authorization_number, date_of_birth, primary_phone, gender, ethnicity, disability_history, created_at, prior_client_id"
     )
     .order("referred_at", { ascending: true, nullsFirst: false });
 
@@ -44,7 +45,27 @@ export async function GET(request: Request) {
     query = query.in("intake_status", ["new_referral", "pending_authorization"]);
   }
 
-  const { data: rows, error } = await query.limit(500);
+  let { data: rows, error } = await query.limit(500);
+  if (error?.message.includes("prior_client_id")) {
+    const fallback = admin
+      .from("clients")
+      .select(
+        "id, full_name, contact_email, intake_status, referral_state, referred_at, intake_status_changed_at, current_service_id, current_stage_id, office_id, counselor_id, authorization_number, date_of_birth, primary_phone, gender, ethnicity, disability_history, created_at"
+      )
+      .order("referred_at", { ascending: true, nullsFirst: false });
+    const retried =
+      status && ["new_referral", "pending_authorization", "active"].includes(status)
+        ? await fallback.eq("intake_status", status).limit(500)
+        : includeActive
+          ? await fallback
+              .in("intake_status", ["new_referral", "pending_authorization", "active"])
+              .limit(500)
+          : await fallback
+              .in("intake_status", ["new_referral", "pending_authorization"])
+              .limit(500);
+    rows = (retried.data ?? []) as typeof rows;
+    error = retried.error;
+  }
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -157,10 +178,11 @@ export async function PATCH(request: Request) {
 
   const body = (await request.json()) as {
     clientId?: string;
-    action?: "pending_authorization" | "activate" | "discard" | "update_info";
+    action?: "pending_authorization" | "activate" | "discard" | "update_info" | "link_prior";
     authorizationNumber?: string;
     overrideReason?: string;
     stageId?: string;
+    priorClientId?: string | null;
     info?: Parameters<typeof updateReferralClientInfo>[1]["patch"];
   };
 
@@ -177,6 +199,21 @@ export async function PATCH(request: Request) {
 
   const admin = createServiceRoleClient();
   const actor = session.effectiveUserId;
+
+  if (body.action === "link_prior") {
+    if (!canQueue) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const result = await linkReferralPriorEnrollment(admin, {
+      clientId: body.clientId,
+      priorClientId: body.priorClientId ?? null,
+      actorUserId: actor,
+    });
+    if ("error" in result) {
+      return NextResponse.json({ error: result.error }, { status: 400 });
+    }
+    return NextResponse.json({ ok: true });
+  }
 
   if (body.action === "update_info") {
     const result = await updateReferralClientInfo(admin, {

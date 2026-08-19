@@ -606,7 +606,7 @@ export async function loadAnalyticsSummary(
       clientsHired: "Distinct clients with first hire in the selected range.",
       hireRate: "Clients hired in period ÷ active assigned caseload.",
       medianDaysToHire: "Median days from intake to first hire (clients hired in period).",
-      activeCaseload: "Assigned clients not in Closed or Dismissed stage.",
+      activeCaseload: "Assigned clients not in Closed, Dismissed, or Services Interrupted.",
       contactsPerWeek: "Contact logs in range ÷ calendar weeks in range.",
       billableHoursPerHire: "Approved billable hours ÷ clients hired in period.",
       hoursWorked: "Approved time with overlapping clocks merged (payroll).",

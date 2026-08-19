@@ -149,6 +149,8 @@ export type PortalBootstrap = {
     counselor_id: string | null;
     counselor_name: string | null;
     archived_at: string | null;
+    intake_status: string | null;
+    open_intake: boolean;
   }[];
   counselorOfficeLinks: { id: string; counselor_id: string; office_id: string }[];
   staffOfficeLinks: { id: string; user_id: string; office_id: string }[];
@@ -220,12 +222,18 @@ export async function loadPortalBootstrap(
     { data: staffOfficeLinks },
     { data: supervisorEsLinks },
     { data: esClientLinks },
+    { data: openIntakeTasks },
   ] = await Promise.all([
     admin.from("counselor_office_assignments").select("id, counselor_id, office_id"),
     admin.from("staff_office_assignments").select("id, user_id, office_id"),
     admin.from("supervisor_es_assignments").select("id, supervisor_user_id, es_user_id"),
     admin.from("es_client_assignments").select("id, es_user_id, client_id"),
+    admin.from("hospitality_intake_tasks").select("client_id").eq("status", "open"),
   ]);
+
+  const openIntakeClientIds = new Set(
+    (openIntakeTasks ?? []).map((t) => t.client_id as string)
+  );
 
   let counselorsQuery = await admin
     .from("counselors")
@@ -742,6 +750,8 @@ export async function loadPortalBootstrap(
         counselor_id: counselorId,
         counselor_name: counselorId ? (counselorNameById.get(counselorId) ?? null) : null,
         archived_at: (c as { archived_at?: string | null }).archived_at ?? null,
+        intake_status: (c as { intake_status?: string | null }).intake_status ?? null,
+        open_intake: openIntakeClientIds.has(c.id as string),
       };
     })
       .sort((a, b) =>
