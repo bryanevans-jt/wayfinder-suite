@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { isEsReplyOverdue } from "@wayfinder/supabase/business-hours";
 import { MIN_CONTACTS_PER_MONTH } from "@wayfinder/supabase/caseload-triage";
+import { isAdminTierRole, STAFF_ROLES } from "@wayfinder/supabase/roles";
 import { loadClientDisplayNameById } from "@/lib/client-display-names";
 import { loadStaffNameById } from "@/lib/staff-names";
 
@@ -43,9 +44,30 @@ export type CoachingThinLogRow = {
 export type EsCapacityRow = {
   esUserId: string;
   esName: string;
+  role: string;
+  roleLabel: string;
   caseloadCount: number;
-  billableMinutesLast4Weeks: number;
+  /** Average billable minutes per week over the last 4 weeks (total ÷ 4). */
+  billableMinutesAvgPerWeek4Weeks: number;
+  /** Billable minutes in the last 7 days. */
+  billableMinutesLast7Days: number;
 };
+
+const CAPACITY_ROLE_LABELS: Record<string, string> = {
+  es: "Employment Specialist",
+  supervisor: "Supervisor",
+  accountant: "Accounts Specialist",
+  admin: "Admin",
+  counselor: "Counselor",
+  super_admin: "Super Admin",
+  hr: "HR",
+  hospitality_specialist: "Hospitality Specialist",
+  wrt_admin: "WRT Admin",
+};
+
+function capacityRoleLabel(role: string): string {
+  return CAPACITY_ROLE_LABELS[role] ?? role;
+}
 
 async function scopedEsUserIds(
   admin: Admin,
@@ -207,51 +229,84 @@ export async function loadEsCapacityRows(
   userId: string
 ): Promise<EsCapacityRow[]> {
   const admin = createServiceRoleClient();
-  const esIds = await scopedEsUserIds(admin, role, userId);
-  const targetEs =
-    esIds ??
-    (
-      await admin
-        .from("profiles")
-        .select("id")
-        .eq("role", "es")
-    ).data?.map((r) => r.id as string) ??
-    [];
+  const includeAllStaffRoles = isAdminTierRole(role);
 
-  if (!targetEs.length) return [];
+  type TargetStaff = { id: string; role: string };
+  let targets: TargetStaff[] = [];
 
-  const fourWeeksAgo = new Date();
+  if (includeAllStaffRoles) {
+    const { data: profiles } = await admin
+      .from("profiles")
+      .select("id, role, is_active")
+      .in("role", [...STAFF_ROLES]);
+    targets = (profiles ?? [])
+      .filter((p) => p.is_active !== false)
+      .map((p) => ({ id: p.id as string, role: p.role as string }));
+  } else {
+    const esIds = await scopedEsUserIds(admin, role, userId);
+    const ids =
+      esIds ??
+      (
+        await admin.from("profiles").select("id").eq("role", "es").neq("is_active", false)
+      ).data?.map((r) => r.id as string) ??
+      [];
+    targets = ids.map((id) => ({ id, role: "es" }));
+  }
+
+  if (!targets.length) return [];
+
+  const now = new Date();
+  const fourWeeksAgo = new Date(now);
   fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
-  const since = fourWeeksAgo.toISOString().slice(0, 10);
+  const sevenDaysAgo = new Date(now);
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const since4Weeks = fourWeeksAgo.toISOString().slice(0, 10);
+  const since7Days = sevenDaysAgo.toISOString().slice(0, 10);
 
-  const esNameById = await loadStaffNameById(admin, targetEs);
+  const targetIds = targets.map((t) => t.id);
+  const esNameById = await loadStaffNameById(admin, targetIds);
 
   const rows: EsCapacityRow[] = [];
-  for (const esUserId of targetEs) {
+  for (const person of targets) {
     const { count } = await admin
       .from("es_client_assignments")
       .select("client_id", { count: "exact", head: true })
-      .eq("es_user_id", esUserId);
+      .eq("es_user_id", person.id);
 
     const { data: entries } = await admin
       .from("es_time_entries")
-      .select("duration_minutes")
-      .eq("es_user_id", esUserId)
-      .gte("service_date", since)
+      .select("duration_minutes, service_date")
+      .eq("es_user_id", person.id)
+      .gte("service_date", since4Weeks)
       .in("status", ["draft", "submitted", "approved"]);
 
+    let minutesLast4Weeks = 0;
+    let minutesLast7Days = 0;
+    for (const e of entries ?? []) {
+      const mins = e.duration_minutes as number;
+      minutesLast4Weeks += mins;
+      if ((e.service_date as string) >= since7Days) {
+        minutesLast7Days += mins;
+      }
+    }
+
     rows.push({
-      esUserId,
-      esName: esNameById.get(esUserId) ?? "Employment Specialist",
+      esUserId: person.id,
+      esName: esNameById.get(person.id) ?? capacityRoleLabel(person.role),
+      role: person.role,
+      roleLabel: capacityRoleLabel(person.role),
       caseloadCount: count ?? 0,
-      billableMinutesLast4Weeks: (entries ?? []).reduce(
-        (sum, e) => sum + (e.duration_minutes as number),
-        0
-      ),
+      billableMinutesAvgPerWeek4Weeks: Math.round(minutesLast4Weeks / 4),
+      billableMinutesLast7Days: minutesLast7Days,
     });
   }
 
-  return rows.sort((a, b) => b.caseloadCount - a.caseloadCount);
+  return rows.sort((a, b) => {
+    if (b.caseloadCount !== a.caseloadCount) return b.caseloadCount - a.caseloadCount;
+    const roleCmp = a.roleLabel.localeCompare(b.roleLabel, undefined, { sensitivity: "base" });
+    if (roleCmp !== 0) return roleCmp;
+    return a.esName.localeCompare(b.esName, undefined, { sensitivity: "base" });
+  });
 }
 
 export type SupervisorWeekPack = {
