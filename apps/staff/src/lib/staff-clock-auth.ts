@@ -15,8 +15,16 @@ import {
   sumShiftMinutes,
   type StaffClockShiftRow,
 } from "@wayfinder/supabase/staff-time-clock";
+import { weekEndSaturday, weekStartSunday } from "@wayfinder/supabase/es-time-tracking";
 import { isAdminTierRole, isSupervisorRole } from "@wayfinder/supabase/roles";
 import { NextResponse } from "next/server";
+import { loadStaffClockMinutesForWeek } from "@/lib/es-time-data";
+
+function addCalendarDays(isoDate: string, days: number): string {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  const utc = new Date(Date.UTC(y, m - 1, d + days));
+  return utc.toISOString().slice(0, 10);
+}
 
 export class StaffClockAccessError extends Error {
   status: number;
@@ -82,18 +90,32 @@ export async function buildClockStatusPayload(
 ) {
   await applyMidnightSplitIfNeeded(admin, staffUserId);
   const today = localDateStringInTz();
-  const [open, todayShifts, attention, recent] = await Promise.all([
-    getOpenShift(admin, staffUserId),
-    listShiftsForDate(admin, staffUserId, today),
-    listAttentionShifts(admin, staffUserId),
-    listRecentShifts(admin, staffUserId, 30),
-  ]);
+  const thisWeekStart = weekStartSunday(today);
+  const thisWeekEnd = weekEndSaturday(thisWeekStart);
+  const lastWeekStart = addCalendarDays(thisWeekStart, -7);
+  const lastWeekEnd = weekEndSaturday(lastWeekStart);
+
+  const [open, todayShifts, attention, recent, thisWeekMinutes, lastWeekMinutes] =
+    await Promise.all([
+      getOpenShift(admin, staffUserId),
+      listShiftsForDate(admin, staffUserId, today),
+      listAttentionShifts(admin, staffUserId),
+      listRecentShifts(admin, staffUserId, 30),
+      loadStaffClockMinutesForWeek(admin, staffUserId, thisWeekStart),
+      loadStaffClockMinutesForWeek(admin, staffUserId, lastWeekStart),
+    ]);
 
   return {
     timezone: "America/New_York",
     today,
     open: open as StaffClockShiftRow | null,
     todayMinutes: sumShiftMinutes(todayShifts),
+    thisWeekStart,
+    thisWeekEnd,
+    thisWeekMinutes,
+    lastWeekStart,
+    lastWeekEnd,
+    lastWeekMinutes,
     todayShifts,
     attentionShifts: attention,
     recentShifts: recent,

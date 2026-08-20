@@ -13,6 +13,12 @@ type StatusPayload = {
   today: string;
   open: StaffClockShiftRow | null;
   todayMinutes: number;
+  thisWeekStart: string;
+  thisWeekEnd: string;
+  thisWeekMinutes: number;
+  lastWeekStart: string;
+  lastWeekEnd: string;
+  lastWeekMinutes: number;
   todayShifts: StaffClockShiftRow[];
   attentionShifts: StaffClockShiftRow[];
   recentShifts: StaffClockShiftRow[];
@@ -53,6 +59,16 @@ function formatNy(iso: string | null): string {
     hour: "numeric",
     minute: "2-digit",
   }).format(new Date(iso));
+}
+
+/** Format a YYYY-MM-DD calendar date for short week-range labels. */
+function formatLocalDateShort(isoDate: string): string {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  if (!y || !m || !d) return isoDate;
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(new Date(Date.UTC(y, m - 1, d, 12)));
 }
 
 function toDatetimeLocalValue(iso: string | null): string {
@@ -264,6 +280,34 @@ export function StaffTimeClockWorkspace({ canViewTeam, canEditOthers }: Props) {
             )}
           </div>
         </div>
+        {status ? (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-neutral-100 bg-neutral-50 px-3 py-2.5">
+              <p className="text-xs font-medium uppercase tracking-wide text-brand-black/55">
+                This week
+              </p>
+              <p className="mt-0.5 text-lg font-semibold text-brand-black">
+                {minutesToClockLabel(status.thisWeekMinutes ?? 0)}
+              </p>
+              <p className="text-xs text-brand-black/55">
+                Sun {formatLocalDateShort(status.thisWeekStart ?? status.today)} – Sat{" "}
+                {formatLocalDateShort(status.thisWeekEnd ?? status.today)}
+              </p>
+            </div>
+            <div className="rounded-lg border border-neutral-100 bg-neutral-50 px-3 py-2.5">
+              <p className="text-xs font-medium uppercase tracking-wide text-brand-black/55">
+                Last week
+              </p>
+              <p className="mt-0.5 text-lg font-semibold text-brand-black">
+                {minutesToClockLabel(status.lastWeekMinutes ?? 0)}
+              </p>
+              <p className="text-xs text-brand-black/55">
+                Sun {formatLocalDateShort(status.lastWeekStart ?? status.today)} – Sat{" "}
+                {formatLocalDateShort(status.lastWeekEnd ?? status.today)}
+              </p>
+            </div>
+          </div>
+        ) : null}
       </section>
 
       {status?.stillWorkingPromptPending ? (
