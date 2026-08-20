@@ -53,10 +53,11 @@ export async function isReferralPipelineClient(
 ): Promise<boolean> {
   const { data: client } = await admin
     .from("clients")
-    .select("referred_at")
+    .select("referred_at, authorization_number")
     .eq("id", clientId)
     .maybeSingle();
   if (client?.referred_at) return true;
+  if ((client?.authorization_number as string | null)?.trim()) return true;
 
   const { data: task } = await admin
     .from("hospitality_intake_tasks")
@@ -295,23 +296,22 @@ export async function markDueScheduledIntakeBillings(
 }
 
 /**
- * Backfill only recent referrals (last 7 days) that have a non-Hospitality contact log
- * and have not already been marked billed/paid in Intake Billing.
+ * Backfill unbilled referral clients who already have a non-Hospitality contact log.
+ * Skips billed/paid (and already ready). Used by cron after due scheduled rows.
  */
 export async function backfillReadyIntakeBillingsFromContactLogs(
   admin: SupabaseClient
 ): Promise<number> {
-  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const { data: referred, error } = await admin
     .from("clients")
     .select("id")
     .not("referred_at", "is", null)
-    .gte("referred_at", since)
     .is("archived_at", null)
-    .limit(200);
+    .order("referred_at", { ascending: false })
+    .limit(500);
 
   if (error) {
-    console.error("intake billing 7-day referral backfill failed:", error.message);
+    console.error("intake billing referral backfill failed:", error.message);
     return 0;
   }
 
