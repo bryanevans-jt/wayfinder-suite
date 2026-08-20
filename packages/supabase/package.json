@@ -53,7 +53,10 @@
     "./referral-labels": "./src/referral-labels.ts",
     "./counselor-dedupe": "./src/counselor-dedupe.ts",
     "./counselor-name-match": "./src/counselor-name-match.ts",
-    "./intake-billing": "./src/intake-billing.ts"
+    "./intake-billing": "./src/intake-billing.ts",
+    "./intake-appointment-reminders": "./src/intake-appointment-reminders.ts",
+    "./email-templates": "./src/email-templates.ts",
+    "./render-templated-email": "./src/render-templated-email.ts"
   },
   "scripts": {
     "lint": "tsc --noEmit"

@@ -5,6 +5,7 @@ import { getGoogleAuth, sendEmail } from '@/lib/google';
 import { generateJTSGVMRPdf } from '@/lib/pdf-generator';
 import { recordFormalSubmission } from '@/lib/record-submission';
 import { reportApiLoggedError } from "@/lib/api-error";
+import { renderTemplatedFlatEmail } from "@wayfinder/supabase/render-templated-email";
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
@@ -64,10 +65,17 @@ export async function POST(request: Request) {
       fieldSnapshot: reportData as Record<string, unknown>,
     });
 
+    const mail = await renderTemplatedFlatEmail(admin, "report_jtsg_vmr_completed", {
+      client_name: String(reportData.ClientName ?? ""),
+      specialist_name: String(
+        reportData.EmploymentSpecialistName || reportData.ESName || typedEsName || ""
+      ),
+      report_name: "JTSG Vocational Monthly Report",
+    });
     await sendEmail(auth, {
       to: user.email,
-      subject: `Completed JTSG Vocational Monthly Report for ${reportData.ClientName}`,
-      text: `Hello ${reportData.EmploymentSpecialistName || reportData.ESName},\n\nYour completed JTSG Vocational Monthly Report for ${reportData.ClientName} is attached.\n\nThank you!`,
+      subject: mail.subject,
+      text: mail.text,
       attachments: [{ filename: fileName, content: pdfBytes.toString('base64'), encoding: 'base64' }],
     });
 

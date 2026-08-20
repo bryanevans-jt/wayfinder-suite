@@ -1,13 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 
 type Task = {
   id: string;
   status: string;
   created_at: string;
   completed_at: string | null;
+  appointment_starts_at?: string | null;
+  appointment_location?: string | null;
   client: {
     id: string;
     full_name: string | null;
@@ -20,8 +22,11 @@ export function HospitalityIntakeWorkspace() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [filter, setFilter] = useState<"open" | "completed" | "all">("open");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [schedule, setSchedule] = useState<Record<string, { date: string; time: string }>>({});
+  const [schedule, setSchedule] = useState<
+    Record<string, { date: string; time: string; location: string }>
+  >({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -44,17 +49,46 @@ export function HospitalityIntakeWorkspace() {
 
   async function complete(id: string) {
     const slot = schedule[id];
-    const scheduledAt =
-      slot?.date && slot?.time ? new Date(`${slot.date}T${slot.time}:00`).toISOString() : null;
+    setError(null);
+    setNotice(null);
+    if (!slot?.date || !slot?.time) {
+      setError("Enter the intake date and time before marking complete.");
+      return;
+    }
+    if (!slot.location.trim()) {
+      setError("Enter the intake location before marking complete.");
+      return;
+    }
+    const scheduledAt = new Date(`${slot.date}T${slot.time}:00`).toISOString();
     const res = await fetch("/api/hospitality/intakes", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ taskId: id, action: "complete", scheduledAt }),
+      body: JSON.stringify({
+        taskId: id,
+        action: "complete",
+        scheduledAt,
+        location: slot.location.trim(),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York",
+      }),
     });
+    const data = (await res.json()) as {
+      error?: string;
+      reminder?: { sent?: number; skipped?: number; errors?: string[] };
+    };
     if (!res.ok) {
-      const data = (await res.json()) as { error?: string };
       setError(data.error || "Could not complete");
       return;
+    }
+    if (data.reminder?.sent) {
+      setNotice("Intake scheduled. Confirmation email sent to the client.");
+    } else if (data.reminder?.errors?.length) {
+      setNotice(
+        `Intake scheduled, but the confirmation email did not send: ${data.reminder.errors[0]}`
+      );
+    } else {
+      setNotice(
+        "Intake scheduled. No confirmation email sent (client may not have an email on file)."
+      );
     }
     await load();
   }
@@ -82,6 +116,11 @@ export function HospitalityIntakeWorkspace() {
           {error}
         </p>
       ) : null}
+      {notice ? (
+        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
+          {notice}
+        </p>
+      ) : null}
       {loading ? (
         <p className="text-sm text-brand-black/60">Loading…</p>
       ) : tasks.length === 0 ? (
@@ -101,12 +140,19 @@ export function HospitalityIntakeWorkspace() {
                   {t.client?.full_name || t.client?.contact_email || t.client?.id}
                 </Link>
                 <p className="text-sm text-brand-black/65">
-                  {t.client?.primary_phone || "No phone"} · Opened{" "}
+                  {t.client?.primary_phone || "No phone"}
+                  {t.client?.contact_email ? ` · ${t.client.contact_email}` : " · No email"} · Opened{" "}
                   {new Date(t.created_at).toLocaleString()}
                   {t.status === "completed" && t.completed_at
                     ? ` · Done ${new Date(t.completed_at).toLocaleString()}`
                     : ""}
                 </p>
+                {t.status === "completed" && t.appointment_starts_at ? (
+                  <p className="mt-1 text-xs text-brand-black/55">
+                    Appointment {new Date(t.appointment_starts_at).toLocaleString()}
+                    {t.appointment_location ? ` · ${t.appointment_location}` : ""}
+                  </p>
+                ) : null}
               </div>
               {t.status === "open" ? (
                 <div className="flex flex-wrap items-end gap-2">
@@ -118,7 +164,11 @@ export function HospitalityIntakeWorkspace() {
                       onChange={(e) =>
                         setSchedule((prev) => ({
                           ...prev,
-                          [t.id]: { date: e.target.value, time: prev[t.id]?.time ?? "" },
+                          [t.id]: {
+                            date: e.target.value,
+                            time: prev[t.id]?.time ?? "",
+                            location: prev[t.id]?.location ?? "",
+                          },
                         }))
                       }
                       className="mt-1 block rounded-lg border border-neutral-300 px-2 py-1.5 text-sm"
@@ -132,10 +182,33 @@ export function HospitalityIntakeWorkspace() {
                       onChange={(e) =>
                         setSchedule((prev) => ({
                           ...prev,
-                          [t.id]: { date: prev[t.id]?.date ?? "", time: e.target.value },
+                          [t.id]: {
+                            date: prev[t.id]?.date ?? "",
+                            time: e.target.value,
+                            location: prev[t.id]?.location ?? "",
+                          },
                         }))
                       }
                       className="mt-1 block rounded-lg border border-neutral-300 px-2 py-1.5 text-sm"
+                    />
+                  </label>
+                  <label className="text-xs font-medium text-brand-black/70">
+                    Location
+                    <input
+                      type="text"
+                      placeholder="Office, library, Zoom…"
+                      value={schedule[t.id]?.location ?? ""}
+                      onChange={(e) =>
+                        setSchedule((prev) => ({
+                          ...prev,
+                          [t.id]: {
+                            date: prev[t.id]?.date ?? "",
+                            time: prev[t.id]?.time ?? "",
+                            location: e.target.value,
+                          },
+                        }))
+                      }
+                      className="mt-1 block min-w-[12rem] rounded-lg border border-neutral-300 px-2 py-1.5 text-sm"
                     />
                   </label>
                   <button

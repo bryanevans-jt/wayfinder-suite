@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getGoogleAuth, sendEmail } from '@/lib/google';
 import { recordFormalSubmission } from '@/lib/record-submission';
 import { reportApiLoggedError } from "@/lib/api-error";
+import { renderTemplatedFlatEmail } from "@wayfinder/supabase/render-templated-email";
 import { NextResponse } from 'next/server';
 
 const FILE_MIME_MAP: Record<string, string> = {
@@ -117,10 +118,15 @@ export async function POST(request: Request) {
     });
 
     const fileBase64 = buffer.toString('base64');
+    const mail = await renderTemplatedFlatEmail(admin, "report_jtsg_tsvs_submitted", {
+      client_name: clientName,
+      specialist_name: employmentSpecialistName,
+      report_name: "JTSG Time Sheet",
+    });
     await sendEmail(auth, {
       to: user.email,
-      subject: `JTSG Time Sheet Submitted - ${clientName}`,
-      text: `Hello ${employmentSpecialistName},\n\nYour JTSG Time Sheet for Vocational Services for ${clientName} has been submitted successfully. Your attached document is below for your records.\n\nThank you!`,
+      subject: mail.subject,
+      text: mail.text,
       attachments: [
         {
           filename: uploadFileName,

@@ -5,6 +5,7 @@ import { getGoogleAuth, sendEmail } from '@/lib/google';
 import { generateVPRPdf } from '@/lib/pdf-generator';
 import { recordFormalSubmission } from '@/lib/record-submission';
 import { reportApiLoggedError } from "@/lib/api-error";
+import { renderTemplatedFlatEmail } from "@wayfinder/supabase/render-templated-email";
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
@@ -71,10 +72,15 @@ export async function POST(request: Request) {
       fieldSnapshot: reportData,
     });
 
+    const mail = await renderTemplatedFlatEmail(admin, "report_vpr_completed", {
+      client_name: reportData.ClientName || "",
+      specialist_name: reportData.EmploymentSpecialistName || "",
+      report_name: "Vocational Progress Report",
+    });
     await sendEmail(auth, {
       to: user.email,
-      subject: `Completed Vocational Progress Report for ${reportData.ClientName}`,
-      text: `Hello,\n\nYour completed Vocational Progress Report for ${reportData.ClientName} is attached.\n\nThank you!`,
+      subject: mail.subject,
+      text: mail.text,
       attachments: [{ filename: fileName, content: pdfBytes.toString('base64'), encoding: 'base64' }],
     });
 

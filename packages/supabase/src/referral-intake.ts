@@ -500,15 +500,14 @@ export async function createPublicReferral(
   };
 }
 
-export function buildReferralEmailBodies(opts: {
-  state: ReferralState;
+/** Fixed middle section of referral emails (not editable in Super Admin templates). */
+export function buildReferralDetailsBlock(opts: {
   payload: PublicReferralPayload;
   serviceName: string;
   authFileName: string;
   otherFileName: string;
-}): { adminSubject: string; adminBody: string; counselorSubject: string; counselorBody: string } {
-  const label = opts.state === "GA" ? "GVRA" : "Tennessee VR";
-  const core = `
+}): string {
+  return `
 --- COUNSELOR INFORMATION ---
 Name: ${opts.payload.counselorName}
 Email: ${opts.payload.counselorEmail}
@@ -535,13 +534,55 @@ ${opts.payload.workGoal || "N/A"}
 
 Meeting Option: ${opts.payload.meetingOption ?? ""}
 Counselor Availability: ${opts.payload.counselorAvailability ?? ""}
+
+--- UPLOADED FILES ---
+Authorizations: ${opts.authFileName}
+Other Documents: ${opts.otherFileName}
 `.trim();
+}
+
+export async function buildReferralEmailBodies(
+  admin: SupabaseClient,
+  opts: {
+    state: ReferralState;
+    payload: PublicReferralPayload;
+    serviceName: string;
+    authFileName: string;
+    otherFileName: string;
+  }
+): Promise<{
+  adminSubject: string;
+  adminBody: string;
+  counselorSubject: string;
+  counselorBody: string;
+}> {
+  const {
+    loadResolvedEmailTemplate,
+    renderReferralSectionalEmail,
+  } = await import("./email-templates");
+
+  const agencyLabel = opts.state === "GA" ? "GVRA" : "Tennessee VR";
+  const vars = {
+    agency_label: agencyLabel,
+    client_name: opts.payload.clientName,
+    counselor_name: opts.payload.counselorName,
+    service_name: opts.serviceName,
+  };
+  const detailsBlock = buildReferralDetailsBlock(opts);
+
+  const [adminTpl, counselorTpl] = await Promise.all([
+    loadResolvedEmailTemplate(admin, "referral_admin_notice"),
+    loadResolvedEmailTemplate(admin, "referral_counselor_confirmation"),
+  ]);
+
+  const adminMail = renderReferralSectionalEmail(adminTpl, { vars, detailsBlock });
+  const counselorMail = renderReferralSectionalEmail(counselorTpl, { vars, detailsBlock });
 
   return {
-    adminSubject: `New ${label} Referral - ${opts.payload.counselorName} - ${opts.payload.clientName}`,
-    adminBody: `A new ${label} Client Referral has been submitted.\n\n${core}\n\n--- UPLOADED FILES ---\nAuthorizations: ${opts.authFileName}\nOther Documents: ${opts.otherFileName}\n`,
-    counselorSubject: `Confirmation: Your ${label} Referral for ${opts.payload.clientName}`,
-    counselorBody: `Thank you for your referral. Below is a copy of your submission. We will contact you within 2 business days.\n\n${core}\n\n--- UPLOADED FILES CONFIRMATION ---\nAuthorizations: ${opts.authFileName}\nOther Documents: ${opts.otherFileName}\n`,
+    adminSubject: adminMail.subject,
+    adminBody: adminMail.text,
+    counselorSubject: counselorMail.subject,
+    counselorBody: counselorMail.text,
   };
 }
 

@@ -7,6 +7,7 @@ import { recordFormalSubmission } from '@/lib/record-submission';
 import { resolveSeMonthlyAlerts } from '@/lib/resolve-report-alerts';
 import { generateClientId } from '@/lib/utils';
 import { reportApiLoggedError } from "@/lib/api-error";
+import { renderTemplatedFlatEmail } from "@wayfinder/supabase/render-templated-email";
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
@@ -110,10 +111,15 @@ export async function POST(request: Request) {
       await resolveSeMonthlyAlerts(admin, wayfinderClientId, lastSubmittedMonth);
     }
 
+    const mail = await renderTemplatedFlatEmail(admin, "report_se_monthly_completed", {
+      client_name: String(reportData.jobSeekerName ?? ""),
+      specialist_name: String(reportData.seSpecialistName ?? ""),
+      report_name: "SE Monthly Report",
+    });
     await sendEmail(auth, {
       to: user.email,
-      subject: `Completed SE Monthly Report for ${reportData.jobSeekerName}`,
-      text: `Hello ${reportData.seSpecialistName},\n\nYour completed report for ${reportData.jobSeekerName} is attached.\n\nThank you!`,
+      subject: mail.subject,
+      text: mail.text,
       attachments: [{ filename: fileName, content: pdfBytes.toString('base64'), encoding: 'base64' }],
     });
 

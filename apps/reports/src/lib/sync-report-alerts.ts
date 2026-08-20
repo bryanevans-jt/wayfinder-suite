@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { notifySupervisorsForEs, notifyUser } from "@wayfinder/supabase/notify-user";
+import { renderTemplatedFlatEmail } from "@wayfinder/supabase/render-templated-email";
 import { getGoogleAuth, sendEmail } from "./google";
 import {
   computeSeMonthlyNonCompliant,
@@ -139,26 +140,26 @@ async function upsertAlerts(
 }
 
 async function emailRecipients(
+  admin: SupabaseClient,
   alertType: "missing" | "overdue",
   candidates: SeMonthlyCandidate[],
   recipients: string[]
 ): Promise<number> {
   if (recipients.length === 0 || candidates.length === 0) return 0;
 
-  const lines = candidates.map(
-    (c) => ` - ${c.esName} - ${c.clientName} - ${c.stageTitle}`
-  );
-  const intro =
-    alertType === "missing"
-      ? "The following GVRA Monthly Reports are not yet submitted (deadline: 10th at 5:00 PM ET):\n\n"
-      : "The following GVRA Monthly Reports are still outstanding (escalated overdue list; GVRA deadline: 10th at 5:00 PM ET):\n\n";
+  const report_list = candidates
+    .map((c) => ` - ${c.esName} - ${c.clientName} - ${c.stageTitle}`)
+    .join("\n");
+  const templateKey =
+    alertType === "missing" ? "report_alerts_missing" : "report_alerts_overdue";
+  const mail = await renderTemplatedFlatEmail(admin, templateKey, { report_list });
 
   const auth = await getGoogleAuth();
   for (const to of recipients) {
     await sendEmail(auth, {
       to,
-      subject: alertType === "missing" ? "Missing Reports List" : "Overdue GVRA Monthly Reports",
-      text: intro + lines.join("\n"),
+      subject: mail.subject,
+      text: mail.text,
     });
   }
 
@@ -193,7 +194,7 @@ export async function runReportComplianceCron(
     .select("report_notification_recipients")
     .maybeSingle();
   const recipients = (config?.report_notification_recipients as string[] | undefined) ?? [];
-  const emailsSent = await emailRecipients(alertType, candidates, recipients);
+  const emailsSent = await emailRecipients(admin, alertType, candidates, recipients);
 
   return {
     alertType,

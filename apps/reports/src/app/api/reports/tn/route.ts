@@ -7,6 +7,7 @@ import { recordFormalSubmission } from "@/lib/record-submission";
 import { resolveTnClientName } from "@/lib/tn-prefill";
 import { loadTnReportDefinition } from "@/lib/tn-report-definition";
 import { reportApiLoggedError } from "@/lib/api-error";
+import { renderTemplatedFlatEmail } from "@wayfinder/supabase/render-templated-email";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -106,10 +107,15 @@ export async function POST(request: Request) {
       fieldSnapshot: reportData,
     });
 
+    const mail = await renderTemplatedFlatEmail(admin, "report_tn_completed", {
+      client_name: customerName,
+      specialist_name: submitterName,
+      report_name: definition.name,
+    });
     await sendEmail(auth, {
       to: user.email,
-      subject: `Completed ${definition.name} for ${customerName}`,
-      text: `Hello,\n\nYour completed Tennessee report for ${customerName} is attached.\n\nThank you!`,
+      subject: mail.subject,
+      text: mail.text,
       attachments: [{ filename: fileName, content: pdfBytes.toString("base64"), encoding: "base64" }],
     });
 
