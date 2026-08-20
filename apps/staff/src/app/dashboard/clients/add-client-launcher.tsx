@@ -10,11 +10,12 @@ import {
 
 type LauncherProps = {
   serviceCatalog: Array<{ id: string; name: string; state?: string | null }>;
+  serviceSelectOptions?: { includeCustomizedSupportedEmployment?: boolean };
   offices: OfficeOption[];
   counselors: CounselorOption[];
 };
 
-export function AddClientLauncher({ serviceCatalog, offices, counselors }: LauncherProps) {
+export function AddClientLauncher({ serviceCatalog, serviceSelectOptions, offices, counselors }: LauncherProps) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
 
@@ -31,6 +32,7 @@ export function AddClientLauncher({ serviceCatalog, offices, counselors }: Launc
         open={open}
         onClose={() => setOpen(false)}
         serviceCatalog={serviceCatalog}
+        serviceSelectOptions={serviceSelectOptions}
         offices={offices}
         counselors={counselors}
         onCreated={() => router.refresh()}

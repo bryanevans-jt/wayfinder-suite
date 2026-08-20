@@ -26,6 +26,7 @@ import {
   filterSunsetServices,
   loadSunsetKeepIds,
 } from "@/lib/sunset-tn";
+import { loadServiceOfferings, toServiceSelectOptions } from "@/lib/service-offerings";
 import { AddClientLauncher } from "./add-client-launcher";
 
 type PageProps = {
@@ -177,6 +178,8 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
     ) ?? [];
 
   servicesRaw = filterSunsetServices(servicesRaw, sunset.keepServiceIds, pinServiceIds);
+  const serviceOfferings = await loadServiceOfferings(lookupClient);
+  const serviceSelectOptions = toServiceSelectOptions(serviceOfferings);
 
   const clientRows = clients.map((c) => {
     const profileId = c.user_id ?? c.profile_id;
@@ -277,6 +280,7 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
           {!session.isPreviewing ? (
             <AddClientLauncher
               serviceCatalog={servicesRaw}
+              serviceSelectOptions={serviceSelectOptions}
               offices={offices.map((office) => ({
                 id: office.id,
                 name: office.name,

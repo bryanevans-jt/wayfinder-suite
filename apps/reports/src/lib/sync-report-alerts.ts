@@ -139,7 +139,11 @@ async function upsertAlerts(
   return { created, notificationsSent };
 }
 
-async function emailRecipients(
+function formatReportList(candidates: SeMonthlyCandidate[]): string {
+  return candidates.map((c) => ` - ${c.esName} - ${c.clientName} - ${c.stageTitle}`).join("\n");
+}
+
+async function sendReportListEmail(
   admin: SupabaseClient,
   alertType: "missing" | "overdue",
   candidates: SeMonthlyCandidate[],
@@ -147,12 +151,11 @@ async function emailRecipients(
 ): Promise<number> {
   if (recipients.length === 0 || candidates.length === 0) return 0;
 
-  const report_list = candidates
-    .map((c) => ` - ${c.esName} - ${c.clientName} - ${c.stageTitle}`)
-    .join("\n");
   const templateKey =
     alertType === "missing" ? "report_alerts_missing" : "report_alerts_overdue";
-  const mail = await renderTemplatedFlatEmail(admin, templateKey, { report_list });
+  const mail = await renderTemplatedFlatEmail(admin, templateKey, {
+    report_list: formatReportList(candidates),
+  });
 
   const auth = await getGoogleAuth();
   for (const to of recipients) {
@@ -164,6 +167,86 @@ async function emailRecipients(
   }
 
   return recipients.length;
+}
+
+async function resolveAuthEmails(
+  admin: SupabaseClient,
+  userIds: string[]
+): Promise<Map<string, string>> {
+  const emails = new Map<string, string>();
+  await Promise.all(
+    userIds.map(async (userId) => {
+      const { data } = await admin.auth.admin.getUserById(userId);
+      const email = data.user?.email?.trim().toLowerCase();
+      if (email) emails.set(userId, email);
+    })
+  );
+  return emails;
+}
+
+/** Supervisors get lists scoped to their assigned ESs; admins keep the full org-wide list. */
+async function emailComplianceLists(
+  admin: SupabaseClient,
+  alertType: "missing" | "overdue",
+  candidates: SeMonthlyCandidate[]
+): Promise<number> {
+  if (candidates.length === 0) return 0;
+
+  const { data: config } = await admin
+    .from("admin_config")
+    .select("report_notification_recipients")
+    .maybeSingle();
+  const adminRecipients = [
+    ...new Set(
+      ((config?.report_notification_recipients as string[] | undefined) ?? [])
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean)
+    ),
+  ];
+
+  let emailsSent = await sendReportListEmail(admin, alertType, candidates, adminRecipients);
+
+  const esUserIds = [...new Set(candidates.map((c) => c.esUserId))];
+  const { data: links } = await admin
+    .from("supervisor_es_assignments")
+    .select("supervisor_user_id, es_user_id")
+    .in("es_user_id", esUserIds);
+
+  if (!links?.length) return emailsSent;
+
+  const candidatesByEs = new Map<string, SeMonthlyCandidate[]>();
+  for (const candidate of candidates) {
+    const list = candidatesByEs.get(candidate.esUserId) ?? [];
+    list.push(candidate);
+    candidatesByEs.set(candidate.esUserId, list);
+  }
+
+  const candidatesBySupervisor = new Map<string, SeMonthlyCandidate[]>();
+  for (const link of links) {
+    const supervisorId = link.supervisor_user_id as string;
+    const forEs = candidatesByEs.get(link.es_user_id as string);
+    if (!forEs?.length) continue;
+    const existing = candidatesBySupervisor.get(supervisorId) ?? [];
+    const seen = new Set(existing.map((c) => c.clientId));
+    for (const row of forEs) {
+      if (!seen.has(row.clientId)) {
+        existing.push(row);
+        seen.add(row.clientId);
+      }
+    }
+    candidatesBySupervisor.set(supervisorId, existing);
+  }
+
+  const supervisorEmails = await resolveAuthEmails(admin, [...candidatesBySupervisor.keys()]);
+  const adminEmailSet = new Set(adminRecipients);
+
+  for (const [supervisorId, scopedCandidates] of candidatesBySupervisor) {
+    const email = supervisorEmails.get(supervisorId);
+    if (!email || adminEmailSet.has(email)) continue;
+    emailsSent += await sendReportListEmail(admin, alertType, scopedCandidates, [email]);
+  }
+
+  return emailsSent;
 }
 
 export async function runReportComplianceCron(
@@ -189,12 +272,7 @@ export async function runReportComplianceCron(
     existingKeys
   );
 
-  const { data: config } = await admin
-    .from("admin_config")
-    .select("report_notification_recipients")
-    .maybeSingle();
-  const recipients = (config?.report_notification_recipients as string[] | undefined) ?? [];
-  const emailsSent = await emailRecipients(admin, alertType, candidates, recipients);
+  const emailsSent = await emailComplianceLists(admin, alertType, candidates);
 
   return {
     alertType,

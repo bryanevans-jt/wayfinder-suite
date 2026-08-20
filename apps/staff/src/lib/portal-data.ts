@@ -21,6 +21,7 @@ import {
   filterSunsetServices,
   sunsetKeepIdsFromLoadedData,
 } from "@/lib/sunset-tn";
+import { loadServiceOfferings, toServiceSelectOptions } from "@/lib/service-offerings";
 
 export async function requirePortalPage(minTier: PortalTier) {
   const session = await getAppSession();
@@ -65,6 +66,7 @@ export type PortalBootstrap = {
   services: { id: string; name: string }[];
   /** Raw service rows (for edit dropdowns — includes legacy ids). */
   serviceCatalog: { id: string; name: string; state?: string | null }[];
+  customizedSupportedEmploymentEnabled: boolean;
   serviceMilestones: {
     id: string;
     service_id: string;
@@ -486,6 +488,8 @@ export async function loadPortalBootstrap(
     sunset
   );
 
+  const serviceOfferings = await loadServiceOfferings(admin);
+
   return {
     offices: officesRows.map((o) => ({
       id: o.id,
@@ -494,12 +498,17 @@ export async function loadPortalBootstrap(
       state: o.state ?? null,
       is_hidden: o.is_hidden === true,
     })),
-    services: dedupeServicesForSelect(servicesRaw),
+    services: dedupeServicesForSelect(
+      servicesRaw,
+      toServiceSelectOptions(serviceOfferings)
+    ),
     serviceCatalog: servicesRaw.map((s) => ({
       id: s.id,
       name: s.name,
       state: s.state ?? null,
     })),
+    customizedSupportedEmploymentEnabled:
+      serviceOfferings.customizedSupportedEmploymentEnabled,
     serviceMilestones: milestones
       .filter((m) => servicesRaw.some((s) => s.id === m.service_id))
       .map((m) => ({

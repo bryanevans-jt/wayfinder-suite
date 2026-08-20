@@ -28,6 +28,7 @@ import { SupervisorWeekPack } from "@/components/supervisor-week-pack";
 import { DemoTrainingWorkspace } from "@/components/demo-training-workspace";
 import { PayrollSettingsPanel } from "@/components/payroll-settings-panel";
 import { ReferralTrainingPhasePanel } from "@/components/referral-training-phase-panel";
+import { ServiceOfferingsPanel } from "@/components/service-offerings-panel";
 import { EmailTemplatesPanel } from "@/components/email-templates-panel";
 import { PtoSettingsPanel } from "@/components/pto-settings-panel";
 import { WrtCurriculumPanel } from "@/components/wrt-curriculum-panel";
@@ -828,6 +829,10 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               open={addClientOpen}
               onClose={() => setAddClientOpen(false)}
               serviceCatalog={b.serviceCatalog}
+              serviceSelectOptions={{
+                includeCustomizedSupportedEmployment:
+                  b.customizedSupportedEmploymentEnabled,
+              }}
               offices={b.offices.map((o) => ({
                 id: o.id,
                 name: o.name,
@@ -1675,6 +1680,10 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
         <div className="mt-6">
           <ReferralTrainingPhasePanel />
         </div>
+      ) : nav.primary === "settings" && nav.settings === "services" && mode === "super_admin" ? (
+        <div className="mt-6">
+          <ServiceOfferingsPanel />
+        </div>
       ) : nav.primary === "settings" && nav.settings === "emails" && mode === "super_admin" ? (
         <div className="mt-6">
           <EmailTemplatesPanel />
@@ -1819,6 +1828,10 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
           })()}
           counselors={portalCounselors}
           serviceCatalog={b.serviceCatalog}
+          serviceSelectOptions={{
+            includeCustomizedSupportedEmployment:
+              b.customizedSupportedEmploymentEnabled,
+          }}
           serviceMilestones={b.serviceMilestones}
           busy={busy}
           allowDelete={canDeleteClients}

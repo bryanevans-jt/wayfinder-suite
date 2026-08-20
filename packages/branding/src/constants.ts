@@ -48,7 +48,7 @@ export const DEVELOPER_BADGE_LOGO_PATH = "/logo.png";
  */
 export const EMAIL_LOGO_PATH = WAYFINDER_LOGO_PATH;
 
-export const APP_VERSION = "1.0.6";
+export const APP_VERSION = "1.0.7";
 
 /** Primary technical contact while Wayfinder is in rollout. */
 export const SUPPORT_CONTACT_NAME = "Bryan Evans";

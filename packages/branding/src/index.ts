@@ -62,6 +62,7 @@ export {
   filterServicesForOfficeState,
   flattenServiceGroups,
   formatServiceLabel,
+  isCustomizedSupportedEmploymentService,
   isDeprecatedTnTraditionalService,
   parseServiceParts,
   resolveClientServiceIdForEdit,
@@ -72,6 +73,7 @@ export {
   type ServiceRowInput,
   type ServiceSelectGroup,
   type ServiceSelectOption,
+  type ServiceSelectOptions,
 } from "./service-display";
 export {
   clientDisplayName,

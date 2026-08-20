@@ -8,6 +8,7 @@ import {
   resolveClientServiceIdForEdit,
   servicesForClientEditGroups,
   flattenServiceGroups,
+  type ServiceSelectOptions,
 } from "@wayfinder/branding";
 import {
   archiveWarningMessage,
@@ -36,6 +37,7 @@ type Props = {
   esUsers: PortalBootstrap["caseloadAssignees"];
   counselors: CounselorOption[];
   serviceCatalog: PortalBootstrap["serviceCatalog"];
+  serviceSelectOptions?: ServiceSelectOptions;
   serviceMilestones: PortalBootstrap["serviceMilestones"];
   busy: boolean;
   allowDelete?: boolean;
@@ -55,6 +57,7 @@ export function ClientDetailDrawer({
   esUsers,
   counselors,
   serviceCatalog,
+  serviceSelectOptions,
   serviceMilestones,
   busy,
   allowDelete = true,
@@ -86,7 +89,8 @@ export function ClientDetailDrawer({
         ? servicesForClientEditGroups(
             serviceCatalog,
             client.current_service_id,
-            selectedOffice?.state ?? null
+            selectedOffice?.state ?? null,
+            serviceSelectOptions
           )
         : [],
     [serviceCatalog, client, selectedOffice?.state]
@@ -123,7 +127,8 @@ export function ClientDetailDrawer({
     const nextGroups = servicesForClientEditGroups(
       serviceCatalog,
       serviceId || client?.current_service_id || null,
-      nextOffice?.state ?? null
+      nextOffice?.state ?? null,
+      serviceSelectOptions
     );
     const nextOptions = flattenServiceGroups(nextGroups);
     if (!nextOptions.some((option) => option.id === serviceId)) {
