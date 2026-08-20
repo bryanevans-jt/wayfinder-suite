@@ -7,6 +7,7 @@ import {
 } from "@wayfinder/supabase/roles";
 import {
   ensureScheduledIntakeBilling,
+  markIntakeReadyIfContactLogsExist,
   markIntakeReadyToBill,
 } from "@wayfinder/supabase/intake-billing";
 import { NextResponse } from "next/server";
@@ -105,8 +106,9 @@ export async function PATCH(request: Request) {
   }
 
   const scheduledAt = (body.scheduledAt ?? "").trim() || null;
+  const clientId = task.client_id as string;
   const created = await ensureScheduledIntakeBilling(admin, {
-    clientId: task.client_id as string,
+    clientId,
     hospitalityTaskId: task.id as string,
     scheduledAt,
   });
@@ -115,8 +117,13 @@ export async function PATCH(request: Request) {
   }
   if (scheduledAt && new Date(scheduledAt).getTime() <= Date.now()) {
     await markIntakeReadyToBill(admin, {
-      clientId: task.client_id as string,
+      clientId,
       reason: "scheduled_time",
+    });
+  } else {
+    await markIntakeReadyIfContactLogsExist(admin, {
+      clientId,
+      reason: "contact_log",
     });
   }
 

@@ -92,12 +92,13 @@ export async function saveClientContactLog(
     }
   }
 
-  const { markIntakeReadyIfHospitalityComplete } = await import(
+  const { markIntakeReadyAfterContactLog } = await import(
     "@wayfinder/supabase/intake-billing"
   );
-  await markIntakeReadyIfHospitalityComplete(admin, {
+  await markIntakeReadyAfterContactLog(admin, {
     clientId: input.clientId,
     reason: "contact_log",
+    loggedByUserId: userId,
   });
 
   return warning ? { ok: true, warning } : { ok: true };

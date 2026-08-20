@@ -31,7 +31,7 @@ const FILTERS = [
 
 function reasonLabel(reason: string | null): string {
   if (reason === "contact_log") return "First contact log";
-  if (reason === "tse_phase") return "Moved to Phase 2";
+  if (reason === "tse_phase" || reason === "intake_stage") return "Moved past intake";
   if (reason === "scheduled_time") return "Intake time passed";
   if (reason === "manual") return "Marked ready";
   return "—";

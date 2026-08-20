@@ -1,9 +1,20 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { notifyUser } from "./notify-user";
-import { isAccountantRole, isAdminTierRole, isHrRole, normalizeRole } from "./roles";
+import {
+  isAccountantRole,
+  isAdminTierRole,
+  isHospitalitySpecialistRole,
+  isHrRole,
+  normalizeRole,
+} from "./roles";
 
 export type IntakeBillingStatus = "scheduled" | "ready_to_bill" | "billed" | "paid";
-export type IntakeReadyReason = "contact_log" | "tse_phase" | "scheduled_time" | "manual";
+export type IntakeReadyReason =
+  | "contact_log"
+  | "tse_phase"
+  | "intake_stage"
+  | "scheduled_time"
+  | "manual";
 
 export function canAccessIntakeBilling(role: string | null | undefined): boolean {
   const r = normalizeRole(role);
@@ -33,6 +44,65 @@ async function loadBilling(
     return null;
   }
   return (data as BillingRow | null) ?? null;
+}
+
+/** Referral-activated clients (any service), not only Traditional Supported Employment. */
+export async function isReferralPipelineClient(
+  admin: SupabaseClient,
+  clientId: string
+): Promise<boolean> {
+  const { data: client } = await admin
+    .from("clients")
+    .select("referred_at")
+    .eq("id", clientId)
+    .maybeSingle();
+  if (client?.referred_at) return true;
+
+  const { data: task } = await admin
+    .from("hospitality_intake_tasks")
+    .select("id")
+    .eq("client_id", clientId)
+    .maybeSingle();
+  if (task?.id) return true;
+
+  const billing = await loadBilling(admin, clientId);
+  return Boolean(billing);
+}
+
+async function hospitalitySpecialistUserIds(admin: SupabaseClient): Promise<Set<string>> {
+  const { data, error } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("role", "hospitality_specialist");
+  if (error) {
+    console.error("hospitality specialist ids load failed:", error.message);
+    return new Set();
+  }
+  return new Set((data ?? []).map((row) => row.id as string));
+}
+
+/** True when an ES/supervisor (etc.) contact log exists — Hospitality Specialist logs do not count. */
+export async function hasNonHospitalityContactLog(
+  admin: SupabaseClient,
+  clientId: string
+): Promise<boolean> {
+  const { data: logs, error } = await admin
+    .from("contact_logs")
+    .select("logged_by")
+    .eq("client_id", clientId)
+    .limit(100);
+  if (error) {
+    console.error("contact_logs load for intake billing failed:", error.message);
+    return false;
+  }
+  if (!logs?.length) return false;
+
+  const hospitalityIds = await hospitalitySpecialistUserIds(admin);
+  return logs.some((row) => {
+    const loggedBy = row.logged_by as string | null;
+    if (!loggedBy) return true; // legacy rows without author — treat as casework
+    return !hospitalityIds.has(loggedBy);
+  });
 }
 
 async function clientLabel(admin: SupabaseClient, clientId: string): Promise<string> {
@@ -148,23 +218,56 @@ export async function markIntakeReadyToBill(
   return { ready: true };
 }
 
+/**
+ * After the first non-Hospitality contact log: mark Intake Billing ready for any
+ * referral-pipeline client. Hospitality still schedules intakes; their check-ins /
+ * contact logs do not trigger billing.
+ */
+export async function markIntakeReadyAfterContactLog(
+  admin: SupabaseClient,
+  opts: { clientId: string; reason?: IntakeReadyReason; loggedByUserId?: string | null }
+): Promise<void> {
+  if (opts.loggedByUserId) {
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("role")
+      .eq("id", opts.loggedByUserId)
+      .maybeSingle();
+    if (isHospitalitySpecialistRole(profile?.role as string | null)) return;
+  }
+
+  const eligible = await isReferralPipelineClient(admin, opts.clientId);
+  if (!eligible) return;
+  await markIntakeReadyToBill(admin, {
+    clientId: opts.clientId,
+    reason: opts.reason ?? "contact_log",
+  });
+}
+
+/** @deprecated Use markIntakeReadyAfterContactLog. */
 export async function markIntakeReadyIfHospitalityComplete(
   admin: SupabaseClient,
-  opts: { clientId: string; reason: IntakeReadyReason }
+  opts: { clientId: string; reason: IntakeReadyReason; loggedByUserId?: string | null }
 ): Promise<void> {
-  const { data: task } = await admin
-    .from("hospitality_intake_tasks")
-    .select("status")
-    .eq("client_id", opts.clientId)
-    .maybeSingle();
-  const billing = await loadBilling(admin, opts.clientId);
-  if (task?.status !== "completed" && !billing) return;
-  await markIntakeReadyToBill(admin, opts);
+  await markIntakeReadyAfterContactLog(admin, opts);
+}
+
+/** When hospitality finishes after a casework contact already exists, flip scheduled → ready. */
+export async function markIntakeReadyIfContactLogsExist(
+  admin: SupabaseClient,
+  opts: { clientId: string; reason?: IntakeReadyReason }
+): Promise<void> {
+  const hasCaseworkContact = await hasNonHospitalityContactLog(admin, opts.clientId);
+  if (!hasCaseworkContact) return;
+  await markIntakeReadyToBill(admin, {
+    clientId: opts.clientId,
+    reason: opts.reason ?? "contact_log",
+  });
 }
 
 export async function markDueScheduledIntakeBillings(
   admin: SupabaseClient
-): Promise<{ marked: number }> {
+): Promise<{ marked: number; backfilled: number }> {
   const now = new Date().toISOString();
   const { data: due } = await admin
     .from("intake_billings")
@@ -174,7 +277,7 @@ export async function markDueScheduledIntakeBillings(
     .lte("scheduled_at", now)
     .limit(200);
 
-  const results = await Promise.all(
+  const dueResults = await Promise.all(
     (due ?? []).map((row) =>
       markIntakeReadyToBill(admin, {
         clientId: row.client_id as string,
@@ -182,7 +285,54 @@ export async function markDueScheduledIntakeBillings(
       })
     )
   );
-  return { marked: results.filter((r) => r.ready).length };
+
+  const backfilled = await backfillReadyIntakeBillingsFromContactLogs(admin);
+
+  return {
+    marked: dueResults.filter((r) => r.ready).length,
+    backfilled,
+  };
+}
+
+/**
+ * Backfill only recent referrals (last 7 days) that have a non-Hospitality contact log
+ * and have not already been marked billed/paid in Intake Billing.
+ */
+export async function backfillReadyIntakeBillingsFromContactLogs(
+  admin: SupabaseClient
+): Promise<number> {
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: referred, error } = await admin
+    .from("clients")
+    .select("id")
+    .not("referred_at", "is", null)
+    .gte("referred_at", since)
+    .is("archived_at", null)
+    .limit(200);
+
+  if (error) {
+    console.error("intake billing 7-day referral backfill failed:", error.message);
+    return 0;
+  }
+
+  let marked = 0;
+  for (const row of referred ?? []) {
+    const clientId = row.id as string;
+    const billing = await loadBilling(admin, clientId);
+    if (billing?.status === "billed" || billing?.status === "paid") continue;
+    if (billing?.status === "ready_to_bill") continue;
+
+    const hasCaseworkContact = await hasNonHospitalityContactLog(admin, clientId);
+    if (!hasCaseworkContact) continue;
+
+    const result = await markIntakeReadyToBill(admin, {
+      clientId,
+      reason: "contact_log",
+    });
+    if (result.ready) marked += 1;
+  }
+
+  return marked;
 }
 
 export async function updateIntakeBillingStatus(
