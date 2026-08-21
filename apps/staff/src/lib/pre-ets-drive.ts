@@ -5,6 +5,7 @@ import { getGoogleAuth } from "@/lib/google-mail";
 
 export type PreEtsDrivePathVars = {
   schoolYear: string;
+  district: string;
   month: string;
   school: string;
   authNumber: string;

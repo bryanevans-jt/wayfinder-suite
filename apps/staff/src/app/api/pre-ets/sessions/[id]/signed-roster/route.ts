@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
+import { formatPreEtsDistrictFolderName } from "@wayfinder/supabase/pre-ets-invoice-packet";
 import { loadPreEtsSettings } from "@wayfinder/supabase/pre-ets-settings";
 import { driveFileViewUrl, uploadPreEtsFileToDrivePath } from "@/lib/pre-ets-drive";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
@@ -7,7 +8,22 @@ import { NextResponse } from "next/server";
 
 type SessionRow = {
   session_date: string | null;
-  pre_ets_schools: { name: string } | { name: string }[] | null;
+  pre_ets_schools:
+    | {
+        name: string;
+        pre_ets_districts:
+          | { gvra_district_number: string | null }
+          | { gvra_district_number: string | null }[]
+          | null;
+      }
+    | {
+        name: string;
+        pre_ets_districts:
+          | { gvra_district_number: string | null }
+          | { gvra_district_number: string | null }[]
+          | null;
+      }[]
+    | null;
   pre_ets_authorizations:
     | { auth_number: string | null; service_month: string }
     | { auth_number: string | null; service_month: string }[]
@@ -42,7 +58,9 @@ export async function POST(
 
     const { data: session } = await admin
       .from("pre_ets_sessions")
-      .select("session_date, pre_ets_schools(name), pre_ets_authorizations(auth_number, service_month)")
+      .select(
+        "session_date, pre_ets_schools(name, pre_ets_districts(gvra_district_number)), pre_ets_authorizations(auth_number, service_month)"
+      )
       .eq("id", sessionId)
       .maybeSingle();
 
@@ -54,6 +72,7 @@ export async function POST(
 
     const sessionRow = session as SessionRow | null;
     const school = relationOne(sessionRow?.pre_ets_schools ?? null);
+    const district = relationOne(school?.pre_ets_districts ?? null);
     const authorization = relationOne(sessionRow?.pre_ets_authorizations ?? null);
     const serviceMonth = authorization?.service_month
       ? String(authorization.service_month).slice(0, 7)
@@ -61,6 +80,7 @@ export async function POST(
 
     const pathVars = {
       schoolYear: settings.school_year,
+      district: formatPreEtsDistrictFolderName(district?.gvra_district_number),
       month: serviceMonth,
       school: school?.name ?? "school",
       authNumber: authorization?.auth_number ?? sessionId.slice(0, 8),

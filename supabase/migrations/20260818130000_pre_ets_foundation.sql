@@ -32,7 +32,7 @@ create table if not exists public.pre_ets_settings (
   drive_signed_roster_folder_id text,
   drive_invoice_archive_folder_id text,
   drive_worksheet_archive_folder_id text,
-  drive_folder_path_template text not null default 'Pre-ETS/{SchoolYear}/{Month}/{School}/{AuthNumber}',
+  drive_folder_path_template text not null default '{SchoolYear}/{District}/{School}/{Month}',
   template_roster_doc_id text,
   template_car_doc_id text,
   template_invoice_cover_doc_id text,

@@ -42,6 +42,7 @@ export async function POST(
       pathTemplate: auth.settings.drive_folder_path_template,
       pathVars: {
         schoolYear: auth.settings.school_year,
+        district: data.districtFolderName,
         month: data.serviceMonth,
         school: data.schoolName,
         authNumber: data.authNumber || "unknown",

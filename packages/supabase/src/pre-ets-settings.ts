@@ -67,7 +67,7 @@ export const DEFAULT_PRE_ETS_SETTINGS: Omit<
   drive_signed_roster_folder_id: null,
   drive_invoice_archive_folder_id: null,
   drive_worksheet_archive_folder_id: null,
-  drive_folder_path_template: "Pre-ETS/{SchoolYear}/{Month}/{School}/{AuthNumber}",
+  drive_folder_path_template: "{SchoolYear}/{District}/{School}/{Month}",
   template_roster_doc_id: null,
   template_car_doc_id: null,
   template_invoice_cover_doc_id: null,

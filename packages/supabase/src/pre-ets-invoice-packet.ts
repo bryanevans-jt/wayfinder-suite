@@ -20,6 +20,7 @@ export type InvoicePacketPdfData = {
   providerName: string;
   remitAddress: string;
   schoolName: string;
+  districtFolderName: string;
   authNumber: string;
   invoiceNumber: string | null;
   serviceCode: string;
@@ -38,7 +39,22 @@ type AuthRow = {
   service_code: string;
   service_label: string | null;
   service_month: string;
-  pre_ets_schools: { name: string } | { name: string }[] | null;
+  pre_ets_schools:
+    | {
+        name: string;
+        pre_ets_districts:
+          | { gvra_district_number: string | null; label: string | null }
+          | { gvra_district_number: string | null; label: string | null }[]
+          | null;
+      }
+    | {
+        name: string;
+        pre_ets_districts:
+          | { gvra_district_number: string | null; label: string | null }
+          | { gvra_district_number: string | null; label: string | null }[]
+          | null;
+      }[]
+    | null;
 };
 
 function relationOne<T>(raw: T | T[] | null | undefined): T | null {
@@ -50,6 +66,7 @@ export function resolvePreEtsDrivePath(
   template: string,
   vars: {
     schoolYear: string;
+    district: string;
     month: string;
     school: string;
     authNumber: string;
@@ -57,11 +74,22 @@ export function resolvePreEtsDrivePath(
 ): string {
   return template
     .replace(/\{SchoolYear\}/g, vars.schoolYear)
+    .replace(/\{District\}/g, vars.district)
     .replace(/\{Month\}/g, vars.month)
     .replace(/\{School\}/g, vars.school)
     .replace(/\{AuthNumber\}/g, vars.authNumber)
     .replace(/\/+/g, "/")
     .replace(/^\/|\/$/g, "");
+}
+
+/** Folder-safe district label from spreadsheet GVRA district number (e.g. "5" → "District 5"). */
+export function formatPreEtsDistrictFolderName(
+  districtNumber: string | null | undefined
+): string {
+  const raw = (districtNumber ?? "").trim();
+  if (!raw) return "District";
+  if (/^district\b/i.test(raw)) return raw;
+  return `District ${raw}`;
 }
 
 export async function loadInvoicePacketPdfData(
@@ -75,7 +103,7 @@ export async function loadInvoicePacketPdfData(
   const { data: packet } = await admin
     .from("pre_ets_invoice_packets")
     .select(
-      "id, authorization_id, service_month, total_hours, total_amount_cents, provider_invoice_number, pre_ets_authorizations(auth_number, auth_type, service_code, service_label, service_month, pre_ets_schools(name))"
+      "id, authorization_id, service_month, total_hours, total_amount_cents, provider_invoice_number, pre_ets_authorizations(auth_number, auth_type, service_code, service_label, service_month, pre_ets_schools(name, pre_ets_districts(gvra_district_number, label)))"
     )
     .eq("id", packetId)
     .maybeSingle();
@@ -86,6 +114,7 @@ export async function loadInvoicePacketPdfData(
   if (!auth) return null;
 
   const school = relationOne(auth.pre_ets_schools);
+  const district = relationOne(school?.pre_ets_districts ?? null);
   const authorizationId = packet.authorization_id as string;
   const authType = auth.auth_type === "individual" ? "individual" : "group";
 
@@ -168,6 +197,7 @@ export async function loadInvoicePacketPdfData(
     providerName: settings.provider_name,
     remitAddress: settings.remit_address,
     schoolName: school?.name ?? "",
+    districtFolderName: formatPreEtsDistrictFolderName(district?.gvra_district_number),
     authNumber: auth.auth_number ?? "",
     invoiceNumber,
     serviceCode: auth.service_code,

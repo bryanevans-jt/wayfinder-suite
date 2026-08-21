@@ -70,14 +70,18 @@ export const PRE_ETS_INVOICE_PLACEHOLDERS: PreEtsTemplatePlaceholder[] = [
 
 /** Nested Google Drive folder path under each configured root folder. */
 export const PRE_ETS_DRIVE_PATH_TOKENS: PreEtsTemplatePlaceholder[] = [
-  { token: "SchoolYear", description: "Configured school year (e.g. 2025-2026)" },
-  { token: "Month", description: "Service month name" },
+  { token: "SchoolYear", description: "School year from worksheet / settings (e.g. 2025-2026)" },
+  {
+    token: "District",
+    description: "GVRA district from uploaded worksheet (e.g. District 5)",
+  },
   { token: "School", description: "School name" },
-  { token: "AuthNumber", description: "Authorization number" },
+  { token: "Month", description: "Service month (YYYY-MM)" },
+  { token: "AuthNumber", description: "Authorization number (optional leaf folder)" },
 ];
 
 export const PRE_ETS_DEFAULT_DRIVE_PATH_TEMPLATE =
-  "Pre-ETS/{SchoolYear}/{Month}/{School}/{AuthNumber}";
+  "{SchoolYear}/{District}/{School}/{Month}";
 
 /** Class Activity Report — template export uses these tokens when configured. */
 export const PRE_ETS_CAR_PLACEHOLDERS: PreEtsTemplatePlaceholder[] = [

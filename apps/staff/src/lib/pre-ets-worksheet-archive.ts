@@ -1,3 +1,4 @@
+import { formatPreEtsDistrictFolderName } from "@wayfinder/supabase/pre-ets-invoice-packet";
 import { loadPreEtsSettings } from "@wayfinder/supabase/pre-ets-settings";
 import { uploadPreEtsFileToDrivePath } from "@/lib/pre-ets-drive";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -22,18 +23,28 @@ export async function archiveWorksheetImportToDrive(
     return { ok: false, error: "Original worksheet file content is not available." };
   }
 
-  const parsed = imp.parse_result as { districtNumber?: string } | null;
+  const parsed = imp.parse_result as {
+    districtNumber?: string | null;
+    offices?: { groups?: { groupName?: string | null }[] }[];
+  } | null;
+  const districtNumber = parsed?.districtNumber ?? null;
+  const firstSchool =
+    parsed?.offices
+      ?.flatMap((office) => office.groups ?? [])
+      .find((g) => (g.groupName ?? "").trim())
+      ?.groupName?.trim() ?? "All Schools";
   const fileName =
     imp.file_name ||
-    `pre-ets-worksheet-${parsed?.districtNumber ?? importId.slice(0, 8)}.csv`;
+    `pre-ets-worksheet-${districtNumber ?? importId.slice(0, 8)}.csv`;
 
   const uploaded = await uploadPreEtsFileToDrivePath({
     rootFolderId: folderId,
     pathTemplate: settings.drive_folder_path_template,
     pathVars: {
       schoolYear: imp.school_year as string,
+      district: formatPreEtsDistrictFolderName(districtNumber),
       month: String(imp.service_month).slice(0, 7),
-      school: parsed?.districtNumber ?? "district",
+      school: firstSchool,
       authNumber: "worksheets",
     },
     fileName,

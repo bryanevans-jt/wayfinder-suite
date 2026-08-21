@@ -309,12 +309,16 @@ export function PreEtsSettingsPanel() {
               onChange={(e) =>
                 setSettings({ ...settings, drive_folder_path_template: e.target.value })
               }
-              placeholder="Pre-ETS/{SchoolYear}/{Month}/{School}/{AuthNumber}"
+              placeholder="{SchoolYear}/{District}/{School}/{Month}"
             />
             <p className="mt-1 text-xs text-brand-black/55">
               Creates nested subfolders under each configured root folder. Tokens:{" "}
-              <code className="font-mono">{"{SchoolYear}"}</code>, <code className="font-mono">{"{Month}"}</code>,{" "}
-              <code className="font-mono">{"{School}"}</code>, <code className="font-mono">{"{AuthNumber}"}</code>.
+              <code className="font-mono">{"{SchoolYear}"}</code>,{" "}
+              <code className="font-mono">{"{District}"}</code>,{" "}
+              <code className="font-mono">{"{School}"}</code>,{" "}
+              <code className="font-mono">{"{Month}"}</code>,{" "}
+              <code className="font-mono">{"{AuthNumber}"}</code>. District comes from the
+              uploaded worksheet header (e.g. &quot;District 5 Schools&quot;).
             </p>
           </label>
         </div>
