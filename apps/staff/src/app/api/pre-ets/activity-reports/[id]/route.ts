@@ -16,6 +16,7 @@ export async function PATCH(
   try {
     const body = (await request.json()) as Record<string, unknown>;
     const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    const admin = createServiceRoleClient();
 
     const fields = [
       "session_date",
@@ -35,24 +36,78 @@ export async function PATCH(
       if (body[f] !== undefined) patch[f] = body[f];
     }
 
-    if (body.status === "submitted" || body.status === "late_submitted") {
-      patch.submitted_at = new Date().toISOString();
+    if (body.participant_count !== undefined) {
+      const raw = body.participant_count;
+      if (raw === null || raw === "") {
+        patch.participant_count = null;
+      } else {
+        const n = typeof raw === "number" ? raw : Number(raw);
+        patch.participant_count = Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : null;
+      }
+    }
 
-      const admin = createServiceRoleClient();
-      const { data: report } = await admin
+    if (body.signature_data !== undefined) {
+      const raw = typeof body.signature_data === "string" ? body.signature_data.trim() : "";
+      if (!raw) {
+        patch.signature_data = null;
+      } else if (!raw.startsWith("data:image/")) {
+        return NextResponse.json({ error: "Invalid signature image data." }, { status: 400 });
+      } else {
+        patch.signature_data = raw;
+      }
+    }
+
+    if (body.signed_date !== undefined) {
+      const raw =
+        body.signed_date === null || body.signed_date === ""
+          ? null
+          : String(body.signed_date).trim().slice(0, 10);
+      patch.signed_date = raw;
+    }
+
+    const submitting = body.status === "submitted" || body.status === "late_submitted";
+    if (submitting) {
+      const { data: existing } = await admin
         .from("pre_ets_activity_reports")
-        .select("session_id, session_date")
+        .select("signature_data, signed_date, session_id, session_date")
         .eq("id", id)
         .maybeSingle();
 
-      if (report?.session_id && body.status === "submitted") {
+      const signature =
+        (typeof patch.signature_data === "string" ? patch.signature_data : null) ??
+        (existing?.signature_data as string | null) ??
+        null;
+      const signedDate =
+        (typeof patch.signed_date === "string" ? patch.signed_date : null) ??
+        (existing?.signed_date as string | null) ??
+        null;
+
+      if (!signature?.startsWith("data:image/")) {
+        return NextResponse.json(
+          { error: "Instructor signature is required to submit the Class Activity Report." },
+          { status: 400 }
+        );
+      }
+      if (!signedDate) {
+        return NextResponse.json(
+          { error: "Signed date is required to submit the Class Activity Report." },
+          { status: 400 }
+        );
+      }
+
+      patch.submitted_at = new Date().toISOString();
+
+      if (existing?.session_id && body.status === "submitted") {
         const { data: session } = await admin
           .from("pre_ets_sessions")
           .select("session_date")
-          .eq("id", report.session_id)
+          .eq("id", existing.session_id)
           .maybeSingle();
 
-        const sessionDate = (body.session_date as string) || (session?.session_date as string);
+        const sessionDate =
+          (body.session_date as string) ||
+          (existing.session_date as string) ||
+          (session?.session_date as string);
         if (sessionDate) {
           const deadlineMs = auth.settings.submission_deadline_hours * 60 * 60 * 1000;
           const dueAt = new Date(`${sessionDate}T23:59:59.000Z`).getTime() + deadlineMs;
@@ -63,7 +118,6 @@ export async function PATCH(
       }
     }
 
-    const admin = createServiceRoleClient();
     const { error } = await admin.from("pre_ets_activity_reports").update(patch).eq("id", id);
 
     if (error) {
@@ -73,10 +127,7 @@ export async function PATCH(
       });
     }
 
-    if (
-      patch.status === "submitted" ||
-      patch.status === "late_submitted"
-    ) {
+    if (patch.status === "submitted" || patch.status === "late_submitted") {
       const { data: report } = await admin
         .from("pre_ets_activity_reports")
         .select("session_id")

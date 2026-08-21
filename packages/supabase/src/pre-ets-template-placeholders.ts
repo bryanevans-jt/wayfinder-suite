@@ -94,10 +94,97 @@ export const PRE_ETS_CAR_PLACEHOLDERS: PreEtsTemplatePlaceholder[] = [
   { token: "ServiceCode", description: "GVRA service code" },
   { token: "LearningObjective", description: "Learning objective" },
   { token: "LessonStructure", description: "Lesson structure / activities" },
-  { token: "StudentsOnTime", description: "Yes / No" },
-  { token: "StudentsEngaged", description: "Yes / No" },
-  { token: "StudentsParticipated", description: "Yes / No" },
-  { token: "StudentsDisruptive", description: "Yes / No" },
-  { token: "FacultyPresent", description: "Yes / No" },
-  { token: "AdditionalNotes", description: "Additional notes" },
+  {
+    token: "ParticipantCount",
+    description: "Number of participants (instructor-entered)",
+  },
+  {
+    token: "NumberOfParticipants",
+    description: "Same as ParticipantCount (alias)",
+  },
+  {
+    token: "StudentsOnTime",
+    description: 'Yes/No with checkboxes, e.g. "Yes ☑  No ☐"',
+  },
+  {
+    token: "StudentsEngaged",
+    description: 'Yes/No with checkboxes, e.g. "Yes ☑  No ☐"',
+  },
+  {
+    token: "StudentsParticipated",
+    description: 'Yes/No with checkboxes, e.g. "Yes ☑  No ☐"',
+  },
+  {
+    token: "StudentsDisruptive",
+    description: 'Yes/No with checkboxes, e.g. "Yes ☑  No ☐"',
+  },
+  {
+    token: "FacultyPresent",
+    description: 'Yes/No with checkboxes, e.g. "Yes ☑  No ☐"',
+  },
+  {
+    token: "StudentsOnTimeYes",
+    description: "☑ or ☐ for Yes only (pair with StudentsOnTimeNo)",
+  },
+  {
+    token: "StudentsOnTimeNo",
+    description: "☑ or ☐ for No only (pair with StudentsOnTimeYes)",
+  },
+  {
+    token: "StudentsEngagedYes",
+    description: "☑ or ☐ for Yes only",
+  },
+  {
+    token: "StudentsEngagedNo",
+    description: "☑ or ☐ for No only",
+  },
+  {
+    token: "StudentsParticipatedYes",
+    description: "☑ or ☐ for Yes only",
+  },
+  {
+    token: "StudentsParticipatedNo",
+    description: "☑ or ☐ for No only",
+  },
+  {
+    token: "StudentsDisruptiveYes",
+    description: "☑ or ☐ for Yes only",
+  },
+  {
+    token: "StudentsDisruptiveNo",
+    description: "☑ or ☐ for No only",
+  },
+  {
+    token: "FacultyPresentYes",
+    description: "☑ or ☐ for Yes only",
+  },
+  {
+    token: "FacultyPresentNo",
+    description: "☑ or ☐ for No only",
+  },
+  {
+    token: "AdditionalNotes",
+    description: "Additional notes text only; blank when empty (tag removed)",
+  },
+  {
+    token: "AdditionalNotesSection",
+    description:
+      'Full "Additional Note(s): …" block; empty when blank so heading + tag are removed',
+  },
+  {
+    token: "InstructorSignature",
+    description: "Embedded instructor signature image (drawn on submit)",
+  },
+  {
+    token: "Signature",
+    description: "Same as InstructorSignature (alias)",
+  },
+  {
+    token: "SignedDate",
+    description: "Date the instructor signed (MM/DD/YYYY)",
+  },
+  {
+    token: "SignatureDate",
+    description: "Same as SignedDate (alias)",
+  },
 ];

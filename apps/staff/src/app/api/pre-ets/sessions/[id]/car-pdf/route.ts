@@ -61,14 +61,19 @@ export async function GET(
         lessonTopic: (report.lesson_topic as string | null) ?? null,
         learningObjective: (report.learning_objective as string | null) ?? null,
         lessonStructure: (report.lesson_structure as string | null) ?? null,
+        participantCount:
+          typeof report.participant_count === "number" ? report.participant_count : null,
         studentsOnTime: (report.students_on_time as boolean | null) ?? null,
         studentsEngaged: (report.students_engaged as boolean | null) ?? null,
         studentsParticipated: (report.students_participated as boolean | null) ?? null,
         studentsDisruptive: (report.students_disruptive as boolean | null) ?? null,
         facultyPresent: (report.faculty_present as boolean | null) ?? null,
         additionalNotes: (report.additional_notes as string | null) ?? null,
+        signatureData: (report.signature_data as string | null) ?? null,
+        signedDate: (report.signed_date as string | null) ?? null,
       },
-      settings
+      settings,
+      admin
     );
 
     return new NextResponse(Buffer.from(pdfBytes), {

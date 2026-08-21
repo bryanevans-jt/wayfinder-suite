@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { SignaturePad } from "@/components/signature-pad";
 
 type Session = {
   id: string;
@@ -33,12 +34,15 @@ type ActivityReport = {
   lesson_topic: string | null;
   learning_objective: string | null;
   lesson_structure: string | null;
+  participant_count: number | null;
   students_on_time: boolean | null;
   students_engaged: boolean | null;
   students_participated: boolean | null;
   students_disruptive: boolean | null;
   faculty_present: boolean | null;
   additional_notes: string | null;
+  signature_data: string | null;
+  signed_date: string | null;
   status: string;
 };
 
@@ -138,8 +142,16 @@ export function PreEtsSessionsPanel() {
     const reportRes = await fetch(`/api/pre-ets/sessions/${sessionId}/activity-report`);
     const reportData = (await reportRes.json()) as { report?: ActivityReport };
     if (reportRes.ok && reportData.report) {
-      setReport(reportData.report);
-      setSessionDate(reportData.report.session_date ?? "");
+      const r = reportData.report;
+      setReport({
+        ...r,
+        participant_count: r.participant_count ?? null,
+        signature_data: r.signature_data ?? null,
+        signed_date:
+          r.signed_date ??
+          (r.status === "draft" ? new Date().toISOString().slice(0, 10) : null),
+      });
+      setSessionDate(r.session_date ?? "");
     } else {
       setReport(null);
       setSessionDate("");
@@ -169,6 +181,18 @@ export function PreEtsSessionsPanel() {
   async function saveReport(submit: boolean) {
     if (!report) return;
     setError(null);
+
+    if (submit) {
+      if (!report.signature_data?.startsWith("data:image/")) {
+        setError("Draw your signature before submitting the Class Activity Report.");
+        return;
+      }
+      if (!report.signed_date) {
+        setError("Enter the signed date before submitting the Class Activity Report.");
+        return;
+      }
+    }
+
     const res = await fetch(`/api/pre-ets/activity-reports/${report.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -177,17 +201,21 @@ export function PreEtsSessionsPanel() {
         lesson_topic: report.lesson_topic,
         learning_objective: report.learning_objective,
         lesson_structure: report.lesson_structure,
+        participant_count: report.participant_count,
         students_on_time: report.students_on_time,
         students_engaged: report.students_engaged,
         students_participated: report.students_participated,
         students_disruptive: report.students_disruptive,
         faculty_present: report.faculty_present,
         additional_notes: report.additional_notes,
+        signature_data: report.signature_data,
+        signed_date: report.signed_date,
         status: submit ? "submitted" : "draft",
       }),
     });
     if (!res.ok) {
-      setError("Could not save activity report.");
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      setError(data?.error || "Could not save activity report.");
       return;
     }
     setMessage(submit ? "Lesson Activity Report submitted." : "CAR draft saved.");
@@ -567,48 +595,84 @@ export function PreEtsSessionsPanel() {
                     />
                   </label>
 
+                  <label className="block">
+                    <span className="font-medium">Number of participants</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      className="mt-1 block w-full max-w-[12rem] rounded-lg border border-neutral-300 px-3 py-2"
+                      disabled={!isEditable}
+                      value={report.participant_count ?? ""}
+                      onChange={(e) => {
+                        const raw = e.target.value.trim();
+                        setReport({
+                          ...report,
+                          participant_count: raw === "" ? null : Math.max(0, Number.parseInt(raw, 10) || 0),
+                        });
+                      }}
+                    />
+                  </label>
+
                   {CAR_QUESTIONS.map((q) => (
-                    <div key={q.key} className="flex flex-wrap items-start justify-between gap-2">
-                      <span className="flex-1">{q.label}</span>
-                      <div className="flex gap-1">
-                        <button
-                          type="button"
-                          disabled={!isEditable}
-                          className={`rounded-lg px-2 py-1 text-xs font-medium ${
-                            report[q.key] === true
-                              ? "bg-brand-green text-white"
-                              : "border border-neutral-300"
-                          }`}
-                          onClick={() => setCarAnswer(q.key, true)}
-                        >
+                    <fieldset key={q.key} className="space-y-1.5" disabled={!isEditable}>
+                      <legend className="text-sm text-brand-black">{q.label}</legend>
+                      <div className="flex flex-wrap gap-4 pl-0.5">
+                        <label className="inline-flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            className="size-4 rounded border-neutral-400"
+                            checked={report[q.key] === true}
+                            onChange={() => setCarAnswer(q.key, true)}
+                          />
                           Yes
-                        </button>
-                        <button
-                          type="button"
-                          disabled={!isEditable}
-                          className={`rounded-lg px-2 py-1 text-xs font-medium ${
-                            report[q.key] === false
-                              ? "bg-brand-green text-white"
-                              : "border border-neutral-300"
-                          }`}
-                          onClick={() => setCarAnswer(q.key, false)}
-                        >
+                        </label>
+                        <label className="inline-flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            className="size-4 rounded border-neutral-400"
+                            checked={report[q.key] === false}
+                            onChange={() => setCarAnswer(q.key, false)}
+                          />
                           No
-                        </button>
+                        </label>
                       </div>
-                    </div>
+                    </fieldset>
                   ))}
 
                   <label className="block">
-                    <span className="font-medium">Additional notes</span>
+                    <span className="font-medium">Additional Note(s)</span>
                     <textarea
                       className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2"
                       rows={2}
                       disabled={!isEditable}
                       value={report.additional_notes ?? ""}
                       onChange={(e) => setReport({ ...report, additional_notes: e.target.value })}
+                      placeholder="Optional — left blank on the PDF when empty"
                     />
                   </label>
+
+                  <label className="block">
+                    <span className="font-medium">Signed date</span>
+                    <input
+                      type="date"
+                      className="mt-1 block w-full max-w-[14rem] rounded-lg border border-neutral-300 px-3 py-2"
+                      disabled={!isEditable}
+                      value={report.signed_date ?? ""}
+                      onChange={(e) =>
+                        setReport({ ...report, signed_date: e.target.value || null })
+                      }
+                    />
+                  </label>
+
+                  <SignaturePad
+                    label="Instructor signature"
+                    disabled={!isEditable}
+                    value={report.signature_data}
+                    onChange={(dataUrl) =>
+                      setReport({ ...report, signature_data: dataUrl || null })
+                    }
+                  />
 
                   {isEditable ? (
                     <div className="flex flex-wrap gap-2 pt-2">
