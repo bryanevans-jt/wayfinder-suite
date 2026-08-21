@@ -2,6 +2,7 @@
 
 import {
   PIPELINE_BOARD_STATUSES,
+  isApplicationVisibleOnPipelineBoard,
   type PipelineBoardStatus,
 } from "@wayfinder/branding";
 import { friendlyClientError } from "@wayfinder/supabase/error-log";
@@ -31,7 +32,10 @@ export function EsApplicationPipelineBoard({ applications, readOnly = false }: P
   const [movingId, setMovingId] = useState<string | null>(null);
 
   const active = applications.filter((a) =>
-    (PIPELINE_BOARD_STATUSES as readonly string[]).includes(a.status)
+    isApplicationVisibleOnPipelineBoard({
+      status: a.status,
+      updatedAt: a.updatedAt,
+    })
   );
 
   if (active.length === 0) {
@@ -62,7 +66,9 @@ export function EsApplicationPipelineBoard({ applications, readOnly = false }: P
     <section className="mt-8 rounded-xl border border-neutral-200 bg-white p-4 sm:p-5">
       <h2 className="text-base font-semibold text-brand-black">Application Pipeline</h2>
       <p className="mt-1 text-sm text-brand-black/65">
-        Active applications across your caseload. Tap a card to move it to the next stage.
+        Active applications across your caseload. Hired cards leave after 24 hours, and all of a
+        client&apos;s cards leave when a job start date is saved. Tap a card to move it to the next
+        stage.
       </p>
       {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
       <div className="mt-4 flex gap-3 overflow-x-auto pb-2">

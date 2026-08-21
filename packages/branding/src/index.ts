@@ -32,8 +32,10 @@ export {
 export {
   APPLICATION_STATUSES,
   PIPELINE_BOARD_STATUSES,
+  PIPELINE_TERMINAL_GRACE_MS,
   applicationStatusLabel,
   isApplicationStatus,
+  isApplicationVisibleOnPipelineBoard,
   isGoldApplicationStatus,
   isPipelineBoardStatus,
   isTerminalApplicationStatus,

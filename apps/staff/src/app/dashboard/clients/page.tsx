@@ -2,6 +2,7 @@ import { createServerClient, isEsReplyOverdue, isEsRole, staffHomePath } from "@
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import {
   clientDisplayName,
+  isApplicationVisibleOnPipelineBoard,
   isTerminalApplicationStatus,
   serviceDisplayName,
 } from "@wayfinder/branding";
@@ -214,14 +215,27 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
         .in("status", ["pending", "accepted"]),
     ]);
     const nameByClient = new Map(clientRows.map((c) => [c.id, c.displayName]));
-    pipelineApplications = (appRows ?? []).map((a) => ({
-      id: a.id as string,
-      clientId: a.client_id as string,
-      clientName: nameByClient.get(a.client_id as string) ?? "Client",
-      companyName: (a.company_name as string) || "—",
-      status: (a.status as string) || "Applied",
-      updatedAt: (a.updated_at ?? a.created_at) as string,
-    }));
+    const clientsWithJobStart = new Set(
+      clientRows
+        .filter((c) => Boolean((c as { job_start_date?: string | null }).job_start_date))
+        .map((c) => c.id)
+    );
+    pipelineApplications = (appRows ?? [])
+      .map((a) => ({
+        id: a.id as string,
+        clientId: a.client_id as string,
+        clientName: nameByClient.get(a.client_id as string) ?? "Client",
+        companyName: (a.company_name as string) || "—",
+        status: (a.status as string) || "Applied",
+        updatedAt: (a.updated_at ?? a.created_at) as string,
+      }))
+      .filter((a) =>
+        isApplicationVisibleOnPipelineBoard({
+          status: a.status,
+          updatedAt: a.updatedAt,
+          clientHasJobStartDate: clientsWithJobStart.has(a.clientId),
+        })
+      );
 
     const now = Date.now();
     const weekMs = 7 * 24 * 60 * 60 * 1000;
