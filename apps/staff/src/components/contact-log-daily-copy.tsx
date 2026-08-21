@@ -71,13 +71,23 @@ export function ContactLogDailyCopy({
         return;
       }
 
-      const data = (await res.json()) as { text?: string; error?: string };
+      const data = (await res.json()) as {
+        text?: string;
+        error?: string;
+        count?: number;
+        nearbyDays?: string[];
+      };
       setNotes(data.text ?? "");
       setServiceStage((prev) => prev || defaultStage);
       if (!specialistName.trim() && (esName ?? "").trim()) {
         setSpecialistName((esName ?? "").trim());
       }
       setOpen(true);
+      if ((data.count ?? 0) === 0 && (data.nearbyDays?.length ?? 0) > 0) {
+        setError(
+          `No notes matched ${date}. Try one of these days with activity: ${data.nearbyDays!.join(", ")}.`
+        );
+      }
     } catch (err) {
       const reported = await reportBrowserSystemError({
         app: "staff",
@@ -140,7 +150,8 @@ export function ContactLogDailyCopy({
       <h3 className="text-sm font-semibold text-brand-black">Vocational Progress Report</h3>
       <p className="mt-1 text-xs text-brand-black/60">
         Compile this day’s contact notes, edit them, then file a Vocational Progress Report to the
-        same Google Drive folder used in Joshua Tree Reports.
+        same Google Drive folder used in Joshua Tree Reports. Uses the Eastern calendar day of the
+        service time or when the note was entered.
       </p>
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <label className="block text-sm font-medium text-brand-black">

@@ -55,6 +55,7 @@ export {
 } from "./employment-categories";
 export {
   easternDateKey,
+  easternDayUtcSearchWindow,
   formatEasternTimeOfDay,
   formatPortalDateTime,
   PORTAL_DISPLAY_TIME_ZONE,

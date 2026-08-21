@@ -35,6 +35,29 @@ export function easternDateKey(iso: string): string {
   return `${year}-${month}-${day}`;
 }
 
+/**
+ * Loose UTC window that fully covers an Eastern calendar day (and neighbors),
+ * so callers can filter precisely with {@link easternDateKey} afterward.
+ * Eastern is UTC−5/−4, so we pad one calendar day on each side.
+ */
+export function easternDayUtcSearchWindow(dateYmd: string): { startIso: string; endIso: string } {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateYmd.trim());
+  if (!match) {
+    const fallback = new Date();
+    return {
+      startIso: new Date(fallback.getTime() - 2 * 86400000).toISOString(),
+      endIso: new Date(fallback.getTime() + 2 * 86400000).toISOString(),
+    };
+  }
+  const y = Number(match[1]);
+  const m = Number(match[2]);
+  const d = Number(match[3]);
+  // Pad ±1 calendar day in UTC to absorb EST/EDT and late-night logging.
+  const start = new Date(Date.UTC(y, m - 1, d - 1, 0, 0, 0));
+  const end = new Date(Date.UTC(y, m - 1, d + 2, 0, 0, 0));
+  return { startIso: start.toISOString(), endIso: end.toISOString() };
+}
+
 /** Time-of-day in Eastern Time, e.g. "9:30 AM". */
 export function formatEasternTimeOfDay(iso: string | null | undefined): string {
   if (!iso) {
