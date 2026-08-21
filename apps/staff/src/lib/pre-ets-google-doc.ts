@@ -4,6 +4,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatPreEtsRateDollars } from "@wayfinder/supabase/pre-ets-settings";
 import type { InvoicePacketPdfData } from "@wayfinder/supabase/pre-ets-invoice-packet";
 import { getGoogleAuth } from "@/lib/google-mail";
+import {
+  expandPreEtsRosterTableInDoc,
+  PRE_ETS_ROSTER_ROW_TAGS,
+  type RosterTableStudent,
+} from "@/lib/pre-ets-google-doc-roster-table";
 
 export function invoicePacketPlaceholders(data: InvoicePacketPdfData): Record<string, string> {
   return {
@@ -119,6 +124,8 @@ export async function fillGoogleDocTemplatePdf(
   options?: {
     images?: GoogleDocInlineImage[];
     signatureFolderId?: string | null;
+    /** When set, expands the roster table from one template row to match class size. */
+    rosterStudents?: RosterTableStudent[];
   }
 ): Promise<Uint8Array> {
   const auth = await getGoogleAuth();
@@ -140,14 +147,33 @@ export async function fillGoogleDocTemplatePdf(
 
   try {
     const imageTags = new Set((options?.images ?? []).map((img) => img.tag));
+    const rosterRowTagSet = new Set<string>(PRE_ETS_ROSTER_ROW_TAGS);
+
+    // Expand/fill the student table before header token replace so {{PID}} etc. are still findable.
+    if (options?.rosterStudents) {
+      await expandPreEtsRosterTableInDoc(docs, tempDocId, options.rosterStudents);
+    }
+
     const textPlaceholders = Object.fromEntries(
-      Object.entries(placeholders).filter(([key]) => !imageTags.has(key))
+      Object.entries(placeholders).filter(([key]) => {
+        if (imageTags.has(key)) return false;
+        // Unnumbered row tags are handled by table expansion; numbered PID1/StudentName1 stay.
+        if (options?.rosterStudents && rosterRowTagSet.has(key)) return false;
+        return true;
+      })
     );
 
     // Clear image tags in text pass when no image is supplied.
     for (const tag of ["InstructorSignature", "Signature"] as const) {
       if (!imageTags.has(tag) && textPlaceholders[tag] === undefined) {
         textPlaceholders[tag] = "";
+      }
+    }
+
+    // Clear any leftover unnumbered roster tags if table expansion did not run / missed a cell.
+    if (options?.rosterStudents) {
+      for (const tag of PRE_ETS_ROSTER_ROW_TAGS) {
+        if (textPlaceholders[tag] === undefined) textPlaceholders[tag] = "";
       }
     }
 

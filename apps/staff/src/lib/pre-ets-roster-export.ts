@@ -1,5 +1,6 @@
 import type { PreEtsSettingsRow } from "@wayfinder/supabase/pre-ets-settings";
 import { fillGoogleDocTemplatePdf } from "@/lib/pre-ets-google-doc";
+import { splitPreEtsStudentName } from "@/lib/pre-ets-google-doc-roster-table";
 import {
   generatePreEtsRosterPdf,
   type RosterPdfInput,
@@ -22,10 +23,14 @@ export function rosterPdfPlaceholders(input: RosterPdfInput): Record<string, str
     StudentList: input.students.map((s) => `${s.participantId} — ${s.fullName}`).join("\n"),
   };
 
+  // Legacy numbered rows (still supported for older templates).
   for (let i = 0; i < MAX_ROSTER_TEMPLATE_ROWS; i++) {
     const student = input.students[i];
     const n = i + 1;
+    const names = student ? splitPreEtsStudentName(student.fullName) : { firstName: "", lastName: "" };
     placeholders[`StudentName${n}`] = student?.fullName ?? "";
+    placeholders[`StudentLastName${n}`] = names.lastName;
+    placeholders[`StudentFirstName${n}`] = names.firstName;
     placeholders[`PID${n}`] = student?.participantId ?? "";
     placeholders[`ParticipantId${n}`] = student?.participantId ?? "";
   }
@@ -48,7 +53,8 @@ export async function buildPreEtsRosterPdf(
       return await fillGoogleDocTemplatePdf(
         templateId,
         rosterPdfPlaceholders(input),
-        `Pre-ETS Roster - ${input.schoolName}`
+        `Pre-ETS Roster - ${input.schoolName}`,
+        { rosterStudents: input.students }
       );
     } catch {
       // Fall back to built-in pdf-lib roster when template copy/fill fails.

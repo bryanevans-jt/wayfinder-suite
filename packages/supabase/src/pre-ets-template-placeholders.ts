@@ -25,10 +25,26 @@ export const PRE_ETS_ROSTER_CORE_PLACEHOLDERS: PreEtsTemplatePlaceholder[] = [
   { token: "ServiceLabel", description: "Same as Topic (alias)" },
   { token: "StudentCount", description: "Number of students on the roster" },
   { token: "StudentList", description: "All students as PID — Full Name, one per line" },
+  {
+    token: "PID",
+    description: "Roster table: student PID (one template row; app adds rows as needed)",
+  },
+  {
+    token: "StudentLastName",
+    description: "Roster table: last name column on the template row",
+  },
+  {
+    token: "StudentFirstName",
+    description: "Roster table: first name column on the template row",
+  },
+  {
+    token: "StudentName",
+    description: "Roster table: full name (optional instead of first/last)",
+  },
 ];
 
 export const PRE_ETS_ROSTER_ROW_PLACEHOLDER_NOTE =
-  "Numbered row tokens StudentName1–30, PID1–30, and ParticipantId1–30 (alias of PIDn). Unused rows are left blank.";
+  "Put ONE data row in a table with {{PID}}, {{StudentLastName}}, {{StudentFirstName}} (leave Signature/Date columns empty). The app duplicates that row for each student. Numbered PID1–30 tags still work on older templates.";
 
 /** Full roster placeholder list including all numbered row tokens. */
 export const PRE_ETS_ROSTER_PLACEHOLDERS: PreEtsTemplatePlaceholder[] = [
@@ -38,11 +54,19 @@ export const PRE_ETS_ROSTER_PLACEHOLDERS: PreEtsTemplatePlaceholder[] = [
     return [
       {
         token: `StudentName${n}`,
-        description: `Student ${n} full name (empty when fewer than ${n} students)`,
+        description: `Legacy: student ${n} full name`,
+      },
+      {
+        token: `StudentLastName${n}`,
+        description: `Legacy: student ${n} last name`,
+      },
+      {
+        token: `StudentFirstName${n}`,
+        description: `Legacy: student ${n} first name`,
       },
       {
         token: `PID${n}`,
-        description: `Student ${n} participant ID (empty when fewer than ${n} students)`,
+        description: `Legacy: student ${n} participant ID`,
       },
       {
         token: `ParticipantId${n}`,
