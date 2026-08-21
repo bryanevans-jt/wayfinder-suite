@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { filterSunsetOffices, loadSunsetKeepIds } from "@/lib/sunset-tn";
 
 export type OfficeRecord = {
   id: string;
@@ -14,15 +15,23 @@ export function isOfficeHidden(office: Pick<OfficeRecord, "is_hidden">): boolean
 
 export function filterOfficesForPicker(
   offices: OfficeRecord[],
-  options: { includeHidden?: boolean; alwaysIncludeIds?: Iterable<string | null | undefined> } = {}
+  options: {
+    includeHidden?: boolean;
+    alwaysIncludeIds?: Iterable<string | null | undefined>;
+    sunsetKeepOfficeIds?: Set<string>;
+  } = {}
 ): OfficeRecord[] {
-  if (options.includeHidden) {
-    return offices;
-  }
   const pinned = new Set(
     [...(options.alwaysIncludeIds ?? [])].filter((id): id is string => Boolean(id))
   );
-  return offices.filter((office) => !isOfficeHidden(office) || pinned.has(office.id));
+  const afterSunset =
+    options.sunsetKeepOfficeIds === undefined
+      ? offices
+      : filterSunsetOffices(offices, options.sunsetKeepOfficeIds, pinned);
+  if (options.includeHidden) {
+    return afterSunset;
+  }
+  return afterSunset.filter((office) => !isOfficeHidden(office) || pinned.has(office.id));
 }
 
 export function collectReferencedOfficeIds(
@@ -71,8 +80,11 @@ export async function fetchOfficesForPicker(
   client: SupabaseClient,
   options: { includeHidden?: boolean; alwaysIncludeIds?: Iterable<string | null | undefined> } = {}
 ): Promise<Array<{ id: string; name: string; state?: string | null }>> {
-  const offices = await queryAllOffices(client);
-  return filterOfficesForPicker(offices, options).map((office) => ({
+  const [offices, sunset] = await Promise.all([queryAllOffices(client), loadSunsetKeepIds(client)]);
+  return filterOfficesForPicker(offices, {
+    ...options,
+    sunsetKeepOfficeIds: sunset.keepOfficeIds,
+  }).map((office) => ({
     id: office.id,
     name: office.name,
     state: office.state ?? null,

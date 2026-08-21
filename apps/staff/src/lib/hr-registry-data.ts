@@ -1,5 +1,6 @@
 import { clientDisplayName } from "@wayfinder/branding";
 import type { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { filterSunsetOffices, sunsetKeepIdsFromLoadedData } from "@/lib/sunset-tn";
 
 type Admin = ReturnType<typeof createServiceRoleClient>;
 
@@ -41,6 +42,7 @@ export async function loadHrRegistry(
   supervisorEsLinks: HrAssignmentLink[];
   esClientLinks: HrAssignmentLink[];
   staffOfficeLinks: HrAssignmentLink[];
+  counselorOfficeLinks: HrAssignmentLink[];
 }> {
   const [
     { data: offices },
@@ -51,6 +53,8 @@ export async function loadHrRegistry(
     { data: supervisorEs },
     { data: services },
     { data: milestones },
+    { data: counselors },
+    { data: counselorOffices },
   ] = await Promise.all([
     admin.from("offices").select("id, name, state").order("name"),
     admin.from("profiles").select("id, full_name, is_active").eq("role", "es"),
@@ -67,6 +71,8 @@ export async function loadHrRegistry(
     admin.from("supervisor_es_assignments").select("id, supervisor_user_id, es_user_id"),
     admin.from("services").select("id, name"),
     admin.from("service_milestones").select("id, title"),
+    admin.from("counselors").select("id, full_name, office_id").order("full_name"),
+    admin.from("counselor_office_assignments").select("id, counselor_id, office_id"),
   ]);
 
   const officeById = new Map(
@@ -175,14 +181,6 @@ export async function loadHrRegistry(
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const states = [
-    ...new Set(
-      (offices ?? [])
-        .map((o) => (o.state as string | null)?.toUpperCase() ?? null)
-        .filter((s): s is string => Boolean(s))
-    ),
-  ].sort();
-
   const clientNameById = new Map(rows.map((r) => [r.id, r.name]));
   // Rebuild client name map for assignment labels from unfiltered clients if needed
   for (const c of clients ?? []) {
@@ -198,13 +196,47 @@ export async function loadHrRegistry(
     }
   }
 
-  return {
-    clients: rows,
+  const sunset = sunsetKeepIdsFromLoadedData({
     offices: (offices ?? []).map((o) => ({
+      id: o.id as string,
+      state: (o.state as string | null) ?? null,
+      name: (o.name as string | null) ?? null,
+    })),
+    clients: (clients ?? []).map((c) => ({
+      office_id: (c.office_id as string | null) ?? null,
+      counselor_id: null,
+      current_service_id: (c.current_service_id as string | null) ?? null,
+      archived_at: null,
+    })),
+    counselors: (counselors ?? []).map((c) => ({
+      id: c.id as string,
+      office_id: (c.office_id as string | null) ?? null,
+    })),
+    counselorOfficeLinks: (counselorOffices ?? []).map((l) => ({
+      counselor_id: l.counselor_id as string,
+      office_id: l.office_id as string,
+    })),
+  });
+  const visibleOffices = filterSunsetOffices(
+    (offices ?? []).map((o) => ({
       id: o.id as string,
       name: o.name as string,
       state: (o.state as string | null) ?? null,
     })),
+    sunset.keepOfficeIds
+  );
+  const visibleOfficeIds = new Set(visibleOffices.map((o) => o.id));
+  const states = [
+    ...new Set(
+      visibleOffices
+        .map((o) => o.state?.toUpperCase() ?? null)
+        .filter((s): s is string => Boolean(s))
+    ),
+  ].sort();
+
+  return {
+    clients: rows,
+    offices: visibleOffices,
     esUsers,
     states,
     supervisorEsLinks: (supervisorEs ?? []).map((l) => ({
@@ -219,11 +251,46 @@ export async function loadHrRegistry(
         clientNameById.get(l.client_id as string) ?? "Client"
       }`,
     })),
-    staffOfficeLinks: (staffOffice ?? []).map((l) => ({
+    staffOfficeLinks: (staffOffice ?? [])
+      .filter((l) => visibleOfficeIds.has(l.office_id as string))
+      .map((l) => ({
       id: l.id as string,
       label: `${nameById.get(l.user_id as string) ?? "Staff"} · ${
         officeById.get(l.office_id as string)?.name ?? "Office"
       }`,
     })),
+    counselorOfficeLinks: (() => {
+      const seen = new Set<string>();
+      const links: HrAssignmentLink[] = [];
+      for (const c of counselors ?? []) {
+        const counselorName = ((c.full_name as string | null) ?? "").trim() || "Counselor";
+        const officeIds = new Set<string>();
+        if (c.office_id) officeIds.add(c.office_id as string);
+        for (const row of counselorOffices ?? []) {
+          if (row.counselor_id === c.id && row.office_id) {
+            officeIds.add(row.office_id as string);
+          }
+        }
+        if (officeIds.size === 0) {
+          const id = `${c.id}:unassigned`;
+          if (!seen.has(id)) {
+            seen.add(id);
+            links.push({ id, label: `${counselorName} · No office` });
+          }
+          continue;
+        }
+        for (const officeId of officeIds) {
+          if (!visibleOfficeIds.has(officeId) && sunset.tnOfficeIds.has(officeId)) continue;
+          const id = `${c.id}:${officeId}`;
+          if (seen.has(id)) continue;
+          seen.add(id);
+          links.push({
+            id,
+            label: `${counselorName} · ${officeById.get(officeId)?.name ?? "Office"}`,
+          });
+        }
+      }
+      return links.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
+    })(),
   };
 }

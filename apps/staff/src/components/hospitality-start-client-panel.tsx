@@ -26,12 +26,18 @@ export function HospitalityStartClientPanel({
   counselors,
 }: Props) {
   const router = useRouter();
+  const inferredCounselorOfficeId =
+    counselors.find((c) => c.id === initialCounselorId)?.officeIds[0] ?? null;
   const inferredSupervisorId =
-    supervisors.find((s) => s.primaryOfficeId && s.primaryOfficeId === initialOfficeId)?.id ?? "";
+    supervisors.find(
+      (s) =>
+        s.primaryOfficeId &&
+        s.primaryOfficeId === (initialOfficeId ?? inferredCounselorOfficeId)
+    )?.id ?? "";
 
   const [supervisorQuery, setSupervisorQuery] = useState("");
   const [supervisorUserId, setSupervisorUserId] = useState(inferredSupervisorId);
-  const [officeId, setOfficeId] = useState(initialOfficeId ?? "");
+  const [officeId, setOfficeId] = useState(initialOfficeId ?? inferredCounselorOfficeId ?? "");
   const [counselorId, setCounselorId] = useState(initialCounselorId ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +54,15 @@ export function HospitalityStartClientPanel({
     const match = supervisors.find((s) => s.id === id);
     if (match?.primaryOfficeId) {
       setOfficeId(match.primaryOfficeId);
+    }
+  }
+
+  function pickCounselor(id: string) {
+    setCounselorId(id);
+    const match = counselors.find((c) => c.id === id);
+    const counselorOfficeId = match?.officeIds[0];
+    if (counselorOfficeId) {
+      setOfficeId(counselorOfficeId);
     }
   }
 
@@ -86,7 +101,8 @@ export function HospitalityStartClientPanel({
       <div>
         <h3 className="text-sm font-semibold text-brand-black">Start Client</h3>
         <p className="mt-1 text-sm text-brand-black/65">
-          Assign a supervisor (sets their office), then adjust office or counselor if needed.
+          Assign a supervisor and counselor. Office defaults to the counselor’s office (or the
+          supervisor’s) and can still be changed.
         </p>
       </div>
 
@@ -139,7 +155,7 @@ export function HospitalityStartClientPanel({
         <select
           className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2"
           value={counselorId}
-          onChange={(e) => setCounselorId(e.target.value)}
+          onChange={(e) => pickCounselor(e.target.value)}
         >
           <option value="">No counselor</option>
           {counselors.map((c) => (

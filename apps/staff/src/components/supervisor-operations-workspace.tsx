@@ -8,34 +8,59 @@ type Props = {
   capacity: EsCapacityRow[];
   coaching: { sla: CoachingSlaRow[]; thinLogs: CoachingThinLogRow[] };
   showCoaching: boolean;
+  /** Admin / Super Admin see all staff roles; supervisors see ES only. */
+  showAllStaffRoles: boolean;
 };
 
-export function SupervisorOperationsWorkspace({ capacity, coaching, showCoaching }: Props) {
+function formatBillableMinutes(minutes: number): string {
+  const safe = Math.max(0, Math.round(minutes));
+  return `${Math.floor(safe / 60)}h ${safe % 60}m`;
+}
+
+export function SupervisorOperationsWorkspace({
+  capacity,
+  coaching,
+  showCoaching,
+  showAllStaffRoles,
+}: Props) {
   return (
     <div className="mt-8 max-w-5xl space-y-8">
       <section className="rounded-xl border border-neutral-200 bg-white p-5">
         <h2 className="text-base font-semibold text-brand-black">Capacity View</h2>
         <p className="mt-1 text-sm text-brand-black/65">
-          Active caseload and billable minutes (last 4 weeks) per Employment Specialist. Soft
-          guidance is {SOFT_ACTIVE_CASELOAD_GUIDANCE} active clients — overages are allowed; use
+          {showAllStaffRoles
+            ? "Active caseload and billable hours for all staff roles — average per week over the last 4 weeks, plus the last 7 days."
+            : "Active caseload and billable hours per Employment Specialist — average per week over the last 4 weeks, plus the last 7 days."}{" "}
+          Soft guidance is {SOFT_ACTIVE_CASELOAD_GUIDANCE} active clients — overages are allowed; use
           judgment with supervisors/HR.
         </p>
         {capacity.length === 0 ? (
-          <p className="mt-4 text-sm text-brand-black/60">No Employment Specialist data in scope.</p>
+          <p className="mt-4 text-sm text-brand-black/60">
+            {showAllStaffRoles ? "No staff data in scope." : "No Employment Specialist data in scope."}
+          </p>
         ) : (
           <div className="mt-4 overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="border-b border-neutral-200 text-left">
-                  <th className="py-2 pr-4 font-semibold">Employment Specialist</th>
+                  <th className="py-2 pr-4 font-semibold">
+                    {showAllStaffRoles ? "Team member" : "Employment Specialist"}
+                  </th>
+                  {showAllStaffRoles ? (
+                    <th className="py-2 pr-4 font-semibold">Role</th>
+                  ) : null}
                   <th className="py-2 pr-4 font-semibold">Caseload</th>
-                  <th className="py-2 font-semibold">Billable (4 wk)</th>
+                  <th className="py-2 pr-4 font-semibold">Billable avg / wk (4 wk)</th>
+                  <th className="py-2 font-semibold">Billable (last 7 days)</th>
                 </tr>
               </thead>
               <tbody>
                 {capacity.map((row) => (
                   <tr key={row.esUserId} className="border-b border-neutral-100">
                     <td className="py-2 pr-4">{row.esName}</td>
+                    {showAllStaffRoles ? (
+                      <td className="py-2 pr-4 text-brand-black/80">{row.roleLabel}</td>
+                    ) : null}
                     <td
                       className={`py-2 pr-4 ${
                         row.caseloadCount > SOFT_ACTIVE_CASELOAD_GUIDANCE
@@ -50,9 +75,11 @@ export function SupervisorOperationsWorkspace({ capacity, coaching, showCoaching
                         </span>
                       ) : null}
                     </td>
+                    <td className="py-2 pr-4">
+                      {formatBillableMinutes(row.billableMinutesAvgPerWeek4Weeks)}
+                    </td>
                     <td className="py-2">
-                      {Math.floor(row.billableMinutesLast4Weeks / 60)}h{" "}
-                      {row.billableMinutesLast4Weeks % 60}m
+                      {formatBillableMinutes(row.billableMinutesLast7Days)}
                     </td>
                   </tr>
                 ))}

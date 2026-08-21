@@ -68,7 +68,7 @@ export async function handlePublicReferralPost(request: Request, state: Referral
 
     const authFileName = payload.authorizations?.name || "None";
     const otherFileName = payload.otherDocs?.name || "None";
-    const bodies = buildReferralEmailBodies({
+    const bodies = await buildReferralEmailBodies(admin, {
       state,
       payload,
       serviceName: created.serviceName,

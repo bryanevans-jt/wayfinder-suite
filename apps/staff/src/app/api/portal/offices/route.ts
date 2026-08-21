@@ -3,6 +3,7 @@ import {
   filterOfficesForPicker,
   queryAllOffices,
 } from "@/lib/office-visibility";
+import { loadSunsetKeepIds } from "@/lib/sunset-tn";
 import { isSuperAdminRole } from "@wayfinder/supabase/roles";
 import { insertOfficeRow } from "@wayfinder/supabase";
 import { NextRequest } from "next/server";
@@ -10,8 +11,10 @@ import { NextRequest } from "next/server";
 export async function GET() {
   try {
     const { admin, role } = await assertPortalSession("supervisor");
+    const sunset = await loadSunsetKeepIds(admin);
     const offices = filterOfficesForPicker(await queryAllOffices(admin), {
       includeHidden: isSuperAdminRole(role),
+      sunsetKeepOfficeIds: sunset.keepOfficeIds,
     });
     return Response.json({ offices });
   } catch (error) {

@@ -3,6 +3,7 @@ import { google } from "googleapis";
 import { getGoogleAuth, sendEmail } from "@/lib/google-mail";
 import { driveFileUrl } from "@/lib/formal-report-utils";
 import type { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { renderTemplatedFlatEmail } from "@wayfinder/supabase/render-templated-email";
 
 export { isVprServiceStage, resolveReportingState } from "@/lib/vpr-stages";
 
@@ -121,10 +122,16 @@ export async function submitVocationalProgressReport(
     console.error("formal_report_submissions insert failed:", formalErr.message);
   }
 
+  const mail = await renderTemplatedFlatEmail(admin, "report_vpr_completed", {
+    client_name: String(input.reportData.ClientName ?? ""),
+    specialist_name: String(input.reportData.EmploymentSpecialistName ?? ""),
+    report_name: "Vocational Progress Report",
+  });
+
   await sendEmail(auth, {
     to: input.submitterEmail,
-    subject: `Completed Vocational Progress Report for ${input.reportData.ClientName}`,
-    text: `Hello,\n\nYour completed Vocational Progress Report for ${input.reportData.ClientName} is attached.\n\nThank you!`,
+    subject: mail.subject,
+    text: mail.text,
     attachments: [
       {
         filename: fileName,

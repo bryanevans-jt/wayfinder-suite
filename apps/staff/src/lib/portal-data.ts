@@ -16,6 +16,12 @@ import {
   queryAllOffices,
   type OfficeRecord,
 } from "@/lib/office-visibility";
+import {
+  filterSunsetCounselors,
+  filterSunsetServices,
+  sunsetKeepIdsFromLoadedData,
+} from "@/lib/sunset-tn";
+import { loadServiceOfferings, toServiceSelectOptions } from "@/lib/service-offerings";
 
 export async function requirePortalPage(minTier: PortalTier) {
   const session = await getAppSession();
@@ -60,6 +66,7 @@ export type PortalBootstrap = {
   services: { id: string; name: string }[];
   /** Raw service rows (for edit dropdowns — includes legacy ids). */
   serviceCatalog: { id: string; name: string; state?: string | null }[];
+  customizedSupportedEmploymentEnabled: boolean;
   serviceMilestones: {
     id: string;
     service_id: string;
@@ -144,6 +151,8 @@ export type PortalBootstrap = {
     counselor_id: string | null;
     counselor_name: string | null;
     archived_at: string | null;
+    intake_status: string | null;
+    open_intake: boolean;
   }[];
   counselorOfficeLinks: { id: string; counselor_id: string; office_id: string }[];
   staffOfficeLinks: { id: string; user_id: string; office_id: string }[];
@@ -215,12 +224,18 @@ export async function loadPortalBootstrap(
     { data: staffOfficeLinks },
     { data: supervisorEsLinks },
     { data: esClientLinks },
+    { data: openIntakeTasks },
   ] = await Promise.all([
     admin.from("counselor_office_assignments").select("id, counselor_id, office_id"),
     admin.from("staff_office_assignments").select("id, user_id, office_id"),
     admin.from("supervisor_es_assignments").select("id, supervisor_user_id, es_user_id"),
     admin.from("es_client_assignments").select("id, es_user_id, client_id"),
+    admin.from("hospitality_intake_tasks").select("client_id").eq("status", "open"),
   ]);
+
+  const openIntakeClientIds = new Set(
+    (openIntakeTasks ?? []).map((t) => t.client_id as string)
+  );
 
   let counselorsQuery = await admin
     .from("counselors")
@@ -433,15 +448,47 @@ export async function loadPortalBootstrap(
       ])
     : null;
 
+  const sunset = sunsetKeepIdsFromLoadedData({
+    offices: officesRows,
+    clients: (clientsQuery.data ?? []).map((row) => ({
+      office_id: (row.office_id as string | null) ?? null,
+      counselor_id: (row.counselor_id as string | null) ?? null,
+      current_service_id: (row.current_service_id as string | null) ?? null,
+      archived_at: (row as { archived_at?: string | null }).archived_at ?? null,
+    })),
+    counselors: counselors.map((c) => ({
+      id: c.id as string,
+      office_id: (c.office_id as string | null) ?? null,
+    })),
+    counselorOfficeLinks: (counselorOfficeLinks ?? []).map((l) => ({
+      counselor_id: l.counselor_id as string,
+      office_id: l.office_id as string,
+    })),
+  });
+
   const referencedOfficeIds = collectReferencedOfficeIds(
-    clientRows.map((client) => client.office_id as string | null),
-    staffOfficeLinksOut.map((link) => link.office_id),
-    counselorOfficeLinksOut.map((link) => link.office_id)
+    clientRows
+      .filter((client) => !(client as { archived_at?: string | null }).archived_at)
+      .map((client) => client.office_id as string | null)
   );
   officesRows = filterOfficesForPicker(officesRows, {
     includeHidden: options?.includeHiddenOffices ?? false,
     alwaysIncludeIds: referencedOfficeIds,
+    sunsetKeepOfficeIds: sunset.keepOfficeIds,
   });
+  const visibleOfficeIds = new Set(officesRows.map((o) => o.id));
+  counselorOfficeLinksOut = counselorOfficeLinksOut.filter((l) => visibleOfficeIds.has(l.office_id));
+  staffOfficeLinksOut = staffOfficeLinksOut.filter((l) => visibleOfficeIds.has(l.office_id));
+  servicesRaw = filterSunsetServices(servicesRaw, sunset.keepServiceIds);
+  counselors = filterSunsetCounselors(
+    counselors.map((c) => ({
+      ...c,
+      office_ids: [...(counselorOfficeIds.get(c.id as string) ?? [])],
+    })),
+    sunset
+  );
+
+  const serviceOfferings = await loadServiceOfferings(admin);
 
   return {
     offices: officesRows.map((o) => ({
@@ -451,13 +498,20 @@ export async function loadPortalBootstrap(
       state: o.state ?? null,
       is_hidden: o.is_hidden === true,
     })),
-    services: dedupeServicesForSelect(servicesRaw),
+    services: dedupeServicesForSelect(
+      servicesRaw,
+      toServiceSelectOptions(serviceOfferings)
+    ),
     serviceCatalog: servicesRaw.map((s) => ({
       id: s.id,
       name: s.name,
       state: s.state ?? null,
     })),
-    serviceMilestones: milestones.map((m) => ({
+    customizedSupportedEmploymentEnabled:
+      serviceOfferings.customizedSupportedEmploymentEnabled,
+    serviceMilestones: milestones
+      .filter((m) => servicesRaw.some((s) => s.id === m.service_id))
+      .map((m) => ({
       id: m.id,
       service_id: m.service_id,
       title: m.title,
@@ -467,8 +521,13 @@ export async function loadPortalBootstrap(
       .map((c) => ({
       id: c.id as string,
       full_name: c.full_name as string,
-      office_id: (c.office_id as string | null) ?? null,
-      office_ids: [...(counselorOfficeIds.get(c.id as string) ?? [])],
+      office_id:
+        (c.office_id as string | null) && visibleOfficeIds.has(c.office_id as string)
+          ? (c.office_id as string)
+          : null,
+      office_ids: [...(counselorOfficeIds.get(c.id as string) ?? [])].filter((id) =>
+        visibleOfficeIds.has(id)
+      ),
     }))
       .sort((a, b) =>
         (a.full_name ?? "").localeCompare(b.full_name ?? "", undefined, { sensitivity: "base" })
@@ -700,6 +759,8 @@ export async function loadPortalBootstrap(
         counselor_id: counselorId,
         counselor_name: counselorId ? (counselorNameById.get(counselorId) ?? null) : null,
         archived_at: (c as { archived_at?: string | null }).archived_at ?? null,
+        intake_status: (c as { intake_status?: string | null }).intake_status ?? null,
+        open_intake: openIntakeClientIds.has(c.id as string),
       };
     })
       .sort((a, b) =>

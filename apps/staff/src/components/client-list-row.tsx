@@ -2,6 +2,10 @@
 
 import type { PortalBootstrap } from "@/lib/portal-data";
 import { clientDisplayName } from "@wayfinder/branding";
+import {
+  clientPipelineWhere,
+  CLIENT_PIPELINE_WHERE_LABELS,
+} from "@/lib/client-pipeline-where";
 
 type ClientRow = PortalBootstrap["clients"][number];
 
@@ -15,16 +19,25 @@ type Props = {
 
 export function ClientListRow({ client, busy, officeName, esLabel, onManage }: Props) {
   const displayName = clientDisplayName(client);
+  const where = clientPipelineWhere(client);
 
   return (
     <tr className="border-t border-neutral-100 hover:bg-neutral-50/50">
       <td className="px-3 py-3">
-        <p className="font-medium text-brand-black">{displayName}</p>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onManage}
+          className="text-left font-medium text-brand-green hover:underline disabled:opacity-60"
+        >
+          {displayName}
+        </button>
         {client.contact_email ? (
           <p className="text-xs text-brand-black/60">{client.contact_email}</p>
         ) : null}
       </td>
       <td className="px-3 py-3">{officeName(client.office_id)}</td>
+      <td className="px-3 py-3">{client.counselor_name ?? "—"}</td>
       <td className="px-3 py-3">
         {client.es_user_ids.length > 0
           ? client.es_user_ids.map((id) => esLabel(id)).join(", ")
@@ -32,6 +45,7 @@ export function ClientListRow({ client, busy, officeName, esLabel, onManage }: P
       </td>
       <td className="px-3 py-3">{client.service_name ?? "—"}</td>
       <td className="px-3 py-3">{client.stage_title ?? "—"}</td>
+      <td className="px-3 py-3">{CLIENT_PIPELINE_WHERE_LABELS[where]}</td>
       <td className="px-3 py-3">
         <button
           type="button"

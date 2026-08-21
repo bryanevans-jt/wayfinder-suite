@@ -5,6 +5,7 @@ import { getGoogleAuth, sendEmail } from '@/lib/google';
 import { generateEVFPdf } from '@/lib/pdf-generator';
 import { recordFormalSubmission } from '@/lib/record-submission';
 import { reportApiLoggedError } from "@/lib/api-error";
+import { renderTemplatedFlatEmail } from "@wayfinder/supabase/render-templated-email";
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
@@ -58,10 +59,15 @@ export async function POST(request: Request) {
       fieldSnapshot: reportData,
     });
 
+    const mail = await renderTemplatedFlatEmail(admin, "report_evf_completed", {
+      client_name: reportData.Name || "",
+      specialist_name: "",
+      report_name: "Employment Verification Form",
+    });
     await sendEmail(auth, {
       to: user.email,
-      subject: `Completed Employment Verification Form for ${reportData.Name}`,
-      text: `Hello,\n\nYour completed Employment Verification Form for ${reportData.Name} is attached.\n\nThank you!`,
+      subject: mail.subject,
+      text: mail.text,
       attachments: [{ filename: fileName, content: pdfBytes.toString('base64'), encoding: 'base64' }],
     });
 

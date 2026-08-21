@@ -18,7 +18,8 @@ type ReferralRow = {
   stageName: string | null;
   authorization_number: string | null;
   hasEsAssignment: boolean;
-  possibleDuplicates: Array<{ id: string; full_name: string | null }>;
+  prior_client_id?: string | null;
+  possibleDuplicates: Array<{ id: string; full_name: string | null; archived_at?: string | null }>;
 };
 
 type TimeFilter = "all" | "48h" | "7d" | "30d" | "90d" | "ytd";
@@ -157,6 +158,7 @@ export function ReferralQueueWorkspace() {
   const [authById, setAuthById] = useState<Record<string, string>>({});
   const [overrideById, setOverrideById] = useState<Record<string, string>>({});
 
+  const [clientQuery, setClientQuery] = useState("");
   const [counselorId, setCounselorId] = useState("");
   const [stateFilter, setStateFilter] = useState("");
   const [serviceFilter, setServiceFilter] = useState("");
@@ -214,7 +216,14 @@ export function ReferralQueueWorkspace() {
 
   const filteredClients = useMemo(() => {
     const cutoff = timeCutoff(timeFilter);
+    const q = clientQuery.trim().toLowerCase();
     const copy = clients.filter((c) => {
+      if (q) {
+        const name = (c.full_name ?? "").toLowerCase();
+        const email = (c.contact_email ?? "").toLowerCase();
+        const auth = (c.authorization_number ?? "").toLowerCase();
+        if (!name.includes(q) && !email.includes(q) && !auth.includes(q)) return false;
+      }
       if (counselorId) {
         if (counselorId.startsWith("name:")) {
           if (c.counselorName !== counselorId.slice(5)) return false;
@@ -233,14 +242,16 @@ export function ReferralQueueWorkspace() {
     });
     copy.sort((a, b) => referredMs(a) - referredMs(b));
     return copy;
-  }, [clients, counselorId, stateFilter, serviceFilter, stageFilter, timeFilter]);
+  }, [clients, clientQuery, counselorId, stateFilter, serviceFilter, stageFilter, timeFilter]);
 
   const hasFilters =
-    Boolean(counselorId || stateFilter || serviceFilter || stageFilter) || timeFilter !== "all";
+    Boolean(clientQuery.trim() || counselorId || stateFilter || serviceFilter || stageFilter) ||
+    timeFilter !== "all";
 
   async function runAction(
     clientId: string,
-    action: "pending_authorization" | "activate" | "discard"
+    action: "pending_authorization" | "activate" | "discard" | "link_prior",
+    extra?: { priorClientId?: string | null }
   ) {
     setBusyId(clientId);
     setError(null);
@@ -253,6 +264,7 @@ export function ReferralQueueWorkspace() {
           action,
           authorizationNumber: authById[clientId] ?? "",
           overrideReason: overrideById[clientId] ?? "",
+          priorClientId: extra?.priorClientId,
         }),
       });
       const data = (await res.json()) as { error?: string };
@@ -271,6 +283,7 @@ export function ReferralQueueWorkspace() {
       : null;
 
   function clearFilters() {
+    setClientQuery("");
     setCounselorId("");
     setStateFilter("");
     setServiceFilter("");
@@ -337,6 +350,17 @@ export function ReferralQueueWorkspace() {
           ) : null}
         </div>
         <div className="mt-3 flex flex-wrap gap-3">
+          <label className="min-w-[14rem] flex-1 text-xs font-medium text-brand-black/70">
+            Client
+            <input
+              type="search"
+              className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+              placeholder="Search name, email, or auth #…"
+              value={clientQuery}
+              onChange={(e) => setClientQuery(e.target.value)}
+              autoComplete="off"
+            />
+          </label>
           <CounselorFilter
             counselors={counselorOptions}
             value={counselorId}
@@ -464,10 +488,41 @@ export function ReferralQueueWorkspace() {
               </div>
 
               {c.possibleDuplicates.length > 0 ? (
-                <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-                  Possible Duplicate Of{" "}
-                  {c.possibleDuplicates.map((d) => d.full_name || d.id).join(", ")}
-                </p>
+                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                  <p>
+                    Possible Duplicate Of{" "}
+                    {c.possibleDuplicates.map((d) => d.full_name || d.id).join(", ")}
+                  </p>
+                  <ul className="mt-2 space-y-1">
+                    {c.possibleDuplicates.map((d) => {
+                      const linked = c.prior_client_id === d.id;
+                      const closed = Boolean(d.archived_at);
+                      return (
+                        <li key={d.id} className="flex flex-wrap items-center gap-2">
+                          <span>
+                            {d.full_name || d.id}
+                            {closed ? " (closed)" : ""}
+                            {linked ? " — linked as previous enrollment" : ""}
+                          </span>
+                          {closed ? (
+                            <button
+                              type="button"
+                              disabled={busyId === c.id}
+                              className="rounded border border-amber-300 bg-white px-2 py-0.5 text-xs font-medium hover:bg-amber-100 disabled:opacity-50"
+                              onClick={() =>
+                                void runAction(c.id, "link_prior", {
+                                  priorClientId: linked ? null : d.id,
+                                })
+                              }
+                            >
+                              {linked ? "Clear link" : "Link previous enrollment"}
+                            </button>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
               ) : null}
 
               <div className="mt-3 grid gap-2 sm:grid-cols-2">

@@ -21,12 +21,21 @@ export async function GET() {
 
     const actor = await resolveErrorActor(supabase, user.id);
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("in_app_notifications")
-      .select("id, kind, title, body, link_path, read_at, created_at")
+      .select("id, kind, title, body, link_path, read_at, created_at, dismissed_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(30);
+    const withDismissed = await query.is("dismissed_at", null);
+    const { data, error } = withDismissed.error?.message.includes("dismissed_at")
+      ? await supabase
+          .from("in_app_notifications")
+          .select("id, kind, title, body, link_path, read_at, created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(30)
+      : withDismissed;
 
     if (error) {
       return respondWithLoggedError("staff", route, error, actor);
@@ -53,8 +62,35 @@ export async function PATCH(request: Request) {
     }
 
     const actor = await resolveErrorActor(supabase, user.id);
-    const payload = (await request.json()) as { ids?: string[]; markAll?: boolean };
+    const payload = (await request.json()) as {
+      ids?: string[];
+      markAll?: boolean;
+      dismiss?: boolean;
+    };
     const now = new Date().toISOString();
+
+    if (payload.dismiss && payload.ids?.length) {
+      const { error } = await supabase
+        .from("in_app_notifications")
+        .update({ dismissed_at: now, read_at: now })
+        .eq("user_id", user.id)
+        .in("id", payload.ids);
+      if (error) {
+        if (error.message.includes("dismissed_at")) {
+          const fallback = await supabase
+            .from("in_app_notifications")
+            .update({ read_at: now })
+            .eq("user_id", user.id)
+            .in("id", payload.ids);
+          if (fallback.error) {
+            return respondWithLoggedError("staff", route, fallback.error, actor);
+          }
+          return NextResponse.json({ ok: true });
+        }
+        return respondWithLoggedError("staff", route, error, actor);
+      }
+      return NextResponse.json({ ok: true });
+    }
 
     if (payload.markAll) {
       const { error } = await supabase

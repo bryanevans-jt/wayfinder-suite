@@ -1,3 +1,4 @@
+import { renderTemplatedFlatEmail } from "@wayfinder/supabase/render-templated-email";
 import {
   SHARE_MOMENT_BUCKET,
   SHARE_MOMENT_LINK_TTL_SECONDS,
@@ -172,17 +173,7 @@ export async function POST(request: Request) {
       timeStyle: "short",
     });
 
-    const text = [
-      "A team member shared a client moment from Wayfinder Pro.",
-      "",
-      `Client: ${clientName}`,
-      `Team member: ${teamMemberName}`,
-      `Submitted by: ${actor.userName ?? session.actorUserId}`,
-      `Submitted at: ${submittedAt}`,
-      "",
-      "Notes:",
-      notes,
-      "",
+    const attachmentSummary = [
       attachments.length > 0
         ? `Photos attached: ${attachments.length}`
         : "Photos were too large to attach in email; use the download links below.",
@@ -195,11 +186,19 @@ export async function POST(request: Request) {
         : []),
     ].join("\n");
 
+    const mail = await renderTemplatedFlatEmail(admin, "team_moment_share", {
+      client_name: clientName,
+      submitted_by: actor.userName ?? session.actorUserId,
+      submitted_at: submittedAt,
+      notes,
+      attachment_summary: attachmentSummary,
+    });
+
     const auth = await getGoogleAuth();
     await sendEmail(auth, {
       to: SUPPORT_CONTACT_EMAIL,
-      subject: `Team moment: ${clientName}`,
-      text,
+      subject: mail.subject,
+      text: mail.text,
       attachments: attachments.length > 0 ? attachments : undefined,
     });
 

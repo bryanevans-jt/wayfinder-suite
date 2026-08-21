@@ -1,5 +1,6 @@
-/** Terminal success-path stages that schedule archive and leave ES active caseload. */
-export const TERMINAL_STAGE_PATTERN = /^(closed(\s+successfully)?|dismissed)$/i;
+/** Terminal stages that schedule archive and leave ES active caseload. */
+export const TERMINAL_STAGE_PATTERN =
+  /^(closed(\s+successfully)?|dismissed|services\s+interrupted)$/i;
 
 export function isTerminalStageTitle(title: string | null | undefined): boolean {
   return TERMINAL_STAGE_PATTERN.test((title ?? "").trim());
@@ -29,7 +30,7 @@ export function isPendingArchive(
 }
 
 /**
- * Off the ES active caseload as soon as Closed/Dismissed is saved
+ * Off the ES active caseload as soon as Closed/Dismissed/Services Interrupted is saved
  * (pending or fully archived).
  */
 export function isRemovedFromEsCaseload(archivedAt: string | null | undefined): boolean {

@@ -2,6 +2,7 @@ import { createServerClient, isEsReplyOverdue, isEsRole, staffHomePath } from "@
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import {
   clientDisplayName,
+  isApplicationVisibleOnPipelineBoard,
   isTerminalApplicationStatus,
   serviceDisplayName,
 } from "@wayfinder/branding";
@@ -21,6 +22,12 @@ import { EsClientsTodayStrip } from "@/components/es-clients-today-strip";
 import { loadCaseloadTriageFlags } from "@/lib/caseload-operations";
 import { fetchEsCaseloadClients, getEsCaseloadAdmin } from "@/lib/es-caseload-data";
 import { fetchOfficesForPicker } from "@/lib/office-visibility";
+import {
+  filterSunsetCounselors,
+  filterSunsetServices,
+  loadSunsetKeepIds,
+} from "@/lib/sunset-tn";
+import { loadServiceOfferings, toServiceSelectOptions } from "@/lib/service-offerings";
 import { AddClientLauncher } from "./add-client-launcher";
 
 type PageProps = {
@@ -47,14 +54,17 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
   const supabase = await createServerClient();
   const lookupClient = admin ?? supabase;
 
-  const [caseload, servicesQuery, offices, { data: counselorsRaw }] = await Promise.all([
-    fetchEsCaseloadClients(effectiveUserId, { includeArchived }),
+  const caseload = await fetchEsCaseloadClients(effectiveUserId, { includeArchived });
+  const pinServiceIds = (caseload.clients ?? []).map((c) => c.current_service_id);
+
+  const [servicesQuery, offices, { data: counselorsRaw }, sunset] = await Promise.all([
     lookupClient.from("services").select("id, name, state").order("name", { ascending: true }),
     fetchOfficesForPicker(lookupClient),
     lookupClient
       .from("counselors")
       .select("id, full_name, office_id, offices(name)")
       .order("full_name", { ascending: true }),
+    loadSunsetKeepIds(lookupClient),
   ]);
 
   let servicesRaw: Array<{ id: string; name: string; state?: string | null }> =
@@ -150,19 +160,27 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
   }
 
   const counselors =
-    (counselorsRaw ?? []).map((c) => {
-      const rawOffices = (c as { offices?: { name: string } | { name: string }[] | null })
-        .offices;
-      const officesEmbed = Array.isArray(rawOffices)
-        ? (rawOffices[0] ?? null)
-        : (rawOffices ?? null);
-      return {
-        id: c.id as string,
-        full_name: c.full_name as string,
-        office_id: c.office_id as string,
-        offices: officesEmbed,
-      };
-    }) ?? [];
+    filterSunsetCounselors(
+      (counselorsRaw ?? []).map((c) => {
+        const rawOffices = (c as { offices?: { name: string } | { name: string }[] | null })
+          .offices;
+        const officesEmbed = Array.isArray(rawOffices)
+          ? (rawOffices[0] ?? null)
+          : (rawOffices ?? null);
+        return {
+          id: c.id as string,
+          full_name: c.full_name as string,
+          office_id: c.office_id as string,
+          office_ids: c.office_id ? [c.office_id as string] : [],
+          offices: officesEmbed,
+        };
+      }),
+      sunset
+    ) ?? [];
+
+  servicesRaw = filterSunsetServices(servicesRaw, sunset.keepServiceIds, pinServiceIds);
+  const serviceOfferings = await loadServiceOfferings(lookupClient);
+  const serviceSelectOptions = toServiceSelectOptions(serviceOfferings);
 
   const clientRows = clients.map((c) => {
     const profileId = c.user_id ?? c.profile_id;
@@ -197,14 +215,27 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
         .in("status", ["pending", "accepted"]),
     ]);
     const nameByClient = new Map(clientRows.map((c) => [c.id, c.displayName]));
-    pipelineApplications = (appRows ?? []).map((a) => ({
-      id: a.id as string,
-      clientId: a.client_id as string,
-      clientName: nameByClient.get(a.client_id as string) ?? "Client",
-      companyName: (a.company_name as string) || "—",
-      status: (a.status as string) || "Applied",
-      updatedAt: (a.updated_at ?? a.created_at) as string,
-    }));
+    const clientsWithJobStart = new Set(
+      clientRows
+        .filter((c) => Boolean((c as { job_start_date?: string | null }).job_start_date))
+        .map((c) => c.id)
+    );
+    pipelineApplications = (appRows ?? [])
+      .map((a) => ({
+        id: a.id as string,
+        clientId: a.client_id as string,
+        clientName: nameByClient.get(a.client_id as string) ?? "Client",
+        companyName: (a.company_name as string) || "—",
+        status: (a.status as string) || "Applied",
+        updatedAt: (a.updated_at ?? a.created_at) as string,
+      }))
+      .filter((a) =>
+        isApplicationVisibleOnPipelineBoard({
+          status: a.status,
+          updatedAt: a.updatedAt,
+          clientHasJobStartDate: clientsWithJobStart.has(a.clientId),
+        })
+      );
 
     const now = Date.now();
     const weekMs = 7 * 24 * 60 * 60 * 1000;
@@ -263,6 +294,7 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
           {!session.isPreviewing ? (
             <AddClientLauncher
               serviceCatalog={servicesRaw}
+              serviceSelectOptions={serviceSelectOptions}
               offices={offices.map((office) => ({
                 id: office.id,
                 name: office.name,

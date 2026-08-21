@@ -15,6 +15,11 @@ export type ServiceSelectGroup = {
   options: ServiceSelectOption[];
 };
 
+export type ServiceSelectOptions = {
+  /** When true, include Customized Supported Employment in pickers. Default: hidden. */
+  includeCustomizedSupportedEmployment?: boolean;
+};
+
 const STATE_GROUP_LABELS: Record<string, string> = {
   GA: "Georgia",
   TN: "Tennessee",
@@ -52,6 +57,12 @@ export function isDeprecatedTnTraditionalService(row: ServiceRowInput): boolean 
   return baseName.toLowerCase() === "traditional supported employment" && state === "TN";
 }
 
+/** GA Customized Supported Employment (optionally hidden from pickers). */
+export function isCustomizedSupportedEmploymentService(row: ServiceRowInput): boolean {
+  const { baseName } = parseServiceParts(row.name, row.state);
+  return baseName.toLowerCase() === "customized supported employment";
+}
+
 function findSupportedTnServiceId(rows: ServiceRowInput[]): string | null {
   for (const row of rows) {
     const { baseName, state } = parseServiceParts(row.name, row.state);
@@ -75,8 +86,20 @@ export function resolveClientServiceIdForEdit(
   return currentServiceId;
 }
 
-function activeServicesForSelect(rows: ServiceRowInput[]): ServiceRowInput[] {
-  return rows.filter((r) => !isDeprecatedTnTraditionalService(r));
+function activeServicesForSelect(
+  rows: ServiceRowInput[],
+  options?: ServiceSelectOptions
+): ServiceRowInput[] {
+  return rows.filter((r) => {
+    if (isDeprecatedTnTraditionalService(r)) return false;
+    if (
+      !options?.includeCustomizedSupportedEmployment &&
+      isCustomizedSupportedEmploymentService(r)
+    ) {
+      return false;
+    }
+    return true;
+  });
 }
 
 /** Display label for any service row (client tables, etc.). */
@@ -109,13 +132,16 @@ function pickPreferredService(
  * - Exact duplicate names → one row
  * - Different states (GA vs TN) stay separate
  */
-export function dedupeServicesForSelect(rows: ServiceRowInput[]): ServiceSelectOption[] {
+export function dedupeServicesForSelect(
+  rows: ServiceRowInput[],
+  options?: ServiceSelectOptions
+): ServiceSelectOption[] {
   const byBase = new Map<
     string,
     Array<{ row: ServiceRowInput; parts: ReturnType<typeof parseServiceParts> }>
   >();
 
-  for (const row of activeServicesForSelect(rows)) {
+  for (const row of activeServicesForSelect(rows, options)) {
     const parts = parseServiceParts(row.name, row.state);
     const key = parts.baseName.toLowerCase();
     const list = byBase.get(key) ?? [];
@@ -123,7 +149,7 @@ export function dedupeServicesForSelect(rows: ServiceRowInput[]): ServiceSelectO
     byBase.set(key, list);
   }
 
-  const options: ServiceSelectOption[] = [];
+  const selectOptions: ServiceSelectOption[] = [];
 
   for (const entries of byBase.values()) {
     const byState = new Map<
@@ -147,14 +173,14 @@ export function dedupeServicesForSelect(rows: ServiceRowInput[]): ServiceSelectO
 
       const row = pickPreferredService(stateEntries);
       const parts = parseServiceParts(row.name, row.state);
-      options.push({
+      selectOptions.push({
         id: row.id,
         name: formatServiceLabel(parts.baseName, parts.state),
       });
     }
   }
 
-  return options.sort((a, b) =>
+  return selectOptions.sort((a, b) =>
     a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
   );
 }
@@ -179,14 +205,15 @@ function sortStateGroups(groups: ServiceSelectGroup[]): ServiceSelectGroup[] {
 /** Keep services that match an office state (or have no state when office is unset). */
 export function filterServicesForOfficeState(
   rows: ServiceRowInput[],
-  officeState: string | null | undefined
+  officeState: string | null | undefined,
+  options?: ServiceSelectOptions
 ): ServiceRowInput[] {
   const normalizedOfficeState = officeState?.trim().toUpperCase() || null;
   if (!normalizedOfficeState) {
-    return activeServicesForSelect(rows);
+    return activeServicesForSelect(rows, options);
   }
 
-  return activeServicesForSelect(rows).filter((row) => {
+  return activeServicesForSelect(rows, options).filter((row) => {
     const { state } = parseServiceParts(row.name, row.state);
     return state === normalizedOfficeState;
   });
@@ -195,10 +222,11 @@ export function filterServicesForOfficeState(
 /** Service dropdown groups by state, optionally limited to one office state. */
 export function servicesGroupedByState(
   rows: ServiceRowInput[],
-  officeState?: string | null
+  officeState?: string | null,
+  selectOptions?: ServiceSelectOptions
 ): ServiceSelectGroup[] {
-  const filtered = filterServicesForOfficeState(rows, officeState);
-  const options = dedupeServicesForSelect(filtered);
+  const filtered = filterServicesForOfficeState(rows, officeState, selectOptions);
+  const options = dedupeServicesForSelect(filtered, selectOptions);
   const byState = new Map<string, ServiceSelectGroup>();
 
   for (const option of options) {
@@ -229,7 +257,10 @@ function appendLegacyServiceGroup(
   rows: ServiceRowInput[],
   serviceId: string
 ): ServiceSelectGroup[] {
-  const row = activeServicesForSelect(rows).find((r) => r.id === serviceId);
+  // Include currently-assigned services even when the offering is disabled.
+  const row = rows.find(
+    (r) => r.id === serviceId && !isDeprecatedTnTraditionalService(r)
+  );
   if (!row || groups.some((g) => g.options.some((o) => o.id === serviceId))) {
     return groups;
   }
@@ -263,10 +294,11 @@ function appendLegacyServiceGroup(
 export function servicesForClientEditGroups(
   rows: ServiceRowInput[],
   currentServiceId: string | null,
-  officeState?: string | null
+  officeState?: string | null,
+  selectOptions?: ServiceSelectOptions
 ): ServiceSelectGroup[] {
   const effectiveCurrentId = resolveClientServiceIdForEdit(rows, currentServiceId);
-  let groups = servicesGroupedByState(rows, officeState);
+  let groups = servicesGroupedByState(rows, officeState, selectOptions);
   if (effectiveCurrentId) {
     groups = appendLegacyServiceGroup(groups, rows, effectiveCurrentId);
   }
@@ -281,7 +313,10 @@ export function flattenServiceGroups(groups: ServiceSelectGroup[]): ServiceSelec
 export function servicesForClientEdit(
   rows: ServiceRowInput[],
   currentServiceId: string | null,
-  officeState?: string | null
+  officeState?: string | null,
+  selectOptions?: ServiceSelectOptions
 ): ServiceSelectOption[] {
-  return flattenServiceGroups(servicesForClientEditGroups(rows, currentServiceId, officeState));
+  return flattenServiceGroups(
+    servicesForClientEditGroups(rows, currentServiceId, officeState, selectOptions)
+  );
 }

@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       }
       if (isTerminalStageTitle(String(milestone.title))) {
         return Response.json(
-          { error: "Choose an active stage, not Closed or Dismissed." },
+          { error: "Choose an active stage, not Closed, Dismissed, or Services Interrupted." },
           { status: 400 }
         );
       }

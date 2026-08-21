@@ -11,6 +11,7 @@ import {
   canLogHospitalityCheckIns,
   canOverseeFormalReportSubmissions,
   canViewClientProfiles,
+  isAdminTierRole,
   canViewStaffOnlyClientNotes,
   canWriteStaffOnlyClientNotes,
   staffHomePath,
@@ -62,10 +63,11 @@ type ClientDetailRow = {
   employment_goal_primary_other: string | null;
   employment_goal_secondary: string | null;
   employment_goal_secondary_other: string | null;
+  prior_client_id?: string | null;
 };
 
 const CLIENT_SELECT_FULL =
-  "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, office_id, counselor_id, job_start_date, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other";
+  "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, office_id, counselor_id, job_start_date, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other, prior_client_id";
 
 const CLIENT_SELECT_CORE =
   "id, user_id, profile_id, contact_email, current_service_id, current_stage_id, office_id, counselor_id, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other";
@@ -258,6 +260,52 @@ export default async function EsClientDetailPage({ params }: PageProps) {
     notes: row.notes,
     logged_by: row.logged_by,
   }));
+
+  const showPriorHistory =
+    isEsRole(role) || isSupervisorRole(role) || isAdminTierRole(role);
+  let priorFeed: ReturnType<typeof buildClientActivityFeed> | null = null;
+  let priorEnrollmentName: string | null = null;
+  if (showPriorHistory && client.prior_client_id) {
+    const prior = await loadClientDetailRow(admin, client.prior_client_id);
+    if (prior) {
+      priorEnrollmentName =
+        prior.full_name?.trim() ||
+        prior.contact_email ||
+        "Previous enrollment";
+      const priorFks = buildClientActivityFkIds(prior);
+      const [priorLogs, { data: priorStages }, { data: priorApps }] = await Promise.all([
+        listContactLogsForClientIds(admin, priorFks, { orderAscending: true }).catch(() => []),
+        admin
+          .from("client_stage_events")
+          .select("id, created_at, milestone_id, service_milestones(title)")
+          .in("client_id", priorFks)
+          .order("created_at", { ascending: true }),
+        admin
+          .from("applications")
+          .select(
+            "id, status, status_other_reason, company_name, notes, created_at, employer_id, employers(name)"
+          )
+          .in("client_id", priorFks)
+          .order("created_at", { ascending: true }),
+      ]);
+      priorFeed = buildClientActivityFeed({
+        logs: priorLogs.map((row) => ({
+          id: row.id,
+          created_at: row.created_at,
+          public_outcome: row.public_outcome ?? row.outcome,
+          notes: row.notes,
+          logged_by: row.logged_by,
+        })) as Parameters<typeof buildClientActivityFeed>[0]["logs"],
+        stageEvents: (priorStages ?? []) as Parameters<
+          typeof buildClientActivityFeed
+        >[0]["stageEvents"],
+        applications: (priorApps ?? []) as Parameters<
+          typeof buildClientActivityFeed
+        >[0]["applications"],
+        meetings: [],
+      });
+    }
+  }
 
   const feed = buildClientActivityFeed({
     logs: normalizedLogs as Parameters<typeof buildClientActivityFeed>[0]["logs"],
@@ -469,6 +517,25 @@ export default async function EsClientDetailPage({ params }: PageProps) {
           currentUserId={session.effectiveUserId}
           allowCorrection={!readOnly}
         />
+        {showPriorHistory && client.prior_client_id && priorEnrollmentName ? (
+          <div className="mt-8 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+            <h3 className="text-base font-semibold text-brand-black">Previous enrollment</h3>
+            <p className="mt-1 text-sm text-brand-black/70">
+              Linked history from a closed case ({priorEnrollmentName}). Visible to Employment
+              Specialists, supervisors, and admins only — not part of this new referral.
+            </p>
+            {priorFeed && priorFeed.length > 0 ? (
+              <StaffClientActivityTimeline
+                feed={priorFeed}
+                clientId={client.prior_client_id}
+                currentUserId={session.effectiveUserId}
+                allowCorrection={false}
+              />
+            ) : (
+              <p className="mt-3 text-sm text-brand-black/60">No prior notes or applications found.</p>
+            )}
+          </div>
+        ) : null}
       </section>
     </main>
   );

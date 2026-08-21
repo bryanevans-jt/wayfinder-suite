@@ -1,6 +1,6 @@
 "use client";
 
-import { personDisplayName, servicesGroupedByState, flattenServiceGroups, type ServiceRowInput } from "@wayfinder/branding";
+import { personDisplayName, servicesGroupedByState, flattenServiceGroups, type ServiceRowInput, type ServiceSelectOptions } from "@wayfinder/branding";
 import { useEffect, useMemo, useState } from "react";
 import { ServiceSelect } from "@/components/service-select";
 
@@ -21,6 +21,7 @@ type AddClientModalProps = {
   open: boolean;
   onClose: () => void;
   serviceCatalog: ServiceRowInput[];
+  serviceSelectOptions?: ServiceSelectOptions;
   offices: OfficeOption[];
   counselors: CounselorOption[];
   onCreated?: () => void;
@@ -33,6 +34,7 @@ export function AddClientModal({
   open,
   onClose,
   serviceCatalog,
+  serviceSelectOptions,
   offices,
   counselors,
   onCreated,
@@ -56,7 +58,7 @@ export function AddClientModal({
   );
 
   const serviceGroups = useMemo(
-    () => servicesGroupedByState(serviceCatalog, selectedOffice?.state ?? null),
+    () => servicesGroupedByState(serviceCatalog, selectedOffice?.state ?? null, serviceSelectOptions),
     [serviceCatalog, selectedOffice?.state]
   );
 
@@ -98,7 +100,7 @@ export function AddClientModal({
     setCounselorId("");
     const nextOffice = offices.find((office) => office.id === nextOfficeId);
     const nextOptions = flattenServiceGroups(
-      servicesGroupedByState(serviceCatalog, nextOffice?.state ?? null)
+      servicesGroupedByState(serviceCatalog, nextOffice?.state ?? null, serviceSelectOptions)
     );
     setServiceId(nextOptions[0]?.id ?? "");
   }

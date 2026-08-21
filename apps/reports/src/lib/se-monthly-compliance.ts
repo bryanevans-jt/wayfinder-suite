@@ -151,6 +151,13 @@ export async function loadSeMonthlyCandidates(admin: SupabaseClient): Promise<Se
   const officeIds = (gaOffices ?? []).map((o) => o.id as string);
   if (officeIds.length === 0) return [];
 
+  const { data: tseServices } = await admin
+    .from("services")
+    .select("id")
+    .ilike("name", "Traditional Supported Employment%");
+  const tseServiceIds = (tseServices ?? []).map((s) => s.id as string);
+  if (tseServiceIds.length === 0) return [];
+
   const { data: milestones } = await admin
     .from("service_milestones")
     .select("id, title")
@@ -164,6 +171,7 @@ export async function loadSeMonthlyCandidates(admin: SupabaseClient): Promise<Se
     .from("clients")
     .select("id, user_id, profile_id, contact_email, current_stage_id")
     .in("office_id", officeIds)
+    .in("current_service_id", tseServiceIds)
     .in("current_stage_id", stageIds)
     .is("archived_at", null);
 

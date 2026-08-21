@@ -7,6 +7,7 @@ import { getGoogleAuth, sendEmail } from "@/lib/google";
 import { recordFormalSubmission } from "@/lib/record-submission";
 import { loadTnReportDefinition } from "@/lib/tn-report-definition";
 import { reportApiLoggedError } from "@/lib/api-error";
+import { renderTemplatedFlatEmail } from "@wayfinder/supabase/render-templated-email";
 import { NextResponse } from "next/server";
 
 const FILE_MIME_MAP: Record<string, string> = {
@@ -152,10 +153,15 @@ export async function POST(request: Request) {
       fieldSnapshot,
     });
 
+    const mail = await renderTemplatedFlatEmail(admin, "report_tn_upload_submitted", {
+      client_name: clientName,
+      specialist_name: employmentSpecialistName,
+      report_name: definition.name,
+    });
     await sendEmail(auth, {
       to: user.email,
-      subject: `${definition.name} Submitted - ${clientName}`,
-      text: `Hello ${employmentSpecialistName || "there"},\n\nYour completed ${definition.name} for ${clientName} has been submitted successfully. Your attached document is included for your records.\n\nThank you!`,
+      subject: mail.subject,
+      text: mail.text,
       attachments: [
         {
           filename: uploadFileName,

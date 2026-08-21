@@ -32,8 +32,10 @@ export {
 export {
   APPLICATION_STATUSES,
   PIPELINE_BOARD_STATUSES,
+  PIPELINE_TERMINAL_GRACE_MS,
   applicationStatusLabel,
   isApplicationStatus,
+  isApplicationVisibleOnPipelineBoard,
   isGoldApplicationStatus,
   isPipelineBoardStatus,
   isTerminalApplicationStatus,
@@ -62,6 +64,7 @@ export {
   filterServicesForOfficeState,
   flattenServiceGroups,
   formatServiceLabel,
+  isCustomizedSupportedEmploymentService,
   isDeprecatedTnTraditionalService,
   parseServiceParts,
   resolveClientServiceIdForEdit,
@@ -72,6 +75,7 @@ export {
   type ServiceRowInput,
   type ServiceSelectGroup,
   type ServiceSelectOption,
+  type ServiceSelectOptions,
 } from "./service-display";
 export {
   clientDisplayName,

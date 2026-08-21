@@ -29,6 +29,7 @@ export default async function OperationsPage() {
         capacity={capacity}
         coaching={coaching}
         showCoaching={isSupervisorRole(role)}
+        showAllStaffRoles={isAdminTierRole(role)}
       />
     </main>
   );

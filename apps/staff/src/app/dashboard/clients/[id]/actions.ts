@@ -135,18 +135,15 @@ export async function updateClientCurrentStage(clientId: string, milestoneId: st
   }
 
   const nextTitle = String(milestone.title ?? "");
-  const fromPhase1 = /phase\s*1\s*:\s*intake/i.test(prevTitle);
-  const toPhase2 = /phase\s*2\s*:\s*job\s*development/i.test(nextTitle);
-  if (fromPhase1 && toPhase2) {
-    const { data: service } = await admin
-      .from("services")
-      .select("name")
-      .eq("id", client.current_service_id)
-      .maybeSingle();
-    if ((service?.name as string) === "Traditional Supported Employment (GA)") {
-      const { markIntakeReadyToBill } = await import("@wayfinder/supabase/intake-billing");
-      await markIntakeReadyToBill(admin, { clientId, reason: "tse_phase" });
-    }
+  const fromIntake =
+    /phase\s*1\s*:\s*intake/i.test(prevTitle) || /^needs\s+intake$/i.test(prevTitle.trim());
+  const leftIntake =
+    fromIntake &&
+    !/phase\s*1\s*:\s*intake/i.test(nextTitle) &&
+    !/^needs\s+intake$/i.test(nextTitle.trim());
+  if (leftIntake) {
+    const { markIntakeReadyToBill } = await import("@wayfinder/supabase/intake-billing");
+    await markIntakeReadyToBill(admin, { clientId, reason: "intake_stage" });
   }
 
   revalidateClientPaths(clientId);

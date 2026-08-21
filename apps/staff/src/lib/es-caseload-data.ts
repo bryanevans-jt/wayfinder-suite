@@ -11,6 +11,7 @@ export type EsCaseloadClientRow = {
   current_stage_id: string | null;
   archived_at: string | null;
   intake_status?: string | null;
+  job_start_date?: string | null;
 };
 
 export type FetchEsCaseloadOptions = {
@@ -68,14 +69,15 @@ export async function fetchEsCaseloadClients(
   const { data: clientRows, error: clientsErr } = await admin
     .from("clients")
     .select(
-      "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, archived_at, intake_status"
+      "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, archived_at, intake_status, job_start_date"
     )
     .in("id", clientIds);
 
-  // Older databases may lack the roster full_name and/or archived_at columns; retry without them.
+  // Older databases may lack roster / archive / job_start_date columns; retry without them.
   if (
     clientsErr?.message.includes("archived_at") ||
-    clientsErr?.message.includes("full_name")
+    clientsErr?.message.includes("full_name") ||
+    clientsErr?.message.includes("job_start_date")
   ) {
     const fallback = await admin
       .from("clients")
@@ -85,9 +87,10 @@ export async function fetchEsCaseloadClients(
       return { clients: [], error: fallback.error.message };
     }
     const rows = (fallback.data ?? []).map((c) => ({
-      ...(c as Omit<EsCaseloadClientRow, "archived_at" | "full_name">),
+      ...(c as Omit<EsCaseloadClientRow, "archived_at" | "full_name" | "job_start_date">),
       full_name: null,
       archived_at: null,
+      job_start_date: null,
     })) as EsCaseloadClientRow[];
     const clients = includeArchived
       ? rows

@@ -22,9 +22,9 @@ export default async function HospitalityIntakesPage() {
     <main className="px-6 py-10">
       <h1 className="text-2xl font-semibold text-brand-black">Intake Calls</h1>
       <p className="mt-2 max-w-2xl text-sm text-brand-black/75">
-        Activated referrals ready to start. Review client info, assign a supervisor, and mark
-        Complete when the intake meeting is scheduled. Optional date and time help Accounts
-        know when the meeting should have happened. Oldest Incomplete stays at the top.
+        Activated referrals ready to start. Enter the intake date, time, and location, then mark
+        Complete. The client gets a confirmation email now, plus reminders 24 hours and 1 hour
+        before (email for now; text can be added later). Oldest Incomplete stays at the top.
       </p>
       <HospitalityIntakeWorkspace />
     </main>
