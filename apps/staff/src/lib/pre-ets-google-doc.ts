@@ -2,7 +2,10 @@ import { Readable } from "stream";
 import { google } from "googleapis";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatPreEtsRateDollars } from "@wayfinder/supabase/pre-ets-settings";
-import type { InvoicePacketPdfData } from "@wayfinder/supabase/pre-ets-invoice-packet";
+import {
+  buildInvoicePacketPlaceholders,
+  type InvoicePacketPdfData,
+} from "@wayfinder/supabase/pre-ets-invoice-packet";
 import { getGoogleAuth } from "@/lib/google-mail";
 import {
   expandPreEtsRosterTableInDoc,
@@ -11,21 +14,11 @@ import {
 } from "@/lib/pre-ets-google-doc-roster-table";
 
 export function invoicePacketPlaceholders(data: InvoicePacketPdfData): Record<string, string> {
-  return {
-    ProviderName: data.providerName,
-    RemitAddress: data.remitAddress,
-    SchoolName: data.schoolName,
-    AuthNumber: data.authNumber,
-    AuthType: data.authType === "individual" ? "Individual" : "Group",
-    InvoiceNumber: data.invoiceNumber ?? "",
-    ServiceMonth: data.serviceMonth,
-    ServiceCode: data.serviceCode,
-    ServiceLabel: data.serviceLabel ?? "",
-    RateDollars: formatPreEtsRateDollars(data.rateCents),
-    TotalUnits: String(data.totalUnits),
-    TotalAmount: (data.totalAmountCents / 100).toFixed(2),
-  };
+  return buildInvoicePacketPlaceholders(data);
 }
+
+/** Re-export for callers that still expect rate helper nearby. */
+export { formatPreEtsRateDollars };
 
 export type GoogleDocInlineImage = {
   /** Template token without braces, e.g. InstructorSignature */
@@ -164,7 +157,12 @@ export async function fillGoogleDocTemplatePdf(
     );
 
     // Clear image tags in text pass when no image is supplied.
-    for (const tag of ["InstructorSignature", "Signature"] as const) {
+    for (const tag of [
+      "InstructorSignature",
+      "Signature",
+      "AccountsSignature",
+      "ProviderSignature",
+    ] as const) {
       if (!imageTags.has(tag) && textPlaceholders[tag] === undefined) {
         textPlaceholders[tag] = "";
       }

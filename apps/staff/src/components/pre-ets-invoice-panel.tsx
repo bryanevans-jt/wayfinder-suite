@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useState } from "react";
+import { PreEtsInvoiceReviewModal } from "@/components/pre-ets-invoice-review-modal";
 
 type Packet = {
   id: string;
@@ -47,6 +48,10 @@ export function PreEtsInvoicePanel() {
   const [events, setEvents] = useState<PacketEvent[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [invoiceEdits, setInvoiceEdits] = useState<Record<string, string>>({});
+  const [review, setReview] = useState<{
+    packetId: string;
+    mode: "download" | "archive";
+  } | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/pre-ets/invoice-packets");
@@ -127,16 +132,7 @@ export function PreEtsInvoicePanel() {
       setMessage("Could not update packet status.");
       return;
     }
-    if (status === "ready") {
-      const archiveRes = await fetch(`/api/pre-ets/invoice-packets/${id}/archive`, {
-        method: "POST",
-      });
-      if (archiveRes.ok) {
-        setMessage("Packet marked ready and archived to Google Drive.");
-      } else {
-        setMessage("Packet marked ready. Drive archive skipped or failed — download PDF manually.");
-      }
-    }
+    setMessage(`Packet marked ${status}.`);
     void load();
     if (expandedId === id) void loadEvents(id);
   }
@@ -146,9 +142,9 @@ export function PreEtsInvoicePanel() {
       <div>
         <h2 className="text-lg font-semibold text-brand-black">Invoice packets</h2>
         <p className="mt-1 text-sm text-brand-black/65">
-          Build draft packets from completed sessions with billable attendance for group or
-          individual authorizations. Download follows the export mode in Super Admin settings
-          (combined PDF, section ZIP, or both).
+          Build draft packets from completed sessions with billable attendance. Review &amp; sign
+          before download or archive — the packet includes the invoice/attestation Doc, then each
+          session&apos;s CAR and signed roster in date order (missing pieces are skipped).
         </p>
       </div>
 
@@ -224,11 +220,7 @@ export function PreEtsInvoicePanel() {
                       <div className="flex min-w-[10rem] items-center gap-1">
                         <input
                           className="w-full rounded border border-neutral-300 px-2 py-1 font-mono text-xs"
-                          value={
-                            invoiceEdits[p.id] ??
-                            p.provider_invoice_number ??
-                            ""
-                          }
+                          value={invoiceEdits[p.id] ?? p.provider_invoice_number ?? ""}
                           placeholder="Provider #"
                           onChange={(e) =>
                             setInvoiceEdits((prev) => ({ ...prev, [p.id]: e.target.value }))
@@ -248,14 +240,13 @@ export function PreEtsInvoicePanel() {
                     <td className="px-3 py-2 capitalize">{p.status}</td>
                     <td className="px-3 py-2">
                       <div className="flex flex-wrap gap-2">
-                        <a
-                          href={`/api/pre-ets/invoice-packets/${p.id}/pdf`}
+                        <button
+                          type="button"
                           className="text-xs text-brand-green hover:underline"
-                          target="_blank"
-                          rel="noreferrer"
+                          onClick={() => setReview({ packetId: p.id, mode: "download" })}
                         >
-                          Download
-                        </a>
+                          Review &amp; download
+                        </button>
                         <button
                           type="button"
                           className="text-xs text-brand-black/60 hover:underline"
@@ -267,9 +258,9 @@ export function PreEtsInvoicePanel() {
                           <button
                             type="button"
                             className="text-xs text-brand-green hover:underline"
-                            onClick={() => void updateStatus(p.id, "ready")}
+                            onClick={() => setReview({ packetId: p.id, mode: "archive" })}
                           >
-                            Mark ready
+                            Review, sign &amp; mark ready
                           </button>
                         ) : null}
                         {p.status === "ready" ? (
@@ -322,6 +313,18 @@ export function PreEtsInvoicePanel() {
           </tbody>
         </table>
       </div>
+
+      {review ? (
+        <PreEtsInvoiceReviewModal
+          packetId={review.packetId}
+          mode={review.mode}
+          onClose={() => setReview(null)}
+          onComplete={(msg) => {
+            setMessage(msg);
+            void load();
+          }}
+        />
+      ) : null}
     </section>
   );
 }

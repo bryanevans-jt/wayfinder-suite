@@ -76,20 +76,86 @@ export const PRE_ETS_ROSTER_PLACEHOLDERS: PreEtsTemplatePlaceholder[] = [
   }).flat(),
 ];
 
-/** Invoice cover sheet and attestation page. */
+/** Invoice cover sheet and attestation page (combined Google Doc supported). */
 export const PRE_ETS_INVOICE_PLACEHOLDERS: PreEtsTemplatePlaceholder[] = [
   { token: "ProviderName", description: "Billing provider name (Joshua Tree Service Group)" },
   { token: "RemitAddress", description: "Remit-to mailing address" },
   { token: "SchoolName", description: "School name" },
   { token: "AuthNumber", description: "Authorization number" },
-  { token: "AuthType", description: "Group or Individual" },
+  { token: "AuthType", description: "Group or Individual (text)" },
+  {
+    token: "AuthTypeCheckboxes",
+    description: 'Individual/Group with checkboxes, e.g. "Individual ☐  Group ☑"',
+  },
   { token: "InvoiceNumber", description: "Provider invoice number (when assigned)" },
   { token: "ServiceMonth", description: "Service month label (e.g. August 2025)" },
   { token: "ServiceCode", description: "GVRA service code" },
   { token: "ServiceLabel", description: "Service description / label" },
+  {
+    token: "InstructorNames",
+    description: "Unique primary + co-instructors across sessions (comma-separated)",
+  },
+  { token: "Instructors", description: "Same as InstructorNames (alias)" },
   { token: "RateDollars", description: "Rate per unit in dollars (e.g. 90.00)" },
-  { token: "TotalUnits", description: "Billable units for the packet" },
+  {
+    token: "TotalUnits",
+    description: "Billable units from present + signed students (not full roster)",
+  },
+  { token: "TotalHours", description: "Same as TotalUnits (alias)" },
   { token: "TotalAmount", description: "Total amount in dollars (e.g. 450.00)" },
+  {
+    token: "SessionGroupName1",
+    description: "Session 1 program group name (also SessionGroupName2–5)",
+  },
+  {
+    token: "SessionServiceCode1",
+    description: "Session 1 service item code (also …2–5)",
+  },
+  {
+    token: "SessionServiceDescription1",
+    description: "Session 1 service description (also …2–5)",
+  },
+  {
+    token: "SessionDate1",
+    description: "Session 1 date MM/DD/YYYY (also …2–5); unused rows blank/removed",
+  },
+  {
+    token: "SessionStartTime1",
+    description: "Session 1 start time e.g. 9:00 AM (also …2–5)",
+  },
+  {
+    token: "SessionEndTime1",
+    description: "Session 1 end time e.g. 10:00 AM (also …2–5)",
+  },
+  {
+    token: "SessionUnits1",
+    description: "Session 1 present-student unit count (also …2–5)",
+  },
+  {
+    token: "SessionAmount1",
+    description: "Session 1 amount = units × rate (also …2–5)",
+  },
+  {
+    token: "SessionParticipantLists",
+    description:
+      "Boxed lists after the session table: “[Date] Participants:” + numbered names; empty when none",
+  },
+  {
+    token: "AccountsSignature",
+    description: "Embedded Accounts Specialist / provider signature image",
+  },
+  {
+    token: "ProviderSignature",
+    description: "Same as AccountsSignature (alias)",
+  },
+  {
+    token: "AccountsSignedDate",
+    description: "Accounts signature date (MM/DD/YYYY)",
+  },
+  {
+    token: "ProviderSignedDate",
+    description: "Same as AccountsSignedDate (alias)",
+  },
 ];
 
 /** Nested Google Drive folder path under each configured root folder. */

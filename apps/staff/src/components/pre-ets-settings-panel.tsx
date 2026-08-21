@@ -327,15 +327,16 @@ export function PreEtsSettingsPanel() {
       <section className="rounded-xl border border-neutral-200 bg-white p-5">
         <h2 className="text-lg font-semibold text-brand-black">PDF Templates</h2>
         <p className="mt-1 text-sm text-brand-black/65">
-          Google Doc template IDs or file references for generated paperwork.
+          Google Doc template IDs or file references for generated paperwork. For invoices, paste the
+          same combined cover+attestation Doc ID in both invoice fields (or only the cover field).
         </p>
         <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
           {(
             [
               ["template_roster_doc_id", "Blank roster (Time Sheet)"],
               ["template_car_doc_id", "Class Activity Report"],
-              ["template_invoice_cover_doc_id", "Invoice cover sheet"],
-              ["template_invoice_attestation_doc_id", "Invoice attestation page"],
+              ["template_invoice_cover_doc_id", "Invoice cover + attestation (combined Doc)"],
+              ["template_invoice_attestation_doc_id", "Invoice attestation (optional if combined above)"],
               ["template_individual_roster_doc_id", "Individual auth roster"],
             ] as const
           ).map(([key, label]) => (

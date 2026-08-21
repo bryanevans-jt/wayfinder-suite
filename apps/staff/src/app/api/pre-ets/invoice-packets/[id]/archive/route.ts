@@ -1,8 +1,10 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import {
+  applyInvoicePacketOverrides,
   insertInvoicePacketEvent,
   loadInvoicePacketPdfData,
+  type InvoicePacketEditableOverrides,
 } from "@wayfinder/supabase/pre-ets-invoice-packet";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { buildInvoicePacketExport } from "@/lib/pre-ets-invoice-export";
@@ -10,7 +12,7 @@ import { uploadPreEtsFileToDrivePath } from "@/lib/pre-ets-drive";
 import { NextResponse } from "next/server";
 
 export async function POST(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   const route = "api/pre-ets/invoice-packets/[id]/archive";
@@ -28,13 +30,32 @@ export async function POST(
       );
     }
 
+    const body = (await request.json().catch(() => ({}))) as {
+      overrides?: InvoicePacketEditableOverrides;
+      markReady?: boolean;
+    };
+
     const admin = createServiceRoleClient();
-    const data = await loadInvoicePacketPdfData(admin, id, auth.settings);
-    if (!data) {
+    const loaded = await loadInvoicePacketPdfData(admin, id, auth.settings);
+    if (!loaded) {
       return NextResponse.json({ error: "Invoice packet not found" }, { status: 404 });
     }
 
-    const exported = await buildInvoicePacketExport(data, auth.settings);
+    const data = applyInvoicePacketOverrides(loaded, body.overrides);
+    if (!data.accountsSignatureData?.startsWith("data:image/")) {
+      return NextResponse.json(
+        { error: "Accounts Specialist signature is required before archiving." },
+        { status: 400 }
+      );
+    }
+    if (!data.accountsSignedDate) {
+      return NextResponse.json(
+        { error: "Accounts signed date is required before archiving." },
+        { status: 400 }
+      );
+    }
+
+    const exported = await buildInvoicePacketExport(data, auth.settings, admin);
     const fileName = exported.fileName;
 
     const uploaded = await uploadPreEtsFileToDrivePath({
@@ -52,15 +73,26 @@ export async function POST(
       buffer: Buffer.from(exported.buffer),
     });
 
-    await admin
-      .from("pre_ets_invoice_packets")
-      .update({
-        drive_file_id: uploaded.fileId,
-        drive_file_name: uploaded.fileName,
-        generated_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", id);
+    const patch: Record<string, unknown> = {
+      drive_file_id: uploaded.fileId,
+      drive_file_name: uploaded.fileName,
+      generated_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    if (body.markReady) {
+      patch.status = "ready";
+    }
+    if (data.invoiceNumber !== undefined) {
+      patch.provider_invoice_number = data.invoiceNumber;
+    }
+    if (Number.isFinite(data.totalUnits)) {
+      patch.total_hours = data.totalUnits;
+    }
+    if (Number.isFinite(data.totalAmountCents)) {
+      patch.total_amount_cents = data.totalAmountCents;
+    }
+
+    await admin.from("pre_ets_invoice_packets").update(patch).eq("id", id);
 
     await insertInvoicePacketEvent(admin, {
       packetId: id,
@@ -71,6 +103,8 @@ export async function POST(
         fileName: uploaded.fileName,
         exportKind: exported.exportKind,
         exportMode: auth.settings.invoice_export_mode,
+        reviewed: true,
+        markReady: Boolean(body.markReady),
       },
     });
 
