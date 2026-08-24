@@ -1,7 +1,7 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { isEsReplyOverdue } from "@wayfinder/supabase/business-hours";
 import { MIN_CONTACTS_PER_MONTH } from "@wayfinder/supabase/caseload-triage";
-import { isAdminTierRole, STAFF_ROLES } from "@wayfinder/supabase/roles";
+import { isAdminTierRole, isStaffRole } from "@wayfinder/supabase/roles";
 import { loadClientDisplayNameById } from "@/lib/client-display-names";
 import { loadStaffNameById } from "@/lib/staff-names";
 
@@ -63,6 +63,7 @@ const CAPACITY_ROLE_LABELS: Record<string, string> = {
   hr: "HR",
   hospitality_specialist: "Hospitality Specialist",
   wrt_admin: "WRT Admin",
+  instructor: "Instructor",
 };
 
 function capacityRoleLabel(role: string): string {
@@ -235,13 +236,18 @@ export async function loadEsCapacityRows(
   let targets: TargetStaff[] = [];
 
   if (includeAllStaffRoles) {
-    const { data: profiles } = await admin
+    // Avoid `.in("role", STAFF_ROLES)` — legacy DBs still use the `user_role` enum, and
+    // filtering on a value not yet on the enum (e.g. instructor) fails the whole query.
+    const { data: profiles, error } = await admin
       .from("profiles")
       .select("id, role, is_active")
-      .in("role", [...STAFF_ROLES]);
+      .neq("is_active", false);
+    if (error) {
+      throw new Error(`Could not load staff for capacity view: ${error.message}`);
+    }
     targets = (profiles ?? [])
-      .filter((p) => p.is_active !== false)
-      .map((p) => ({ id: p.id as string, role: p.role as string }));
+      .filter((p) => isStaffRole(String(p.role ?? "")))
+      .map((p) => ({ id: p.id as string, role: String(p.role) }));
   } else {
     const esIds = await scopedEsUserIds(admin, role, userId);
     const ids =
@@ -266,40 +272,46 @@ export async function loadEsCapacityRows(
   const targetIds = targets.map((t) => t.id);
   const esNameById = await loadStaffNameById(admin, targetIds);
 
-  const rows: EsCapacityRow[] = [];
-  for (const person of targets) {
-    const { count } = await admin
-      .from("es_client_assignments")
-      .select("client_id", { count: "exact", head: true })
-      .eq("es_user_id", person.id);
+  const caseloadByUser = new Map<string, number>();
+  const { data: assignmentRows } = await admin
+    .from("es_client_assignments")
+    .select("es_user_id")
+    .in("es_user_id", targetIds);
+  for (const row of assignmentRows ?? []) {
+    const id = row.es_user_id as string;
+    caseloadByUser.set(id, (caseloadByUser.get(id) ?? 0) + 1);
+  }
 
-    const { data: entries } = await admin
-      .from("es_time_entries")
-      .select("duration_minutes, service_date")
-      .eq("es_user_id", person.id)
-      .gte("service_date", since4Weeks)
-      .in("status", ["draft", "submitted", "approved"]);
+  const minutes4ByUser = new Map<string, number>();
+  const minutes7ByUser = new Map<string, number>();
+  const { data: entries } = await admin
+    .from("es_time_entries")
+    .select("es_user_id, duration_minutes, service_date")
+    .in("es_user_id", targetIds)
+    .gte("service_date", since4Weeks)
+    .in("status", ["draft", "submitted", "approved"]);
 
-    let minutesLast4Weeks = 0;
-    let minutesLast7Days = 0;
-    for (const e of entries ?? []) {
-      const mins = e.duration_minutes as number;
-      minutesLast4Weeks += mins;
-      if ((e.service_date as string) >= since7Days) {
-        minutesLast7Days += mins;
-      }
+  for (const e of entries ?? []) {
+    const id = e.es_user_id as string;
+    const mins = Number(e.duration_minutes) || 0;
+    minutes4ByUser.set(id, (minutes4ByUser.get(id) ?? 0) + mins);
+    if ((e.service_date as string) >= since7Days) {
+      minutes7ByUser.set(id, (minutes7ByUser.get(id) ?? 0) + mins);
     }
+  }
 
-    rows.push({
+  const rows: EsCapacityRow[] = targets.map((person) => {
+    const minutesLast4Weeks = minutes4ByUser.get(person.id) ?? 0;
+    return {
       esUserId: person.id,
       esName: esNameById.get(person.id) ?? capacityRoleLabel(person.role),
       role: person.role,
       roleLabel: capacityRoleLabel(person.role),
-      caseloadCount: count ?? 0,
+      caseloadCount: caseloadByUser.get(person.id) ?? 0,
       billableMinutesAvgPerWeek4Weeks: Math.round(minutesLast4Weeks / 4),
-      billableMinutesLast7Days: minutesLast7Days,
-    });
-  }
+      billableMinutesLast7Days: minutes7ByUser.get(person.id) ?? 0,
+    };
+  });
 
   return rows.sort((a, b) => {
     if (b.caseloadCount !== a.caseloadCount) return b.caseloadCount - a.caseloadCount;
