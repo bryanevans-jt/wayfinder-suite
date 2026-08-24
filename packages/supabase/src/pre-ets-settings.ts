@@ -84,21 +84,65 @@ export const DEFAULT_PRE_ETS_SETTINGS: Omit<
   service_codes: [],
 };
 
-function parseServiceCodes(raw: unknown): PreEtsServiceCodeRow[] {
+/** Replace NBSP and trim; safe for any GVRA characters in the value. */
+export function sanitizePreEtsServiceTextField(value: string): string {
+  return value.replace(/\u00a0/g, " ").trim();
+}
+
+/**
+ * Clean a service code for storage/display. Preserves hyphens and special characters;
+ * collapses odd whitespace so "PRE - 3241" is stored consistently.
+ */
+export function sanitizePreEtsServiceCodeText(code: string): string {
+  return sanitizePreEtsServiceTextField(code).replace(/\s+/g, " ");
+}
+
+/**
+ * Comparison key for service codes — spacing around hyphens and case do not matter.
+ * "PRE - 3241", "PRE-3241", and "pre-3241" all match.
+ */
+export function normalizePreEtsServiceCodeKey(code: string): string {
+  return sanitizePreEtsServiceCodeText(code)
+    .replace(/\s*-\s*/g, "-")
+    .replace(/\s+/g, "")
+    .toUpperCase();
+}
+
+export function preEtsServiceCodesMatch(
+  a: string | null | undefined,
+  b: string | null | undefined
+): boolean {
+  const left = (a ?? "").trim();
+  const right = (b ?? "").trim();
+  if (!left || !right) return false;
+  return normalizePreEtsServiceCodeKey(left) === normalizePreEtsServiceCodeKey(right);
+}
+
+export function sanitizePreEtsServiceCodes(raw: unknown): PreEtsServiceCodeRow[] {
   if (!Array.isArray(raw)) return [];
-  return raw
-    .map((row) => {
-      if (!row || typeof row !== "object") return null;
-      const r = row as Record<string, unknown>;
-      const code = String(r.code ?? "").trim();
-      if (!code) return null;
-      return {
-        code,
-        service: String(r.service ?? "").trim(),
-        description: String(r.description ?? "").trim(),
-      };
-    })
-    .filter((row): row is PreEtsServiceCodeRow => row !== null);
+  const seen = new Set<string>();
+  const rows: PreEtsServiceCodeRow[] = [];
+
+  for (const row of raw) {
+    if (!row || typeof row !== "object") continue;
+    const r = row as Record<string, unknown>;
+    const code = sanitizePreEtsServiceCodeText(String(r.code ?? ""));
+    if (!code) continue;
+    const key = normalizePreEtsServiceCodeKey(code);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rows.push({
+      code,
+      service: sanitizePreEtsServiceTextField(String(r.service ?? "")),
+      description: sanitizePreEtsServiceTextField(String(r.description ?? "")),
+    });
+  }
+
+  return rows;
+}
+
+function parseServiceCodes(raw: unknown): PreEtsServiceCodeRow[] {
+  return sanitizePreEtsServiceCodes(raw);
 }
 
 export function normalizePreEtsSettingsRow(
@@ -271,15 +315,17 @@ export function parsePreEtsRateDollars(value: string): number {
   return Math.round(n * 100);
 }
 
-/** Look up a configured GVRA service code row by code. */
+/** Look up a configured GVRA service code row (spacing/hyphen tolerant). */
 export function lookupPreEtsServiceCode(
   code: string,
   settings: Pick<PreEtsSettingsRow, "service_codes">
 ): PreEtsServiceCodeRow | null {
-  const normalized = code.trim();
-  if (!normalized) return null;
+  const key = normalizePreEtsServiceCodeKey(code);
+  if (!key) return null;
   return (
-    settings.service_codes.find((row) => row.code.trim() === normalized) ?? null
+    settings.service_codes.find(
+      (row) => normalizePreEtsServiceCodeKey(row.code) === key
+    ) ?? null
   );
 }
 
@@ -291,9 +337,9 @@ export function resolvePreEtsServiceLabel(
 ): string {
   const row = lookupPreEtsServiceCode(code, settings);
   if (row?.description) return row.description;
-  if (fallbackLabel?.trim()) return fallbackLabel.trim();
+  if (fallbackLabel?.trim()) return sanitizePreEtsServiceTextField(fallbackLabel);
   if (row?.service) return row.service;
-  return code.trim();
+  return sanitizePreEtsServiceCodeText(code);
 }
 
 /** Short service name from catalog when configured. */
@@ -302,7 +348,7 @@ export function resolvePreEtsServiceName(
   settings: Pick<PreEtsSettingsRow, "service_codes">
 ): string {
   const row = lookupPreEtsServiceCode(code, settings);
-  return row?.service?.trim() || code.trim();
+  return row?.service?.trim() || sanitizePreEtsServiceCodeText(code);
 }
 
 /** Whether a code appears in the configured catalog (empty catalog = allow any). */

@@ -1,6 +1,10 @@
 "use client";
 
-import type { PreEtsServiceCodeRow } from "@wayfinder/supabase/pre-ets-settings";
+import {
+  lookupPreEtsServiceCode,
+  preEtsServiceCodesMatch,
+  type PreEtsServiceCodeRow,
+} from "@wayfinder/supabase/pre-ets-settings";
 import { useCallback, useEffect, useState } from "react";
 
 type ProgramGroup = {
@@ -89,15 +93,16 @@ export function PreEtsSchedulePanel() {
   const groupAuth = selected?.pre_ets_authorizations?.find((a) => a.auth_type === "group");
   const fallbackAuth = selected?.pre_ets_authorizations?.[0];
   const codeMismatch =
-    plannedCode &&
-    groupAuth?.auth_number &&
-    selected?.service_code &&
-    plannedCode !== selected.service_code;
+    Boolean(plannedCode) &&
+    Boolean(selected?.service_code) &&
+    !preEtsServiceCodesMatch(plannedCode, selected?.service_code);
   const unknownCatalogCode =
-    plannedCode &&
+    Boolean(plannedCode) &&
     serviceCodes.length > 0 &&
-    !serviceCodes.some((row) => row.code === plannedCode.trim());
-  const selectedCatalog = serviceCodes.find((row) => row.code === plannedCode.trim());
+    !lookupPreEtsServiceCode(plannedCode, { service_codes: serviceCodes });
+  const selectedCatalog = lookupPreEtsServiceCode(plannedCode, {
+    service_codes: serviceCodes,
+  });
 
   function buildPayload() {
     const excluded = excludedMonths

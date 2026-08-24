@@ -473,7 +473,10 @@ export function PreEtsSettingsPanel() {
       <section className="rounded-xl border border-neutral-200 bg-white p-5">
         <h2 className="text-lg font-semibold text-brand-black">Service Codes</h2>
         <p className="mt-1 text-sm text-brand-black/65">
-          GVRA service codes used on invoices and rosters. Add descriptions during build.
+          GVRA service codes used on invoices and rosters. Hyphens, slashes, and other special
+          characters are allowed. Matching ignores extra spaces and letter case (e.g.{" "}
+          <span className="font-mono text-xs">PRE - 3241</span> matches{" "}
+          <span className="font-mono text-xs">PRE-3241</span>).
         </p>
         <div className="mt-4 space-y-3">
           {serviceCodes.map((row, index) => (

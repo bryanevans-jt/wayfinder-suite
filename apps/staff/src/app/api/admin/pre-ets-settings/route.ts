@@ -7,8 +7,8 @@ import {
   normalizePreEtsSettingsRow,
   parsePreEtsRateDollars,
   PRE_ETS_ROLLOUT_ROLES,
+  sanitizePreEtsServiceCodes,
   type PreEtsInvoiceExportMode,
-  type PreEtsServiceCodeRow,
   type PreEtsSettingsRow,
 } from "@wayfinder/supabase/pre-ets-settings";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
@@ -25,23 +25,6 @@ function sanitizeEnabledRoles(roles: unknown): string[] {
     unique.unshift("super_admin");
   }
   return unique;
-}
-
-function sanitizeServiceCodes(raw: unknown): PreEtsServiceCodeRow[] {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((row) => {
-      if (!row || typeof row !== "object") return null;
-      const r = row as Record<string, unknown>;
-      const code = String(r.code ?? "").trim();
-      if (!code) return null;
-      return {
-        code,
-        service: String(r.service ?? "").trim(),
-        description: String(r.description ?? "").trim(),
-      };
-    })
-    .filter((row): row is PreEtsServiceCodeRow => row !== null);
 }
 
 function buildPatch(
@@ -109,7 +92,7 @@ function buildPatch(
     patch.not_approved_marker = String(body.not_approved_marker).trim();
   }
   if (body.service_codes !== undefined) {
-    patch.service_codes = sanitizeServiceCodes(body.service_codes);
+    patch.service_codes = sanitizePreEtsServiceCodes(body.service_codes);
   }
 
   return patch;

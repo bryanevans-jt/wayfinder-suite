@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { sanitizePreEtsServiceCodeText } from "./pre-ets-settings";
 import type { ParsedWorksheetGroup, ParsedWorksheetStudent } from "./pre-ets-worksheet-parser";
 
 export type AuthMatchStats = {
@@ -208,7 +209,9 @@ export async function resolveAuthorizationForWorksheetRow(
   const { phase, schoolId, serviceMonth, schoolYear, programGroupId, group, first, authType } =
     input;
 
-  const serviceCode = first.serviceCode || group.serviceCode || "UNKNOWN";
+  const serviceCode = sanitizePreEtsServiceCodeText(
+    first.serviceCode || group.serviceCode || "UNKNOWN"
+  );
   const serviceLabel = first.service || group.serviceLabel;
 
   if (first.authNumber) {

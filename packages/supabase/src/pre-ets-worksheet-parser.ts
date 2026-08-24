@@ -1,4 +1,4 @@
-import { classifyPreEtsAuthorizationType } from "./pre-ets-settings";
+import { classifyPreEtsAuthorizationType, sanitizePreEtsServiceCodeText } from "./pre-ets-settings";
 
 export const WORKSHEET_STUDENT_COLUMNS = [
   "#",
@@ -251,7 +251,7 @@ function parseStudentRow(
     participantId,
     authNumber,
     service: get(idx.service),
-    serviceCode: get(idx.code),
+    serviceCode: sanitizePreEtsServiceCodeText(get(idx.code)),
     units: Number.isFinite(units) ? units : 0,
     classTime: get(idx.classTime),
     invoiceNumber: get(idx.invoice),
