@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   PTO_FORM_REASONS,
   ptoReasonLabel,
+  ptoStatusLabel,
   type PtoFormReason,
   type StaffPtoRequestRow,
 } from "@wayfinder/supabase/staff-pto-shared";
@@ -26,10 +27,19 @@ type Balance = {
 
 type Capabilities = {
   canApprove: boolean;
+  canSupervisorAdvance: boolean;
   canManageSettings: boolean;
   canViewAll: boolean;
   canViewDesignatedEs: boolean;
 };
+
+function statusBadgeClass(status: string): string {
+  if (status === "approved") return "bg-green-100 text-green-800";
+  if (status === "denied") return "bg-red-100 text-red-800";
+  if (status === "cancelled") return "bg-neutral-100 text-neutral-600";
+  if (status === "pending_supervisor") return "bg-sky-100 text-sky-900";
+  return "bg-amber-100 text-amber-900";
+}
 
 export function StaffPtoPanel() {
   const [filter, setFilter] = useState<Filter>("active");
@@ -37,6 +47,7 @@ export function StaffPtoPanel() {
   const [balance, setBalance] = useState<Balance | null>(null);
   const [caps, setCaps] = useState<Capabilities>({
     canApprove: false,
+    canSupervisorAdvance: false,
     canManageSettings: false,
     canViewAll: false,
     canViewDesignatedEs: false,
@@ -78,8 +89,15 @@ export function StaffPtoPanel() {
       if (!setRes.ok) throw new Error(setData.error ?? "Could not load PTO settings.");
       setRequests(reqData.requests ?? []);
       setBalance(setData.balance ?? null);
-      const nextCaps = setData.capabilities ?? reqData.capabilities;
-      if (nextCaps) setCaps(nextCaps);
+      setCaps({
+        canApprove: false,
+        canSupervisorAdvance: false,
+        canManageSettings: false,
+        canViewAll: false,
+        canViewDesignatedEs: false,
+        ...(setData.capabilities ?? {}),
+        ...(reqData.capabilities ?? {}),
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load PTO.");
     } finally {
@@ -109,12 +127,13 @@ export function StaffPtoPanel() {
       });
       const data = (await res.json()) as {
         error?: string;
+        message?: string;
         overlapWarning?: string | null;
         exceedWarning?: string | null;
       };
       if (!res.ok) throw new Error(data.error ?? "Could not submit request.");
       const warnings = [data.overlapWarning, data.exceedWarning].filter(Boolean).join(" ");
-      setMessage(warnings || "PTO request submitted.");
+      setMessage(warnings || data.message || "PTO request submitted.");
       setStartDate("");
       setEndDate("");
       setReason("");
@@ -141,6 +160,7 @@ export function StaffPtoPanel() {
     });
     const data = (await res.json()) as {
       error?: string;
+      message?: string;
       exceedWarning?: string | null;
       overlapWarning?: string | null;
     };
@@ -149,7 +169,7 @@ export function StaffPtoPanel() {
       return;
     }
     const warnings = [data.exceedWarning, data.overlapWarning].filter(Boolean).join(" ");
-    setMessage(warnings || successMessage);
+    setMessage(warnings || data.message || successMessage);
     await refresh();
   }
 
@@ -160,7 +180,9 @@ export function StaffPtoPanel() {
           <h2 className="text-lg font-semibold text-brand-black">PTO Requests</h2>
           <p className="mt-1 max-w-2xl text-sm text-brand-black/70">
             Please request PTO at least 14 days in advance when possible; sick and emergency may be
-            sooner. HR/admin make the final decision.
+            sooner. Employment Specialists and Instructors go to their supervisor first for coverage
+            review; HR/admin make the final approval. Supervisors and admins still go straight to
+            HR.
           </p>
         </div>
         {balance ? (
@@ -178,7 +200,7 @@ export function StaffPtoPanel() {
                   {balance.period.start} – {balance.period.endInclusive}
                 </p>
                 {(balance.remainingDays ?? 0) < 0 ? (
-                  <p className="text-xs text-amber-800">Over annual allotment (allowed with warning).</p>
+                  <p className="mt-1 text-xs text-amber-800">Balance is negative — talk with HR.</p>
                 ) : null}
               </>
             )}
@@ -186,31 +208,27 @@ export function StaffPtoPanel() {
         ) : null}
       </div>
 
-      <form onSubmit={submitRequest} className="mt-5 grid gap-3 rounded-lg border border-neutral-200 bg-white p-4 sm:grid-cols-2">
+      <form onSubmit={(e) => void submitRequest(e)} className="mt-5 grid gap-3 sm:grid-cols-2">
         <label className="block text-sm">
-          <span className="font-medium">Start Date</span>
+          <span className="font-medium">Start date</span>
           <input
             type="date"
             required
             className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2"
             value={startDate}
-            onChange={(e) => {
-              setStartDate(e.target.value);
-              if (!endDate) setEndDate(e.target.value);
-            }}
+            onChange={(e) => setStartDate(e.target.value)}
           />
         </label>
         <label className="block text-sm">
-          <span className="font-medium">End Date</span>
+          <span className="font-medium">End date</span>
           <input
             type="date"
-            required
             className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
           />
         </label>
-        <label className="block text-sm sm:col-span-2">
+        <label className="block text-sm">
           <span className="font-medium">Reason</span>
           <select
             required
@@ -227,15 +245,13 @@ export function StaffPtoPanel() {
           </select>
         </label>
         <label className="block text-sm sm:col-span-2">
-          <span className="font-medium">
-            Details{reason === "other" ? " (Required)" : " (Optional)"}
-          </span>
+          <span className="font-medium">Details</span>
           <textarea
             className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2"
             rows={2}
             value={details}
             onChange={(e) => setDetails(e.target.value)}
-            required={reason === "other"}
+            placeholder={reason === "other" ? "Required for Other" : "Optional"}
           />
         </label>
         <div className="sm:col-span-2">
@@ -293,18 +309,27 @@ export function StaffPtoPanel() {
             days: String(row.days_charged),
             note: "",
           };
+          const showSupervisorActions =
+            row.status === "pending_supervisor" &&
+            (caps.canApprove || caps.canSupervisorAdvance);
+          const showHrActions = row.status === "pending" && caps.canApprove;
+          const showCancel =
+            row.status === "pending" || row.status === "pending_supervisor";
+
           return (
             <li key={row.id} className="rounded-lg border border-neutral-200 bg-white p-4 text-sm">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <p className="font-semibold text-brand-black">
                     {row.requester_name}{" "}
-                    <span className="font-normal text-brand-black/55">· {ptoReasonLabel(row.reason)}</span>
+                    <span className="font-normal text-brand-black/55">
+                      · {ptoReasonLabel(row.reason)}
+                    </span>
                   </p>
                   <p className="text-brand-black/75">
                     {row.start_date}
-                    {row.end_date !== row.start_date ? ` → ${row.end_date}` : ""} · {row.days_charged}{" "}
-                    day{row.days_charged === 1 ? "" : "s"} charged
+                    {row.end_date !== row.start_date ? ` → ${row.end_date}` : ""} ·{" "}
+                    {row.days_charged} day{row.days_charged === 1 ? "" : "s"} charged
                     {row.days_charged_manual ? " (adjusted)" : ""}
                   </p>
                   {row.details ? (
@@ -312,17 +337,9 @@ export function StaffPtoPanel() {
                   ) : null}
                 </div>
                 <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase ${
-                    row.status === "approved"
-                      ? "bg-green-100 text-green-800"
-                      : row.status === "denied"
-                        ? "bg-red-100 text-red-800"
-                        : row.status === "cancelled"
-                          ? "bg-neutral-100 text-neutral-600"
-                          : "bg-amber-100 text-amber-900"
-                  }`}
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase ${statusBadgeClass(row.status)}`}
                 >
-                  {row.status}
+                  {ptoStatusLabel(row.status)}
                 </span>
               </div>
               {row.decision_notes ? (
@@ -334,9 +351,9 @@ export function StaffPtoPanel() {
                 </p>
               ) : null}
 
-              {row.status === "pending" ? (
+              {showSupervisorActions || showHrActions || showCancel ? (
                 <div className="mt-3 space-y-2 border-t border-neutral-100 pt-3">
-                  {caps.canApprove ? (
+                  {showSupervisorActions || showHrActions ? (
                     <label className="block text-xs font-medium text-brand-black/70">
                       Decision Explanation
                       <input
@@ -345,12 +362,52 @@ export function StaffPtoPanel() {
                         onChange={(e) =>
                           setDecisionNotes((m) => ({ ...m, [row.id]: e.target.value }))
                         }
-                        placeholder="Optional on approve; required on deny"
+                        placeholder={
+                          showSupervisorActions
+                            ? "Optional on send to HR; required on deny"
+                            : "Optional on approve; required on deny"
+                        }
                       />
                     </label>
                   ) : null}
                   <div className="flex flex-wrap gap-2">
-                    {caps.canApprove ? (
+                    {showSupervisorActions ? (
+                      <>
+                        <button
+                          type="button"
+                          className="rounded-lg bg-brand-green px-3 py-1.5 text-xs font-semibold text-white"
+                          onClick={() =>
+                            void patchRequest(
+                              row.id,
+                              {
+                                action: "supervisor_approve",
+                                decision_notes: decisionNotes[row.id] ?? "",
+                              },
+                              "Sent to HR."
+                            )
+                          }
+                        >
+                          OK — send to HR
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-lg bg-red-700 px-3 py-1.5 text-xs font-semibold text-white"
+                          onClick={() =>
+                            void patchRequest(
+                              row.id,
+                              {
+                                action: "supervisor_deny",
+                                decision_notes: decisionNotes[row.id] ?? "",
+                              },
+                              "Denied."
+                            )
+                          }
+                        >
+                          Deny
+                        </button>
+                      </>
+                    ) : null}
+                    {showHrActions ? (
                       <>
                         <button
                           type="button"
@@ -386,20 +443,32 @@ export function StaffPtoPanel() {
                         </button>
                       </>
                     ) : null}
-                    <button
-                      type="button"
-                      className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-semibold"
-                      onClick={() =>
-                        void patchRequest(row.id, { action: "cancel" }, "Cancelled.")
-                      }
-                    >
-                      Cancel (If Yours)
-                    </button>
+                    {showCancel ? (
+                      <button
+                        type="button"
+                        className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-semibold"
+                        onClick={() =>
+                          void patchRequest(row.id, { action: "cancel" }, "Cancelled.")
+                        }
+                      >
+                        Cancel (If Yours)
+                      </button>
+                    ) : null}
                   </div>
+                  {showSupervisorActions ? (
+                    <p className="text-xs text-brand-black/55">
+                      Confirm coverage and that this won&apos;t conflict with scheduled meetings or
+                      tasks before sending to HR. The request is not approved until HR/admin
+                      decides.
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
 
-              {caps.canApprove && (row.status === "approved" || row.status === "pending") ? (
+              {caps.canApprove &&
+              (row.status === "approved" ||
+                row.status === "pending" ||
+                row.status === "pending_supervisor") ? (
                 <details className="mt-3 border-t border-neutral-100 pt-3">
                   <summary className="cursor-pointer text-xs font-semibold text-brand-black/70">
                     Amend Dates / Days Charged

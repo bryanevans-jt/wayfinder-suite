@@ -7,6 +7,7 @@ import { getAppSession, assertNotPreviewMutation } from "@wayfinder/supabase/pre
 import {
   canApproveStaffPto,
   canManageStaffPtoSettings,
+  canSupervisorAdvanceStaffPto,
   canUseStaffPto,
   canViewAllStaffPto,
   canViewDesignatedEsPto,
@@ -47,6 +48,7 @@ export async function requireStaffPtoSession(forMutation = false) {
     actor: { userId: session.actorUserId, userRole: role },
     caps: {
       canApprove: canApproveStaffPto(role),
+      canSupervisorAdvance: canSupervisorAdvanceStaffPto(role),
       canManageSettings: canManageStaffPtoSettings(role),
       canViewAll: canViewAllStaffPto(role),
       canViewDesignatedEs: canViewDesignatedEsPto(role),
@@ -54,7 +56,7 @@ export async function requireStaffPtoSession(forMutation = false) {
   };
 }
 
-/** Designated ES user IDs for a supervisor (assignments only). */
+/** Designated ES / Instructor user IDs for a supervisor (assignments only). */
 export async function loadDesignatedEsUserIds(
   admin: ReturnType<typeof createServiceRoleClient>,
   supervisorUserId: string
@@ -67,6 +69,22 @@ export async function loadDesignatedEsUserIds(
     throw new Error(error.message);
   }
   return [...new Set((data ?? []).map((r) => r.es_user_id as string))];
+}
+
+/** Whether this staff member has at least one assigned supervisor. */
+export async function staffHasAssignedSupervisor(
+  admin: ReturnType<typeof createServiceRoleClient>,
+  staffUserId: string
+): Promise<boolean> {
+  const { data, error } = await admin
+    .from("supervisor_es_assignments")
+    .select("supervisor_user_id")
+    .eq("es_user_id", staffUserId)
+    .limit(1);
+  if (error) {
+    throw new Error(error.message);
+  }
+  return (data ?? []).length > 0;
 }
 
 export async function jsonStaffPtoError(error: unknown, route: string) {

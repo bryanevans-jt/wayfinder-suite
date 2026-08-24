@@ -35,12 +35,32 @@ export const DEFAULT_ACTIVITY_CODES = {
 
 const SIXTY_MINUTE_ACTIVITY_CODES = new Set(["JT-ACT-011", "JT-ACT-012"]);
 
+/** Floor for every service time log. Shorter durations are rounded up (not blocked). */
+export const MIN_SERVICE_LOG_MINUTES = 30;
+
 /** Default billable minutes for an activity (UI + server). */
 export function defaultActivityMinutes(activity: Pick<ServiceActivityType, "code" | "default_minutes">): number {
   if (SIXTY_MINUTE_ACTIVITY_CODES.has(activity.code)) {
-    return 60;
+    return Math.max(60, MIN_SERVICE_LOG_MINUTES);
   }
-  return activity.default_minutes;
+  return Math.max(activity.default_minutes, MIN_SERVICE_LOG_MINUTES);
+}
+
+/**
+ * Enforce the 30-minute minimum by rounding up. Never blocks; max caps are not applied.
+ */
+export function applyMinServiceLogMinutes(minutes: number): {
+  durationMinutes: number;
+  roundedUpFrom: number | null;
+} {
+  if (!Number.isFinite(minutes) || minutes <= 0) {
+    return { durationMinutes: minutes, roundedUpFrom: null };
+  }
+  const rounded = Math.round(minutes);
+  if (rounded < MIN_SERVICE_LOG_MINUTES) {
+    return { durationMinutes: MIN_SERVICE_LOG_MINUTES, roundedUpFrom: rounded };
+  }
+  return { durationMinutes: rounded, roundedUpFrom: null };
 }
 
 /** Activity types shown when logging client contact (excludes staff-only types). */
@@ -80,14 +100,16 @@ export function todayLocalDate(): string {
   return formatLocalDate(new Date());
 }
 
+/**
+ * Duration must be a positive finite number. Activity max caps are not enforced.
+ * Callers should run {@link applyMinServiceLogMinutes} first so values under 30 are rounded up.
+ */
 export function validateDurationMinutes(
-  activity: Pick<ServiceActivityType, "min_minutes" | "max_minutes" | "name">,
+  _activity: Pick<ServiceActivityType, "min_minutes" | "max_minutes" | "name">,
   minutes: number
 ): void {
-  if (!Number.isFinite(minutes) || minutes < activity.min_minutes || minutes > activity.max_minutes) {
-    throw new Error(
-      `${activity.name}: enter ${activity.min_minutes}–${activity.max_minutes} minutes`
-    );
+  if (!Number.isFinite(minutes) || minutes <= 0) {
+    throw new Error("Duration (minutes) is required");
   }
 }
 
@@ -295,6 +317,8 @@ export type NormalizedTimeClock = {
   endTime: string;
   /** True when both clock times were provided and duration was replaced by the clock span. */
   durationMatchedToClock: boolean;
+  /** When set, duration was below the 30-minute floor and was rounded up from this value. */
+  roundedUpFrom: number | null;
 };
 
 /** Minutes between HH:mm times on a service date (handles overnight). */
@@ -315,6 +339,7 @@ export function minutesBetweenServiceTimes(
 /**
  * Require duration plus at least one clock time. Auto-fill the blank clock side from duration.
  * When both clocks are set, duration becomes the clock span (payroll/billing source of truth).
+ * Durations under 30 minutes are rounded up; end time is extended from start when needed.
  */
 export function normalizeTimeEntryClock(input: {
   serviceDate: string;
@@ -333,37 +358,53 @@ export function normalizeTimeEntryClock(input: {
     throw new Error("Enter a start time, an end time, or both (duration is always required)");
   }
 
+  let result: Omit<NormalizedTimeClock, "roundedUpFrom">;
+
   if (startTime && endTime) {
     const span = minutesBetweenServiceTimes(input.serviceDate, startTime, endTime);
     if (!span) {
       throw new Error("End time must be after start time");
     }
-    return {
+    result = {
       durationMinutes: span,
       startTime,
       endTime,
       durationMatchedToClock: span !== duration,
     };
-  }
-
-  if (startTime) {
+  } else if (startTime) {
     const start = combineServiceDateAndTime(input.serviceDate, startTime);
     const end = new Date(start.getTime() + duration * 60 * 1000);
-    return {
+    result = {
       durationMinutes: duration,
       startTime,
       endTime: formatTimeInputValue(end),
       durationMatchedToClock: false,
     };
+  } else {
+    const end = combineServiceDateAndTime(input.serviceDate, endTime);
+    const start = new Date(end.getTime() - duration * 60 * 1000);
+    result = {
+      durationMinutes: duration,
+      startTime: formatTimeInputValue(start),
+      endTime,
+      durationMatchedToClock: false,
+    };
   }
 
-  const end = combineServiceDateAndTime(input.serviceDate, endTime);
-  const start = new Date(end.getTime() - duration * 60 * 1000);
+  const applied = applyMinServiceLogMinutes(result.durationMinutes);
+  if (!applied.roundedUpFrom) {
+    return { ...result, roundedUpFrom: null };
+  }
+
+  // Keep start; extend end so stored duration matches the 30-minute floor.
+  const start = combineServiceDateAndTime(input.serviceDate, result.startTime);
+  const end = new Date(start.getTime() + applied.durationMinutes * 60 * 1000);
   return {
-    durationMinutes: duration,
-    startTime: formatTimeInputValue(start),
-    endTime,
-    durationMatchedToClock: false,
+    durationMinutes: applied.durationMinutes,
+    startTime: result.startTime,
+    endTime: formatTimeInputValue(end),
+    durationMatchedToClock: true,
+    roundedUpFrom: applied.roundedUpFrom,
   };
 }
 

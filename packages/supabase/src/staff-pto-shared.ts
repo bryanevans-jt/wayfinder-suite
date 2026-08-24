@@ -1,7 +1,9 @@
 import { localDateStringInTz, STAFF_CLOCK_TIMEZONE, canUseStaffClock } from "./staff-time-clock-shared";
 import {
   isAdminTierRole,
+  isEsRole,
   isHrRole,
+  isInstructorRole,
   isSupervisorRole,
   normalizeRole,
 } from "./roles";
@@ -27,8 +29,21 @@ export const PTO_FORM_REASONS = [
 export type PtoReason = (typeof PTO_REASONS)[number];
 export type PtoFormReason = (typeof PTO_FORM_REASONS)[number];
 
-export const PTO_STATUSES = ["pending", "approved", "denied", "cancelled"] as const;
+/**
+ * pending_supervisor = awaiting supervisor coverage OK (ES / Instructor)
+ * pending = awaiting HR/admin final decision
+ * approved only after HR/admin
+ */
+export const PTO_STATUSES = [
+  "pending_supervisor",
+  "pending",
+  "approved",
+  "denied",
+  "cancelled",
+] as const;
 export type PtoStatus = (typeof PTO_STATUSES)[number];
+
+export const PTO_OPEN_STATUSES: PtoStatus[] = ["pending_supervisor", "pending"];
 
 export type OrgPtoSettingsRow = {
   id: string;
@@ -69,6 +84,11 @@ export function canApproveStaffPto(role: string | null | undefined): boolean {
   return isAdminTierRole(role) || isHrRole(role);
 }
 
+/** Supervisor coverage OK before HR (ES / Instructor requests only). */
+export function canSupervisorAdvanceStaffPto(role: string | null | undefined): boolean {
+  return isSupervisorRole(role);
+}
+
 export function canManageStaffPtoSettings(role: string | null | undefined): boolean {
   return isAdminTierRole(role) || isHrRole(role);
 }
@@ -79,9 +99,39 @@ export function canViewAllStaffPto(role: string | null | undefined): boolean {
   return isAdminTierRole(r) || isHrRole(r) || r === "accountant";
 }
 
-/** Supervisors see designated ES requests (assignments only). */
+/** Supervisors see designated ES/Instructor requests (assignments only). */
 export function canViewDesignatedEsPto(role: string | null | undefined): boolean {
   return isSupervisorRole(role);
+}
+
+/**
+ * ES and Instructors route through supervisor first.
+ * Supervisors, admins, HR, and other roles go straight to HR (`pending`).
+ * (Retired Transition Specialist role maps to ES.)
+ */
+export function ptoNeedsSupervisorFirst(role: string | null | undefined): boolean {
+  return isEsRole(role) || isInstructorRole(role);
+}
+
+export function isOpenPtoStatus(status: string | null | undefined): boolean {
+  return status === "pending" || status === "pending_supervisor";
+}
+
+export function ptoStatusLabel(status: string): string {
+  switch (status) {
+    case "pending_supervisor":
+      return "Awaiting supervisor";
+    case "pending":
+      return "Awaiting HR";
+    case "approved":
+      return "Approved";
+    case "denied":
+      return "Denied";
+    case "cancelled":
+      return "Cancelled";
+    default:
+      return status;
+  }
 }
 
 export function todayEasternDateString(now: Date = new Date()): string {

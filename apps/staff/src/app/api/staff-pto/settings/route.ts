@@ -19,6 +19,7 @@ export async function GET() {
       balance,
       capabilities: {
         canApprove: caps.canApprove,
+        canSupervisorAdvance: caps.canSupervisorAdvance,
         canManageSettings: caps.canManageSettings,
         canViewAll: caps.canViewAll,
         canViewDesignatedEs: caps.canViewDesignatedEs,

@@ -2,9 +2,11 @@
 
 import type { ServiceActivityType } from "@wayfinder/supabase/es-time-tracking";
 import {
+  applyMinServiceLogMinutes,
   combineServiceDateAndTime,
   defaultActivityMinutes,
   groupActivityTypesByCategory,
+  MIN_SERVICE_LOG_MINUTES,
   minutesBetweenServiceTimes,
   todayLocalDate,
 } from "@wayfinder/supabase/es-time-tracking";
@@ -58,6 +60,7 @@ export function TimeActivityFields({
   const effectiveServiceDate = serviceDate ?? todayLocalDate();
   const showTimeRange = Boolean(onStartTimeChange && onEndTimeChange);
   const [clockMismatch, setClockMismatch] = useState(false);
+  const [roundedUpFrom, setRoundedUpFrom] = useState<number | null>(null);
 
   useEffect(() => {
     if (activityTypeId || activities.length === 0) {
@@ -103,6 +106,37 @@ export function TimeActivityFields({
     startTime,
   ]);
 
+  // Round up durations under 30 minutes and extend end time when needed.
+  useEffect(() => {
+    if (!durationMinutes || durationMinutes <= 0) {
+      setRoundedUpFrom(null);
+      return;
+    }
+    const applied = applyMinServiceLogMinutes(durationMinutes);
+    if (!applied.roundedUpFrom) {
+      setRoundedUpFrom(null);
+      return;
+    }
+    setRoundedUpFrom(applied.roundedUpFrom);
+    if (durationMinutes !== applied.durationMinutes) {
+      onDurationMinutesChange(applied.durationMinutes);
+    }
+    if (showTimeRange && startTime && endTime) {
+      const nextEnd = addMinutesToTime(effectiveServiceDate, startTime, applied.durationMinutes);
+      if (nextEnd !== endTime) {
+        onEndTimeChange?.(nextEnd);
+      }
+    }
+  }, [
+    durationMinutes,
+    effectiveServiceDate,
+    endTime,
+    onDurationMinutesChange,
+    onEndTimeChange,
+    showTimeRange,
+    startTime,
+  ]);
+
   // Auto-fill the blank clock side from duration + the other time.
   useEffect(() => {
     if (!showTimeRange || !durationMinutes || durationMinutes <= 0) {
@@ -134,6 +168,7 @@ export function TimeActivityFields({
     onStartTimeChange?.("");
     onEndTimeChange?.("");
     setClockMismatch(false);
+    setRoundedUpFrom(null);
   }
 
   return (
@@ -166,19 +201,17 @@ export function TimeActivityFields({
           Duration (minutes)
           <input
             type="number"
-            min={selected?.min_minutes ?? 5}
-            max={selected?.max_minutes ?? 240}
+            min={MIN_SERVICE_LOG_MINUTES}
             value={durationMinutes}
             onChange={(e) => onDurationMinutesChange(Number(e.target.value))}
             className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-brand-black outline-none ring-brand-green focus:ring-2"
             disabled={disabled}
           />
-          {selected ? (
-            <span className="mt-1 block text-xs text-brand-black/55">
-              Allowed: {selected.min_minutes}–{selected.max_minutes} min (default{" "}
-              {defaultActivityMinutes(selected)})
-            </span>
-          ) : null}
+          <span className="mt-1 block text-xs text-brand-black/55">
+            Minimum {MIN_SERVICE_LOG_MINUTES} minutes
+            {selected ? ` (default ${defaultActivityMinutes(selected)})` : ""}. No maximum —
+            shorter times are rounded up automatically.
+          </span>
         </label>
         {showServiceDate && onServiceDateChange ? (
           <label className="block text-sm font-medium text-brand-black">
@@ -230,6 +263,12 @@ export function TimeActivityFields({
           the clock times. You can still edit the times before saving.
         </p>
       ) : null}
+      {roundedUpFrom != null ? (
+        <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-950">
+          Service time logs have a {MIN_SERVICE_LOG_MINUTES}-minute minimum. Your entry of{" "}
+          {roundedUpFrom} minutes was rounded up to {MIN_SERVICE_LOG_MINUTES}. You can still submit.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -241,6 +280,6 @@ export function useTimeActivityDefaults(
   const match = activities.find((a) => a.code === defaultCode) ?? activities[0];
   return {
     activityTypeId: match?.id ?? "",
-    durationMinutes: match ? defaultActivityMinutes(match) : 30,
+    durationMinutes: match ? defaultActivityMinutes(match) : MIN_SERVICE_LOG_MINUTES,
   };
 }

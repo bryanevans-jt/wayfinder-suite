@@ -178,12 +178,12 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "PTO Requests",
         body:
-          "Request your own PTO on Time Clock. You can also see requests from Employment Specialists assigned to you (view only). HR and admins approve or deny leave.",
+          "Request your own PTO on Time Clock. For Employment Specialists and Instructors assigned to you, confirm coverage first (OK — send to HR). HR and admins make the final approval; supervisor OK does not mark leave approved.",
         steps: [
           "Time Clock → PTO Requests: pick dates, choose a reason, add details if needed, and submit.",
           "Please request at least 14 days in advance when possible; sick and emergency may be sooner.",
-          "Watch status and any explanation from HR/admin on your requests. Cancel while still pending if plans change.",
-          "Review your designated ES requests so you can plan coverage — you do not approve them.",
+          "On designated staff requests awaiting supervisor: check coverage, then OK — send to HR or Deny.",
+          "Watch status and any explanation from HR/admin on your requests. Cancel while still open if plans change.",
         ],
       },
       {
@@ -267,11 +267,11 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "PTO Requests",
         body:
-          "Request vacation, sick, maternity/paternity, emergency, or other leave from Time Clock. Remaining days show when HR/admin has set an annual bank.",
+          "Request vacation, sick, maternity/paternity, emergency, or other leave from Time Clock. Remaining days show when HR/admin has set an annual bank. Your request goes to your supervisor for coverage review first, then HR for final approval.",
         steps: [
           "Time Clock → PTO Requests → choose start/end dates and a reason, then submit.",
-          "Please request at least 14 days in advance when possible; sick and emergency may be sooner. HR/admin decide.",
-          "Track approval or denial (and any explanation) on the same page. You can cancel a request while it is still pending.",
+          "Please request at least 14 days in advance when possible; sick and emergency may be sooner. Status stays unapproved until HR/admin decides.",
+          "Track approval or denial (and any explanation) on the same page. You can cancel a request while it is still open.",
         ],
       },
     ];
@@ -332,9 +332,10 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "PTO Requests",
         body:
-          "You approve and manage leave for the organization. Days charged default to business days; adjust charged days so holidays do not penalize staff.",
+          "You approve and manage leave for the organization. ES and Instructor requests reach you after their supervisor confirms coverage. Days charged default to business days; adjust charged days so holidays do not penalize staff.",
         steps: [
-          "Time Clock → PTO Requests to review, approve, deny, amend, or void leave.",
+          "Time Clock → PTO Requests to review Awaiting HR items, approve, deny, amend, or void leave.",
+          "Requests still Awaiting supervisor need supervisor OK first (you can also advance them if needed).",
           "Include an explanation when denying. Soft guideline: 14 days’ notice when possible.",
           "HR Dashboard → PTO Settings for period start and annual PTO days (blank = unlimited).",
         ],

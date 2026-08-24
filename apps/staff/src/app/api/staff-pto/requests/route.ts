@@ -2,6 +2,7 @@ import {
   jsonStaffPtoError,
   loadDesignatedEsUserIds,
   requireStaffPtoSession,
+  staffHasAssignedSupervisor,
   staffPtoOk,
 } from "@/lib/staff-pto-auth";
 import {
@@ -14,6 +15,7 @@ import {
 import { loadStaffNameById } from "@/lib/staff-names";
 import {
   isValidPtoReason,
+  ptoNeedsSupervisorFirst,
   todayEasternDateString,
   type PtoStatus,
 } from "@wayfinder/supabase/staff-pto-shared";
@@ -51,7 +53,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (filter === "pending") {
-      query = query.eq("status", "pending");
+      query = query.in("status", ["pending", "pending_supervisor"]);
     } else if (filter === "approved") {
       query = query.eq("status", "approved");
     } else if (filter === "denied") {
@@ -61,7 +63,7 @@ export async function GET(request: NextRequest) {
     } else if (filter === "all") {
       // no status filter
     } else {
-      query = query.in("status", ["pending", "approved", "denied"]);
+      query = query.in("status", ["pending_supervisor", "pending", "approved", "denied"]);
     }
 
     const { data, error } = await query.limit(500);
@@ -72,7 +74,10 @@ export async function GET(request: NextRequest) {
     let rows = (data ?? []).map((row) => mapPtoRequestRow(row as Record<string, unknown>));
     if (filter === "active" || filter === "") {
       rows = rows.filter(
-        (r) => r.status === "pending" || (r.status !== "cancelled" && r.end_date >= today)
+        (r) =>
+          r.status === "pending" ||
+          r.status === "pending_supervisor" ||
+          (r.status !== "cancelled" && r.end_date >= today)
       );
     }
 
@@ -101,7 +106,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const route = "api/staff-pto/requests";
   try {
-    const { admin, userId } = await requireStaffPtoSession(true);
+    const { admin, userId, role } = await requireStaffPtoSession(true);
     const body = (await request.json()) as {
       start_date?: string;
       end_date?: string;
@@ -146,6 +151,16 @@ export async function POST(request: NextRequest) {
         ? `This request is for ${daysCharged} day(s) but you have ${remaining} remaining in the current period.`
         : null;
 
+    let status: PtoStatus = "pending";
+    let routedToSupervisor = false;
+    if (ptoNeedsSupervisorFirst(role)) {
+      const hasSupervisor = await staffHasAssignedSupervisor(admin, userId);
+      if (hasSupervisor) {
+        status = "pending_supervisor";
+        routedToSupervisor = true;
+      }
+    }
+
     const insertRow = {
       requester_user_id: userId,
       start_date: startDate,
@@ -154,7 +169,7 @@ export async function POST(request: NextRequest) {
       details: details || null,
       days_charged: daysCharged,
       days_charged_manual: false,
-      status: "pending" as PtoStatus,
+      status,
     };
 
     const { data, error } = await admin
@@ -177,12 +192,17 @@ export async function POST(request: NextRequest) {
       note: null,
     });
 
+    const submitMessage = routedToSupervisor
+      ? "PTO request submitted to your supervisor for coverage review, then HR for final approval."
+      : "PTO request submitted for HR/admin review.";
+
     return staffPtoOk({
       ok: true,
       request: created,
+      message: submitMessage,
       overlapWarning:
         overlaps.length > 0
-          ? "This overlaps another pending or approved request. You can still submit; HR/admin will decide."
+          ? "This overlaps another open or approved request. You can still submit; HR/admin will decide."
           : null,
       exceedWarning,
     });

@@ -117,7 +117,7 @@ async function loadPendingDaysInPeriod(
     .from("staff_pto_requests")
     .select("days_charged")
     .eq("requester_user_id", userId)
-    .eq("status", "pending")
+    .in("status", ["pending", "pending_supervisor"])
     .lt("start_date", periodEndExclusive)
     .gte("end_date", periodStart);
 
@@ -138,7 +138,7 @@ export async function findOverlappingRequests(
     .from("staff_pto_requests")
     .select("*")
     .eq("requester_user_id", userId)
-    .in("status", ["pending", "approved"])
+    .in("status", ["pending_supervisor", "pending", "approved"])
     .lte("start_date", endDate)
     .gte("end_date", startDate);
 

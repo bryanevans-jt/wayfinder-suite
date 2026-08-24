@@ -1,5 +1,6 @@
 import {
   jsonStaffPtoError,
+  loadDesignatedEsUserIds,
   requireStaffPtoSession,
   staffPtoOk,
 } from "@/lib/staff-pto-auth";
@@ -52,8 +53,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       if (existing.requester_user_id !== userId) {
         return staffPtoOk({ error: "Only the requester can cancel a pending request." }, { status: 403 });
       }
-      if (existing.status !== "pending") {
-        return staffPtoOk({ error: "Only pending requests can be cancelled by the requester." }, { status: 400 });
+      if (existing.status !== "pending" && existing.status !== "pending_supervisor") {
+        return staffPtoOk(
+          { error: "Only open requests can be cancelled by the requester." },
+          { status: 400 }
+        );
       }
       const patch = {
         status: "cancelled",
@@ -77,12 +81,89 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return staffPtoOk({ ok: true, request: after });
     }
 
+    if (action === "supervisor_approve" || action === "supervisor_deny") {
+      const mayAct =
+        caps.canApprove ||
+        (caps.canSupervisorAdvance &&
+          (await loadDesignatedEsUserIds(admin, userId)).includes(existing.requester_user_id));
+      if (!mayAct) {
+        return staffPtoOk(
+          { error: "Only the assigned supervisor (or HR/admin) can advance this request." },
+          { status: 403 }
+        );
+      }
+      if (existing.status !== "pending_supervisor") {
+        return staffPtoOk(
+          { error: "Only requests awaiting supervisor review can use this action." },
+          { status: 400 }
+        );
+      }
+      if (action === "supervisor_deny" && !decisionNotes) {
+        return staffPtoOk(
+          { error: "Please include a short explanation when denying a request." },
+          { status: 400 }
+        );
+      }
+
+      const patch =
+        action === "supervisor_approve"
+          ? {
+              status: "pending",
+              decision_notes: decisionNotes
+                ? `Supervisor OK: ${decisionNotes}`
+                : "Supervisor OK — sent to HR for final approval.",
+              decided_by: null,
+              decided_at: null,
+              updated_at: new Date().toISOString(),
+            }
+          : {
+              status: "denied",
+              decision_notes: decisionNotes || null,
+              decided_by: userId,
+              decided_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+
+      const { data, error } = await admin
+        .from("staff_pto_requests")
+        .update(patch)
+        .eq("id", id)
+        .select("*")
+        .single();
+      if (error) return jsonStaffPtoError(error, route);
+      const after = mapPtoRequestRow(data as Record<string, unknown>);
+      await logPtoEdit(admin, {
+        requestId: id,
+        editedBy: userId,
+        action,
+        before: existing as unknown as Record<string, unknown>,
+        after: after as unknown as Record<string, unknown>,
+        note: decisionNotes || null,
+      });
+      return staffPtoOk({
+        ok: true,
+        request: after,
+        message:
+          action === "supervisor_approve"
+            ? "Sent to HR for final approval. Not marked approved until HR/admin decides."
+            : "Denied by supervisor.",
+      });
+    }
+
     if (action === "approve" || action === "deny") {
       if (!caps.canApprove) {
         return staffPtoOk({ error: "Forbidden" }, { status: 403 });
       }
       if (existing.status !== "pending") {
-        return staffPtoOk({ error: "Only pending requests can be approved or denied." }, { status: 400 });
+        return staffPtoOk(
+          {
+            error:
+              existing.status === "pending_supervisor"
+                ? "This request still needs supervisor review before HR can approve it."
+                : "Only requests awaiting HR can be approved or denied.",
+          },
+          { status: 400 }
+        );
       }
       if (action === "deny" && !decisionNotes) {
         return staffPtoOk(
@@ -219,7 +300,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         logAction = "amend_days_charged";
       }
 
-      const overlaps = await findOverlappingRequests(admin, existing.requester_user_id, startDate, endDate, id);
+      const overlaps = await findOverlappingRequests(
+        admin,
+        existing.requester_user_id,
+        startDate,
+        endDate,
+        id
+      );
 
       const patch = {
         start_date: startDate,
@@ -249,13 +336,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         request: after,
         overlapWarning:
           overlaps.length > 0
-            ? "Amended dates overlap another pending or approved request."
+            ? "Amended dates overlap another open or approved request."
             : null,
       });
     }
 
     return staffPtoOk(
-      { error: "Unknown action. Use cancel, approve, deny, void, or amend." },
+      {
+        error:
+          "Unknown action. Use cancel, supervisor_approve, supervisor_deny, approve, deny, void, or amend.",
+      },
       { status: 400 }
     );
   } catch (error) {
