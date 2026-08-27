@@ -54,6 +54,7 @@
     "./counselor-dedupe": "./src/counselor-dedupe.ts",
     "./counselor-name-match": "./src/counselor-name-match.ts",
     "./intake-billing": "./src/intake-billing.ts",
+    "./hospitality-intake-activity": "./src/hospitality-intake-activity.ts",
     "./intake-appointment-reminders": "./src/intake-appointment-reminders.ts",
     "./email-templates": "./src/email-templates.ts",
     "./render-templated-email": "./src/render-templated-email.ts",

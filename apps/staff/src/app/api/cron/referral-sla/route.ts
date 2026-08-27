@@ -71,7 +71,7 @@ export async function GET(request: Request) {
           kind: "referral_sla",
           title: `Referral follow-up: ${label}`,
           body,
-          link_path: "/dashboard/referrals",
+          link_path: `/dashboard/referrals/${client.id as string}`,
           metadata: { clientId: client.id, intake_status: status },
         });
       }

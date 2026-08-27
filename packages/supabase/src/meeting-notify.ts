@@ -123,7 +123,7 @@ export async function notifyMeetingConfirmed(
       kind: "meeting_confirmed",
       title,
       body,
-      link_path: "/dashboard",
+      link_path: "/dashboard#activity",
       metadata: { meeting_id: meeting.id },
       app: "client",
     });
@@ -150,7 +150,7 @@ export async function notifyMeetingReminder(
     kind: `meeting_reminder_${reminderKind}`,
     title,
     body,
-    link_path: "/dashboard",
+    link_path: "/dashboard#activity",
     metadata: { meeting_id: meeting.id, reminder_kind: reminderKind },
     app: "client",
   });

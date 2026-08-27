@@ -27,13 +27,25 @@ export type HospitalityCounselorOption = {
   officeIds: string[];
 };
 
+export type HospitalityEsOption = {
+  id: string;
+  name: string;
+  role: "es" | "supervisor";
+};
+
 export async function loadHospitalityIntakeOptions(admin: Admin): Promise<{
   supervisors: HospitalitySupervisorOption[];
   offices: HospitalityOfficeOption[];
   counselors: HospitalityCounselorOption[];
+  esUsers: HospitalityEsOption[];
 }> {
-  const [{ data: supervisorRows }, { data: officeRows }, { data: counselorRows }, { data: counselorOffices }] =
-    await Promise.all([
+  const [
+    { data: supervisorRows },
+    { data: officeRows },
+    { data: counselorRows },
+    { data: counselorOffices },
+    { data: esRows },
+  ] = await Promise.all([
       admin.from("profiles").select("id").eq("role", "supervisor").eq("is_active", true),
       admin.from("offices").select("id, name, state").order("name"),
       admin
@@ -41,10 +53,20 @@ export async function loadHospitalityIntakeOptions(admin: Admin): Promise<{
         .select("id, full_name, contact_email, office_id")
         .order("full_name"),
       admin.from("counselor_office_assignments").select("counselor_id, office_id"),
+      admin
+        .from("profiles")
+        .select("id, role")
+        .in("role", ["es", "supervisor"])
+        .eq("is_active", true),
     ]);
 
   const supervisorIds = (supervisorRows ?? []).map((r) => r.id as string);
-  const nameById = await loadStaffNameById(admin, supervisorIds, "Supervisor");
+  const esIds = (esRows ?? []).map((r) => r.id as string);
+  const nameById = await loadStaffNameById(
+    admin,
+    [...new Set([...supervisorIds, ...esIds])],
+    "Staff"
+  );
 
   const { data: assignments } = supervisorIds.length
     ? await admin
@@ -68,6 +90,14 @@ export async function loadHospitalityIntakeOptions(admin: Admin): Promise<{
       id,
       name: nameById.get(id) ?? "Supervisor",
       primaryOfficeId: primaryOfficeByUser.get(id) ?? null,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const esUsers: HospitalityEsOption[] = (esRows ?? [])
+    .map((r) => ({
+      id: r.id as string,
+      name: nameById.get(r.id as string) ?? "Employment Specialist",
+      role: (r.role === "supervisor" ? "supervisor" : "es") as "es" | "supervisor",
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -101,5 +131,6 @@ export async function loadHospitalityIntakeOptions(admin: Admin): Promise<{
       }),
       sunset
     ).map(({ office_id: _officeId, office_ids: _officeIds, ...counselor }) => counselor),
+    esUsers,
   };
 }

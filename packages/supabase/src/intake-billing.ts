@@ -145,7 +145,7 @@ async function notifyAccountsReady(admin: SupabaseClient, clientId: string): Pro
         kind: "referral_intake_billing",
         title: `Bill intake: ${label}`,
         body: "Intake meeting is complete. Bill the state, then mark payment received.",
-        link_path: "/dashboard/intake-billing",
+        link_path: `/dashboard/intake-billing?client=${encodeURIComponent(clientId)}`,
         metadata: { clientId },
       })
     )

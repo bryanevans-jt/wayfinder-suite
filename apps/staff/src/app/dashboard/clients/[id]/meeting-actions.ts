@@ -120,7 +120,7 @@ export async function createMeetingRequest(input: Input) {
         kind: "meeting_request",
         title: "New meeting request",
         body: `Your Employment Specialist invited you to meet on ${when} at ${location}.`,
-        link_path: "/dashboard",
+        link_path: "/dashboard#activity",
         metadata: { meeting_id: meeting.id },
         app: "client",
       });

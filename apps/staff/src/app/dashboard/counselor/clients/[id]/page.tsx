@@ -1,4 +1,6 @@
 import { createServerClient } from "@wayfinder/supabase";
+import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { loadIntakeAppointmentsAsMeetings } from "@wayfinder/supabase/hospitality-intake-activity";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { StaffSupportNote } from "@/components/staff-support-note";
@@ -82,9 +84,15 @@ export default async function CounselorClientActivityPage({ params }: PageProps)
     : { data: null as { title: string } | null };
 
   const now = new Date().toISOString();
+  const intakeAdmin = admin ?? createServiceRoleClient();
 
-  const [{ data: logs }, { data: stageEvents }, { data: applications }, { data: meetings }] =
-    await Promise.all([
+  const [
+    { data: logs },
+    { data: stageEvents },
+    { data: applications },
+    { data: meetings },
+    intakeMeetings,
+  ] = await Promise.all([
     dataClient
       .from("contact_logs")
       .select("id, created_at, public_outcome, notes")
@@ -107,6 +115,7 @@ export default async function CounselorClientActivityPage({ params }: PageProps)
       .eq("status", "accepted")
       .gte("starts_at", now)
       .order("starts_at", { ascending: true }),
+    loadIntakeAppointmentsAsMeetings(intakeAdmin, [client.linkId, ...activityFkIds]),
   ]);
 
   const meetingServiceIds = [
@@ -136,18 +145,21 @@ export default async function CounselorClientActivityPage({ params }: PageProps)
     applications: (applications ?? []) as Parameters<
       typeof buildClientActivityFeed
     >[0]["applications"],
-    meetings: (meetings ?? []).map((m) => ({
-      id: m.id as string,
-      created_at: m.created_at as string,
-      status: m.status as string,
-      starts_at: m.starts_at as string,
-      location: m.location as string,
-      timezone: m.timezone as string,
-      service_name: m.service_id
-        ? (meetingServiceNameById.get(m.service_id as string) ?? null)
-        : null,
-      es_name: m.es_user_id ? (meetingEsNameById.get(m.es_user_id as string) ?? null) : null,
-    })),
+    meetings: [
+      ...(meetings ?? []).map((m) => ({
+        id: m.id as string,
+        created_at: m.created_at as string,
+        status: m.status as string,
+        starts_at: m.starts_at as string,
+        location: m.location as string,
+        timezone: m.timezone as string,
+        service_name: m.service_id
+          ? (meetingServiceNameById.get(m.service_id as string) ?? null)
+          : null,
+        es_name: m.es_user_id ? (meetingEsNameById.get(m.es_user_id as string) ?? null) : null,
+      })),
+      ...intakeMeetings,
+    ],
   });
 
   const latestApp = [...(applications ?? [])].sort(

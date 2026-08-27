@@ -119,7 +119,7 @@ export async function POST(request: Request) {
           kind: "es_message",
           title: senderRole === "supervisor" ? "Message from supervisor" : "Message from your ES",
           body: text.slice(0, 120),
-          link_path: "/dashboard",
+          link_path: "/dashboard#messages",
           metadata: { thread_id: threadId },
           app: "client",
         });

@@ -1,6 +1,7 @@
 import { isEsRole, isSupervisorTierRole, staffHomePath } from "@wayfinder/supabase/roles";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { StaffMessagesWorkspace } from "@/components/staff-messages-workspace";
 
 export default async function MessagesPage() {
@@ -23,7 +24,9 @@ export default async function MessagesPage() {
         read threads and step in when a reply is late.
       </p>
       <div className="mt-8">
-        <StaffMessagesWorkspace />
+        <Suspense fallback={<p className="text-sm text-brand-black/60">Loading messages…</p>}>
+          <StaffMessagesWorkspace />
+        </Suspense>
       </div>
     </main>
   );

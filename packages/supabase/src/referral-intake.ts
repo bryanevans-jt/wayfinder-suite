@@ -598,7 +598,7 @@ export async function notifyHrOfNewReferral(
       kind: "referral_new",
       title: `New ${opts.state} referral: ${opts.clientName}`,
       body: "A counselor submitted a referral. Review in the Referral Queue.",
-      link_path: "/dashboard/referrals",
+      link_path: `/dashboard/referrals/${opts.clientId}`,
       metadata: { clientId: opts.clientId, state: opts.state },
     });
   }
@@ -881,6 +881,8 @@ export type ReferralClientInfoUpdate = {
   counselorId?: string | null;
   /** Sets client office to this supervisor's first assigned office. */
   supervisorUserId?: string | null;
+  /** Assigns Employment Specialist via es_client_assignments (null clears). */
+  esUserId?: string | null;
 };
 
 export async function updateReferralClientInfo(
@@ -1043,6 +1045,43 @@ export async function updateReferralClientInfo(
 
   const { error } = await admin.from("clients").update(update).eq("id", opts.clientId);
   if (error) return { error: error.message };
+
+  if (p.esUserId !== undefined) {
+    const esUserId = (p.esUserId ?? "").trim() || null;
+    if (esUserId) {
+      const { data: esProfile } = await admin
+        .from("profiles")
+        .select("id, role, is_active")
+        .eq("id", esUserId)
+        .maybeSingle();
+      if (!esProfile?.is_active) {
+        return { error: "Employment Specialist not found" };
+      }
+      const esRole = String(esProfile.role ?? "").toLowerCase();
+      if (esRole !== "es" && esRole !== "supervisor") {
+        return { error: "Caseload can only be assigned to an Employment Specialist or supervisor." };
+      }
+    }
+
+    const { error: clearErr } = await admin
+      .from("es_client_assignments")
+      .delete()
+      .eq("client_id", opts.clientId);
+    if (clearErr) return { error: clearErr.message };
+
+    if (esUserId) {
+      const { error: assignErr } = await admin.from("es_client_assignments").insert({
+        es_user_id: esUserId,
+        client_id: opts.clientId,
+      });
+      if (assignErr) return { error: assignErr.message };
+    }
+
+    await admin
+      .from("client_message_threads")
+      .update({ current_es_user_id: esUserId })
+      .eq("client_id", opts.clientId);
+  }
 
   await admin.from("client_intake_events").insert({
     client_id: opts.clientId,

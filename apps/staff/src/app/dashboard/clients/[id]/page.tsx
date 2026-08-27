@@ -8,6 +8,7 @@ import {
   listContactLogsForClientIds,
 } from "@wayfinder/supabase";
 import {
+  canAssignClientEs,
   canLogHospitalityCheckIns,
   canOverseeFormalReportSubmissions,
   canViewClientProfiles,
@@ -17,14 +18,18 @@ import {
   staffHomePath,
 } from "@wayfinder/supabase/roles";
 import { formatLocalDate, loadActiveActivityTypes, filterClientContactActivityTypes } from "@wayfinder/supabase/es-time-tracking";
+import { loadIntakeAppointmentsAsMeetings } from "@wayfinder/supabase/hospitality-intake-activity";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAppSession, requireStaffClientAccess } from "@/lib/app-session";
 import { getEsCaseloadAdmin } from "@/lib/es-caseload-data";
 import { portalPathForRole } from "@/lib/staff-nav";
 import { findEmployerMatches } from "@/lib/employer-matching";
+import { loadHospitalityIntakeOptions } from "@/lib/hospitality-intake-options";
+import { loadStaffNameById } from "@/lib/staff-names";
 import { supabaseEmbedName } from "@/lib/supabase-embed";
 import { ClientProfileForm, type ClientProfileData } from "@/components/client-profile-form";
+import { ClientEsAssignmentPanel } from "@/components/client-es-assignment-panel";
 import { EmployerMatchPanel } from "@/components/employer-match-panel";
 import { ClientStaffNotesPanel } from "@/components/client-staff-notes-panel";
 import { HospitalityCheckInPanel } from "@/components/hospitality-check-in-panel";
@@ -173,6 +178,8 @@ export default async function EsClientDetailPage({ params }: PageProps) {
     { data: milestones },
     { data: employersRaw },
     { data: employerDirectory },
+    { data: esAssignment },
+    hospitalityOptions,
   ] = await Promise.all([
     client.current_service_id
       ? admin.from("services").select("name").eq("id", client.current_service_id).maybeSingle()
@@ -204,7 +211,25 @@ export default async function EsClientDetailPage({ params }: PageProps) {
       )
       .eq("status", "active"),
     admin.from("employers").select("id, name").eq("status", "active").order("name"),
+    admin
+      .from("es_client_assignments")
+      .select("es_user_id")
+      .eq("client_id", client.id)
+      .limit(1),
+    canAssignClientEs(role)
+      ? loadHospitalityIntakeOptions(admin)
+      : Promise.resolve({ esUsers: [] as { id: string; name: string; role: "es" | "supervisor" }[] }),
   ]);
+
+  const assignedEsUserId =
+    (((esAssignment as { es_user_id?: string }[] | null)?.[0]?.es_user_id as string | undefined) ??
+      null);
+  const assignedEsNames = assignedEsUserId
+    ? await loadStaffNameById(admin, [assignedEsUserId], "Employment Specialist")
+    : new Map<string, string>();
+  const assignedEsName = assignedEsUserId
+    ? (assignedEsNames.get(assignedEsUserId) ?? "Employment Specialist")
+    : null;
 
   const milestoneOptions = (milestones ?? []).map((m) => ({
     id: m.id,
@@ -214,7 +239,7 @@ export default async function EsClientDetailPage({ params }: PageProps) {
 
   const activityFkIds = buildClientActivityFkIds(client);
 
-  const [logs, { data: stageEvents }, { data: applications }, { data: meetings }] =
+  const [logs, { data: stageEvents }, { data: applications }, { data: meetings }, intakeMeetings] =
     await Promise.all([
       listContactLogsForClientIds(admin, activityFkIds, { orderAscending: true }).catch(() => []),
       admin
@@ -234,6 +259,7 @@ export default async function EsClientDetailPage({ params }: PageProps) {
         .select("id, status, starts_at, timezone, location, created_at, service_id, es_user_id")
         .in("client_id", activityFkIds)
         .order("created_at", { ascending: true }),
+      loadIntakeAppointmentsAsMeetings(admin, [client.id as string, ...activityFkIds]),
     ]);
 
   const meetingServiceIds = [
@@ -315,18 +341,21 @@ export default async function EsClientDetailPage({ params }: PageProps) {
     applications: (applications ?? []) as Parameters<
       typeof buildClientActivityFeed
     >[0]["applications"],
-    meetings: (meetings ?? []).map((m) => ({
-      id: m.id as string,
-      created_at: m.created_at as string,
-      status: m.status as string,
-      starts_at: m.starts_at as string,
-      location: m.location as string,
-      timezone: m.timezone as string,
-      service_name: m.service_id
-        ? (meetingServiceNameById.get(m.service_id as string) ?? null)
-        : null,
-      es_name: m.es_user_id ? (meetingEsNameById.get(m.es_user_id as string) ?? null) : null,
-    })),
+    meetings: [
+      ...(meetings ?? []).map((m) => ({
+        id: m.id as string,
+        created_at: m.created_at as string,
+        status: m.status as string,
+        starts_at: m.starts_at as string,
+        location: m.location as string,
+        timezone: m.timezone as string,
+        service_name: m.service_id
+          ? (meetingServiceNameById.get(m.service_id as string) ?? null)
+          : null,
+        es_name: m.es_user_id ? (meetingEsNameById.get(m.es_user_id as string) ?? null) : null,
+      })),
+      ...intakeMeetings,
+    ],
   });
 
   const matches = findEmployerMatches(profileData, employersRaw ?? []);
@@ -358,6 +387,7 @@ export default async function EsClientDetailPage({ params }: PageProps) {
   const showCheckIns = canLogHospitalityCheckIns(role) || showStaffNotes;
   const showSubmittedFormalReports =
     canWriteCasework || canOverseeFormalReportSubmissions(role);
+  const canEditEsAssignment = canAssignClientEs(role) && !session.isPreviewing;
 
   return (
     <main className="px-6 py-10">
@@ -391,15 +421,21 @@ export default async function EsClientDetailPage({ params }: PageProps) {
             <dt className="font-medium text-brand-black/55">Counselor</dt>
             <dd className="text-brand-black">{counselor?.full_name ?? "—"}</dd>
           </div>
+          <div>
+            <dt className="font-medium text-brand-black/55">Employment Specialist</dt>
+            <dd className="text-brand-black">{assignedEsName ?? "—"}</dd>
+          </div>
         </dl>
         <p className="mt-3 text-xs text-brand-black/55">
           {canWriteCasework
             ? "Email is optional in Contact & Employment Goals below — leave it blank for a profile without login, or add it later to create one. Counselor changes are made by a supervisor or admin in the portal."
-            : "View-only client profile."}
+            : canEditEsAssignment
+              ? "You can assign or change the Employment Specialist below. Other profile fields are view-only for your role."
+              : "View-only client profile."}
         </p>
       </header>
 
-      {readOnly && !session.isPreviewing ? (
+      {readOnly && !session.isPreviewing && !canEditEsAssignment ? (
         <p className="mt-6 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-brand-black/80">
           This profile is view-only for your role.
         </p>
@@ -420,6 +456,15 @@ export default async function EsClientDetailPage({ params }: PageProps) {
       ) : null}
 
       <section className="mt-8 max-w-2xl space-y-6">
+        {canAssignClientEs(role) ? (
+          <ClientEsAssignmentPanel
+            clientId={client.id}
+            initialEsUserId={assignedEsUserId}
+            esUsers={hospitalityOptions.esUsers}
+            canWrite={canEditEsAssignment}
+          />
+        ) : null}
+
         <ClientProfileForm clientId={client.id} initial={profileData} readOnly={readOnly} />
 
         <EmployerMatchPanel

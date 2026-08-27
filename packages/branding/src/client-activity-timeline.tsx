@@ -103,11 +103,17 @@ export function ClientActivityTimeline({
           ) : item.kind === "meeting" ? (
             <div className="mt-2 rounded-xl border border-neutral-200 bg-white p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-brand-green">
-                Meeting
+                {item.service_name?.trim() === "Intake" ? "Intake meeting" : "Meeting"}
               </p>
               <p className="mt-2 text-base font-semibold text-brand-black">
-                {item.service_name?.trim() || "Wayfinder service"} meeting
-                {item.es_name ? ` with ${item.es_name}` : ""}
+                {item.service_name?.trim() === "Intake"
+                  ? "Intake meeting"
+                  : `${item.service_name?.trim() || "Wayfinder service"} meeting`}
+                {item.es_name && item.service_name?.trim() !== "Intake"
+                  ? ` with ${item.es_name}`
+                  : item.service_name?.trim() === "Intake" && item.es_name
+                    ? ` · ${item.es_name}`
+                    : ""}
               </p>
               <p className="mt-1 text-sm text-brand-black/80">
                 {formatPortalDateTime(
@@ -117,7 +123,11 @@ export function ClientActivityTimeline({
                 · {item.location}
               </p>
               <p className="mt-1 text-xs uppercase tracking-wide text-brand-black/55">
-                {item.status === "accepted" ? "Confirmed" : item.status}
+                {item.service_name?.trim() === "Intake"
+                  ? "Scheduled"
+                  : item.status === "accepted"
+                    ? "Confirmed"
+                    : item.status}
               </p>
             </div>
           ) : (

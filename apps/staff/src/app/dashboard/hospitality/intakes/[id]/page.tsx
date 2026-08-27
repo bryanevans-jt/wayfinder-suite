@@ -19,12 +19,19 @@ export default async function HospitalityIntakeDetailPage({ params }: PageProps)
 
   const { id } = await params;
   const admin = createServiceRoleClient();
-  const [rows, options] = await Promise.all([
+  const [rows, options, { data: esLinks }] = await Promise.all([
     loadReferralExportRows(admin, [id]),
     loadHospitalityIntakeOptions(admin),
+    admin
+      .from("es_client_assignments")
+      .select("es_user_id")
+      .eq("client_id", id)
+      .limit(1),
   ]);
   const row = rows[0];
   if (!row) notFound();
+
+  const initialEsUserId = (esLinks?.[0]?.es_user_id as string | undefined) ?? null;
 
   return (
     <main className="px-6 py-10">
@@ -50,9 +57,11 @@ export default async function HospitalityIntakeDetailPage({ params }: PageProps)
           clientId={row.id}
           initialOfficeId={row.office_id}
           initialCounselorId={row.counselor_id}
+          initialEsUserId={initialEsUserId}
           supervisors={options.supervisors}
           offices={options.offices}
           counselors={options.counselors}
+          esUsers={options.esUsers}
         />
       </section>
 

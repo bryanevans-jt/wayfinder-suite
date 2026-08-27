@@ -72,12 +72,13 @@ export async function processOverdueMessageSla(
       kind: "message_sla_overdue",
       title: "Client message needs a reply",
       body: `${esName} has not replied to ${clientLabel} within 48 business hours.`,
-      link_path: "/dashboard/messages",
+      link_path: `/dashboard/messages?thread=${encodeURIComponent(threadId)}`,
       metadata: {
         thread_id: threadId,
         last_client_message_at: lastClientAt,
         client_label: clientLabel,
         es_user_id: esUserId,
+        client_id: thread.client_id ?? null,
       },
       app: "staff",
     });

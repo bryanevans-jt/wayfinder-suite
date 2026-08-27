@@ -4,6 +4,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type {
   HospitalityCounselorOption,
+  HospitalityEsOption,
   HospitalityOfficeOption,
   HospitalitySupervisorOption,
 } from "@/lib/hospitality-intake-options";
@@ -12,18 +13,22 @@ type Props = {
   clientId: string;
   initialOfficeId: string | null;
   initialCounselorId: string | null;
+  initialEsUserId?: string | null;
   supervisors: HospitalitySupervisorOption[];
   offices: HospitalityOfficeOption[];
   counselors: HospitalityCounselorOption[];
+  esUsers?: HospitalityEsOption[];
 };
 
 export function HospitalityStartClientPanel({
   clientId,
   initialOfficeId,
   initialCounselorId,
+  initialEsUserId = null,
   supervisors,
   offices,
   counselors,
+  esUsers = [],
 }: Props) {
   const router = useRouter();
   const inferredCounselorOfficeId =
@@ -39,6 +44,8 @@ export function HospitalityStartClientPanel({
   const [supervisorUserId, setSupervisorUserId] = useState(inferredSupervisorId);
   const [officeId, setOfficeId] = useState(initialOfficeId ?? inferredCounselorOfficeId ?? "");
   const [counselorId, setCounselorId] = useState(initialCounselorId ?? "");
+  const [esQuery, setEsQuery] = useState("");
+  const [esUserId, setEsUserId] = useState(initialEsUserId ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -48,6 +55,12 @@ export function HospitalityStartClientPanel({
     if (!q) return supervisors;
     return supervisors.filter((s) => s.name.toLowerCase().includes(q));
   }, [supervisors, supervisorQuery]);
+
+  const filteredEs = useMemo(() => {
+    const q = esQuery.trim().toLowerCase();
+    if (!q) return esUsers;
+    return esUsers.filter((e) => e.name.toLowerCase().includes(q));
+  }, [esUsers, esQuery]);
 
   function pickSupervisor(id: string) {
     setSupervisorUserId(id);
@@ -82,6 +95,7 @@ export function HospitalityStartClientPanel({
             supervisorUserId: supervisorUserId || null,
             officeId: officeId || null,
             counselorId: counselorId || null,
+            esUserId: esUserId || null,
           },
         }),
       });
@@ -101,8 +115,8 @@ export function HospitalityStartClientPanel({
       <div>
         <h3 className="text-sm font-semibold text-brand-black">Start Client</h3>
         <p className="mt-1 text-sm text-brand-black/65">
-          Assign a supervisor and counselor. Office defaults to the counselor’s office (or the
-          supervisor’s) and can still be changed.
+          Assign a supervisor, counselor, and Employment Specialist. Office defaults to the
+          counselor’s office (or the supervisor’s) and can still be changed.
         </p>
       </div>
 
@@ -166,6 +180,36 @@ export function HospitalityStartClientPanel({
           ))}
         </select>
       </label>
+
+      {esUsers.length > 0 ? (
+        <>
+          <label className="block text-sm">
+            <span className="font-medium">Search Employment Specialists</span>
+            <input
+              className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2"
+              value={esQuery}
+              onChange={(e) => setEsQuery(e.target.value)}
+              placeholder="Type a name…"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="font-medium">Employment Specialist</span>
+            <select
+              className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2"
+              value={esUserId}
+              onChange={(e) => setEsUserId(e.target.value)}
+            >
+              <option value="">Unassigned</option>
+              {filteredEs.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.name}
+                  {e.role === "supervisor" ? " (Supervisor)" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        </>
+      ) : null}
 
       {error ? (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">{error}</p>

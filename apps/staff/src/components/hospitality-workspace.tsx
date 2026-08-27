@@ -6,7 +6,7 @@ import {
   useClientListPagination,
 } from "@/components/client-list-pagination";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 type EmployerRow = {
   id: string;
@@ -34,6 +34,28 @@ export function HospitalityWorkspace({
   counselorOfficeLinks,
 }: Props) {
   const [tab, setTab] = useState<"logs" | "network" | "connections">("logs");
+  const [clientQuery, setClientQuery] = useState("");
+
+  const filteredClients = useMemo(() => {
+    const q = clientQuery.trim().toLowerCase();
+    if (!q) return clients;
+    return clients.filter((c) => {
+      const haystack = [
+        c.name,
+        c.email,
+        c.officeName,
+        c.esNames,
+        c.serviceName,
+        c.stageTitle,
+        c.state,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [clients, clientQuery]);
+
   const {
     pageSize: clientPageSize,
     setPageSize: setClientPageSize,
@@ -42,7 +64,7 @@ export function HospitalityWorkspace({
     totalPages: clientTotalPages,
     pageItems: pagedClients,
     totalCount: clientTotalCount,
-  } = useClientListPagination(clients);
+  } = useClientListPagination(filteredClients);
 
   return (
     <div className="mt-6 space-y-6">
@@ -71,6 +93,22 @@ export function HospitalityWorkspace({
 
       {tab === "logs" ? (
         <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="sr-only" htmlFor="hospitality-client-search">
+              Search clients
+            </label>
+            <input
+              id="hospitality-client-search"
+              type="search"
+              value={clientQuery}
+              onChange={(e) => {
+                setClientQuery(e.target.value);
+                setClientPage(1);
+              }}
+              placeholder="Search by name, email, office, ES, service…"
+              className="min-w-[16rem] flex-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm"
+            />
+          </div>
           <ClientListPaginationControls
             pageSize={clientPageSize}
             onPageSizeChange={setClientPageSize}
@@ -92,10 +130,12 @@ export function HospitalityWorkspace({
                 </tr>
               </thead>
               <tbody>
-                {clients.length === 0 ? (
+                {filteredClients.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-3 py-8 text-center text-brand-black/60">
-                      No clients yet.
+                      {clients.length === 0
+                        ? "No clients yet."
+                        : "No clients match your search."}
                     </td>
                   </tr>
                 ) : (

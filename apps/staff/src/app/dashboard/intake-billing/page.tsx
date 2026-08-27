@@ -3,6 +3,7 @@ import { canAccessIntakeBilling } from "@wayfinder/supabase/intake-billing";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { staffHomePath } from "@wayfinder/supabase/roles";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
 export default async function IntakeBillingPage() {
   const session = await getAppSession();
@@ -17,7 +18,9 @@ export default async function IntakeBillingPage() {
         Bill the state after the client’s intake meeting, then mark payment received. Employment
         Specialists and supervisors do not see this queue.
       </p>
-      <IntakeBillingWorkspace />
+      <Suspense fallback={<p className="mt-6 text-sm text-brand-black/60">Loading…</p>}>
+        <IntakeBillingWorkspace />
+      </Suspense>
     </main>
   );
 }

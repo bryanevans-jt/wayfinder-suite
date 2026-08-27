@@ -125,6 +125,11 @@ export function canLogHospitalityCheckIns(role: string | null | undefined): bool
   return isHospitalitySpecialistRole(role) || isAdminTierRole(role);
 }
 
+/** Assign / change Employment Specialist on a client profile (Hospitality Specialist / Admin). */
+export function canAssignClientEs(role: string | null | undefined): boolean {
+  return isHospitalitySpecialistRole(role) || isAdminTierRole(role);
+}
+
 /** View hospitality dashboard / weekly client and monthly partner check-ins (read). */
 export function canViewHospitalityWorkspace(role: string | null | undefined): boolean {
   return (

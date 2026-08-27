@@ -335,7 +335,7 @@ async function notifyHospitalitySpecialistsOfHire(
       kind: "employment_celebration",
       title: `Client hired: ${input.clientLabel}`,
       body: details,
-      link_path: "/dashboard/hospitality",
+      link_path: input.staffClientLink,
       metadata: {
         client_id: input.clientId,
         client_label: input.clientLabel,

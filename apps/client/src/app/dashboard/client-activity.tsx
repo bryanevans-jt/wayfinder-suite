@@ -4,6 +4,7 @@ import {
   createServerClient,
   resolveClientPortalDataAccess,
 } from "@wayfinder/supabase";
+import { loadIntakeAppointmentsAsMeetings } from "@wayfinder/supabase/hospitality-intake-activity";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 
 type Props = {
@@ -39,7 +40,7 @@ export async function ClientActivity({ selectedClientId }: Props) {
 
   const activityFkIds = clientForFk ? buildClientActivityFkIds(clientForFk) : [clientId];
 
-  const [{ data: logs }, { data: stageEvents }, { data: applications }, { data: meetings }] =
+  const [{ data: logs }, { data: stageEvents }, { data: applications }, { data: meetings }, intakeMeetings] =
     await Promise.all([
       admin
         .from("contact_logs")
@@ -61,6 +62,7 @@ export async function ClientActivity({ selectedClientId }: Props) {
         .select("id, status, starts_at, timezone, location, created_at, service_id, es_user_id")
         .eq("client_id", clientId)
         .order("created_at", { ascending: true }),
+      loadIntakeAppointmentsAsMeetings(admin, [clientId]),
     ]);
 
   const serviceIds = [...new Set((meetings ?? []).map((m) => m.service_id).filter(Boolean))] as string[];
@@ -86,16 +88,19 @@ export async function ClientActivity({ selectedClientId }: Props) {
     applications: (applications ?? []) as Parameters<
       typeof buildClientActivityFeed
     >[0]["applications"],
-    meetings: (meetings ?? []).map((m) => ({
-      id: m.id as string,
-      created_at: m.created_at as string,
-      status: m.status as string,
-      starts_at: m.starts_at as string,
-      location: m.location as string,
-      timezone: m.timezone as string,
-      service_name: m.service_id ? (serviceNameById.get(m.service_id as string) ?? null) : null,
-      es_name: m.es_user_id ? (esNameById.get(m.es_user_id as string) ?? null) : null,
-    })),
+    meetings: [
+      ...(meetings ?? []).map((m) => ({
+        id: m.id as string,
+        created_at: m.created_at as string,
+        status: m.status as string,
+        starts_at: m.starts_at as string,
+        location: m.location as string,
+        timezone: m.timezone as string,
+        service_name: m.service_id ? (serviceNameById.get(m.service_id as string) ?? null) : null,
+        es_name: m.es_user_id ? (esNameById.get(m.es_user_id as string) ?? null) : null,
+      })),
+      ...intakeMeetings,
+    ],
   });
 
   return (

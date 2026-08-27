@@ -96,7 +96,7 @@ export async function POST(request: Request) {
         kind: "client_message",
         title: "New client message",
         body: text.slice(0, 120),
-        link_path: "/dashboard/messages",
+        link_path: `/dashboard/messages?thread=${encodeURIComponent(thread.id)}`,
         metadata: { thread_id: thread.id, client_id: ctx.clientId },
         app: "staff",
       });

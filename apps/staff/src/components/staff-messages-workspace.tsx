@@ -2,7 +2,7 @@
 
 import { formatPortalDateTime } from "@wayfinder/branding";
 import { friendlyClientError, USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 type ThreadSummary = {
@@ -30,6 +30,8 @@ type MessageRow = {
 
 export function StaffMessagesWorkspace() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const threadFromUrl = searchParams.get("thread");
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<MessageRow[]>([]);
@@ -81,6 +83,13 @@ export function StaffMessagesWorkspace() {
   useEffect(() => {
     void loadThreads();
   }, [loadThreads]);
+
+  useEffect(() => {
+    if (!threadFromUrl || threads.length === 0) return;
+    if (threads.some((t) => t.threadId === threadFromUrl)) {
+      setActiveId(threadFromUrl);
+    }
+  }, [threadFromUrl, threads]);
 
   useEffect(() => {
     if (activeId) {
@@ -182,7 +191,10 @@ export function StaffMessagesWorkspace() {
               <li key={t.threadId}>
                 <button
                   type="button"
-                  onClick={() => setActiveId(t.threadId)}
+                  onClick={() => {
+                    setActiveId(t.threadId);
+                    router.replace(`/dashboard/messages?thread=${encodeURIComponent(t.threadId)}`);
+                  }}
                   className={`w-full rounded-lg px-3 py-2 text-left text-sm ${
                     activeId === t.threadId ? "bg-brand-green/10 text-brand-green" : "hover:bg-neutral-50"
                   }`}
