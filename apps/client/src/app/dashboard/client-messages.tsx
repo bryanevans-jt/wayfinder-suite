@@ -138,14 +138,18 @@ export function ClientMessagesPanel() {
       </div>
 
       <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-        <textarea
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          rows={2}
-          placeholder={readOnly ? "Sending disabled in preview…" : "Type your message…"}
-          disabled={busy || readOnly}
-          className="min-h-[2.75rem] flex-1 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none ring-brand-green focus:ring-2"
-        />
+        <label className="flex min-h-[2.75rem] flex-1 flex-col text-sm font-medium text-brand-black">
+          <span className="sr-only">Message to your Employment Specialist</span>
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            rows={2}
+            placeholder={readOnly ? "Sending disabled in preview…" : "Type your message…"}
+            disabled={busy || readOnly}
+            aria-label="Message to your Employment Specialist"
+            className="min-h-[2.75rem] w-full flex-1 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm ring-brand-green focus-visible:ring-2"
+          />
+        </label>
         <button
           type="button"
           onClick={send}
@@ -155,7 +159,11 @@ export function ClientMessagesPanel() {
           {busy ? "Sending…" : "Send"}
         </button>
       </div>
-      {error ? <p className="mt-2 text-sm text-red-700">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="mt-2 text-sm text-red-700">
+          {error}
+        </p>
+      ) : null}
     </section>
   );
 }

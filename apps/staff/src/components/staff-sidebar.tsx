@@ -58,42 +58,45 @@ export function StaffSidebarPanel({
           {staffWorkspaceLabel(staffRole)}
         </p>
         {showStaffNotifications(staffRole) ? <StaffNotificationsBell /> : null}
-        {sections.map((section, sectionIndex) => (
-          <div
-            key={section.label ?? `section-${sectionIndex}`}
-            className={sectionIndex > 0 ? "mt-4 border-t border-neutral-100 pt-4" : ""}
-          >
-            {section.label ? (
-              <p className="mb-1.5 px-3 text-xs font-semibold uppercase tracking-wide text-brand-black/45">
-                {section.label}
-              </p>
-            ) : sectionIndex === 0 ? (
-              <p className="mb-1.5 px-3 text-xs font-semibold uppercase tracking-wide text-brand-black/50">
-                Menu
-              </p>
-            ) : null}
-            <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
-              {section.items.map((item) => {
-                const active = item.match(pathname);
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      onClick={onNavigate}
-                      className={`block w-full rounded-lg px-3 py-2 text-sm font-medium leading-snug transition-colors ${
-                        active
-                          ? "bg-brand-green/10 text-brand-green"
-                          : "text-brand-black hover:bg-neutral-100"
-                      }`}
-                    >
-                      {item.label}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
+        <nav aria-label={`${staffWorkspaceLabel(staffRole)} menu`}>
+          {sections.map((section, sectionIndex) => (
+            <div
+              key={section.label ?? `section-${sectionIndex}`}
+              className={sectionIndex > 0 ? "mt-4 border-t border-neutral-100 pt-4" : ""}
+            >
+              {section.label ? (
+                <p className="mb-1.5 px-3 text-xs font-semibold uppercase tracking-wide text-brand-black/45">
+                  {section.label}
+                </p>
+              ) : sectionIndex === 0 ? (
+                <p className="mb-1.5 px-3 text-xs font-semibold uppercase tracking-wide text-brand-black/50">
+                  Menu
+                </p>
+              ) : null}
+              <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
+                {section.items.map((item) => {
+                  const active = item.match(pathname);
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        onClick={onNavigate}
+                        aria-current={active ? "page" : undefined}
+                        className={`block w-full rounded-lg px-3 py-2 text-sm font-medium leading-snug transition-colors ${
+                          active
+                            ? "bg-brand-green/10 text-brand-green"
+                            : "text-brand-black hover:bg-neutral-100"
+                        }`}
+                      >
+                        {item.label}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </nav>
       </div>
       <StaffSidebarAccount showPasskey={!isCounselorRole(staffRole)} />
     </div>

@@ -50,9 +50,18 @@ export function StaffNotificationsBell() {
         setOpen(false);
       }
     }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setOpen(false);
+      }
+    }
     if (open) {
       document.addEventListener("mousedown", onDocClick);
-      return () => document.removeEventListener("mousedown", onDocClick);
+      document.addEventListener("keydown", onKeyDown);
+      return () => {
+        document.removeEventListener("mousedown", onDocClick);
+        document.removeEventListener("keydown", onKeyDown);
+      };
     }
   }, [open]);
 
@@ -93,7 +102,9 @@ export function StaffNotificationsBell() {
         }}
         className="relative flex w-full items-center justify-between rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-brand-black hover:bg-neutral-50"
         aria-expanded={open}
-        aria-label="Notifications"
+        aria-controls="staff-notifications-panel"
+        aria-haspopup="true"
+        aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
       >
         <span>Notifications</span>
         {unread > 0 ? (
@@ -104,7 +115,12 @@ export function StaffNotificationsBell() {
       </button>
 
       {open ? (
-        <div className="absolute left-3 right-3 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-lg border border-neutral-200 bg-white shadow-lg">
+        <div
+          id="staff-notifications-panel"
+          role="region"
+          aria-label="Notifications"
+          className="absolute left-3 right-3 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-lg border border-neutral-200 bg-white shadow-lg"
+        >
           <div className="flex items-center justify-between border-b border-neutral-100 px-3 py-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-brand-black/55">
               In-app

@@ -9,6 +9,7 @@ import {
   contactLogDisplayText,
   fetchContactLogsWithSchemaFallback,
 } from "@wayfinder/supabase/contact-logs-query";
+import { minutesToDecimalHours } from "@wayfinder/supabase/es-time-tracking";
 import type { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 
 export type ContactLogDailyRow = {
@@ -19,9 +20,26 @@ export type ContactLogDailyRow = {
 
 type AdminClient = ReturnType<typeof createServiceRoleClient>;
 
-export function formatContactLogsDailyVprText(rows: ContactLogDailyRow[]): string {
+const BILLABLE_HOURS_FOOTER_RE = /\n\nTotal billable hours:\s*[\d.]+$/i;
+
+/** Line appended at the bottom of compiled VPR notes. */
+export function formatBillableHoursFooter(totalMinutes: number): string {
+  return `Total billable hours: ${minutesToDecimalHours(Math.max(0, totalMinutes))}`;
+}
+
+export function appendBillableHoursFooter(notes: string, totalMinutes: number): string {
+  const base = notes.replace(BILLABLE_HOURS_FOOTER_RE, "").trimEnd();
+  const footer = formatBillableHoursFooter(totalMinutes);
+  if (!base) return footer;
+  return `${base}\n\n${footer}`;
+}
+
+export function formatContactLogsDailyVprText(
+  rows: ContactLogDailyRow[],
+  totalBillableMinutes = 0
+): string {
   if (rows.length === 0) {
-    return "No contact notes for this day.";
+    return appendBillableHoursFooter("No contact notes for this day.", totalBillableMinutes);
   }
 
   const dateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -38,7 +56,37 @@ export function formatContactLogsDailyVprText(rows: ContactLogDailyRow[]): strin
     blocks.push(`${dateLabel}\n${timeLabel}\n${notes}`);
   }
 
-  return blocks.join("\n\n");
+  return appendBillableHoursFooter(blocks.join("\n\n"), totalBillableMinutes);
+}
+
+/**
+ * Sum logged service time for this client on the Eastern calendar service_date.
+ * Excludes rejected entries.
+ */
+export async function loadBillableMinutesForClientDay(
+  admin: AdminClient,
+  clientId: string,
+  dateYmd: string
+): Promise<number> {
+  try {
+    const { data, error } = await admin
+      .from("es_time_entries")
+      .select("duration_minutes")
+      .eq("client_id", clientId)
+      .eq("service_date", dateYmd)
+      .neq("status", "rejected");
+    if (error) {
+      console.error("[contact-logs-daily] billable minutes lookup failed:", error.message);
+      return 0;
+    }
+    return (data ?? []).reduce(
+      (sum, row) => sum + Math.max(0, Number(row.duration_minutes) || 0),
+      0
+    );
+  } catch (err) {
+    console.error("[contact-logs-daily] billable minutes lookup threw:", err);
+    return 0;
+  }
 }
 
 async function loadStartTimesByLogId(

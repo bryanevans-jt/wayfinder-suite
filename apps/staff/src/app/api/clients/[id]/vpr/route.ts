@@ -59,11 +59,13 @@ export async function POST(request: Request, context: RouteContext) {
       notes?: string;
       serviceStage?: string;
       esName?: string;
+      billableHours?: string;
     };
     const date = (body.date ?? "").trim();
     const notes = (body.notes ?? "").trim();
     const serviceStage = (body.serviceStage ?? "").trim();
     const esNameOverride = (body.esName ?? "").trim();
+    const billableHours = (body.billableHours ?? "").trim();
 
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return NextResponse.json({ error: "date is required (YYYY-MM-DD)" }, { status: 400 });
@@ -102,6 +104,7 @@ export async function POST(request: Request, context: RouteContext) {
         notes,
         serviceStage,
         esNameOverride,
+        billableHours,
         officeId: fallback.data.office_id as string | null,
         homeState: fallback.data.home_state as string | null,
         referralState: null,
@@ -120,6 +123,7 @@ export async function POST(request: Request, context: RouteContext) {
       notes,
       serviceStage,
       esNameOverride,
+      billableHours,
       officeId: client.office_id as string | null,
       homeState: client.home_state as string | null,
       referralState: (client as { referral_state?: string | null }).referral_state ?? null,
@@ -144,6 +148,7 @@ async function finishSubmit(input: {
   notes: string;
   serviceStage: string;
   esNameOverride: string;
+  billableHours: string;
   officeId: string | null;
   homeState: string | null;
   referralState: string | null;
@@ -193,6 +198,7 @@ async function finishSubmit(input: {
       ServiceStage: input.serviceStage,
       EmploymentSpecialistName: esName,
       Notes: input.notes,
+      BillableHours: input.billableHours || "0.00",
     },
     wayfinderClientId: input.clientId,
     reportingState,

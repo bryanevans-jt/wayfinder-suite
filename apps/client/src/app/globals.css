@@ -13,6 +13,12 @@ body {
   @apply bg-brand-white text-brand-black antialiased;
 }
 
+/* Keyboard / screen-reader focus (JAWS, NVDA, etc.) */
+:focus-visible {
+  outline: 2px solid var(--brand-green);
+  outline-offset: 2px;
+}
+
 html.wf-a11y-large-text {
   font-size: 118%;
 }
@@ -24,4 +30,9 @@ html.wf-a11y-high-contrast body {
 
 html.wf-a11y-high-contrast a {
   text-decoration: underline;
+}
+
+html.wf-a11y-high-contrast :focus-visible {
+  outline-color: #000;
+  outline-width: 3px;
 }

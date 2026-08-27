@@ -37,7 +37,8 @@ export function SupportClientPicker({ clients, selectedClientId }: Props) {
             next.set("client", e.target.value);
             router.push(`/dashboard?${next.toString()}`);
           }}
-          className="mt-2 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-brand-black outline-none ring-brand-green focus:ring-2"
+          className="mt-2 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-brand-black ring-brand-green focus-visible:ring-2"
+          aria-describedby="support-client-picker-hint"
         >
           {clients.map((c) => (
             <option key={c.id} value={c.id}>
@@ -46,7 +47,7 @@ export function SupportClientPicker({ clients, selectedClientId }: Props) {
           ))}
         </select>
       </label>
-      <p className="mt-2 text-xs text-brand-black/65">
+      <p id="support-client-picker-hint" className="mt-2 text-xs text-brand-black/65">
         You are signed in as natural support. Pick the person you are helping today.
       </p>
     </section>

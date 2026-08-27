@@ -16,7 +16,7 @@ export default async function CounselorDemoClientPage({ params }: PageProps) {
   const gold = isGoldApplicationStatus(client.latestAppStatus);
 
   return (
-    <main className="px-6 py-10">
+    <main className="px-6 py-10" aria-labelledby="demo-client-heading">
       <Link
         href="/walkthrough/counselor"
         className="text-sm font-medium text-brand-green hover:underline"
@@ -27,9 +27,15 @@ export default async function CounselorDemoClientPage({ params }: PageProps) {
       <header className="mt-6 max-w-3xl border-b border-neutral-200 pb-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-semibold text-brand-green">{client.displayName}</h1>
+            <h1 id="demo-client-heading" className="text-3xl font-semibold text-brand-green">
+              {client.displayName}
+            </h1>
+            <p className="mt-1 text-sm font-medium text-brand-black/60">{client.serviceName}</p>
             <p className="mt-2 text-sm text-brand-black/80">
               <span className="font-medium text-brand-green">Current stage</span> · {client.stage}
+            </p>
+            <p className="mt-1 text-sm text-brand-black/70">
+              Employment Specialist · {client.esName}
             </p>
           </div>
           {gold && client.latestAppStatus ? (
@@ -40,8 +46,10 @@ export default async function CounselorDemoClientPage({ params }: PageProps) {
         </div>
       </header>
 
-      <section className="mx-auto max-w-3xl py-10">
-        <h2 className="text-lg font-semibold text-brand-green">Activity Timeline</h2>
+      <section className="mx-auto max-w-3xl py-10" aria-labelledby="demo-timeline-heading">
+        <h2 id="demo-timeline-heading" className="text-lg font-semibold text-brand-green">
+          Activity Timeline
+        </h2>
         <p className="mt-1 text-sm text-brand-black/70">
           Contact notes, job applications, milestone updates, and confirmed upcoming meetings,
           oldest first. This view is read-only.

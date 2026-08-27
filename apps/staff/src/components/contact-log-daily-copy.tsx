@@ -1,6 +1,9 @@
 "use client";
 
-import { easternTodayYmd } from "@/lib/contact-log-daily-copy";
+import {
+  appendBillableHoursFooter,
+  easternTodayYmd,
+} from "@/lib/contact-log-daily-copy";
 import { VPR_SERVICE_STAGE_OPTIONS, matchVprStageFromTitle } from "@/lib/vpr-stages";
 import {
   friendlyClientError,
@@ -38,6 +41,8 @@ export function ContactLogDailyCopy({
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
   const [notes, setNotes] = useState("");
+  const [billableHours, setBillableHours] = useState("0.00");
+  const [billableMinutes, setBillableMinutes] = useState(0);
   const [serviceStage, setServiceStage] = useState<string>(defaultStage);
   const [specialistName, setSpecialistName] = useState((esName ?? "").trim());
 
@@ -76,7 +81,13 @@ export function ContactLogDailyCopy({
         error?: string;
         count?: number;
         nearbyDays?: string[];
+        totalBillableHours?: string;
+        totalBillableMinutes?: number;
       };
+      const minutes = Math.max(0, Number(data.totalBillableMinutes) || 0);
+      const hours = data.totalBillableHours ?? (minutes / 60).toFixed(2);
+      setBillableMinutes(minutes);
+      setBillableHours(hours);
       setNotes(data.text ?? "");
       setServiceStage((prev) => prev || defaultStage);
       if (!specialistName.trim() && (esName ?? "").trim()) {
@@ -118,14 +129,16 @@ export function ContactLogDailyCopy({
     setSuccess(null);
     setDriveUrl(null);
     try {
+      const notesWithHours = appendBillableHoursFooter(notes, billableMinutes);
       const res = await fetch(`/api/clients/${encodeURIComponent(clientId)}/vpr`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           date,
-          notes,
+          notes: notesWithHours,
           serviceStage,
           esName: specialistName.trim(),
+          billableHours,
         }),
       });
       const data = (await res.json()) as {
@@ -136,6 +149,7 @@ export function ContactLogDailyCopy({
       if (!res.ok) {
         throw new Error(data.error || USER_FACING_SYSTEM_ERROR);
       }
+      setNotes(notesWithHours);
       setSuccess(data.message ?? "Report submitted successfully.");
       setDriveUrl(data.driveUrl ?? null);
     } catch (err) {
@@ -149,9 +163,9 @@ export function ContactLogDailyCopy({
     <div className="rounded-xl border border-neutral-200 bg-neutral-50/80 p-4">
       <h3 className="text-sm font-semibold text-brand-black">Vocational Progress Report</h3>
       <p className="mt-1 text-xs text-brand-black/60">
-        Compile this day’s contact notes, edit them, then file a Vocational Progress Report to the
-        same Google Drive folder used in Joshua Tree Reports. Uses the Eastern calendar day of the
-        service time or when the note was entered.
+        Compile this day’s contact notes and total billable hours, edit them, then file a Vocational
+        Progress Report to the same Google Drive folder used in Joshua Tree Reports. Uses the
+        Eastern calendar day of the service time or when the note was entered.
       </p>
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <label className="block text-sm font-medium text-brand-black">
@@ -223,6 +237,13 @@ export function ContactLogDailyCopy({
               disabled={submitting}
             />
           </label>
+          <p className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-brand-black">
+            <span className="font-medium text-brand-black/70">Total billable hours for this day</span>
+            <span className="mt-0.5 block text-lg font-semibold tabular-nums">{billableHours}</span>
+            <span className="text-xs text-brand-black/55">
+              Included at the bottom of the Progress Report notes when you submit.
+            </span>
+          </p>
           <div className="flex flex-wrap items-center gap-2">
             {canSubmit ? (
               <button

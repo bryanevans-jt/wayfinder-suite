@@ -2,6 +2,7 @@ import {
   STAFF_APP_PRODUCT_NAME,
   WAYFINDER_FAVICON_PATH,
   WAYFINDER_PWA_ICON_PATH,
+  SkipToMainLink,
   WayfinderFooter,
   WayfinderTopNav,
 } from "@wayfinder/branding";
@@ -62,12 +63,15 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} flex min-h-screen flex-col bg-brand-white font-sans text-brand-black`}
       >
+        <SkipToMainLink />
         <WayfinderTopNav
           badgeLabel={staffNavBadge(staffRole)}
           homeHref={staffHomeHref(staffRole)}
           homeAriaLabel={`${STAFF_APP_PRODUCT_NAME} home`}
         />
-        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+        <div id="main-content" tabIndex={-1} className="flex min-h-0 flex-1 flex-col outline-none">
+          {children}
+        </div>
         <WayfinderFooter productName={STAFF_APP_PRODUCT_NAME} />
       </body>
     </html>

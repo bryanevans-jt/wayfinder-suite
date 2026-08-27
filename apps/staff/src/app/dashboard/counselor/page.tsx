@@ -142,12 +142,14 @@ export default async function CounselorPortalPage({
   }
 
   return (
-    <main className="px-6 py-10">
+    <main className="px-6 py-10" aria-labelledby="counselor-clients-heading">
       <header className="max-w-5xl">
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-green">
           Counselor portal
         </p>
-        <h1 className="mt-1 text-3xl font-semibold text-brand-green">Your Clients</h1>
+        <h1 id="counselor-clients-heading" className="mt-1 text-3xl font-semibold text-brand-green">
+          Your Clients
+        </h1>
         <p className="mt-2 max-w-2xl text-sm text-brand-black/80">
           Signed in as <span className="font-medium text-brand-black">{counselorRow.full_name}</span>
           . Open a card to see the full activity timeline. Check{" "}

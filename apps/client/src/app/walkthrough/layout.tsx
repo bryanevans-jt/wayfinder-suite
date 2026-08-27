@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 export default function WalkthroughLayout({ children }: { children: React.ReactNode }) {
   const staffDemoUrl =
     (process.env.NEXT_PUBLIC_STAFF_APP_URL ?? "http://localhost:3000").replace(/\/$/, "") +
-    "/walkthrough/counselor";
+    "/walkthrough/counselor/login";
 
   return (
     <div className="min-h-screen bg-brand-white">
@@ -21,7 +21,7 @@ export default function WalkthroughLayout({ children }: { children: React.ReactN
           target="_blank"
           rel="noopener noreferrer"
         >
-          View counselor portal demo →
+          View counselor demo (sign-in screen) →
         </a>
       </div>
       {children}

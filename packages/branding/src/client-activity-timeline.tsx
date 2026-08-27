@@ -55,10 +55,16 @@ export function ClientActivityTimeline({
   }
 
   return (
-    <ol className="relative mt-6 list-none space-y-0 border-l border-neutral-200 pl-6">
+    <ol
+      className="relative mt-6 list-none space-y-0 border-l border-neutral-200 pl-6"
+      aria-label="Activity timeline"
+    >
       {feed.map((item) => (
-        <li key={`${item.kind}-${item.id}`} className="mb-10 last:mb-0">
-          <span className="absolute -left-[5px] mt-1.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-brand-green" />
+        <li key={`${item.kind}-${item.id}`} className="relative mb-10 last:mb-0">
+          <span
+            className="absolute -left-[29px] mt-1.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-brand-green"
+            aria-hidden="true"
+          />
           <time
             className="text-xs font-semibold uppercase tracking-wide text-brand-black/55"
             dateTime={item.at}

@@ -12,3 +12,9 @@
 body {
   @apply bg-brand-white text-brand-black antialiased;
 }
+
+/* Keyboard / screen-reader focus (JAWS, NVDA, etc.) */
+:focus-visible {
+  outline: 2px solid var(--brand-green);
+  outline-offset: 2px;
+}

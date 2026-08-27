@@ -43,7 +43,10 @@ export function StaffDashboardShell({
 
   return (
     <div className="flex min-h-0 flex-1">
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-neutral-200 bg-white lg:flex">
+      <aside
+        className="hidden w-64 shrink-0 flex-col border-r border-neutral-200 bg-white lg:flex"
+        aria-label="Workspace navigation"
+      >
         <StaffSidebarPanel
           staffRole={staffRole}
           showAuditLink={showAuditLink}

@@ -281,7 +281,7 @@ export function LoginForm({
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-brand-black/20 bg-brand-white px-3 py-2 text-brand-black outline-none ring-brand-green/40 transition focus:ring-2"
+            className="mt-1 w-full rounded-lg border border-brand-black/20 bg-brand-white px-3 py-2 text-brand-black ring-brand-green/40 transition focus-visible:ring-2"
             placeholder={showGoogle ? `you@${googleHostedDomain}` : "you@example.com"}
             disabled={busy !== null}
           />
@@ -314,7 +314,11 @@ export function LoginForm({
       </button>
 
       {notice ? (
-        <p className="rounded-lg bg-brand-black/5 px-3 py-2 text-center text-sm text-brand-black">
+        <p
+          role="alert"
+          aria-live="assertive"
+          className="rounded-lg bg-brand-black/5 px-3 py-2 text-center text-sm text-brand-black"
+        >
           {notice}
         </p>
       ) : null}
@@ -350,7 +354,9 @@ export function RegisterPasskeyButton() {
         {loading ? "Registering…" : "Register a passkey on this device"}
       </button>
       {status ? (
-        <p className="text-xs text-brand-black/80">{status}</p>
+        <p role="status" aria-live="polite" className="text-xs text-brand-black/80">
+          {status}
+        </p>
       ) : null}
     </div>
   );

@@ -55,6 +55,8 @@ export async function submitVocationalProgressReport(
       ServiceStage: string;
       EmploymentSpecialistName: string;
       Notes: string;
+      /** Optional — add {{BillableHours}} near the bottom of the VPR Google Doc template. */
+      BillableHours?: string;
     };
     wayfinderClientId: string;
     reportingState: "GA" | "TN";

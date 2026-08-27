@@ -2,10 +2,12 @@ import { assertStaffExportSession } from "@/lib/export-access";
 import {
   formatContactLogsDailyVprText,
   listNearbyContactLogDays,
+  loadBillableMinutesForClientDay,
   loadContactLogsForEasternDay,
 } from "@/lib/contact-log-daily-copy";
 import { requireStaffClientAccess } from "@/lib/app-session";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { minutesToDecimalHours } from "@wayfinder/supabase/es-time-tracking";
 import {
   respondWithLoggedError,
   USER_FACING_FORBIDDEN,
@@ -44,14 +46,19 @@ export async function GET(request: Request) {
     }
 
     const admin = createServiceRoleClient();
-    const rows = await loadContactLogsForEasternDay(admin, clientId, date);
-    const text = formatContactLogsDailyVprText(rows);
+    const [rows, totalBillableMinutes] = await Promise.all([
+      loadContactLogsForEasternDay(admin, clientId, date),
+      loadBillableMinutesForClientDay(admin, clientId, date),
+    ]);
+    const text = formatContactLogsDailyVprText(rows, totalBillableMinutes);
     const nearbyDays =
       rows.length === 0 ? await listNearbyContactLogDays(admin, clientId, date, 10) : [];
 
     return NextResponse.json({
       text,
       count: rows.length,
+      totalBillableMinutes,
+      totalBillableHours: minutesToDecimalHours(totalBillableMinutes),
       nearbyDays: nearbyDays.filter((d) => d !== date).slice(0, 8),
     });
   } catch (err) {

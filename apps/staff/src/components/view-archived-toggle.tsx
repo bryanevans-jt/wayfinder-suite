@@ -32,7 +32,7 @@ export function ViewArchivedToggle({ className }: Props) {
         onChange={toggle}
         className="size-4 rounded border-neutral-300 text-brand-green focus:ring-brand-green"
       />
-      View archived
+      View archived clients
     </label>
   );
 }

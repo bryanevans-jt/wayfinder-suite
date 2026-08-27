@@ -90,6 +90,7 @@ export { CORE_FOUR_VALUES, type CoreFourValue } from "./core-four-values";
 export { WayfinderFooter } from "./wayfinder-footer";
 export { PwaInstallPrompt, type PwaInstallPromptProps } from "./pwa-install-prompt";
 export { WayfinderTopNav, type WayfinderNavBadge } from "./wayfinder-top-nav";
+export { SkipToMainLink } from "./skip-to-main";
 export { wayfinderSecurityHeaders } from "./security-headers";
 export {
   TERMS_OF_USE_LAST_UPDATED,

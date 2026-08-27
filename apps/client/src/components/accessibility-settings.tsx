@@ -64,7 +64,11 @@ export function AccessibilitySettings({ initialLargeText, initialHighContrast }:
           />
           High contrast
         </label>
-        {saving ? <p className="text-xs text-brand-black/50">Saving…</p> : null}
+        {saving ? (
+          <p role="status" aria-live="polite" className="text-xs text-brand-black/50">
+            Saving…
+          </p>
+        ) : null}
       </div>
     </section>
   );
