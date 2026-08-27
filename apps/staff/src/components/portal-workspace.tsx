@@ -131,8 +131,10 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
   const canEditClients = true;
   const canDeleteClients = canManageOrg;
   const [showArchivedClients, setShowArchivedClients] = useState(false);
+  const [showRemovedEs, setShowRemovedEs] = useState(false);
   const canEditLogs = config?.canEditLogs ?? false;
   const canAssignAdmins = config?.canAssignAdmins ?? false;
+  const isSuperAdminMode = mode === "super_admin";
   const b = config?.bootstrap;
 
   useEffect(() => {
@@ -235,6 +237,14 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
       };
     });
   }, [b]);
+
+  const visibleEsStaff = useMemo(() => {
+    if (!b) return [];
+    if (isSuperAdminMode && showRemovedEs) {
+      return b.esStaff.filter((es) => es.is_removed);
+    }
+    return b.esStaff.filter((es) => !es.is_removed);
+  }, [b, isSuperAdminMode, showRemovedEs]);
 
   const supervisorEsIds = useMemo(() => {
     if (!b || !clientFilterSupervisorId) return null;
@@ -933,6 +943,18 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
             </p>
           )}
 
+          {isSuperAdminMode ? (
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-brand-black/80">
+              <input
+                type="checkbox"
+                checked={showRemovedEs}
+                onChange={(e) => setShowRemovedEs(e.target.checked)}
+                className="h-4 w-4 rounded border-neutral-300 text-brand-green focus:ring-brand-green"
+              />
+              Show removed Employment Specialists (restore or permanently delete)
+            </label>
+          ) : null}
+
           <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white">
             <table className="min-w-full text-left text-sm">
               <thead className="bg-neutral-50 text-brand-black/70">
@@ -945,20 +967,23 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {b.esStaff.length === 0 ? (
+                {visibleEsStaff.length === 0 ? (
                   <tr>
                     <td colSpan={canManageOrg ? 5 : 4} className="px-3 py-8 text-center text-brand-black/60">
-                      No Employment Specialists in your scope.
+                      {showRemovedEs
+                        ? "No Employment Specialists match this view."
+                        : "No Employment Specialists in your scope."}
                     </td>
                   </tr>
                 ) : canManageOrg ? (
-                  b.esStaff.map((es) => (
+                  visibleEsStaff.map((es) => (
                     <EsStaffListItem
                       key={es.id}
                       staff={es}
                       offices={b.offices}
                       busy={busy}
                       officeName={officeName}
+                      isSuperAdmin={isSuperAdminMode}
                       onViewProfile={() =>
                         setStaffProfile({
                           title: "Employment Specialist",
@@ -982,7 +1007,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                         })
                       }
                       onSendLoginEmail={
-                        es.email
+                        es.email && es.is_active
                           ? () =>
                               run(async () => {
                                 const res = await fetch("/api/portal/staff-users/send-login-email", {
@@ -997,16 +1022,61 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                               })
                           : undefined
                       }
+                      onPromote={
+                        isSuperAdminMode
+                          ? () =>
+                              run(async () => {
+                                if (
+                                  !confirm(
+                                    `Promote ${es.display_name} to Supervisor? Their login and client caseload will be kept.`
+                                  )
+                                ) {
+                                  return;
+                                }
+                                const res = await fetch("/api/portal/staff-role", {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ user_id: es.id, role: "supervisor" }),
+                                });
+                                const data = (await res.json()) as { error?: string };
+                                if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                              })
+                          : undefined
+                      }
+                      onRestore={
+                        isSuperAdminMode
+                          ? () =>
+                              run(async () => {
+                                if (
+                                  !confirm(
+                                    `Restore ${es.display_name} as an active Employment Specialist? Their clients were left Unassigned when they were removed — reassign them as needed.`
+                                  )
+                                ) {
+                                  return;
+                                }
+                                const res = await fetch("/api/portal/es-users", {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ user_id: es.id, is_active: true }),
+                                });
+                                const data = (await res.json()) as { error?: string };
+                                if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                              })
+                          : undefined
+                      }
                       onDelete={() =>
                         run(async () => {
-                          const msg =
+                          const clientNote =
                             es.client_count > 0
-                              ? `${es.display_name} still has ${es.client_count} assigned client(s). Reassign them first.`
-                              : `Remove ${es.display_name} as an Employment Specialist? Their login account will remain but they will be deactivated.`;
-                          if (es.client_count > 0) {
-                            throw new Error(msg);
+                              ? ` Their ${es.client_count} assigned client(s) will become Unassigned.`
+                              : "";
+                          if (
+                            !confirm(
+                              `Remove ${es.display_name} as an Employment Specialist?${clientNote} They will no longer appear in the app. A Super Admin can restore them later.`
+                            )
+                          ) {
+                            return;
                           }
-                          if (!confirm(msg)) return;
                           const res = await fetch(`/api/portal/es-users?user_id=${es.id}`, {
                             method: "DELETE",
                           });
@@ -1014,10 +1084,30 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                           if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
                         })
                       }
+                      onHardDelete={
+                        isSuperAdminMode
+                          ? () =>
+                              run(async () => {
+                                if (
+                                  !confirm(
+                                    `Permanently delete ${es.display_name}? This removes their login and cannot be undone. Prefer Restore if this was accidental.`
+                                  )
+                                ) {
+                                  return;
+                                }
+                                const res = await fetch(
+                                  `/api/portal/es-users?user_id=${es.id}&hard=1`,
+                                  { method: "DELETE" }
+                                );
+                                const data = (await res.json()) as { error?: string };
+                                if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                              })
+                          : undefined
+                      }
                     />
                   ))
                 ) : (
-                  b.esStaff.map((es) => {
+                  visibleEsStaff.map((es) => {
                     const officeLabels =
                       es.office_ids.map((id) => officeName(id)).join(", ") || "—";
                     return (
@@ -1061,11 +1151,11 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                                 : "bg-neutral-200 text-brand-black/60"
                             }`}
                           >
-                            {es.is_active ? "Active" : "Inactive"}
-                          </span>
-                        </td>
-                      </tr>
-                    );
+                          {es.is_active ? "Active" : es.is_removed ? "Removed" : "Inactive"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
                   })
                 )}
               </tbody>
@@ -1214,11 +1304,36 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                               })
                           : undefined
                       }
+                      onDemote={
+                        isSuperAdminMode
+                          ? () =>
+                              run(async () => {
+                                const teamNote =
+                                  s.es_count > 0
+                                    ? ` Their ${s.es_count} Employment Specialist link(s) will be cleared.`
+                                    : "";
+                                if (
+                                  !confirm(
+                                    `Demote ${s.display_name} to Employment Specialist? Their login and client caseload will be kept.${teamNote}`
+                                  )
+                                ) {
+                                  return;
+                                }
+                                const res = await fetch("/api/portal/staff-role", {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ user_id: s.id, role: "es" }),
+                                });
+                                const data = (await res.json()) as { error?: string };
+                                if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                              })
+                          : undefined
+                      }
                       onDelete={() =>
                         run(async () => {
                           if (s.es_count > 0) {
                             throw new Error(
-                              `${s.display_name} still supervises ${s.es_count} Employment Specialist team member(s). Remove those links first.`
+                              `${s.display_name} still supervises ${s.es_count} Employment Specialist team member(s). Remove those links first, or demote them to ES.`
                             );
                           }
                           if (
@@ -2145,16 +2260,21 @@ function EsStaffListItem({
   offices,
   busy,
   officeName,
+  isSuperAdmin,
   onViewProfile,
   onViewClients,
   onSave,
   onSendLoginEmail,
+  onPromote,
+  onRestore,
   onDelete,
+  onHardDelete,
 }: {
   staff: EsStaffRow;
   offices: PortalBootstrap["offices"];
   busy: boolean;
   officeName: (id: string | null) => string;
+  isSuperAdmin?: boolean;
   onViewProfile?: () => void;
   onViewClients?: () => void;
   onSave: (payload: {
@@ -2163,7 +2283,10 @@ function EsStaffListItem({
     office_ids: string[];
   }) => Promise<void>;
   onSendLoginEmail?: () => Promise<void>;
+  onPromote?: () => Promise<void>;
+  onRestore?: () => Promise<void>;
   onDelete: () => Promise<void>;
+  onHardDelete?: () => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(staff.full_name ?? staff.display_name);
@@ -2181,7 +2304,7 @@ function EsStaffListItem({
       ? staff.office_ids.map((id) => officeName(id)).join(", ")
       : "—";
 
-  if (editing) {
+  if (editing && !staff.is_removed) {
     return (
       <tr className="border-t border-neutral-100 bg-neutral-50/80">
         <td className="px-3 py-3">
@@ -2283,36 +2406,75 @@ function EsStaffListItem({
               : "bg-neutral-200 text-brand-black/60"
           }`}
         >
-          {staff.is_active ? "Active" : "Inactive"}
+          {staff.is_active ? "Active" : staff.is_removed ? "Removed" : "Inactive"}
         </span>
       </td>
       <td className="whitespace-nowrap px-3 py-3">
-        <button
-          type="button"
-          disabled={busy}
-          className="mr-3 font-medium text-brand-green hover:underline disabled:opacity-60"
-          onClick={() => setEditing(true)}
-        >
-          Edit
-        </button>
-        {onSendLoginEmail ? (
-          <button
-            type="button"
-            disabled={busy}
-            className="mr-3 font-medium text-brand-black/75 hover:underline disabled:opacity-60"
-            onClick={() => void onSendLoginEmail()}
-          >
-            Send login email
-          </button>
-        ) : null}
-        <button
-          type="button"
-          disabled={busy}
-          className="text-red-700 hover:underline disabled:opacity-60"
-          onClick={() => void onDelete()}
-        >
-          Delete
-        </button>
+        {staff.is_removed ? (
+          isSuperAdmin ? (
+            <>
+              {onRestore ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="mr-3 font-medium text-brand-green hover:underline disabled:opacity-60"
+                  onClick={() => void onRestore()}
+                >
+                  Restore
+                </button>
+              ) : null}
+              {onHardDelete ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="text-red-700 hover:underline disabled:opacity-60"
+                  onClick={() => void onHardDelete()}
+                >
+                  Permanently delete
+                </button>
+              ) : null}
+            </>
+          ) : null
+        ) : (
+          <>
+            <button
+              type="button"
+              disabled={busy}
+              className="mr-3 font-medium text-brand-green hover:underline disabled:opacity-60"
+              onClick={() => setEditing(true)}
+            >
+              Edit
+            </button>
+            {onSendLoginEmail ? (
+              <button
+                type="button"
+                disabled={busy}
+                className="mr-3 font-medium text-brand-black/75 hover:underline disabled:opacity-60"
+                onClick={() => void onSendLoginEmail()}
+              >
+                Send login email
+              </button>
+            ) : null}
+            {onPromote ? (
+              <button
+                type="button"
+                disabled={busy}
+                className="mr-3 font-medium text-brand-black/75 hover:underline disabled:opacity-60"
+                onClick={() => void onPromote()}
+              >
+                Promote to Supervisor
+              </button>
+            ) : null}
+            <button
+              type="button"
+              disabled={busy}
+              className="text-red-700 hover:underline disabled:opacity-60"
+              onClick={() => void onDelete()}
+            >
+              Remove
+            </button>
+          </>
+        )}
       </td>
     </tr>
   );
@@ -2547,6 +2709,7 @@ function SupervisorStaffListItem({
   onViewClients,
   onSave,
   onSendLoginEmail,
+  onDemote,
   onDelete,
 }: {
   staff: SupervisorStaffRow;
@@ -2561,6 +2724,7 @@ function SupervisorStaffListItem({
     office_ids: string[];
   }) => Promise<void>;
   onSendLoginEmail?: () => Promise<void>;
+  onDemote?: () => Promise<void>;
   onDelete: () => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
@@ -2700,6 +2864,16 @@ function SupervisorStaffListItem({
             onClick={() => void onSendLoginEmail()}
           >
             Send login email
+          </button>
+        ) : null}
+        {onDemote ? (
+          <button
+            type="button"
+            disabled={busy}
+            className="mr-3 font-medium text-brand-black/75 hover:underline disabled:opacity-60"
+            onClick={() => void onDemote()}
+          >
+            Demote to ES
           </button>
         ) : null}
         <button

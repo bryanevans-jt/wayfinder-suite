@@ -102,6 +102,8 @@ export type PortalBootstrap = {
     full_name: string | null;
     display_name: string;
     is_active: boolean;
+    /** Soft-removed from Team lists; Super Admin can restore. */
+    is_removed: boolean;
     office_ids: string[];
     client_count: number;
   }[];
@@ -275,7 +277,12 @@ export async function loadPortalBootstrap(
 
   let profilesQuery = await admin
     .from("profiles")
-    .select("id, role, full_name, first_name, last_name, is_active");
+    .select("id, role, full_name, first_name, last_name, is_active, staff_removed_at");
+  if (profilesQuery.error?.message.includes("staff_removed_at")) {
+    profilesQuery = await admin
+      .from("profiles")
+      .select("id, role, full_name, first_name, last_name, is_active");
+  }
   if (profilesQuery.error?.message.includes("first_name")) {
     profilesQuery = await admin.from("profiles").select("id, role, full_name, is_active");
   }
@@ -301,6 +308,7 @@ export async function loadPortalBootstrap(
     first_name?: string | null;
     last_name?: string | null;
     is_active?: boolean | null;
+    staff_removed_at?: string | null;
   };
 
   const profileById = new Map((profiles ?? []).map((p) => [p.id as string, p as ProfileRow]));
@@ -546,16 +554,16 @@ export async function loadPortalBootstrap(
       }
 
       const mapped = sourceProfiles
+        .filter((p) => p.is_active !== false)
         .map((p) => {
           const id = p.id as string;
           const email = emailById.get(id) ?? "";
           const profile = profileById.get(id);
-          const isActive = p.is_active !== false;
           return {
             id,
             email,
             full_name: profile?.full_name ?? null,
-            display_name: `${staffNameFor(id)}${isActive ? "" : " (inactive)"}`,
+            display_name: staffNameFor(id),
             office_ids: staffOfficeByUser.get(id) ?? [],
           };
         })
@@ -567,14 +575,15 @@ export async function loadPortalBootstrap(
         const supId = scope.supervisorUserId;
         if (!mapped.some((e) => e.id === supId)) {
           const profile = profileById.get(supId);
-          const isActive = profile?.is_active !== false;
-          mapped.unshift({
-            id: supId,
-            email: emailById.get(supId) ?? "",
-            full_name: profile?.full_name ?? null,
-            display_name: `${staffNameFor(supId)} (you)${isActive ? "" : " (inactive)"}`,
-            office_ids: staffOfficeByUser.get(supId) ?? [],
-          });
+          if (profile?.is_active !== false) {
+            mapped.unshift({
+              id: supId,
+              email: emailById.get(supId) ?? "",
+              full_name: profile?.full_name ?? null,
+              display_name: `${staffNameFor(supId)} (you)`,
+              office_ids: staffOfficeByUser.get(supId) ?? [],
+            });
+          }
         }
       }
 
@@ -582,7 +591,7 @@ export async function loadPortalBootstrap(
     })(),
     caseloadAssignees: (() => {
       let assigneeProfiles = (profiles ?? []).filter(
-        (p) => p.role === "es" || p.role === "supervisor"
+        (p) => (p.role === "es" || p.role === "supervisor") && p.is_active !== false
       );
 
       if (scope?.supervisorUserId) {
@@ -605,17 +614,15 @@ export async function loadPortalBootstrap(
           const id = p.id as string;
           const profile = profileById.get(id);
           const isSupervisor = p.role === "supervisor";
-          const isActive = p.is_active !== false;
           const name = staffNameFor(id);
-          const inactiveSuffix = isActive ? "" : " (inactive)";
           return {
             id,
             email: emailById.get(id) ?? "",
             full_name: profile?.full_name ?? null,
-            display_name: isSupervisor ? `${name} (Supervisor)${inactiveSuffix}` : `${name}${inactiveSuffix}`,
+            display_name: isSupervisor ? `${name} (Supervisor)` : name,
             office_ids: staffOfficeByUser.get(id) ?? [],
             role: p.role as "es" | "supervisor",
-            is_active: isActive,
+            is_active: true,
           };
         })
         .sort((a, b) =>
@@ -626,17 +633,18 @@ export async function loadPortalBootstrap(
         const supId = scope.supervisorUserId;
         if (!mapped.some((e) => e.id === supId)) {
           const profile = profileById.get(supId);
-          const name = staffNameFor(supId);
-          const isActive = profile?.is_active !== false;
-          mapped.unshift({
-            id: supId,
-            email: emailById.get(supId) ?? "",
-            full_name: profile?.full_name ?? null,
-            display_name: `${name} (you)${isActive ? "" : " (inactive)"}`,
-            office_ids: staffOfficeByUser.get(supId) ?? [],
-            role: "supervisor",
-            is_active: isActive,
-          });
+          if (profile?.is_active !== false) {
+            const name = staffNameFor(supId);
+            mapped.unshift({
+              id: supId,
+              email: emailById.get(supId) ?? "",
+              full_name: profile?.full_name ?? null,
+              display_name: `${name} (you)`,
+              office_ids: staffOfficeByUser.get(supId) ?? [],
+              role: "supervisor",
+              is_active: true,
+            });
+          }
         }
       }
 
@@ -656,6 +664,7 @@ export async function loadPortalBootstrap(
           full_name: profile?.full_name ?? null,
           display_name: staffNameFor(id),
           is_active: profile?.is_active !== false,
+          is_removed: Boolean(profile?.staff_removed_at),
           office_ids: staffOfficeByUser.get(id) ?? [],
           client_count: esClientCountByUser.get(id) ?? 0,
         };

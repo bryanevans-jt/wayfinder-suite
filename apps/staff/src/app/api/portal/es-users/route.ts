@@ -2,8 +2,10 @@ import { assertPortalMutation, jsonPortalError } from "@/lib/portal-auth";
 import {
   assertStaffUserEditable,
   findAuthUserIdByEmail,
+  hardDeleteStaffAuthUser,
   provisionStaffAuthUser,
   replaceStaffOfficeAssignments,
+  softRemoveEmploymentSpecialist,
   upsertStaffProfile,
 } from "@/lib/portal-staff-users";
 import { NextRequest } from "next/server";
@@ -84,7 +86,7 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { admin } = await assertPortalMutation("admin");
+    const { admin, isSuperAdmin } = await assertPortalMutation("admin");
     const body = (await request.json()) as PatchBody;
     const userId = body.user_id?.trim();
 
@@ -99,7 +101,7 @@ export async function PATCH(request: NextRequest) {
 
     const { data: profile } = await admin
       .from("profiles")
-      .select("role")
+      .select("role, is_active, staff_removed_at")
       .eq("id", userId)
       .maybeSingle();
 
@@ -107,15 +109,50 @@ export async function PATCH(request: NextRequest) {
       return Response.json({ error: "User is not an Employment Specialist" }, { status: 400 });
     }
 
+    const wasInactive = profile.is_active === false;
+    const wasRemoved = Boolean(profile.staff_removed_at);
+    if (body.is_active === true && wasRemoved && !isSuperAdmin) {
+      return Response.json(
+        {
+          error:
+            "Only a Super Admin can restore a removed Employment Specialist. Ask a Super Admin to bring them back.",
+        },
+        { status: 403 }
+      );
+    }
+
     if (body.full_name !== undefined || body.is_active !== undefined) {
       const fullName = body.full_name?.trim();
       if (body.full_name !== undefined && !fullName) {
         return Response.json({ error: "Full name cannot be empty" }, { status: 400 });
       }
+
+      // Deactivating via Edit mirrors Remove: unassign caseload so clients are Unassigned.
+      if (body.is_active === false && !wasInactive) {
+        await softRemoveEmploymentSpecialist(admin, userId);
+        if (body.full_name !== undefined) {
+          await upsertStaffProfile(admin, userId, {
+            role: "es",
+            full_name: fullName,
+            is_active: false,
+            staff_removed_at: new Date().toISOString(),
+          });
+        }
+        if (body.office_ids !== undefined) {
+          await replaceStaffOfficeAssignments(
+            admin,
+            userId,
+            body.office_ids.map((id) => id.trim()).filter(Boolean)
+          );
+        }
+        return Response.json({ ok: true });
+      }
+
       await upsertStaffProfile(admin, userId, {
         role: "es",
         ...(body.full_name !== undefined ? { full_name: fullName } : {}),
         ...(body.is_active !== undefined ? { is_active: body.is_active } : {}),
+        ...(body.is_active === true ? { staff_removed_at: null } : {}),
       });
     }
 
@@ -135,11 +172,19 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { admin } = await assertPortalMutation("admin");
+    const hard = request.nextUrl.searchParams.get("hard") === "1";
+    const { admin, isSuperAdmin } = await assertPortalMutation(hard ? "super_admin" : "admin");
     const userId = request.nextUrl.searchParams.get("user_id")?.trim();
 
     if (!userId) {
       return Response.json({ error: "user_id is required" }, { status: 400 });
+    }
+
+    if (hard && !isSuperAdmin) {
+      return Response.json(
+        { error: "Only a Super Admin can permanently delete an Employment Specialist." },
+        { status: 403 }
+      );
     }
 
     const blocked = await assertStaffUserEditable(admin, userId);
@@ -157,26 +202,13 @@ export async function DELETE(request: NextRequest) {
       return Response.json({ error: "User is not an Employment Specialist" }, { status: 400 });
     }
 
-    const { count: clientCount } = await admin
-      .from("es_client_assignments")
-      .select("id", { count: "exact", head: true })
-      .eq("es_user_id", userId);
-
-    if ((clientCount ?? 0) > 0) {
-      return Response.json(
-        {
-          error:
-            "This ES still has assigned clients. Reassign or remove those clients before deleting.",
-        },
-        { status: 409 }
-      );
+    if (hard) {
+      await hardDeleteStaffAuthUser(admin, userId);
+      return Response.json({ ok: true, hardDeleted: true });
     }
 
-    await admin.from("supervisor_es_assignments").delete().eq("es_user_id", userId);
-    await replaceStaffOfficeAssignments(admin, userId, []);
-    await upsertStaffProfile(admin, userId, { role: "es", is_active: false });
-
-    return Response.json({ ok: true });
+    const { unassignedClients } = await softRemoveEmploymentSpecialist(admin, userId);
+    return Response.json({ ok: true, unassignedClients });
   } catch (error) {
     return await jsonPortalError(error);
   }

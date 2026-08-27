@@ -5,7 +5,8 @@ import {
   loadSupervisorScope,
   type SupervisorScope,
 } from "@/lib/supervisor-client-scope";
-import { isAdminTierRole, isEsRole } from "@wayfinder/supabase/roles";
+import { isCaseloadAssigneeRole } from "@/lib/caseload-assignee";
+import { isAdminTierRole } from "@wayfinder/supabase/roles";
 import { NextRequest } from "next/server";
 
 type AssignmentBody = {
@@ -43,8 +44,8 @@ async function assertSupervisedEsTarget(
   if (!profile) {
     return "That specialist account was not found.";
   }
-  if (!isEsRole(profile.role as string)) {
-    return "Caseload can only be assigned to an Employment Specialist.";
+  if (!isCaseloadAssigneeRole(profile.role as string)) {
+    return "Caseload can only be assigned to an Employment Specialist or supervisor.";
   }
   if (profile.is_active === false) {
     return "That specialist account is inactive.";

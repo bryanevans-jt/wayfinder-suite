@@ -131,6 +131,7 @@ export async function upsertStaffProfile(
     role: string;
     full_name?: string;
     is_active?: boolean;
+    staff_removed_at?: string | null;
   }
 ): Promise<void> {
   const row: Record<string, unknown> = {
@@ -140,6 +141,9 @@ export async function upsertStaffProfile(
   };
   if (fields.full_name !== undefined) {
     row.full_name = fields.full_name;
+  }
+  if (fields.staff_removed_at !== undefined) {
+    row.staff_removed_at = fields.staff_removed_at;
   }
 
   const { error: upsertErr } = await admin.from("profiles").upsert(row, { onConflict: "id" });
@@ -230,6 +234,66 @@ export async function replaceCounselorOfficeAssignments(
     }))
   );
   if (insertErr) throw new Error(insertErr.message);
+}
+
+/**
+ * Clears an ES/supervisor's caseload so clients become Unassigned
+ * (no es_client_assignments row) and message threads stop routing to them.
+ */
+export async function clearStaffCaseloadAssignments(
+  admin: AdminClient,
+  userId: string
+): Promise<number> {
+  const { data: links, error: listErr } = await admin
+    .from("es_client_assignments")
+    .select("client_id")
+    .eq("es_user_id", userId);
+  if (listErr) throw new Error(listErr.message);
+
+  const clientIds = [...new Set((links ?? []).map((row) => row.client_id as string).filter(Boolean))];
+
+  const { error: clearErr } = await admin
+    .from("es_client_assignments")
+    .delete()
+    .eq("es_user_id", userId);
+  if (clearErr) throw new Error(clearErr.message);
+
+  if (clientIds.length > 0) {
+    const { error: threadErr } = await admin
+      .from("client_message_threads")
+      .update({ current_es_user_id: null })
+      .eq("current_es_user_id", userId);
+    if (threadErr) throw new Error(threadErr.message);
+  }
+
+  return clientIds.length;
+}
+
+/** Soft-remove an Employment Specialist from day-to-day use (login kept, inactive). */
+export async function softRemoveEmploymentSpecialist(
+  admin: AdminClient,
+  userId: string
+): Promise<{ unassignedClients: number }> {
+  const unassignedClients = await clearStaffCaseloadAssignments(admin, userId);
+  await admin.from("supervisor_es_assignments").delete().eq("es_user_id", userId);
+  await replaceStaffOfficeAssignments(admin, userId, []);
+  await upsertStaffProfile(admin, userId, {
+    role: "es",
+    is_active: false,
+    staff_removed_at: new Date().toISOString(),
+  });
+  return { unassignedClients };
+}
+
+/** Permanently remove Auth user + profile (cascades assignment FKs). */
+export async function hardDeleteStaffAuthUser(admin: AdminClient, userId: string): Promise<void> {
+  await clearStaffCaseloadAssignments(admin, userId);
+  await admin.from("supervisor_es_assignments").delete().eq("es_user_id", userId);
+  await admin.from("supervisor_es_assignments").delete().eq("supervisor_user_id", userId);
+  await replaceStaffOfficeAssignments(admin, userId, []);
+
+  const { error } = await admin.auth.admin.deleteUser(userId);
+  if (error) throw new Error(error.message);
 }
 
 export async function countClientsForCounselor(
