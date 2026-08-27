@@ -24,7 +24,19 @@ export type DemoCounselorClient = {
   esName: string;
 };
 
+/** Ordered by last name for counselor caseload (grid also sorts A–Z by last name). */
 export const DEMO_COUNSELOR_CLIENTS: DemoCounselorClient[] = [
+  {
+    linkId: "sample-riley-brooks",
+    displayName: "Riley Brooks",
+    serviceName: "Workplace Readiness Training",
+    stage: "Open",
+    applications: 0,
+    lastActivity: "2026-08-28T16:00:00.000Z",
+    latestAppStatus: null,
+    archived: false,
+    esName: "Sam Rivera",
+  },
   {
     linkId: "sample-morgan-ellis",
     displayName: "Morgan Ellis",
@@ -46,17 +58,6 @@ export const DEMO_COUNSELOR_CLIENTS: DemoCounselorClient[] = [
     latestAppStatus: "Hired",
     archived: false,
     esName: "Jordan Blake",
-  },
-  {
-    linkId: "sample-riley-brooks",
-    displayName: "Riley Brooks",
-    serviceName: "Workplace Readiness Training",
-    stage: "Open",
-    applications: 0,
-    lastActivity: "2026-08-28T16:00:00.000Z",
-    latestAppStatus: null,
-    archived: false,
-    esName: "Sam Rivera",
   },
   {
     linkId: "sample-jamie-ortiz",
