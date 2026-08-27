@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type {
   HospitalityCounselorOption,
@@ -13,6 +13,7 @@ type Props = {
   clientId: string;
   initialOfficeId: string | null;
   initialCounselorId: string | null;
+  initialSupervisorUserId?: string | null;
   initialEsUserId?: string | null;
   supervisors: HospitalitySupervisorOption[];
   offices: HospitalityOfficeOption[];
@@ -24,6 +25,7 @@ export function HospitalityStartClientPanel({
   clientId,
   initialOfficeId,
   initialCounselorId,
+  initialSupervisorUserId = null,
   initialEsUserId = null,
   supervisors,
   offices,
@@ -33,15 +35,9 @@ export function HospitalityStartClientPanel({
   const router = useRouter();
   const inferredCounselorOfficeId =
     counselors.find((c) => c.id === initialCounselorId)?.officeIds[0] ?? null;
-  const inferredSupervisorId =
-    supervisors.find(
-      (s) =>
-        s.primaryOfficeId &&
-        s.primaryOfficeId === (initialOfficeId ?? inferredCounselorOfficeId)
-    )?.id ?? "";
 
   const [supervisorQuery, setSupervisorQuery] = useState("");
-  const [supervisorUserId, setSupervisorUserId] = useState(inferredSupervisorId);
+  const [supervisorUserId, setSupervisorUserId] = useState(initialSupervisorUserId ?? "");
   const [officeId, setOfficeId] = useState(initialOfficeId ?? inferredCounselorOfficeId ?? "");
   const [counselorId, setCounselorId] = useState(initialCounselorId ?? "");
   const [esQuery, setEsQuery] = useState("");
@@ -50,17 +46,46 @@ export function HospitalityStartClientPanel({
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
+  // After router.refresh(), rehydrate from persisted server props (do not re-infer
+  // supervisor from office — that dropped the saved selection).
+  useEffect(() => {
+    setSupervisorUserId(initialSupervisorUserId ?? "");
+    setOfficeId(initialOfficeId ?? inferredCounselorOfficeId ?? "");
+    setCounselorId(initialCounselorId ?? "");
+    setEsUserId(initialEsUserId ?? "");
+  }, [
+    initialSupervisorUserId,
+    initialOfficeId,
+    initialCounselorId,
+    initialEsUserId,
+    inferredCounselorOfficeId,
+  ]);
+
   const filteredSupervisors = useMemo(() => {
     const q = supervisorQuery.trim().toLowerCase();
     if (!q) return supervisors;
     return supervisors.filter((s) => s.name.toLowerCase().includes(q));
   }, [supervisors, supervisorQuery]);
 
+  const supervisorOptions = useMemo(() => {
+    if (!supervisorUserId) return filteredSupervisors;
+    if (filteredSupervisors.some((s) => s.id === supervisorUserId)) return filteredSupervisors;
+    const selected = supervisors.find((s) => s.id === supervisorUserId);
+    return selected ? [selected, ...filteredSupervisors] : filteredSupervisors;
+  }, [filteredSupervisors, supervisorUserId, supervisors]);
+
   const filteredEs = useMemo(() => {
     const q = esQuery.trim().toLowerCase();
     if (!q) return esUsers;
     return esUsers.filter((e) => e.name.toLowerCase().includes(q));
   }, [esUsers, esQuery]);
+
+  const esOptions = useMemo(() => {
+    if (!esUserId) return filteredEs;
+    if (filteredEs.some((e) => e.id === esUserId)) return filteredEs;
+    const selected = esUsers.find((e) => e.id === esUserId);
+    return selected ? [selected, ...filteredEs] : filteredEs;
+  }, [filteredEs, esUserId, esUsers]);
 
   function pickSupervisor(id: string) {
     setSupervisorUserId(id);
@@ -85,18 +110,24 @@ export function HospitalityStartClientPanel({
     setError(null);
     setSaved(false);
     try {
+      const info: Record<string, string | null> = {
+        supervisorUserId: supervisorUserId || null,
+        officeId: officeId || null,
+        counselorId: counselorId || null,
+      };
+      // Only touch ES assignment when the picker is available (avoids clearing ES
+      // when the options list failed to load).
+      if (esUsers.length > 0) {
+        info.esUserId = esUserId || null;
+      }
+
       const res = await fetch("/api/referrals", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clientId,
           action: "update_info",
-          info: {
-            supervisorUserId: supervisorUserId || null,
-            officeId: officeId || null,
-            counselorId: counselorId || null,
-            esUserId: esUserId || null,
-          },
+          info,
         }),
       });
       const data = (await res.json()) as { error?: string };
@@ -138,7 +169,7 @@ export function HospitalityStartClientPanel({
           onChange={(e) => pickSupervisor(e.target.value)}
         >
           <option value="">Select a supervisor</option>
-          {filteredSupervisors.map((s) => (
+          {supervisorOptions.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
               {!s.primaryOfficeId ? " (no office)" : ""}
@@ -200,7 +231,7 @@ export function HospitalityStartClientPanel({
               onChange={(e) => setEsUserId(e.target.value)}
             >
               <option value="">Unassigned</option>
-              {filteredEs.map((e) => (
+              {esOptions.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.name}
                   {e.role === "supervisor" ? " (Supervisor)" : ""}

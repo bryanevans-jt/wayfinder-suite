@@ -879,7 +879,7 @@ export type ReferralClientInfoUpdate = {
   serviceLabel?: string | null;
   officeId?: string | null;
   counselorId?: string | null;
-  /** Sets client office to this supervisor's first assigned office. */
+  /** Assigned supervisor user id (persisted on clients.supervisor_user_id). */
   supervisorUserId?: string | null;
   /** Assigns Employment Specialist via es_client_assignments (null clears). */
   esUserId?: string | null;
@@ -963,34 +963,51 @@ export async function updateReferralClientInfo(
     update.referral_state = p.referralState;
   }
 
-  if (p.supervisorUserId !== undefined && (p.supervisorUserId ?? "").trim()) {
+  if (p.supervisorUserId !== undefined) {
     const supervisorId = (p.supervisorUserId ?? "").trim();
-    const { data: supervisor } = await admin
-      .from("profiles")
-      .select("id, role")
-      .eq("id", supervisorId)
-      .eq("role", "supervisor")
-      .eq("is_active", true)
-      .maybeSingle();
-    if (!supervisor) {
-      return { error: "Supervisor not found" };
-    }
-    const { data: offices } = await admin
-      .from("staff_office_assignments")
-      .select("office_id")
-      .eq("user_id", supervisorId)
-      .limit(1);
-    const supervisorOfficeId = (offices?.[0]?.office_id as string | undefined) ?? null;
-    if (supervisorOfficeId && p.officeId === undefined) {
-      update.office_id = supervisorOfficeId;
-    } else if (!supervisorOfficeId && !(p.officeId ?? "").trim()) {
-      return { error: "That supervisor has no office assigned" };
+    if (!supervisorId) {
+      update.supervisor_user_id = null;
+    } else {
+      const { data: supervisor } = await admin
+        .from("profiles")
+        .select("id, role")
+        .eq("id", supervisorId)
+        .eq("role", "supervisor")
+        .eq("is_active", true)
+        .maybeSingle();
+      if (!supervisor) {
+        return { error: "Supervisor not found" };
+      }
+      update.supervisor_user_id = supervisorId;
+
+      const { data: offices } = await admin
+        .from("staff_office_assignments")
+        .select("office_id")
+        .eq("user_id", supervisorId)
+        .limit(1);
+      const supervisorOfficeId = (offices?.[0]?.office_id as string | undefined) ?? null;
+      // Only auto-fill office when the caller did not send an officeId.
+      if (p.officeId === undefined) {
+        if (supervisorOfficeId) {
+          update.office_id = supervisorOfficeId;
+        } else {
+          return { error: "That supervisor has no office assigned" };
+        }
+      } else if (!(p.officeId ?? "").trim() && !supervisorOfficeId) {
+        return { error: "That supervisor has no office assigned" };
+      } else if (!(p.officeId ?? "").trim() && supervisorOfficeId) {
+        update.office_id = supervisorOfficeId;
+      }
     }
   }
 
   if (p.officeId !== undefined) {
     const officeId = (p.officeId ?? "").trim();
-    update.office_id = officeId || null;
+    // Do not overwrite an office auto-filled from supervisor with an empty string
+    // when both were sent and office was intentionally left blank for auto-fill.
+    if (officeId || p.supervisorUserId === undefined) {
+      update.office_id = officeId || null;
+    }
   }
 
   if (p.counselorId !== undefined) {
@@ -1044,7 +1061,18 @@ export async function updateReferralClientInfo(
   }
 
   const { error } = await admin.from("clients").update(update).eq("id", opts.clientId);
-  if (error) return { error: error.message };
+  if (error) {
+    if (
+      update.supervisor_user_id !== undefined &&
+      /supervisor_user_id|does not exist|Could not find the '|schema cache/i.test(error.message)
+    ) {
+      return {
+        error:
+          "Supervisor assignment requires a database update. Ask an admin to run migration 20260827120000_clients_supervisor_user_id.",
+      };
+    }
+    return { error: error.message };
+  }
 
   if (p.esUserId !== undefined) {
     const esUserId = (p.esUserId ?? "").trim() || null;

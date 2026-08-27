@@ -57,6 +57,7 @@ export default async function HospitalityIntakeDetailPage({ params }: PageProps)
           clientId={row.id}
           initialOfficeId={row.office_id}
           initialCounselorId={row.counselor_id}
+          initialSupervisorUserId={row.supervisor_user_id}
           initialEsUserId={initialEsUserId}
           supervisors={options.supervisors}
           offices={options.offices}

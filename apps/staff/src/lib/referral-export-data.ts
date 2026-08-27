@@ -25,6 +25,7 @@ export type ReferralExportRow = {
   home_zip: string | null;
   office_id: string | null;
   counselor_id: string | null;
+  supervisor_user_id: string | null;
   counselorName: string | null;
   counselorEmail: string | null;
   serviceName: string | null;
@@ -34,7 +35,7 @@ export type ReferralExportRow = {
 };
 
 const CLIENT_FIELDS =
-  "id, full_name, contact_email, intake_status, referral_state, referred_at, date_of_birth, primary_phone, secondary_phone, gender, ethnicity, disability_history, meeting_preference, counselor_availability, authorization_number, authorization_override_reason, employment_goal_primary, home_address_line1, home_city, home_state, home_zip, current_service_id, current_stage_id, counselor_id, office_id";
+  "id, full_name, contact_email, intake_status, referral_state, referred_at, date_of_birth, primary_phone, secondary_phone, gender, ethnicity, disability_history, meeting_preference, counselor_availability, authorization_number, authorization_override_reason, employment_goal_primary, home_address_line1, home_city, home_state, home_zip, current_service_id, current_stage_id, counselor_id, office_id, supervisor_user_id";
 
 function formatAddress(row: {
   home_address_line1: string | null;
@@ -60,15 +61,32 @@ export async function loadReferralExportRows(
 ): Promise<ReferralExportRow[]> {
   if (clientIds.length === 0) return [];
 
-  const { data: rows, error } = await admin
-    .from("clients")
-    .select(CLIENT_FIELDS)
-    .in("id", clientIds);
+  const CLIENT_FIELDS_CORE = CLIENT_FIELDS.replace(", supervisor_user_id", "");
 
-  if (error || !rows?.length) return [];
+  let ordered: Array<Record<string, unknown>> = [];
+  {
+    const full = await admin.from("clients").select(CLIENT_FIELDS).in("id", clientIds);
+    if (!full.error && full.data?.length) {
+      const rows = full.data as unknown as Array<Record<string, unknown>>;
+      const byId = new Map(rows.map((r) => [String(r.id), r]));
+      ordered = clientIds.map((id) => byId.get(id)).filter(Boolean) as Array<Record<string, unknown>>;
+    } else if (
+      full.error &&
+      /supervisor_user_id|does not exist|Could not find the '|schema cache/i.test(full.error.message)
+    ) {
+      const core = await admin.from("clients").select(CLIENT_FIELDS_CORE).in("id", clientIds);
+      if (core.error || !core.data?.length) return [];
+      const coreRows = core.data as unknown as Array<Record<string, unknown>>;
+      const byId = new Map(
+        coreRows.map((r) => [String(r.id), { ...r, supervisor_user_id: null }])
+      );
+      ordered = clientIds.map((id) => byId.get(id)).filter(Boolean) as Array<Record<string, unknown>>;
+    } else {
+      return [];
+    }
+  }
 
-  const byId = new Map(rows.map((r) => [r.id as string, r]));
-  const ordered = clientIds.map((id) => byId.get(id)).filter(Boolean) as typeof rows;
+  if (ordered.length === 0) return [];
 
   const counselorIds = [...new Set(ordered.map((r) => r.counselor_id).filter(Boolean))] as string[];
   const serviceIds = [...new Set(ordered.map((r) => r.current_service_id).filter(Boolean))] as string[];
@@ -153,6 +171,7 @@ export async function loadReferralExportRows(
       home_zip: (row.home_zip as string | null) ?? null,
       office_id: (row.office_id as string | null) ?? null,
       counselor_id: (row.counselor_id as string | null) ?? null,
+      supervisor_user_id: (row.supervisor_user_id as string | null) ?? null,
       counselorName: counselor?.name ?? null,
       counselorEmail: counselor?.email ?? null,
       serviceName: row.current_service_id
