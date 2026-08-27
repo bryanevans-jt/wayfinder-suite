@@ -3,7 +3,7 @@
 import { buildJtReportsPrefillUrl } from "@wayfinder/branding";
 import { isAdminTierRole, isEsRole, isSupervisorRole } from "@wayfinder/supabase/roles";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type ReportAlert = {
   id: string;
@@ -20,29 +20,45 @@ type Props = {
   staffRole: string | null;
 };
 
+const DISMISS_STORAGE_KEY = "wayfinder-report-alerts-dismissed";
+
 function showAlertsForRole(staffRole: string | null): boolean {
   return isEsRole(staffRole) || isSupervisorRole(staffRole) || isAdminTierRole(staffRole);
+}
+
+function alertFingerprint(alerts: ReportAlert[]): string {
+  return alerts
+    .map((a) => a.id)
+    .sort()
+    .join(",");
 }
 
 export function ReportAlertsBanner({ staffRole }: Props) {
   const [alerts, setAlerts] = useState<ReportAlert[]>([]);
   const [expanded, setExpanded] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [dismissedFp, setDismissedFp] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      setDismissedFp(sessionStorage.getItem(DISMISS_STORAGE_KEY));
+    } catch {
+      setDismissedFp(null);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     if (!showAlertsForRole(staffRole)) {
       setAlerts([]);
       return;
     }
-    setLoading(true);
     try {
       const res = await fetch("/api/report-alerts");
       const data = (await res.json()) as { alerts?: ReportAlert[] };
       if (res.ok) {
         setAlerts(data.alerts ?? []);
       }
-    } finally {
-      setLoading(false);
+    } catch {
+      // Keep prior alerts on network blips — never flash an empty checking state.
     }
   }, [staffRole]);
 
@@ -52,7 +68,19 @@ export function ReportAlertsBanner({ staffRole }: Props) {
     return () => clearInterval(interval);
   }, [load]);
 
-  if (!showAlertsForRole(staffRole) || (!loading && alerts.length === 0)) {
+  const fingerprint = useMemo(() => alertFingerprint(alerts), [alerts]);
+
+  function dismiss() {
+    try {
+      sessionStorage.setItem(DISMISS_STORAGE_KEY, fingerprint);
+    } catch {
+      // Ignore storage failures; still hide for this mount.
+    }
+    setDismissedFp(fingerprint);
+    setExpanded(false);
+  }
+
+  if (!showAlertsForRole(staffRole) || alerts.length === 0 || dismissedFp === fingerprint) {
     return null;
   }
 
@@ -73,31 +101,34 @@ export function ReportAlertsBanner({ staffRole }: Props) {
         <div>
           <p className="text-sm font-semibold">SE Monthly report alerts</p>
           <p className="text-sm opacity-90">
-            {loading && alerts.length === 0
-              ? "Checking compliance…"
-              : `${summaryParts.join(", ")} GVRA report${alerts.length === 1 ? "" : "s"} need attention.`}
+            {`${summaryParts.join(", ")} GVRA report${alerts.length === 1 ? "" : "s"} need attention.`}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link
             href="/dashboard/reporting"
             className="rounded-lg border border-current/20 px-3 py-1.5 text-sm font-medium hover:bg-white/40"
           >
             Open reporting
           </Link>
-          {alerts.length > 0 ? (
-            <button
-              type="button"
-              onClick={() => setExpanded((v) => !v)}
-              className="rounded-lg border border-current/20 px-3 py-1.5 text-sm font-medium hover:bg-white/40"
-            >
-              {expanded ? "Hide" : "Show list"}
-            </button>
-          ) : null}
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="rounded-lg border border-current/20 px-3 py-1.5 text-sm font-medium hover:bg-white/40"
+          >
+            {expanded ? "Hide" : "Show list"}
+          </button>
+          <button
+            type="button"
+            onClick={dismiss}
+            className="rounded-lg border border-current/20 px-3 py-1.5 text-sm font-medium hover:bg-white/40"
+          >
+            Dismiss
+          </button>
         </div>
       </div>
 
-      {expanded && alerts.length > 0 ? (
+      {expanded ? (
         <ul className="mt-3 space-y-2 border-t border-current/10 pt-3">
           {alerts.slice(0, 20).map((alert) => (
             <li key={alert.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
