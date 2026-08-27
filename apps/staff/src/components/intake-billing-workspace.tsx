@@ -26,14 +26,14 @@ const FILTERS = [
   ["ready_to_bill", "Ready to bill"],
   ["billed", "Billed"],
   ["paid", "Paid"],
-  ["scheduled", "Scheduled"],
+  ["scheduled", "Intake Scheduled"],
   ["all", "All"],
 ] as const;
 
 function reasonLabel(reason: string | null): string {
-  if (reason === "contact_log") return "First contact log";
+  if (reason === "contact_log") return "First casework contact log";
   if (reason === "tse_phase" || reason === "intake_stage") return "Moved past intake";
-  if (reason === "scheduled_time") return "Intake time passed";
+  if (reason === "scheduled_time") return "Legacy: intake time passed";
   if (reason === "manual") return "Marked ready";
   return "—";
 }
@@ -168,7 +168,7 @@ export function IntakeBillingWorkspace() {
                       <p className="text-xs text-brand-black/55">
                         {row.client?.referral_state || "—"}
                         {row.scheduled_at
-                          ? ` · Scheduled ${new Date(row.scheduled_at).toLocaleString()}`
+                          ? ` · Intake scheduled ${new Date(row.scheduled_at).toLocaleString()}`
                           : ""}
                       </p>
                     </td>

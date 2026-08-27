@@ -144,7 +144,7 @@ async function notifyAccountsReady(admin: SupabaseClient, clientId: string): Pro
         app: "staff",
         kind: "referral_intake_billing",
         title: `Bill intake: ${label}`,
-        body: "Intake meeting is complete. Bill the state, then mark payment received.",
+        body: "First casework contact was logged. Bill the state for intake, then mark payment received.",
         link_path: `/dashboard/intake-billing?client=${encodeURIComponent(clientId)}`,
         metadata: { clientId },
       })
@@ -158,6 +158,8 @@ export async function ensureScheduledIntakeBilling(
     clientId: string;
     hospitalityTaskId?: string | null;
     scheduledAt?: string | null;
+    /** When true, overwrite scheduled_at even if already set (reschedule). */
+    replaceScheduledAt?: boolean;
   }
 ): Promise<{ id: string } | { error: string }> {
   const existing = await loadBilling(admin, opts.clientId);
@@ -165,7 +167,11 @@ export async function ensureScheduledIntakeBilling(
   if (existing) {
     const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (opts.hospitalityTaskId) patch.hospitality_task_id = opts.hospitalityTaskId;
-    if (scheduledAt && !existing.scheduled_at) patch.scheduled_at = scheduledAt;
+    if (scheduledAt) {
+      if (opts.replaceScheduledAt || !existing.scheduled_at) {
+        patch.scheduled_at = scheduledAt;
+      }
+    }
     await admin.from("intake_billings").update(patch).eq("id", existing.id);
     return { id: existing.id };
   }
@@ -268,31 +274,104 @@ export async function markIntakeReadyIfContactLogsExist(
 
 export async function markDueScheduledIntakeBillings(
   admin: SupabaseClient
-): Promise<{ marked: number; backfilled: number }> {
-  const now = new Date().toISOString();
-  const { data: due } = await admin
-    .from("intake_billings")
-    .select("client_id")
-    .eq("status", "scheduled")
-    .not("scheduled_at", "is", null)
-    .lte("scheduled_at", now)
-    .limit(200);
-
-  const dueResults = await Promise.all(
-    (due ?? []).map((row) =>
-      markIntakeReadyToBill(admin, {
-        clientId: row.client_id as string,
-        reason: "scheduled_time",
-      })
-    )
-  );
-
+): Promise<{ marked: number; backfilled: number; overdueNotified: number }> {
+  // Do not auto-ready when appointment time passes — only casework contact logs do.
+  const overdueNotified = await notifyOverdueIntakeMeetingsWithoutContact(admin);
   const backfilled = await backfillReadyIntakeBillingsFromContactLogs(admin);
 
   return {
-    marked: dueResults.filter((r) => r.ready).length,
+    marked: 0,
     backfilled,
+    overdueNotified,
   };
+}
+
+/**
+ * After scheduled intake + 24h with no non-Hospitality contact log, notify
+ * the client's supervisor and admins once per hospitality task.
+ */
+export async function notifyOverdueIntakeMeetingsWithoutContact(
+  admin: SupabaseClient
+): Promise<number> {
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data: tasks, error } = await admin
+    .from("hospitality_intake_tasks")
+    .select("id, client_id, appointment_starts_at")
+    .not("appointment_starts_at", "is", null)
+    .lte("appointment_starts_at", cutoff)
+    .limit(200);
+
+  if (error) {
+    console.error("overdue intake load failed:", error.message);
+    return 0;
+  }
+
+  let notified = 0;
+  for (const task of tasks ?? []) {
+    const taskId = task.id as string;
+    const clientId = task.client_id as string;
+
+    const { data: already } = await admin
+      .from("intake_meeting_overdue_notifies")
+      .select("id")
+      .eq("hospitality_task_id", taskId)
+      .maybeSingle();
+    if (already?.id) continue;
+
+    const billing = await loadBilling(admin, clientId);
+    if (billing && billing.status !== "scheduled") continue;
+
+    const hasCaseworkContact = await hasNonHospitalityContactLog(admin, clientId);
+    if (hasCaseworkContact) continue;
+
+    const label = await clientLabel(admin, clientId);
+    const recipientIds = new Set<string>();
+
+    const { data: client } = await admin
+      .from("clients")
+      .select("supervisor_user_id")
+      .eq("id", clientId)
+      .maybeSingle();
+    const supervisorId = (client?.supervisor_user_id as string | null) ?? null;
+    if (supervisorId) recipientIds.add(supervisorId);
+
+    const { data: admins } = await admin
+      .from("profiles")
+      .select("id")
+      .in("role", ["admin", "super_admin"])
+      .eq("is_active", true);
+    for (const row of admins ?? []) {
+      recipientIds.add(row.id as string);
+    }
+
+    if (recipientIds.size === 0) continue;
+
+    await Promise.all(
+      [...recipientIds].map((userId) =>
+        notifyUser(admin, {
+          userId,
+          app: "staff",
+          kind: "intake_meeting_overdue",
+          title: `Intake follow-up needed: ${label}`,
+          body: "Scheduled intake was more than 24 hours ago with no casework contact log yet.",
+          link_path: `/dashboard/clients/${clientId}`,
+          metadata: { clientId, hospitality_task_id: taskId },
+        })
+      )
+    );
+
+    const { error: insertErr } = await admin.from("intake_meeting_overdue_notifies").insert({
+      hospitality_task_id: taskId,
+      client_id: clientId,
+    });
+    if (insertErr && insertErr.code !== "23505") {
+      console.error("intake_meeting_overdue_notifies insert failed:", insertErr.message);
+      continue;
+    }
+    notified += 1;
+  }
+
+  return notified;
 }
 
 /**

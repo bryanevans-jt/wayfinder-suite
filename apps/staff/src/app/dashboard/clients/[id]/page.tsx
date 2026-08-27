@@ -9,6 +9,7 @@ import {
 } from "@wayfinder/supabase";
 import {
   canAssignClientEs,
+  canEditClientIntakeAppointment,
   canLogHospitalityCheckIns,
   canOverseeFormalReportSubmissions,
   canViewClientProfiles,
@@ -30,6 +31,7 @@ import { loadStaffNameById } from "@/lib/staff-names";
 import { supabaseEmbedName } from "@/lib/supabase-embed";
 import { ClientProfileForm, type ClientProfileData } from "@/components/client-profile-form";
 import { ClientEsAssignmentPanel } from "@/components/client-es-assignment-panel";
+import { ClientIntakeAppointmentPanel } from "@/components/client-intake-appointment-panel";
 import { EmployerMatchPanel } from "@/components/employer-match-panel";
 import { ClientStaffNotesPanel } from "@/components/client-staff-notes-panel";
 import { HospitalityCheckInPanel } from "@/components/hospitality-check-in-panel";
@@ -239,7 +241,7 @@ export default async function EsClientDetailPage({ params }: PageProps) {
 
   const activityFkIds = buildClientActivityFkIds(client);
 
-  const [logs, { data: stageEvents }, { data: applications }, { data: meetings }, intakeMeetings] =
+  const [logs, { data: stageEvents }, { data: applications }, { data: meetings }, intakeMeetings, { data: intakeTaskRows }] =
     await Promise.all([
       listContactLogsForClientIds(admin, activityFkIds, { orderAscending: true }).catch(() => []),
       admin
@@ -260,7 +262,26 @@ export default async function EsClientDetailPage({ params }: PageProps) {
         .in("client_id", activityFkIds)
         .order("created_at", { ascending: true }),
       loadIntakeAppointmentsAsMeetings(admin, [client.id as string, ...activityFkIds]),
+      admin
+        .from("hospitality_intake_tasks")
+        .select("id, appointment_starts_at, appointment_location, appointment_timezone")
+        .eq("client_id", client.id)
+        .not("appointment_starts_at", "is", null)
+        .order("appointment_starts_at", { ascending: false })
+        .limit(1),
     ]);
+
+  const intakeTask = intakeTaskRows?.[0] ?? null;
+  const intakeAppointment = intakeTask?.appointment_starts_at
+    ? {
+        id: intakeTask.id as string,
+        startsAt: intakeTask.appointment_starts_at as string,
+        location:
+          String(intakeTask.appointment_location ?? "").trim() || "Location to be confirmed",
+        timezone:
+          String(intakeTask.appointment_timezone ?? "").trim() || "America/New_York",
+      }
+    : null;
 
   const meetingServiceIds = [
     ...new Set((meetings ?? []).map((m) => m.service_id).filter(Boolean)),
@@ -388,6 +409,10 @@ export default async function EsClientDetailPage({ params }: PageProps) {
   const showSubmittedFormalReports =
     canWriteCasework || canOverseeFormalReportSubmissions(role);
   const canEditEsAssignment = canAssignClientEs(role) && !session.isPreviewing;
+  const canEditIntakeAppt =
+    canEditClientIntakeAppointment(role) &&
+    !session.isPreviewing &&
+    (hasWriteAccess || canAssignClientEs(role) || canLogHospitalityCheckIns(role));
 
   return (
     <main className="px-6 py-10">
@@ -435,7 +460,7 @@ export default async function EsClientDetailPage({ params }: PageProps) {
         </p>
       </header>
 
-      {readOnly && !session.isPreviewing && !canEditEsAssignment ? (
+      {readOnly && !session.isPreviewing && !canEditEsAssignment && !canEditIntakeAppt ? (
         <p className="mt-6 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-brand-black/80">
           This profile is view-only for your role.
         </p>
@@ -462,6 +487,14 @@ export default async function EsClientDetailPage({ params }: PageProps) {
             initialEsUserId={assignedEsUserId}
             esUsers={hospitalityOptions.esUsers}
             canWrite={canEditEsAssignment}
+          />
+        ) : null}
+
+        {intakeAppointment && canEditClientIntakeAppointment(role) ? (
+          <ClientIntakeAppointmentPanel
+            clientId={client.id}
+            appointment={intakeAppointment}
+            canWrite={canEditIntakeAppt}
           />
         ) : null}
 

@@ -130,6 +130,16 @@ export function canAssignClientEs(role: string | null | undefined): boolean {
   return isHospitalitySpecialistRole(role) || isAdminTierRole(role);
 }
 
+/** Edit/reschedule hospitality intake appointment on a client profile. */
+export function canEditClientIntakeAppointment(role: string | null | undefined): boolean {
+  return (
+    isHospitalitySpecialistRole(role) ||
+    isAdminTierRole(role) ||
+    isSupervisorRole(role) ||
+    isEsRole(role)
+  );
+}
+
 /** View hospitality dashboard / weekly client and monthly partner check-ins (read). */
 export function canViewHospitalityWorkspace(role: string | null | undefined): boolean {
   return (

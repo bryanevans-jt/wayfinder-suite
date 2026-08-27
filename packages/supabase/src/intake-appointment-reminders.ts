@@ -100,6 +100,24 @@ async function recordSend(
   }
 }
 
+/**
+ * Clear prior reminder / overdue ledger so a reschedule gets fresh day-before,
+ * hour-before, and confirmation emails for the new time.
+ */
+export async function resetIntakeAppointmentReminderSchedule(
+  admin: SupabaseClient,
+  hospitalityTaskId: string
+): Promise<void> {
+  await admin
+    .from("intake_appointment_reminder_sends")
+    .delete()
+    .eq("hospitality_task_id", hospitalityTaskId);
+  await admin
+    .from("intake_meeting_overdue_notifies")
+    .delete()
+    .eq("hospitality_task_id", hospitalityTaskId);
+}
+
 type AppointmentRow = {
   id: string;
   client_id: string;

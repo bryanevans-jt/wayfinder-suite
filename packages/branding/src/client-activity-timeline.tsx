@@ -103,11 +103,11 @@ export function ClientActivityTimeline({
           ) : item.kind === "meeting" ? (
             <div className="mt-2 rounded-xl border border-neutral-200 bg-white p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-brand-green">
-                {item.service_name?.trim() === "Intake" ? "Intake meeting" : "Meeting"}
+                {item.service_name?.trim() === "Intake" ? "Intake scheduled" : "Meeting"}
               </p>
               <p className="mt-2 text-base font-semibold text-brand-black">
                 {item.service_name?.trim() === "Intake"
-                  ? "Intake meeting"
+                  ? "Intake scheduled"
                   : `${item.service_name?.trim() || "Wayfinder service"} meeting`}
                 {item.es_name && item.service_name?.trim() !== "Intake"
                   ? ` with ${item.es_name}`

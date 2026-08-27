@@ -7,6 +7,7 @@ const NOTIFICATION_PRIORITY: Record<string, number> = {
   report_overdue: 35,
   counselor_possible_duplicate: 28,
   referral_intake_billing: 27,
+  intake_meeting_overdue: 26,
   timesheet_returned: 40,
   employment_celebration: 50,
   counselor_digest: 60,

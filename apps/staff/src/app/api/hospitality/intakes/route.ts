@@ -8,7 +8,6 @@ import {
 import {
   ensureScheduledIntakeBilling,
   markIntakeReadyIfContactLogsExist,
-  markIntakeReadyToBill,
 } from "@wayfinder/supabase/intake-billing";
 import { sendIntakeAppointmentReminder } from "@wayfinder/supabase/intake-appointment-reminders";
 import { deliverIntakeAppointmentReminder } from "@/lib/intake-appointment-email";
@@ -149,17 +148,12 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: created.error }, { status: 500 });
   }
 
-  if (startsMs <= Date.now()) {
-    await markIntakeReadyToBill(admin, {
-      clientId,
-      reason: "scheduled_time",
-    });
-  } else {
-    await markIntakeReadyIfContactLogsExist(admin, {
-      clientId,
-      reason: "contact_log",
-    });
-  }
+  // Never ready-to-bill from schedule/time alone. If casework contact already
+  // exists, flip scheduled → ready; otherwise stay Intake Scheduled.
+  await markIntakeReadyIfContactLogsExist(admin, {
+    clientId,
+    reason: "contact_log",
+  });
 
   const reminder = await sendIntakeAppointmentReminder(admin, {
     hospitalityTaskId: task.id as string,
