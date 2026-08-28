@@ -11,7 +11,7 @@ export type AuthMatchStats = {
 };
 
 export type AuthMatchWarning = {
-  kind: "unmatched_student" | "pending_auth_remaining" | "missing_planning";
+  kind: "unmatched_student" | "pending_auth_remaining";
   message: string;
   participantId?: string;
 };
@@ -19,49 +19,6 @@ export type AuthMatchWarning = {
 function relationOne<T>(raw: T | T[] | null | undefined): T | null {
   if (!raw) return null;
   return Array.isArray(raw) ? (raw[0] ?? null) : raw;
-}
-
-export async function assertPlanningCommittedForAuthMatch(
-  admin: SupabaseClient,
-  districtNumber: string,
-  schoolYear: string,
-  serviceMonth: string
-): Promise<{ ok: true; districtId: string } | { ok: false; error: string }> {
-  const { data: district } = await admin
-    .from("pre_ets_districts")
-    .select("id")
-    .eq("gvra_district_number", districtNumber)
-    .eq("school_year", schoolYear)
-    .maybeSingle();
-
-  if (!district?.id) {
-    return {
-      ok: false,
-      error:
-        "No Phase 1 planning data found for this district and school year. Commit a planning import first.",
-    };
-  }
-
-  const { data: planningImport } = await admin
-    .from("pre_ets_worksheet_imports")
-    .select("id")
-    .eq("district_id", district.id)
-    .eq("service_month", serviceMonth)
-    .eq("phase", "planning")
-    .eq("status", "committed")
-    .order("committed_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (!planningImport) {
-    return {
-      ok: false,
-      error:
-        "Phase 2 auth match requires a committed Phase 1 planning import for this district and service month.",
-    };
-  }
-
-  return { ok: true, districtId: district.id as string };
 }
 
 export async function findProgramGroupId(
@@ -185,7 +142,6 @@ export async function countPendingAuthorizationsForDistrictMonth(
 }
 
 export type ResolveAuthorizationInput = {
-  phase: "planning" | "auth_match";
   schoolId: string;
   serviceMonth: string;
   schoolYear: string;
@@ -206,8 +162,7 @@ export async function resolveAuthorizationForWorksheetRow(
   admin: SupabaseClient,
   input: ResolveAuthorizationInput
 ): Promise<ResolveAuthorizationResult | null> {
-  const { phase, schoolId, serviceMonth, schoolYear, programGroupId, group, first, authType } =
-    input;
+  const { schoolId, serviceMonth, schoolYear, programGroupId, group, first, authType } = input;
 
   const serviceCode = sanitizePreEtsServiceCodeText(
     first.serviceCode || group.serviceCode || "UNKNOWN"
@@ -241,7 +196,7 @@ export async function resolveAuthorizationForWorksheetRow(
       };
     }
 
-    if (phase === "auth_match" && authType !== "pending") {
+    if (authType !== "pending") {
       let pendingId: string | null = null;
 
       if (authType === "group") {
@@ -300,37 +255,35 @@ export async function resolveAuthorizationForWorksheetRow(
     };
   }
 
-  if (phase === "auth_match") {
-    let pendingId: string | null = null;
-    if (authType === "individual") {
-      pendingId = await findPendingIndividualAuthorizationId(
-        admin,
-        schoolId,
-        serviceMonth,
-        schoolYear,
-        first.participantId
-      );
-    } else {
-      pendingId = await findPendingGroupAuthorizationId(
-        admin,
-        schoolId,
-        serviceMonth,
-        programGroupId
-      );
-    }
+  let pendingId: string | null = null;
+  if (authType === "individual") {
+    pendingId = await findPendingIndividualAuthorizationId(
+      admin,
+      schoolId,
+      serviceMonth,
+      schoolYear,
+      first.participantId
+    );
+  } else {
+    pendingId = await findPendingGroupAuthorizationId(
+      admin,
+      schoolId,
+      serviceMonth,
+      programGroupId
+    );
+  }
 
-    if (pendingId) {
-      await admin
-        .from("pre_ets_authorizations")
-        .update({
-          service_code: serviceCode,
-          service_label: serviceLabel,
-          program_group_id: programGroupId,
-        })
-        .eq("id", pendingId);
+  if (pendingId) {
+    await admin
+      .from("pre_ets_authorizations")
+      .update({
+        service_code: serviceCode,
+        service_label: serviceLabel,
+        program_group_id: programGroupId,
+      })
+      .eq("id", pendingId);
 
-      return { authId: pendingId, matchedPending: true, createdNew: false };
-    }
+    return { authId: pendingId, matchedPending: true, createdNew: false };
   }
 
   const { data: created, error } = await admin

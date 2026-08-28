@@ -13,13 +13,10 @@ export async function POST(request: Request) {
   try {
     const form = await request.formData();
     const file = form.get("file");
-    const phase = String(form.get("phase") ?? "planning");
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "CSV file is required" }, { status: 400 });
     }
-    if (phase !== "planning" && phase !== "auth_match") {
-      return NextResponse.json({ error: "Invalid phase" }, { status: 400 });
-    }
+    const phase = "auth_match";
 
     const text = await file.text();
     const settings = await loadPreEtsSettings(createServiceRoleClient());

@@ -2,14 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadPreEtsSettings } from "./pre-ets-settings";
 import type { ParsedDistrictWorksheet, ParsedWorksheetGroup } from "./pre-ets-worksheet-parser";
 import {
-  assertPlanningCommittedForAuthMatch,
   countPendingAuthorizationsForDistrictMonth,
   findProgramGroupId,
   resolveAuthorizationForWorksheetRow,
   type AuthMatchStats,
 } from "./pre-ets-worksheet-auth-match";
-
-export type WorksheetImportPhase = "planning" | "auth_match";
 
 export type PreEtsYtdWarning = {
   participantId: string;
@@ -24,14 +21,13 @@ export type CommitWorksheetImportResult =
       ok: true;
       districtId: string;
       ytdWarnings: PreEtsYtdWarning[];
-      authMatchStats?: AuthMatchStats;
+      authMatchStats: AuthMatchStats;
     }
   | { ok: false; error: string };
 
 async function upsertProgramGroup(
   admin: SupabaseClient,
   input: {
-    phase: WorksheetImportPhase;
     schoolId: string;
     officeId: string;
     importId: string;
@@ -47,20 +43,18 @@ async function upsertProgramGroup(
   );
 
   if (existingId) {
-    if (input.phase === "auth_match") {
-      await admin
-        .from("pre_ets_program_groups")
-        .update({
-          worksheet_import_id: input.importId,
-          header_raw: input.group.headerRaw,
-          frequency: input.group.frequency,
-          instructor_name: input.group.instructorName,
-          class_time: input.group.classTime,
-          service_code: input.group.serviceCode,
-          service_label: input.group.serviceLabel,
-        })
-        .eq("id", existingId);
-    }
+    await admin
+      .from("pre_ets_program_groups")
+      .update({
+        worksheet_import_id: input.importId,
+        header_raw: input.group.headerRaw,
+        frequency: input.group.frequency,
+        instructor_name: input.group.instructorName,
+        class_time: input.group.classTime,
+        service_code: input.group.serviceCode,
+        service_label: input.group.serviceLabel,
+      })
+      .eq("id", existingId);
     return existingId;
   }
 
@@ -217,20 +211,6 @@ export async function commitWorksheetImport(
     return { ok: false, error: "Parsed worksheet missing district, month, or school year" };
   }
 
-  const phase = (imp.phase as WorksheetImportPhase) ?? "planning";
-
-  if (phase === "auth_match") {
-    const planningCheck = await assertPlanningCommittedForAuthMatch(
-      admin,
-      parsed.districtNumber,
-      parsed.schoolYear,
-      parsed.serviceMonth
-    );
-    if (!planningCheck.ok) {
-      return { ok: false, error: planningCheck.error };
-    }
-  }
-
   const settings = await loadPreEtsSettings(admin);
   const ytdThreshold = settings.ytd_unit_warning_threshold;
   const ytdWarnings: PreEtsYtdWarning[] = [];
@@ -300,7 +280,6 @@ export async function commitWorksheetImport(
       const schoolId = school.id as string;
 
       const programGroupId = await upsertProgramGroup(admin, {
-        phase,
         schoolId,
         officeId,
         importId,
@@ -335,7 +314,6 @@ export async function commitWorksheetImport(
               : "pending";
 
         const resolved = await resolveAuthorizationForWorksheetRow(admin, {
-          phase,
           schoolId,
           serviceMonth: parsed.serviceMonth,
           schoolYear: parsed.schoolYear,
@@ -350,17 +328,15 @@ export async function commitWorksheetImport(
 
         const authId = resolved.authId;
 
-        if (phase === "auth_match") {
-          if (resolved.matchedPending) authMatchStats.authorizationsMatched++;
-          if (resolved.createdNew) {
-            authMatchStats.authorizationsCreated++;
-            if (first.authNumber) {
-              authMatchStats.unmatchedStudents.push({
-                participantId: first.participantId,
-                fullName: first.studentName,
-                reason: "No pending authorization found — created new authorization",
-              });
-            }
+        if (resolved.matchedPending) authMatchStats.authorizationsMatched++;
+        if (resolved.createdNew) {
+          authMatchStats.authorizationsCreated++;
+          if (first.authNumber) {
+            authMatchStats.unmatchedStudents.push({
+              participantId: first.participantId,
+              fullName: first.studentName,
+              reason: "No pending authorization found — created new authorization",
+            });
           }
         }
 
@@ -433,25 +409,21 @@ export async function commitWorksheetImport(
             { onConflict: "authorization_id,student_id" }
           );
 
-          if (phase === "auth_match") {
-            authMatchStats.rosterEntriesUpdated++;
-          }
+          authMatchStats.rosterEntriesUpdated++;
         }
       }
     }
   }
 
-  if (phase === "auth_match") {
-    authMatchStats.pendingAuthsRemaining = await countPendingAuthorizationsForDistrictMonth(
-      admin,
-      districtId,
-      parsed.serviceMonth
-    );
-  }
+  authMatchStats.pendingAuthsRemaining = await countPendingAuthorizationsForDistrictMonth(
+    admin,
+    districtId,
+    parsed.serviceMonth
+  );
 
   const commitWarnings = {
     ytdWarnings,
-    ...(phase === "auth_match" ? { authMatchStats } : {}),
+    authMatchStats,
   };
 
   await admin
@@ -468,6 +440,6 @@ export async function commitWorksheetImport(
     ok: true,
     districtId,
     ytdWarnings,
-    ...(phase === "auth_match" ? { authMatchStats } : {}),
+    authMatchStats,
   };
 }

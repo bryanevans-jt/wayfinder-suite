@@ -35,7 +35,6 @@ type AuthMatchStats = {
 
 export function PreEtsWorksheetPanel() {
   const [imports, setImports] = useState<ImportRow[]>([]);
-  const [phase, setPhase] = useState<"planning" | "auth_match">("planning");
   const [preview, setPreview] = useState<{
     importId: string;
     parsed: ParsedDistrictWorksheet;
@@ -60,7 +59,6 @@ export function PreEtsWorksheetPanel() {
     setMessage(null);
     const form = new FormData();
     form.set("file", file);
-    form.set("phase", phase);
     const res = await fetch("/api/pre-ets/worksheets", { method: "POST", body: form });
     const data = (await res.json()) as {
       import?: { id: string };
@@ -157,23 +155,12 @@ export function PreEtsWorksheetPanel() {
       <div>
         <h2 className="text-lg font-semibold text-brand-black">District worksheet import</h2>
         <p className="mt-1 text-sm text-brand-black/65">
-          Upload your monthly district CSV (Phase 1: planning before GVRA auth; Phase 2: auth match
-          when authorization numbers arrive).
+          Upload your monthly district CSV after GVRA authorization numbers are on the worksheet.
+          Rosters and schools carry forward from month to month; the import updates what changed.
         </p>
       </div>
 
       <div className="flex flex-wrap items-end gap-4">
-        <label className="text-sm">
-          <span className="font-medium">Import phase</span>
-          <select
-            className="mt-1 block rounded-lg border border-neutral-300 px-3 py-2"
-            value={phase}
-            onChange={(e) => setPhase(e.target.value as "planning" | "auth_match")}
-          >
-            <option value="planning">Phase 1 — Planning (before GVRA auth)</option>
-            <option value="auth_match">Phase 2 — Auth match (after GVRA auth)</option>
-          </select>
-        </label>
         <label className="cursor-pointer rounded-lg bg-brand-gold px-4 py-2 text-sm font-semibold text-white">
           {busy ? "Uploading…" : "Upload CSV"}
           <input
@@ -242,7 +229,7 @@ export function PreEtsWorksheetPanel() {
 
       {authMatchStats ? (
         <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm">
-          <h3 className="font-semibold text-brand-black">Auth match results</h3>
+          <h3 className="font-semibold text-brand-black">Import results</h3>
           <dl className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
             <div>
               <dt className="text-brand-black/55">Pending auths matched</dt>
@@ -297,7 +284,6 @@ export function PreEtsWorksheetPanel() {
               <th className="px-3 py-2">Uploaded</th>
               <th className="px-3 py-2">File</th>
               <th className="px-3 py-2">Month</th>
-              <th className="px-3 py-2">Phase</th>
               <th className="px-3 py-2">Status</th>
               <th className="px-3 py-2">Drive</th>
               <th className="px-3 py-2">Actions</th>
@@ -306,7 +292,7 @@ export function PreEtsWorksheetPanel() {
           <tbody>
             {imports.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-brand-black/55">
+                <td colSpan={6} className="px-3 py-6 text-center text-brand-black/55">
                   No worksheet imports yet.
                 </td>
               </tr>
@@ -316,7 +302,6 @@ export function PreEtsWorksheetPanel() {
                   <td className="px-3 py-2">{new Date(row.created_at).toLocaleString()}</td>
                   <td className="px-3 py-2">{row.file_name ?? "—"}</td>
                   <td className="px-3 py-2">{row.service_month?.slice(0, 7)}</td>
-                  <td className="px-3 py-2">{row.phase}</td>
                   <td className="px-3 py-2">{row.status}</td>
                   <td className="px-3 py-2 text-xs text-brand-black/60">
                     {row.drive_file_name ?? (row.archived_at ? "archived" : "—")}
