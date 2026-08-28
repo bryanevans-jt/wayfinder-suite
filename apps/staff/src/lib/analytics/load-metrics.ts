@@ -16,7 +16,9 @@ import {
   CLOSED_STAGE_PATTERN,
   daysBetween,
   INTAKE_STAGE_PATTERN,
+  isHireRateEligibleService,
   isHiredApplicationStatus,
+  isTerminalStageTitle,
   median,
   monthKey,
   parseDateRange,
@@ -33,6 +35,8 @@ type ClientRow = {
   counselor_id: string | null;
   created_at: string;
   current_stage_id: string | null;
+  current_service_id: string | null;
+  archived_at?: string | null;
   is_demo?: boolean | null;
 };
 
@@ -49,13 +53,18 @@ export type ClientFact = {
   hireAt: Date | null;
   isActive: boolean;
   currentStageTitle: string | null;
+  hireRateEligible: boolean;
+  closedAt: Date | null;
 };
 
 export type MonthlyMetricRow = {
   month: string;
   intakes: number;
   hires: number;
-  hireRate: number | null;
+  resolved: number;
+  successful: number;
+  unsuccessful: number;
+  placementRate: number | null;
 };
 
 export type MedianDaysBreakdownRow = {
@@ -70,6 +79,9 @@ export type AnalyticsSummary = {
   activeCaseload: number;
   clientsHired: number;
   hireRate: number | null;
+  resolvedCases: number;
+  successfulPlacements: number;
+  unsuccessfulClosures: number;
   medianDaysToHire: number | null;
   applicationsSubmitted: number;
   applicationsByStatus: { status: string; count: number }[];
@@ -109,7 +121,7 @@ async function loadScopedClientRows(
   filters: { officeId?: string | null; esUserId?: string | null }
 ): Promise<ClientRow[]> {
   const select =
-    "id, user_id, profile_id, office_id, counselor_id, created_at, current_stage_id, is_demo";
+    "id, user_id, profile_id, office_id, counselor_id, created_at, current_stage_id, current_service_id, archived_at, is_demo";
 
   if (scope.kind === "es") {
     const { data: links } = await admin
@@ -231,13 +243,17 @@ async function buildClientFacts(
   const stageIds = [
     ...new Set(clients.map((c) => c.current_stage_id).filter(Boolean) as string[]),
   ];
+  const serviceIds = [
+    ...new Set(clients.map((c) => c.current_service_id).filter(Boolean) as string[]),
+  ];
 
   const [
     { data: esLinks },
     { data: stageEvents },
     { data: meetings },
     { data: applications },
-    { data: milestones },
+    { data: currentMilestones },
+    { data: services },
   ] = await Promise.all([
     admin.from("es_client_assignments").select("client_id, es_user_id").in("client_id", clients.map((c) => c.id)),
     uniqueFkIds.length
@@ -265,9 +281,32 @@ async function buildClientFacts(
     stageIds.length
       ? admin.from("service_milestones").select("id, title").in("id", stageIds)
       : Promise.resolve({ data: [] as { id: string; title: string }[] }),
+    serviceIds.length
+      ? admin.from("services").select("id, name, state").in("id", serviceIds)
+      : Promise.resolve({ data: [] as { id: string; name: string; state: string | null }[] }),
   ]);
 
-  const stageTitleById = new Map((milestones ?? []).map((m) => [m.id as string, m.title as string]));
+  const eventMilestoneIds = [
+    ...new Set((stageEvents ?? []).map((ev) => ev.milestone_id as string)),
+  ];
+  const missingMilestoneIds = eventMilestoneIds.filter(
+    (id) => !(currentMilestones ?? []).some((m) => m.id === id)
+  );
+  const { data: eventMilestones } = missingMilestoneIds.length
+    ? await admin.from("service_milestones").select("id, title").in("id", missingMilestoneIds)
+    : { data: [] as { id: string; title: string }[] };
+
+  const stageTitleById = new Map<string, string>();
+  for (const row of [...(currentMilestones ?? []), ...(eventMilestones ?? [])]) {
+    stageTitleById.set(row.id as string, row.title as string);
+  }
+
+  const serviceById = new Map(
+    (services ?? []).map((s) => [
+      s.id as string,
+      { name: s.name as string, state: (s.state as string | null) ?? null },
+    ])
+  );
 
   const esByClient = new Map<string, string[]>();
   for (const link of esLinks ?? []) {
@@ -316,11 +355,29 @@ async function buildClientFacts(
     }
   }
 
+  const closedAtByClient = new Map<string, Date>();
+  for (const ev of stageEvents ?? []) {
+    const cid = resolveClientId(ev.client_id as string);
+    if (!cid) continue;
+    const title = stageTitleById.get(ev.milestone_id as string);
+    if (!isTerminalStageTitle(title)) continue;
+    const at = new Date(ev.created_at as string);
+    const prev = closedAtByClient.get(cid);
+    if (!prev || at < prev) {
+      closedAtByClient.set(cid, at);
+    }
+  }
+
   return clients.map((c) => {
     const stageTitle = c.current_stage_id
       ? (stageTitleById.get(c.current_stage_id) ?? null)
       : null;
     const isActive = !stageTitle || !CLOSED_STAGE_PATTERN.test(stageTitle.trim());
+    const service = c.current_service_id ? serviceById.get(c.current_service_id) : null;
+    let closedAt = closedAtByClient.get(c.id) ?? null;
+    if (!closedAt && !isActive && c.archived_at) {
+      closedAt = new Date(c.archived_at);
+    }
     return {
       clientId: c.id,
       officeId: c.office_id,
@@ -330,6 +387,8 @@ async function buildClientFacts(
       hireAt: hireByClient.get(c.id) ?? null,
       isActive,
       currentStageTitle: stageTitle,
+      hireRateEligible: isHireRateEligibleService(service?.name, service?.state ?? null),
+      closedAt,
     };
   });
 }
@@ -356,8 +415,21 @@ export async function loadAnalyticsSummary(
     (f) => f.hireAt && inRange(f.hireAt, range.from, range.to)
   );
   const clientsHired = hiredInPeriod.length;
+
+  const resolvedInRange = facts.filter(
+    (f) =>
+      f.hireRateEligible &&
+      !f.isActive &&
+      f.closedAt &&
+      inRange(f.closedAt, range.from, range.to)
+  );
+  const successfulPlacements = resolvedInRange.filter((f) => f.hireAt != null).length;
+  const resolvedCases = resolvedInRange.length;
+  const unsuccessfulClosures = resolvedCases - successfulPlacements;
   const hireRate =
-    activeCaseload > 0 ? Math.round((clientsHired / activeCaseload) * 1000) / 10 : null;
+    resolvedCases > 0
+      ? Math.round((successfulPlacements / resolvedCases) * 1000) / 10
+      : null;
 
   const daysToHire = hiredInPeriod
     .map((f) => daysBetween(f.intakeAt, f.hireAt!))
@@ -387,20 +459,46 @@ export async function loadAnalyticsSummary(
     .map(([status, count]) => ({ status, count }))
     .sort((a, b) => b.count - a.count);
 
-  const monthlyMap = new Map<string, { intakes: number; hires: number }>();
+  type MonthlyAccumulator = {
+    intakes: number;
+    hires: number;
+    resolved: number;
+    successful: number;
+    unsuccessful: number;
+  };
+
+  const emptyMonthly = (): MonthlyAccumulator => ({
+    intakes: 0,
+    hires: 0,
+    resolved: 0,
+    successful: 0,
+    unsuccessful: 0,
+  });
+
+  const monthlyMap = new Map<string, MonthlyAccumulator>();
   for (const f of facts) {
     if (inRange(f.intakeAt, range.from, range.to)) {
       const key = monthKey(f.intakeAt);
-      const row = monthlyMap.get(key) ?? { intakes: 0, hires: 0 };
+      const row = monthlyMap.get(key) ?? emptyMonthly();
       row.intakes += 1;
       monthlyMap.set(key, row);
     }
     if (f.hireAt && inRange(f.hireAt, range.from, range.to)) {
       const key = monthKey(f.hireAt);
-      const row = monthlyMap.get(key) ?? { intakes: 0, hires: 0 };
+      const row = monthlyMap.get(key) ?? emptyMonthly();
       row.hires += 1;
       monthlyMap.set(key, row);
     }
+  }
+
+  for (const f of resolvedInRange) {
+    if (!f.closedAt) continue;
+    const key = monthKey(f.closedAt);
+    const row = monthlyMap.get(key) ?? emptyMonthly();
+    row.resolved += 1;
+    if (f.hireAt) row.successful += 1;
+    else row.unsuccessful += 1;
+    monthlyMap.set(key, row);
   }
 
   const monthly = [...monthlyMap.entries()]
@@ -409,7 +507,11 @@ export async function loadAnalyticsSummary(
       month,
       intakes: row.intakes,
       hires: row.hires,
-      hireRate: row.intakes > 0 ? Math.round((row.hires / row.intakes) * 1000) / 10 : null,
+      resolved: row.resolved,
+      successful: row.successful,
+      unsuccessful: row.unsuccessful,
+      placementRate:
+        row.resolved > 0 ? Math.round((row.successful / row.resolved) * 1000) / 10 : null,
     }));
 
   const weekMs = 7 * 24 * 60 * 60 * 1000;
@@ -583,6 +685,9 @@ export async function loadAnalyticsSummary(
     activeCaseload,
     clientsHired,
     hireRate,
+    resolvedCases,
+    successfulPlacements,
+    unsuccessfulClosures,
     medianDaysToHire,
     applicationsSubmitted,
     applicationsByStatus,
@@ -604,7 +709,13 @@ export async function loadAnalyticsSummary(
         "Earliest Phase 1 / Intake milestone, else first accepted meeting, else enrollment date.",
       hireDate: "First application marked Hired.",
       clientsHired: "Distinct clients with first hire in the selected range.",
-      hireRate: "Clients hired in period ÷ active assigned caseload.",
+      hireRate:
+        "Successful GA SE/IJP placements ÷ resolved cases closed in the range (GVRA case outcome rate).",
+      resolvedCases:
+        "GA Traditional Supported Employment or IJP clients who reached a terminal stage in the range.",
+      successfulPlacements: "Resolved SE/IJP cases with at least one application marked Hired.",
+      unsuccessfulClosures:
+        "Resolved SE/IJP cases closed in the range without a Hired application.",
       medianDaysToHire: "Median days from intake to first hire (clients hired in period).",
       activeCaseload: "Assigned clients not in Closed, Dismissed, or Services Interrupted.",
       contactsPerWeek: "Contact logs in range ÷ calendar weeks in range.",

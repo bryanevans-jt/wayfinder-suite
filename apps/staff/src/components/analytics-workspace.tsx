@@ -212,7 +212,7 @@ export function AnalyticsWorkspace({
               </p>
               <ul className="mt-4 grid gap-3 sm:grid-cols-2 text-sm">
                 <li className="rounded-lg border border-neutral-100 bg-white px-4 py-3">
-                  <span className="font-medium">Hire rate</span>
+                  <span className="font-medium">Hire rate (GVRA)</span>
                   <p className="mt-1 text-brand-black/80">
                     {formatPercent(benchmark.current.hireRate)} now
                     {benchmark.hireRateDeltaPct != null
@@ -247,6 +247,21 @@ export function AnalyticsWorkspace({
               title={ANALYTICS_METRIC_DEFINITIONS.hireRate.label}
               value={formatPercent(summary.hireRate)}
               hint={ANALYTICS_METRIC_DEFINITIONS.hireRate.description}
+              subtext={
+                summary.resolvedCases > 0
+                  ? `${summary.successfulPlacements} of ${summary.resolvedCases} resolved GA SE/IJP cases`
+                  : undefined
+              }
+            />
+            <MetricCard
+              title={ANALYTICS_METRIC_DEFINITIONS.resolvedCases.label}
+              value={String(summary.resolvedCases)}
+              hint={ANALYTICS_METRIC_DEFINITIONS.resolvedCases.description}
+            />
+            <MetricCard
+              title={ANALYTICS_METRIC_DEFINITIONS.successfulPlacements.label}
+              value={String(summary.successfulPlacements)}
+              hint={ANALYTICS_METRIC_DEFINITIONS.successfulPlacements.description}
             />
             <MetricCard
               title={ANALYTICS_METRIC_DEFINITIONS.medianDaysToHire.label}
@@ -332,17 +347,20 @@ export function AnalyticsWorkspace({
             <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
               <h2 className="text-base font-semibold text-brand-black">Monthly Trends</h2>
               <p className="mt-1 text-sm text-brand-black/65">
-                Intakes and hires by calendar month within the selected range. Monthly hire rate
-                is hires ÷ intakes for that month.
+                Intakes and first hires by calendar month, plus GA SE/IJP case outcomes grouped by
+                month of closure. Placement rate is successful ÷ resolved cases for that month.
               </p>
               <div className="mt-4 overflow-x-auto">
-                <table className="w-full min-w-[420px] text-left text-sm">
+                <table className="w-full min-w-[640px] text-left text-sm">
                   <thead>
                     <tr className="border-b border-neutral-200 text-brand-black/70">
                       <th className="py-2 pr-4 font-medium">Month</th>
                       <th className="py-2 pr-4 font-medium">Intakes</th>
                       <th className="py-2 pr-4 font-medium">Hires</th>
-                      <th className="py-2 font-medium">Hire rate</th>
+                      <th className="py-2 pr-4 font-medium">Resolved</th>
+                      <th className="py-2 pr-4 font-medium">Successful</th>
+                      <th className="py-2 pr-4 font-medium">Unsuccessful</th>
+                      <th className="py-2 font-medium">Placement rate</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -351,7 +369,10 @@ export function AnalyticsWorkspace({
                         <td className="py-2 pr-4">{formatMonthLabel(row.month)}</td>
                         <td className="py-2 pr-4">{row.intakes}</td>
                         <td className="py-2 pr-4">{row.hires}</td>
-                        <td className="py-2">{formatPercent(row.hireRate)}</td>
+                        <td className="py-2 pr-4">{row.resolved}</td>
+                        <td className="py-2 pr-4">{row.successful}</td>
+                        <td className="py-2 pr-4">{row.unsuccessful}</td>
+                        <td className="py-2">{formatPercent(row.placementRate)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -403,10 +424,12 @@ function MetricCard({
   title,
   value,
   hint,
+  subtext,
 }: {
   title: string;
   value: string;
   hint: string;
+  subtext?: string;
 }) {
   return (
     <article
@@ -415,6 +438,7 @@ function MetricCard({
     >
       <p className="text-xs font-semibold uppercase tracking-wide text-brand-green">{title}</p>
       <p className="mt-2 text-3xl font-semibold tabular-nums text-brand-black">{value}</p>
+      {subtext ? <p className="mt-1 text-sm font-medium text-brand-black/75">{subtext}</p> : null}
       <p className="mt-2 text-xs text-brand-black/60">{hint}</p>
     </article>
   );

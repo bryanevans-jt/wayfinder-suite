@@ -19,9 +19,24 @@ export const ANALYTICS_METRIC_DEFINITIONS = {
     description: "Distinct clients whose first hire date falls in the selected date range.",
   },
   hireRate: {
-    label: "Hire rate",
+    label: "Hire rate (GVRA)",
     description:
-      "Clients hired in the period ÷ active assigned caseload (clients not in Closed, Dismissed, or Services Interrupted).",
+      "Successful placements ÷ resolved GA SE/IJP cases closed in the range. Open cases are excluded until Dismissed, Closed, or Services Interrupted.",
+  },
+  resolvedCases: {
+    label: "Resolved cases",
+    description:
+      "GA Traditional Supported Employment or Individual Job Placement clients who reached a terminal stage in the selected date range.",
+  },
+  successfulPlacements: {
+    label: "Successful placements",
+    description:
+      "Resolved SE/IJP cases with at least one application marked Hired.",
+  },
+  unsuccessfulClosures: {
+    label: "Unsuccessful closures",
+    description:
+      "Resolved SE/IJP cases closed in the range without a Hired application.",
   },
   medianDaysToHire: {
     label: "Median days intake → hire",
@@ -83,6 +98,26 @@ export const INTAKE_STAGE_PATTERN = /intake|phase\s*1/i;
 
 export function isHiredApplicationStatus(status: string | null | undefined): boolean {
   return (status ?? "").trim().toLowerCase() === "hired";
+}
+
+/** GA Supported Employment and IJP services used for GVRA-style placement rate. */
+export function isHireRateEligibleService(
+  serviceName: string | null | undefined,
+  state: string | null | undefined
+): boolean {
+  const name = (serviceName ?? "").trim().toLowerCase();
+  if (!name) return false;
+  const serviceState = (state ?? "").trim().toUpperCase();
+  const isGa = serviceState === "GA" || /\(\s*ga\s*\)/.test(name);
+  if (!isGa || /\(\s*tn\s*\)/.test(name)) return false;
+  if (/individual job placement|\bijp\b/.test(name)) return true;
+  if (/traditional supported employment|^supported employment\b/.test(name)) return true;
+  return false;
+}
+
+export function isTerminalStageTitle(title: string | null | undefined): boolean {
+  const trimmed = (title ?? "").trim();
+  return trimmed.length > 0 && CLOSED_STAGE_PATTERN.test(trimmed);
 }
 
 export function defaultAnalyticsRange(): { from: string; to: string } {
