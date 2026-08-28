@@ -179,6 +179,7 @@ export function ShareMomentForm({ defaultTeamMemberName }: Props) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          clientName: clientName.trim(),
           files: photos.map((entry) => ({
             name: entry.file.name,
             type: entry.file.type,

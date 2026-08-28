@@ -1,5 +1,6 @@
 import { renderTemplatedFlatEmail } from "@wayfinder/supabase/render-templated-email";
 import {
+  buildShareMomentPhotoFilename,
   SHARE_MOMENT_BUCKET,
   SHARE_MOMENT_LINK_TTL_SECONDS,
   SHARE_MOMENT_MAX_ATTACHMENT_BYTES,
@@ -129,6 +130,7 @@ export async function POST(request: Request) {
     const attachedPaths: string[] = [];
     const linkedPaths: string[] = [];
     let attachmentBytes = 0;
+    const submittedAtDate = new Date();
 
     for (let i = 0; i < photos.length; i++) {
       const photo = photos[i];
@@ -136,7 +138,7 @@ export async function POST(request: Request) {
       const mime = String(photo.mimeType);
       const size = Number(photo.size);
       const ext = shareMomentExtension(mime);
-      const filename = `moment-${i + 1}.${ext}`;
+      const filename = buildShareMomentPhotoFilename(clientName, i + 1, ext, submittedAtDate);
 
       if (attachmentBytes + size <= SHARE_MOMENT_MAX_ATTACHMENT_BYTES) {
         const { data: blob, error: downloadErr } = await admin.storage

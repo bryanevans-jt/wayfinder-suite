@@ -1,4 +1,5 @@
 import {
+  buildShareMomentPhotoFilename,
   resolveShareMomentMime,
   SHARE_MOMENT_BUCKET,
   SHARE_MOMENT_MAX_PHOTO_BYTES,
@@ -58,8 +59,12 @@ export async function POST(request: Request) {
     const supabase = await createServerClient();
     actor = await resolveErrorActor(supabase, session.actorUserId);
 
-    const body = (await request.json()) as { files?: FileMeta[] };
+    const body = (await request.json()) as { clientName?: string; files?: FileMeta[] };
+    const clientName = String(body.clientName ?? "").trim();
     const files = Array.isArray(body.files) ? body.files : [];
+    if (!clientName) {
+      return NextResponse.json({ error: "Client name is required." }, { status: 400 });
+    }
     if (files.length === 0) {
       return NextResponse.json({ error: "Add at least one photo." }, { status: 400 });
     }
@@ -81,10 +86,11 @@ export async function POST(request: Request) {
       size: number;
     }[] = [];
 
+    const preparedAt = new Date();
+
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      const name = String(file.name ?? `moment-${i + 1}.jpg`);
-      const mime = resolveShareMomentMime({ type: String(file.type ?? ""), name });
+      const mime = resolveShareMomentMime({ type: String(file.type ?? ""), name: String(file.name ?? "") });
       const size = Number(file.size ?? 0);
       if (!mime || !Number.isFinite(size) || size <= 0) {
         return NextResponse.json(
@@ -107,6 +113,7 @@ export async function POST(request: Request) {
       }
 
       const ext = shareMomentExtension(mime);
+      const name = buildShareMomentPhotoFilename(clientName, i + 1, ext, preparedAt);
       const path = `${session.actorUserId}/${crypto.randomUUID()}-${i + 1}.${ext}`;
       const { data, error } = await admin.storage
         .from(SHARE_MOMENT_BUCKET)

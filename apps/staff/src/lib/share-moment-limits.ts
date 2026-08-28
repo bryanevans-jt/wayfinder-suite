@@ -37,3 +37,29 @@ export function shareMomentExtension(mime: string): string {
 export function isShareMomentImage(file: File): boolean {
   return resolveShareMomentMime(file) != null && file.size > 0;
 }
+
+/** Eastern calendar date for photo filenames (YYYY-MM-DD). */
+export function shareMomentDateStamp(date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+export function shareMomentFirstName(clientName: string): string {
+  const first = clientName.trim().split(/\s+/)[0] ?? "Client";
+  const safe = first.replace(/[\\/:*?"<>|]/g, "").slice(0, 40);
+  return safe || "Client";
+}
+
+/** e.g. 2026-08-28-Bobby-1.jpg */
+export function buildShareMomentPhotoFilename(
+  clientName: string,
+  index: number,
+  ext: string,
+  date = new Date()
+): string {
+  return `${shareMomentDateStamp(date)}-${shareMomentFirstName(clientName)}-${index}.${ext}`;
+}
