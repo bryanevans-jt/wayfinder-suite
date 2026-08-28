@@ -17,8 +17,14 @@ import {
   daysBetween,
   INTAKE_STAGE_PATTERN,
   isHireRateEligibleService,
+  isGaIjpService,
+  isGaSeService,
   isHiredApplicationStatus,
+  isSePhase3TrainingStage,
+  isSeStabilizationStage,
+  isSuccessfulPlacementForHireRate,
   isTerminalStageTitle,
+  shouldExcludeSeCaseFromHireRate,
   median,
   monthKey,
   parseDateRange,
@@ -37,6 +43,7 @@ type ClientRow = {
   current_stage_id: string | null;
   current_service_id: string | null;
   archived_at?: string | null;
+  job_start_date?: string | null;
   is_demo?: boolean | null;
 };
 
@@ -54,6 +61,13 @@ export type ClientFact = {
   isActive: boolean;
   currentStageTitle: string | null;
   hireRateEligible: boolean;
+  isGaSe: boolean;
+  isGaIjp: boolean;
+  jobStartDate: Date | null;
+  reachedSePhase3: boolean;
+  reachedSeStabilization: boolean;
+  lastNonTerminalStageBeforeClose: string | null;
+  excludeFromHireRate: boolean;
   closedAt: Date | null;
 };
 
@@ -121,7 +135,7 @@ async function loadScopedClientRows(
   filters: { officeId?: string | null; esUserId?: string | null }
 ): Promise<ClientRow[]> {
   const select =
-    "id, user_id, profile_id, office_id, counselor_id, created_at, current_stage_id, current_service_id, archived_at, is_demo";
+    "id, user_id, profile_id, office_id, counselor_id, created_at, current_stage_id, current_service_id, archived_at, job_start_date, is_demo";
 
   if (scope.kind === "es") {
     const { data: links } = await admin
@@ -368,26 +382,107 @@ async function buildClientFacts(
     }
   }
 
+  const stageHistoryByClient = new Map<
+    string,
+    {
+      reachedSePhase3: boolean;
+      reachedSeStabilization: boolean;
+      lastNonTerminalStageBeforeClose: string | null;
+    }
+  >();
+
+  const eventsByClient = new Map<
+    string,
+    Array<{ at: Date; title: string | null; isTerminal: boolean }>
+  >();
+  for (const ev of stageEvents ?? []) {
+    const cid = resolveClientId(ev.client_id as string);
+    if (!cid) continue;
+    const title = stageTitleById.get(ev.milestone_id as string) ?? null;
+    const list = eventsByClient.get(cid) ?? [];
+    list.push({
+      at: new Date(ev.created_at as string),
+      title,
+      isTerminal: isTerminalStageTitle(title),
+    });
+    eventsByClient.set(cid, list);
+  }
+
+  for (const [cid, events] of eventsByClient) {
+    events.sort((a, b) => a.at.getTime() - b.at.getTime());
+    let reachedSePhase3 = false;
+    let reachedSeStabilization = false;
+    let lastNonTerminalStageBeforeClose: string | null = null;
+    let lastNonTerminalTitle: string | null = null;
+
+    for (const event of events) {
+      if (isSePhase3TrainingStage(event.title)) reachedSePhase3 = true;
+      if (isSeStabilizationStage(event.title)) reachedSeStabilization = true;
+      if (!event.isTerminal && event.title) {
+        lastNonTerminalTitle = event.title;
+      }
+      if (event.isTerminal) {
+        lastNonTerminalStageBeforeClose = lastNonTerminalTitle;
+        break;
+      }
+    }
+
+    stageHistoryByClient.set(cid, {
+      reachedSePhase3,
+      reachedSeStabilization,
+      lastNonTerminalStageBeforeClose,
+    });
+  }
+
   return clients.map((c) => {
     const stageTitle = c.current_stage_id
       ? (stageTitleById.get(c.current_stage_id) ?? null)
       : null;
     const isActive = !stageTitle || !CLOSED_STAGE_PATTERN.test(stageTitle.trim());
     const service = c.current_service_id ? serviceById.get(c.current_service_id) : null;
+    const serviceName = service?.name ?? null;
+    const serviceState = service?.state ?? null;
+    const isGaSe = isGaSeService(serviceName, serviceState);
+    const isGaIjp = isGaIjpService(serviceName, serviceState);
+    const stageHistory = stageHistoryByClient.get(c.id) ?? {
+      reachedSePhase3: false,
+      reachedSeStabilization: false,
+      lastNonTerminalStageBeforeClose: null,
+    };
+    const jobStartDate = c.job_start_date ? new Date(`${c.job_start_date}T12:00:00.000Z`) : null;
     let closedAt = closedAtByClient.get(c.id) ?? null;
     if (!closedAt && !isActive && c.archived_at) {
       closedAt = new Date(c.archived_at);
     }
+    const hireAt = hireByClient.get(c.id) ?? null;
+    const excludeFromHireRate = shouldExcludeSeCaseFromHireRate({
+      isGaSe,
+      isActive,
+      closedAt,
+      currentStageTitle: stageTitle,
+      lastNonTerminalStageBeforeClose: stageHistory.lastNonTerminalStageBeforeClose,
+      hireAt,
+      jobStartDate,
+      reachedSePhase3: stageHistory.reachedSePhase3,
+      reachedSeStabilization: stageHistory.reachedSeStabilization,
+    });
     return {
       clientId: c.id,
       officeId: c.office_id,
       counselorId: c.counselor_id,
       esUserIds: esByClient.get(c.id) ?? [],
       intakeAt: intakeByClient.get(c.id) ?? new Date(c.created_at),
-      hireAt: hireByClient.get(c.id) ?? null,
+      hireAt,
       isActive,
       currentStageTitle: stageTitle,
-      hireRateEligible: isHireRateEligibleService(service?.name, service?.state ?? null),
+      hireRateEligible: isHireRateEligibleService(serviceName, serviceState),
+      isGaSe,
+      isGaIjp,
+      jobStartDate,
+      reachedSePhase3: stageHistory.reachedSePhase3,
+      reachedSeStabilization: stageHistory.reachedSeStabilization,
+      lastNonTerminalStageBeforeClose: stageHistory.lastNonTerminalStageBeforeClose,
+      excludeFromHireRate,
       closedAt,
     };
   });
@@ -421,9 +516,12 @@ export async function loadAnalyticsSummary(
       f.hireRateEligible &&
       !f.isActive &&
       f.closedAt &&
-      inRange(f.closedAt, range.from, range.to)
+      inRange(f.closedAt, range.from, range.to) &&
+      !f.excludeFromHireRate
   );
-  const successfulPlacements = resolvedInRange.filter((f) => f.hireAt != null).length;
+  const successfulPlacements = resolvedInRange.filter((f) =>
+    isSuccessfulPlacementForHireRate(f)
+  ).length;
   const resolvedCases = resolvedInRange.length;
   const unsuccessfulClosures = resolvedCases - successfulPlacements;
   const hireRate =
@@ -496,7 +594,7 @@ export async function loadAnalyticsSummary(
     const key = monthKey(f.closedAt);
     const row = monthlyMap.get(key) ?? emptyMonthly();
     row.resolved += 1;
-    if (f.hireAt) row.successful += 1;
+    if (isSuccessfulPlacementForHireRate(f)) row.successful += 1;
     else row.unsuccessful += 1;
     monthlyMap.set(key, row);
   }
@@ -713,9 +811,10 @@ export async function loadAnalyticsSummary(
         "Successful GA SE/IJP placements ÷ resolved cases closed in the range (GVRA case outcome rate).",
       resolvedCases:
         "GA Traditional Supported Employment or IJP clients who reached a terminal stage in the range.",
-      successfulPlacements: "Resolved SE/IJP cases with at least one application marked Hired.",
+      successfulPlacements:
+        "IJP: Hired application. GA SE: Hired application, job start date, or Phase 3 Training & OS 1 (or Stabilization).",
       unsuccessfulClosures:
-        "Resolved SE/IJP cases closed in the range without a Hired application.",
+        "Resolved cases without a qualifying placement. GA SE closed from Phase 4 only are excluded from the rate.",
       medianDaysToHire: "Median days from intake to first hire (clients hired in period).",
       activeCaseload: "Assigned clients not in Closed, Dismissed, or Services Interrupted.",
       contactsPerWeek: "Contact logs in range ÷ calendar weeks in range.",

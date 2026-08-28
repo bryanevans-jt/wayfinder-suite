@@ -31,12 +31,12 @@ export const ANALYTICS_METRIC_DEFINITIONS = {
   successfulPlacements: {
     label: "Successful placements",
     description:
-      "Resolved SE/IJP cases with at least one application marked Hired.",
+      "Resolved SE/IJP cases counted toward hire rate: IJP with a Hired application; GA SE with Hired application, job start date, or Phase 3 Training & OS 1 (or Stabilization).",
   },
   unsuccessfulClosures: {
     label: "Unsuccessful closures",
     description:
-      "Resolved SE/IJP cases closed in the range without a Hired application.",
+      "Resolved SE/IJP cases closed in the range without a qualifying successful placement. GA SE cases closed from Phase 4 only are excluded from the rate entirely.",
   },
   medianDaysToHire: {
     label: "Median days intake → hire",
@@ -100,8 +100,14 @@ export function isHiredApplicationStatus(status: string | null | undefined): boo
   return (status ?? "").trim().toLowerCase() === "hired";
 }
 
-/** GA Supported Employment and IJP services used for GVRA-style placement rate. */
 export function isHireRateEligibleService(
+  serviceName: string | null | undefined,
+  state: string | null | undefined
+): boolean {
+  return isGaSeService(serviceName, state) || isGaIjpService(serviceName, state);
+}
+
+export function isGaIjpService(
   serviceName: string | null | undefined,
   state: string | null | undefined
 ): boolean {
@@ -110,9 +116,83 @@ export function isHireRateEligibleService(
   const serviceState = (state ?? "").trim().toUpperCase();
   const isGa = serviceState === "GA" || /\(\s*ga\s*\)/.test(name);
   if (!isGa || /\(\s*tn\s*\)/.test(name)) return false;
-  if (/individual job placement|\bijp\b/.test(name)) return true;
+  return /individual job placement|\bijp\b/.test(name);
+}
+
+/** GA Traditional Supported Employment (not IJP). */
+export function isGaSeService(
+  serviceName: string | null | undefined,
+  state: string | null | undefined
+): boolean {
+  const name = (serviceName ?? "").trim().toLowerCase();
+  if (!name) return false;
+  const serviceState = (state ?? "").trim().toUpperCase();
+  const isGa = serviceState === "GA" || /\(\s*ga\s*\)/.test(name);
+  if (!isGa || /\(\s*tn\s*\)/.test(name)) return false;
+  if (/individual job placement|\bijp\b/.test(name)) return false;
   if (/traditional supported employment|^supported employment\b/.test(name)) return true;
   return false;
+}
+
+export function isSePhase3TrainingStage(title: string | null | undefined): boolean {
+  const t = (title ?? "").trim();
+  return /phase\s*3\b|training\s*[&/]\s*os\s*1/i.test(t);
+}
+
+export function isSePhase4TrainingStage(title: string | null | undefined): boolean {
+  const t = (title ?? "").trim();
+  return /phase\s*4\b|training\s*[&/]\s*os\s*2/i.test(t);
+}
+
+export function isSeStabilizationStage(title: string | null | undefined): boolean {
+  return /stabilization|extended support/i.test((title ?? "").trim());
+}
+
+export function isSuccessfulSePlacement(input: {
+  hireAt: Date | null;
+  jobStartDate: Date | null;
+  reachedSePhase3: boolean;
+  reachedSeStabilization: boolean;
+}): boolean {
+  return (
+    input.hireAt != null ||
+    input.jobStartDate != null ||
+    input.reachedSePhase3 ||
+    input.reachedSeStabilization
+  );
+}
+
+export function isSuccessfulPlacementForHireRate(input: {
+  isGaSe: boolean;
+  isGaIjp: boolean;
+  hireAt: Date | null;
+  jobStartDate: Date | null;
+  reachedSePhase3: boolean;
+  reachedSeStabilization: boolean;
+}): boolean {
+  if (input.isGaIjp) return input.hireAt != null;
+  if (input.isGaSe) return isSuccessfulSePlacement(input);
+  return input.hireAt != null;
+}
+
+export function shouldExcludeSeCaseFromHireRate(input: {
+  isGaSe: boolean;
+  isActive: boolean;
+  closedAt: Date | null;
+  currentStageTitle: string | null;
+  lastNonTerminalStageBeforeClose: string | null;
+  hireAt: Date | null;
+  jobStartDate: Date | null;
+  reachedSePhase3: boolean;
+  reachedSeStabilization: boolean;
+}): boolean {
+  if (!input.isGaSe) return false;
+  if (input.isActive && isSePhase4TrainingStage(input.currentStageTitle)) {
+    return true;
+  }
+  if (!input.closedAt) return false;
+  if (isSuccessfulSePlacement(input)) return false;
+  return isSePhase4TrainingStage(input.lastNonTerminalStageBeforeClose);
 }
 
 export function isTerminalStageTitle(title: string | null | undefined): boolean {
