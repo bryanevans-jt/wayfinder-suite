@@ -58,8 +58,7 @@ export default async function TimesheetPage({ searchParams }: PageProps) {
     role === "accountant" ||
     role === "hr";
 
-  const useOrgPayrollClock =
-    canPickEs && !isEsRole(role) && (isAdminTierRole(role) || role === "accountant" || role === "hr");
+  const useOrgPayrollClock = canPickEs && !isEsRole(role);
 
   const esPickerOptions =
     canPickEs && !isEsRole(role)
@@ -121,8 +120,8 @@ export default async function TimesheetPage({ searchParams }: PageProps) {
       <h1 className="text-2xl font-bold text-brand-green">Timesheet</h1>
       <p className="mt-2 max-w-2xl text-sm text-brand-black/75">
         Track billable hours tied to client work. Time is captured when you log contacts,
-        applications, meetings, and stage updates using the simplified activity list. Submit each
-        pay week (Sunday–Saturday) for supervisor approval.
+        applications, meetings, and stage updates. Pay weeks run Sunday through Saturday — data
+        appears here as it is entered (no timesheet submission required).
       </p>
       <TimesheetWorkspace
         role={role ?? ""}

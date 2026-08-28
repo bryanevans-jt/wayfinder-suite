@@ -1,7 +1,7 @@
 import { assertPortalSession, jsonPortalError } from "@/lib/portal-auth";
 import { loadPortalBootstrap } from "@/lib/portal-data";
 import { loadSupervisorScope } from "@/lib/supervisor-client-scope";
-import { isAdminTierRole, isSuperAdminRole } from "@wayfinder/supabase/roles";
+import { isAdminTierRole, isSuperAdminRole, isSupervisorRole } from "@wayfinder/supabase/roles";
 import { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
     return Response.json({
       bootstrap,
       canEditLogs: isSuperAdminRole(role),
+      canDeleteContactLogs: isAdminTierRole(role) || isSupervisorRole(role),
       canAssignAdmins: isSuperAdminRole(role),
       role,
     });

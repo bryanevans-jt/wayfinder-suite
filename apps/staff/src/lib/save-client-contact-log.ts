@@ -8,6 +8,7 @@ import {
 import type { ActionResult } from "@wayfinder/supabase/error-log";
 import { friendlyApplicationSaveError } from "@wayfinder/supabase/error-log";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { recordContactLogEvent } from "@/lib/contact-log-events";
 
 export type SaveClientContactLogInput = {
   clientId: string;
@@ -61,6 +62,17 @@ export async function saveClientContactLog(
     fkIds,
     outcome,
     notes: input.internalNotes.trim() || null,
+  });
+
+  await recordContactLogEvent(admin, {
+    contactLogId,
+    clientId: input.clientId,
+    actorUserId: userId,
+    eventKind: "created",
+    after: {
+      public_outcome: outcome,
+      notes: input.internalNotes.trim() || null,
+    },
   });
 
   let warning: string | undefined;

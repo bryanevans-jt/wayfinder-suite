@@ -25,6 +25,7 @@ import { NaturalSupportModal } from "@/components/natural-support-modal";
 import { OfficeDirectoryList } from "@/components/office-directory-list";
 import { OfficeDistrictRegionSelect } from "@/components/office-district-region-select";
 import { SupervisorWeekPack } from "@/components/supervisor-week-pack";
+import { SupervisorTeamHoursPanel } from "@/components/supervisor-team-hours-panel";
 import { DemoTrainingWorkspace } from "@/components/demo-training-workspace";
 import { PayrollSettingsPanel } from "@/components/payroll-settings-panel";
 import { PreEtsSettingsPanel } from "@/components/pre-ets-settings-panel";
@@ -69,6 +70,7 @@ type Props = {
 type ConfigResponse = {
   bootstrap: PortalBootstrap;
   canEditLogs: boolean;
+  canDeleteContactLogs: boolean;
   canAssignAdmins: boolean;
   role: string;
 };
@@ -133,6 +135,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
   const [showArchivedClients, setShowArchivedClients] = useState(false);
   const [showRemovedEs, setShowRemovedEs] = useState(false);
   const canEditLogs = config?.canEditLogs ?? false;
+  const canDeleteContactLogs = config?.canDeleteContactLogs ?? false;
   const canAssignAdmins = config?.canAssignAdmins ?? false;
   const isSuperAdminMode = mode === "super_admin";
   const b = config?.bootstrap;
@@ -683,6 +686,11 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
       ) : nav.primary === "clients" ? (
         <section className="mt-6 max-w-6xl space-y-4">
           {mode === "supervisor" ? <SupervisorWeekPack /> : null}
+          {mode === "supervisor" ? (
+            <div className="mt-6">
+              <SupervisorTeamHoursPanel />
+            </div>
+          ) : null}
           {canManageOrg ? (
             <PortalSetupChecklist bootstrap={b} canManage={canManageOrg} onNavigate={setNav} />
           ) : null}
@@ -1701,14 +1709,20 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                       <td className="px-3 py-2">{officeName(row.office_id)}</td>
                       <td className="px-3 py-2">{row.summary}</td>
                       <td className="px-3 py-2">
-                        {canEditLogs && row.kind === "contact" ? (
+                        {canDeleteContactLogs && row.kind === "contact" ? (
                           <button
                             type="button"
                             className="text-red-700 hover:underline"
                             disabled={busy}
                             onClick={() =>
                               void run(async () => {
-                                if (!confirm("Delete this contact log?")) return;
+                                if (
+                                  !confirm(
+                                    "Delete this contact log? Linked service time for this entry will also be removed. This is recorded in the change log."
+                                  )
+                                ) {
+                                  return;
+                                }
                                 const res = await fetch(`/api/portal/logs?id=${row.id}`, {
                                   method: "DELETE",
                                 });

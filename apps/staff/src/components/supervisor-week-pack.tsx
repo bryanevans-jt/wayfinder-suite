@@ -7,7 +7,6 @@ type WeekPack = {
   messageSla: number;
   thinContacts: number;
   reportGaps: number;
-  timesheetsPending: number;
 };
 
 function StatLink({
@@ -52,7 +51,6 @@ export function SupervisorWeekPack() {
         messageSla: data.messageSla ?? 0,
         thinContacts: data.thinContacts ?? 0,
         reportGaps: data.reportGaps ?? 0,
-        timesheetsPending: data.timesheetsPending ?? 0,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load this week.");
@@ -80,8 +78,7 @@ export function SupervisorWeekPack() {
     );
   }
 
-  const total =
-    pack.messageSla + pack.thinContacts + pack.reportGaps + pack.timesheetsPending;
+  const total = pack.messageSla + pack.thinContacts + pack.reportGaps;
 
   return (
     <section className="rounded-xl border border-neutral-200 bg-neutral-50/80 px-4 py-4">
@@ -91,7 +88,7 @@ export function SupervisorWeekPack() {
           <p className="mt-1 text-sm text-brand-black/65">
             {total === 0
               ? "No coaching or compliance items need you right now."
-              : "Open items across messages, contacts, reports, and timesheets."}
+              : "Open items across messages, contacts, and reports."}
           </p>
         </div>
         <button
@@ -102,7 +99,7 @@ export function SupervisorWeekPack() {
           Refresh
         </button>
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
         <StatLink
           href="/dashboard/operations"
           count={pack.messageSla}
@@ -120,12 +117,6 @@ export function SupervisorWeekPack() {
           count={pack.reportGaps}
           label="Report gaps"
           tone={pack.reportGaps > 0 ? "warn" : "neutral"}
-        />
-        <StatLink
-          href="/dashboard/timesheet"
-          count={pack.timesheetsPending}
-          label="Timesheets to review"
-          tone={pack.timesheetsPending > 0 ? "warn" : "neutral"}
         />
       </div>
     </section>

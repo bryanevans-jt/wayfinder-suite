@@ -60,7 +60,8 @@ export function formatContactLogsDailyVprText(
 }
 
 /**
- * Sum logged service time for this client on the Eastern calendar service_date.
+ * Sum logged service time for this client on the Eastern calendar day.
+ * Uses the same day-matching rules as contact notes (service start, created_at, or service_date).
  * Excludes rejected entries.
  */
 export async function loadBillableMinutesForClientDay(
@@ -69,20 +70,63 @@ export async function loadBillableMinutesForClientDay(
   dateYmd: string
 ): Promise<number> {
   try {
-    const { data, error } = await admin
-      .from("es_time_entries")
-      .select("duration_minutes")
-      .eq("client_id", clientId)
-      .eq("service_date", dateYmd)
-      .neq("status", "rejected");
-    if (error) {
-      console.error("[contact-logs-daily] billable minutes lookup failed:", error.message);
+    const { startIso, endIso } = easternDayUtcSearchWindow(dateYmd);
+
+    const [byServiceDate, byStartWindow, byCreatedWindow] = await Promise.all([
+      admin
+        .from("es_time_entries")
+        .select("id, duration_minutes, service_date, service_start_at, created_at")
+        .eq("client_id", clientId)
+        .eq("service_date", dateYmd)
+        .neq("status", "rejected"),
+      admin
+        .from("es_time_entries")
+        .select("id, duration_minutes, service_date, service_start_at, created_at")
+        .eq("client_id", clientId)
+        .gte("service_start_at", startIso)
+        .lt("service_start_at", endIso)
+        .neq("status", "rejected"),
+      admin
+        .from("es_time_entries")
+        .select("id, duration_minutes, service_date, service_start_at, created_at")
+        .eq("client_id", clientId)
+        .gte("created_at", startIso)
+        .lt("created_at", endIso)
+        .neq("status", "rejected"),
+    ]);
+
+    if (byServiceDate.error) {
+      console.error("[contact-logs-daily] billable minutes lookup failed:", byServiceDate.error.message);
       return 0;
     }
-    return (data ?? []).reduce(
-      (sum, row) => sum + Math.max(0, Number(row.duration_minutes) || 0),
-      0
-    );
+
+    const byId = new Map<string, { duration_minutes: number; service_date: string; service_start_at: string | null; created_at: string }>();
+    for (const row of [
+      ...(byServiceDate.data ?? []),
+      ...(byStartWindow.data ?? []),
+      ...(byCreatedWindow.data ?? []),
+    ]) {
+      byId.set(row.id as string, {
+        duration_minutes: Number(row.duration_minutes) || 0,
+        service_date: row.service_date as string,
+        service_start_at: (row.service_start_at as string | null) ?? null,
+        created_at: row.created_at as string,
+      });
+    }
+
+    let total = 0;
+    for (const row of byId.values()) {
+      const startAt = row.service_start_at;
+      const matchesDay =
+        row.service_date === dateYmd ||
+        (startAt ? easternDateKey(startAt) === dateYmd : false) ||
+        easternDateKey(row.created_at) === dateYmd;
+      if (matchesDay) {
+        total += Math.max(0, row.duration_minutes);
+      }
+    }
+
+    return total;
   } catch (err) {
     console.error("[contact-logs-daily] billable minutes lookup threw:", err);
     return 0;

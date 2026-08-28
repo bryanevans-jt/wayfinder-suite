@@ -22,6 +22,7 @@ import {
   sunsetKeepIdsFromLoadedData,
 } from "@/lib/sunset-tn";
 import { loadServiceOfferings, toServiceSelectOptions } from "@/lib/service-offerings";
+import { loadStaffNameById } from "@/lib/staff-names";
 
 export async function requirePortalPage(minTier: PortalTier) {
   const session = await getAppSession();
@@ -784,7 +785,7 @@ export async function loadPortalBootstrap(
 
 export type ActivityLogRow = {
   id: string;
-  kind: "contact" | "application" | "stage" | "meeting";
+  kind: "contact" | "application" | "stage" | "meeting" | "change";
   created_at: string;
   client_id: string;
   client_name: string | null;
@@ -1045,6 +1046,126 @@ export async function loadActivityLogs(
   );
 
   return rows.slice(0, limit);
+}
+
+const CHANGE_KIND_LABELS: Record<string, string> = {
+  created: "Contact log created",
+  corrected: "Contact log corrected",
+  admin_edited: "Contact log edited (admin)",
+  deleted: "Contact log deleted",
+};
+
+/** Change log entries for Audit Activity (contact log create/edit/delete). */
+export async function loadContactLogChangeRows(
+  admin: ReturnType<typeof createServiceRoleClient>,
+  scope: { officeIds?: string[]; esUserIds?: string[] } | undefined,
+  limit = 500
+): Promise<ActivityLogRow[]> {
+  const { data: events, error } = await admin
+    .from("contact_log_events")
+    .select(
+      "id, contact_log_id, client_id, actor_user_id, event_kind, before_public_outcome, after_public_outcome, before_notes, after_notes, created_at"
+    )
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    if (error.message.includes("contact_log_events")) {
+      return [];
+    }
+    throw new Error(error.message);
+  }
+
+  if (!events?.length) {
+    return [];
+  }
+
+  const clientIds = [...new Set(events.map((e) => e.client_id as string))];
+  const actorIds = [
+    ...new Set(
+      events
+        .map((e) => e.actor_user_id as string | null)
+        .filter((id): id is string => typeof id === "string")
+    ),
+  ];
+
+  const [{ data: clients }, actorNames] = await Promise.all([
+    admin.from("clients").select("id, contact_email, office_id, full_name").in("id", clientIds),
+    loadStaffNameById(admin, actorIds, "Staff"),
+  ]);
+
+  const clientById = new Map(
+    (clients ?? []).map((c) => [
+      c.id as string,
+      {
+        email: c.contact_email as string | null,
+        office_id: c.office_id as string | null,
+        name: clientDisplayName({
+          full_name: (c as { full_name?: string | null }).full_name ?? null,
+          contact_email: c.contact_email as string | null,
+          id: c.id as string,
+        }),
+      },
+    ])
+  );
+
+  const { data: esLinks } = await admin
+    .from("es_client_assignments")
+    .select("client_id, es_user_id")
+    .in("client_id", clientIds);
+
+  const esByClient = new Map<string, string[]>();
+  for (const link of esLinks ?? []) {
+    const cid = link.client_id as string;
+    const list = esByClient.get(cid) ?? [];
+    list.push(link.es_user_id as string);
+    esByClient.set(cid, list);
+  }
+
+  function inScope(clientId: string, officeId: string | null, esIds: string[]): boolean {
+    if (!scope?.officeIds?.length) return true;
+    const officeOk = officeId != null && scope.officeIds.includes(officeId);
+    const esOk = esIds.some((id) => scope.esUserIds?.includes(id));
+    return officeOk || esOk;
+  }
+
+  const rows: ActivityLogRow[] = [];
+  for (const event of events) {
+    const clientId = event.client_id as string;
+    const client = clientById.get(clientId);
+    const esIds = esByClient.get(clientId) ?? [];
+    if (!inScope(clientId, client?.office_id ?? null, esIds)) continue;
+
+    const kind = event.event_kind as string;
+    const actorName = actorNames.get(event.actor_user_id as string) ?? "Staff";
+    const label = CHANGE_KIND_LABELS[kind] ?? "Contact log change";
+    const beforeText = (event.before_public_outcome as string | null) ?? "";
+    const afterText = (event.after_public_outcome as string | null) ?? "";
+
+    let detail: string | null = null;
+    if (kind === "deleted") {
+      detail = beforeText || (event.before_notes as string | null) || null;
+    } else if (kind === "created") {
+      detail = afterText || (event.after_notes as string | null) || null;
+    } else if (beforeText || afterText) {
+      detail = beforeText && afterText ? `${beforeText} → ${afterText}` : afterText || beforeText;
+    }
+
+    rows.push({
+      id: event.id as string,
+      kind: "change",
+      created_at: event.created_at as string,
+      client_id: clientId,
+      client_name: client?.name ?? null,
+      client_email: client?.email ?? null,
+      es_user_ids: esIds,
+      office_id: client?.office_id ?? null,
+      summary: `${label} · ${actorName}`,
+      detail,
+    });
+  }
+
+  return rows;
 }
 
 export function activityLogsToCsv(rows: ActivityLogRow[]): string {

@@ -1,4 +1,5 @@
 import { saveClientContactLog } from "@/lib/save-client-contact-log";
+import { recordContactLogEvent } from "@/lib/contact-log-events";
 import { clientInSupervisorScope, loadSupervisorScope } from "@/lib/supervisor-client-scope";
 import { esIsAssignedToClient } from "@/lib/es-caseload-data";
 import { createServerClient, isEsRole, isSupervisorRole } from "@wayfinder/supabase";
@@ -222,7 +223,7 @@ export async function PATCH(request: Request) {
 
   const { data: existing, error: loadErr } = await admin
     .from("contact_logs")
-    .select("id, client_id, logged_by, created_at")
+    .select("id, client_id, logged_by, created_at, public_outcome, notes")
     .eq("id", logId)
     .maybeSingle();
   if (loadErr) {
@@ -260,14 +261,30 @@ export async function PATCH(request: Request) {
   const actor = await resolveErrorActor(supabase, session.effectiveUserId);
 
   try {
+    const internalNotes = (body.internalNotes ?? "").trim() || null;
     const { error: updErr } = await admin
       .from("contact_logs")
       .update({
         public_outcome: contactNotes,
-        notes: (body.internalNotes ?? "").trim() || null,
+        notes: internalNotes,
       })
       .eq("id", logId);
     if (updErr) throw new Error(updErr.message);
+
+    await recordContactLogEvent(admin, {
+      contactLogId: logId,
+      clientId,
+      actorUserId: session.effectiveUserId,
+      eventKind: "corrected",
+      before: {
+        public_outcome: existing.public_outcome as string | null,
+        notes: existing.notes as string | null,
+      },
+      after: {
+        public_outcome: contactNotes,
+        notes: internalNotes,
+      },
+    });
 
     revalidateClientPaths(clientId);
     return NextResponse.json({ ok: true });

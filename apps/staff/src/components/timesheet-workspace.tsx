@@ -7,17 +7,11 @@ import {
   isEsRole,
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
-import { friendlyClientError } from "@wayfinder/supabase/error-log";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
 import type { EsTimeEntryRow, EsWeekSubmissionRow, SupervisedEsOption, TimesheetClientOption } from "@/lib/es-time-client";
 import { shiftWeekStart, summarizeTimeEntries } from "@/lib/es-time-client";
-import {
-  approveEsWeek,
-  returnEsWeek,
-  submitEsWeek,
-} from "@/app/dashboard/timesheet/actions";
 
 type Props = {
   role: string;
@@ -60,9 +54,7 @@ export function TimesheetWorkspace({
 }: Props) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const [returnNotes, setReturnNotes] = useState<Record<string, string>>({});
   const [clientFilter, setClientFilter] = useState(initialClientFilter);
-  const [pending, startTransition] = useTransition();
 
   const visibleEntries = useMemo(() => {
     if (!clientFilter) {
@@ -90,12 +82,6 @@ export function TimesheetWorkspace({
   const payrollMinutes =
     typeof payrollClockMinutes === "number" ? payrollClockMinutes : summary.workedMinutes;
   const payrollFromClock = typeof payrollClockMinutes === "number";
-  const canSubmit =
-    isEsRole(role) &&
-    !readOnly &&
-    entries.some((e) => e.status === "draft" || e.status === "rejected") &&
-    (!weekSubmission || weekSubmission.status === "open" || weekSubmission.status === "returned");
-
   const weekStatus = weekSubmission?.status ?? "open";
   const exportParams = new URLSearchParams({
     week: weekStart,
@@ -133,105 +119,8 @@ export function TimesheetWorkspace({
     pushTimesheetQuery({ client: nextClientId || null });
   }
 
-  function onSubmitWeek() {
-    setError(null);
-    startTransition(async () => {
-      try {
-        await submitEsWeek(weekStart);
-        router.refresh();
-      } catch (e) {
-        setError(friendlyClientError(e));
-      }
-    });
-  }
-
-  function onApprove(id: string) {
-    setError(null);
-    startTransition(async () => {
-      try {
-        await approveEsWeek(id);
-        router.refresh();
-      } catch (e) {
-        setError(friendlyClientError(e));
-      }
-    });
-  }
-
-  function onReturn(id: string) {
-    setError(null);
-    const notes = returnNotes[id]?.trim() ?? "";
-    startTransition(async () => {
-      try {
-        await returnEsWeek(id, notes);
-        router.refresh();
-      } catch (e) {
-        setError(friendlyClientError(e));
-      }
-    });
-  }
-
   return (
     <div className="mt-8 max-w-5xl space-y-8">
-      {(isSupervisorRole(role) || isAdminTierRole(role)) && pendingApprovals.length > 0 ? (
-        <section className="rounded-xl border border-amber-200 bg-amber-50 p-5">
-          <h2 className="text-base font-semibold text-brand-black">Pending Approvals</h2>
-          <ul className="mt-3 space-y-3">
-            {pendingApprovals.map((w) => (
-              <li
-                key={w.id}
-                className="rounded-lg border border-amber-100 bg-white p-4"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-brand-black">{w.es_name}</p>
-                    <p className="text-sm text-brand-black/70">
-                      {formatWeekLabel(w.week_start, w.week_end)} ·{" "}
-                      {minutesToDecimalHours(w.total_minutes)} hrs
-                    </p>
-                  </div>
-                  {!readOnly ? (
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => onApprove(w.id)}
-                        disabled={pending}
-                        className="rounded-lg bg-brand-green px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                      >
-                        Approve week
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-                {!readOnly ? (
-                  <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
-                    <label className="block flex-1 text-sm">
-                      Return notes
-                      <input
-                        type="text"
-                        value={returnNotes[w.id] ?? ""}
-                        onChange={(e) =>
-                          setReturnNotes((prev) => ({ ...prev, [w.id]: e.target.value }))
-                        }
-                        placeholder="What should the ES fix?"
-                        className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => onReturn(w.id)}
-                      disabled={pending}
-                      className="rounded-lg border border-red-300 px-3 py-2 text-sm font-semibold text-red-800 disabled:opacity-60"
-                    >
-                      Return for correction
-                    </button>
-                  </div>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
       <section className="rounded-xl border border-neutral-200 bg-white p-5">
         {canPickEs ? (
           <div className="mb-4 space-y-3">
@@ -372,17 +261,6 @@ export function TimesheetWorkspace({
               </p>
             ) : null}
           </div>
-        ) : null}
-
-        {canSubmit ? (
-          <button
-            type="button"
-            onClick={onSubmitWeek}
-            disabled={pending}
-            className="mt-5 rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-          >
-            {pending ? "Submitting…" : "Submit week for approval"}
-          </button>
         ) : null}
 
         {weekSubmission?.supervisor_notes ? (

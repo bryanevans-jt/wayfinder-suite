@@ -1,4 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  localDateStringInTz,
+  nyLocalToUtc,
+  parseLocalDate as parseYmdParts,
+  STAFF_CLOCK_TIMEZONE,
+  zonedDateTimeParts,
+} from "./staff-time-clock-shared";
 
 export type ServiceActivityType = {
   id: string;
@@ -70,12 +77,33 @@ export function filterClientContactActivityTypes(
   return types.filter((t) => t.requires_client);
 }
 
-/** Pay week starts Sunday (local calendar date string YYYY-MM-DD). */
-export function weekStartSunday(input: Date | string): string {
-  const d = typeof input === "string" ? parseLocalDate(input) : new Date(input);
-  const day = d.getDay();
-  d.setDate(d.getDate() - day);
-  return formatLocalDate(d);
+function easternWeekdayIndex(ymd: string): number {
+  const { year, month, day } = parseYmdParts(ymd);
+  const noonUtc = nyLocalToUtc(year, month, day, 12, 0, 0);
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    timeZone: STAFF_CLOCK_TIMEZONE,
+    weekday: "short",
+  }).format(noonUtc);
+  const idx = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].findIndex((d) =>
+    weekday.startsWith(d)
+  );
+  return idx >= 0 ? idx : 0;
+}
+
+function addCalendarDaysYmd(ymd: string, deltaDays: number): string {
+  const { year, month, day } = parseYmdParts(ymd);
+  const d = new Date(Date.UTC(year, month - 1, day + deltaDays, 12, 0, 0));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
+/** Pay week starts Sunday (Eastern calendar date YYYY-MM-DD). */
+export function weekStartSunday(input: Date | string = new Date()): string {
+  const ymd =
+    typeof input === "string"
+      ? input.slice(0, 10)
+      : localDateStringInTz(input, STAFF_CLOCK_TIMEZONE);
+  const dayIndex = easternWeekdayIndex(ymd);
+  return addCalendarDaysYmd(ymd, -dayIndex);
 }
 
 export function weekEndSaturday(weekStart: string): string {
@@ -96,8 +124,9 @@ export function formatLocalDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+/** Today's service date in Eastern Time (matches VPR compile and Time Clock). */
 export function todayLocalDate(): string {
-  return formatLocalDate(new Date());
+  return localDateStringInTz(new Date(), STAFF_CLOCK_TIMEZONE);
 }
 
 /**
@@ -228,7 +257,6 @@ export async function insertEsTimeEntry(
   });
   validateDurationMinutes(activity, normalized.durationMinutes);
 
-  const flags = computeTimeEntryFlags(input.serviceDate);
   const { service_start_at, service_end_at } = resolveServiceTimestamps({
     serviceDate: input.serviceDate,
     durationMinutes: normalized.durationMinutes,
@@ -237,13 +265,16 @@ export async function insertEsTimeEntry(
     recordedAt: input.recordedAt,
   });
 
+  const serviceDate = localDateStringInTz(new Date(service_start_at), STAFF_CLOCK_TIMEZONE);
+  const flags = computeTimeEntryFlags(serviceDate);
+
   const { data, error } = await supabase
     .from("es_time_entries")
     .insert({
       es_user_id: input.esUserId,
       client_id: input.clientId,
       activity_type_id: input.activityTypeId,
-      service_date: input.serviceDate,
+      service_date: serviceDate,
       duration_minutes: normalized.durationMinutes,
       service_start_at,
       service_end_at,
@@ -284,14 +315,15 @@ function pad2(value: number): string {
 }
 
 export function formatTimeInputValue(date: Date): string {
-  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+  const p = zonedDateTimeParts(date, STAFF_CLOCK_TIMEZONE);
+  return `${pad2(p.hour)}:${pad2(p.minute)}`;
 }
 
+/** Combine Eastern service date + HH:mm wall clock into a UTC instant. */
 export function combineServiceDateAndTime(serviceDate: string, timeValue: string): Date {
   const [hours, minutes] = timeValue.split(":").map(Number);
-  const date = parseLocalDate(serviceDate);
-  date.setHours(hours, minutes ?? 0, 0, 0);
-  return date;
+  const { year, month, day } = parseYmdParts(serviceDate);
+  return nyLocalToUtc(year, month, day, hours, minutes ?? 0, 0);
 }
 
 export function formatServiceTimeOfDay(iso: string | null | undefined): string {
