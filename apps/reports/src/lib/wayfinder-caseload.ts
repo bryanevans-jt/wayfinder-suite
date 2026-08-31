@@ -189,10 +189,13 @@ async function hydrateClients(
     const authId = (c.user_id ?? c.profile_id) as string | null;
     const office = c.office_id ? officeById.get(c.office_id as string) : undefined;
     const state = (office?.state as ReportingState | null | undefined) ?? null;
+    const rosterName = typeof c.full_name === "string" ? c.full_name.trim() : "";
+    const profileName = authId ? (profileById.get(authId) ?? null) : null;
     return {
       id: c.id as string,
       name: clientDisplayName({
-        full_name: authId ? (profileById.get(authId) ?? null) : null,
+        // Roster name first so clients without a login/email still resolve.
+        full_name: rosterName || profileName,
         contact_email: c.contact_email as string | null,
         id: c.id as string,
       }),
@@ -262,17 +265,33 @@ export async function searchCaseloadClients(
   }
 
   const limit = opts.limit ?? 25;
+  const qRaw = opts.query?.trim() ?? "";
+  const q = qRaw.toLowerCase();
+  // When searching, pull a wider page so in-memory name/office/service matches aren't cut off
+  // by email-sorted pagination (null emails used to sort last and disappear).
+  const fetchLimit = q ? Math.max(limit * 8, 100) : limit;
+
   let clientQuery = admin
     .from("clients")
     .select(
-      "id, user_id, profile_id, contact_email, office_id, counselor_id, current_service_id, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other, offices!inner(state)"
+      "id, full_name, user_id, profile_id, contact_email, office_id, counselor_id, current_service_id, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other, offices!inner(state)"
     )
     .eq("offices.state", opts.state)
-    .order("contact_email", { ascending: true })
-    .limit(limit);
+    .order("full_name", { ascending: true })
+    .limit(fetchLimit);
 
   if (scope !== "all") {
     clientQuery = clientQuery.in("id", [...scope]);
+  }
+
+  if (qRaw) {
+    // Strip PostgREST or/ilike metacharacters so the filter stays valid.
+    const escaped = qRaw.replace(/[%_,]/g, "").trim();
+    if (escaped) {
+      clientQuery = clientQuery.or(
+        `full_name.ilike.%${escaped}%,contact_email.ilike.%${escaped}%`
+      );
+    }
   }
 
   const { data: rows, error } = await clientQuery;
@@ -281,17 +300,18 @@ export async function searchCaseloadClients(
   }
 
   const hydrated = await hydrateClients(admin, rows as Record<string, unknown>[]);
-  const q = opts.query?.trim().toLowerCase();
   if (!q) {
-    return hydrated;
+    return hydrated.slice(0, limit);
   }
 
-  return hydrated.filter(
-    (c) =>
-      c.name.toLowerCase().includes(q) ||
-      c.officeName?.toLowerCase().includes(q) ||
-      c.serviceName?.toLowerCase().includes(q)
-  );
+  return hydrated
+    .filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.officeName?.toLowerCase().includes(q) ||
+        c.serviceName?.toLowerCase().includes(q)
+    )
+    .slice(0, limit);
 }
 
 export async function userCanAccessClient(
@@ -320,7 +340,7 @@ export async function getCaseloadClientById(
   const { data: row } = await admin
     .from("clients")
     .select(
-      "id, user_id, profile_id, contact_email, office_id, counselor_id, current_service_id, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other"
+      "id, full_name, user_id, profile_id, contact_email, office_id, counselor_id, current_service_id, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other"
     )
     .eq("id", clientId)
     .maybeSingle();

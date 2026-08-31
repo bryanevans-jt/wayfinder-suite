@@ -169,7 +169,7 @@ export async function loadSeMonthlyCandidates(admin: SupabaseClient): Promise<Se
 
   const { data: clients } = await admin
     .from("clients")
-    .select("id, user_id, profile_id, contact_email, current_stage_id")
+    .select("id, full_name, user_id, profile_id, contact_email, current_stage_id")
     .in("office_id", officeIds)
     .in("current_service_id", tseServiceIds)
     .in("current_stage_id", stageIds)
@@ -224,10 +224,13 @@ export async function loadSeMonthlyCandidates(admin: SupabaseClient): Promise<Se
     if (!stageTitle) continue;
 
     const authId = (client.user_id ?? client.profile_id) as string | null;
+    const rosterName =
+      typeof client.full_name === "string" ? client.full_name.trim() : "";
+    const profileName = authId ? (profileNameById.get(authId) ?? null) : null;
     results.push({
       clientId,
       clientName: clientDisplayName({
-        full_name: authId ? (profileNameById.get(authId) ?? null) : null,
+        full_name: rosterName || profileName,
         contact_email: client.contact_email as string | null,
         id: clientId,
       }),
