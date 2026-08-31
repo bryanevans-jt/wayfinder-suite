@@ -2,12 +2,12 @@
 
 ## Paste-ready page embeds
 
-Same look as your current GA/TN forms; submit URL points at Wayfinder Pro instead of Apps Script.
+Same look as your current GA form; submit URL points at Wayfinder Pro instead of Apps Script.
 
 | Page | File to copy |
 |---|---|
-| **Georgia (GVRA)** | [`docs/website-embeds/ga-gvra-referral-form.html`](website-embeds/ga-gvra-referral-form.html) |
-| **Tennessee (TDHS VR)** | [`docs/website-embeds/tn-tdhs-referral-form.html`](website-embeds/tn-tdhs-referral-form.html) |
+| **Georgia (GVRA)** | [`docs/website-embeds/ga-gvra-referral-form.html`](website-embeds/ga-gvra-referral-form.html) — **Workplace Readiness Training only** |
+| **Tennessee (TDHS VR)** | [`docs/website-embeds/tn-tdhs-referral-form.html`](website-embeds/tn-tdhs-referral-form.html) — **retired** (closed notice; API returns 410) |
 
 1. Open the file in the repo.
 2. Confirm `REFERRAL_SCRIPT_URL` uses your live staff host (default: `wayfinder-pro.thejoshuatree.org`).
@@ -16,8 +16,8 @@ Same look as your current GA/TN forms; submit URL points at Wayfinder Pro instea
 
 Endpoints:
 
-- GA: `https://wayfinder-pro.thejoshuatree.org/api/public/referrals/ga`
-- TN: `https://wayfinder-pro.thejoshuatree.org/api/public/referrals/tn`
+- GA: `https://wayfinder-pro.thejoshuatree.org/api/public/referrals/ga` (WRT only)
+- TN: retired — `POST /api/public/referrals/tn` returns **410 Gone**
 
 ## Optional form secret
 

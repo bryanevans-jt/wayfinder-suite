@@ -394,7 +394,12 @@ export async function createPublicReferral(
     return { error: "Counselor phone is required", status: 400 };
   }
 
-  const serviceName = mapReferralServiceName(state, payload.service ?? "");
+  const serviceLabel = (payload.service ?? "").trim();
+  if (state === "GA" && source === "website" && serviceLabel !== "Workplace Readiness Training") {
+    return { error: "Only Workplace Readiness Training referrals are accepted at this time.", status: 400 };
+  }
+
+  const serviceName = mapReferralServiceName(state, serviceLabel);
   if (!serviceName) {
     return { error: "Invalid service requested", status: 400 };
   }

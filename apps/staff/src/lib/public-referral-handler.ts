@@ -20,7 +20,7 @@ function authorizePublicReferral(request: Request): boolean {
   return header === secret || auth === `Bearer ${secret}`;
 }
 
-function corsHeaders(origin: string | null): HeadersInit {
+export function corsHeaders(origin: string | null): HeadersInit {
   const allowed = (process.env.REFERRAL_CORS_ORIGINS ?? "https://thejoshuatree.org,https://www.thejoshuatree.org")
     .split(",")
     .map((s) => s.trim())
@@ -41,6 +41,13 @@ export async function OPTIONS(request: Request) {
     status: 204,
     headers: corsHeaders(request.headers.get("origin")),
   });
+}
+
+export function publicReferralClosedResponse(request: Request, message: string) {
+  return NextResponse.json(
+    { result: "error", message },
+    { status: 410, headers: corsHeaders(request.headers.get("origin")) }
+  );
 }
 
 export async function handlePublicReferralPost(request: Request, state: ReferralState) {
