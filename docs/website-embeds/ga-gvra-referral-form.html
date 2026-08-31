@@ -25,8 +25,9 @@
       </div>
 
       <h3>Service Requested</h3>
-      <p class="jt-service-label">Workplace Readiness Training</p>
-      <input type="hidden" name="service" value="Workplace Readiness Training">
+      <div class="jt-radio-group">
+        <label><input type="radio" name="service" value="Workplace Readiness Training" required checked> Workplace Readiness Training</label>
+      </div>
 
       <h3>Client Referral</h3>
       <div class="jt-grid">
@@ -130,15 +131,8 @@
     padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 1rem; width: 100%; box-sizing: border-box;
   }
   
-  .jt-service-label {
-    margin: 0;
-    padding: 10px 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    background: #f9fafb;
-    font-size: 1rem;
-    font-weight: 600;
-  }
+  .jt-radio-group { display: flex; flex-direction: column; gap: 8px; }
+  .jt-radio-group label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.95rem; }
   
   .jt-primary { background: #15803d; color: #fff; border: none; padding: 12px 24px; font-size: 1rem; border-radius: 6px; cursor: pointer; font-weight: bold; }
   .jt-primary:hover { background: #166534; }
