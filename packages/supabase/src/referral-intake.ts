@@ -22,6 +22,12 @@ import {
 export type ReferralState = "GA" | "TN";
 export type IntakeStatus = "new_referral" | "pending_authorization" | "active" | "discarded";
 
+/** GA public website referral form — active service options. */
+export const GA_WEBSITE_REFERRAL_SERVICES = [
+  "Individual Job Placement",
+  "Workplace Readiness Training",
+] as const;
+
 export type ReferralFilePayload = {
   name: string;
   mimeType?: string;
@@ -395,8 +401,15 @@ export async function createPublicReferral(
   }
 
   const serviceLabel = (payload.service ?? "").trim();
-  if (state === "GA" && source === "website" && serviceLabel !== "Workplace Readiness Training") {
-    return { error: "Only Workplace Readiness Training referrals are accepted at this time.", status: 400 };
+  if (
+    state === "GA" &&
+    source === "website" &&
+    !(GA_WEBSITE_REFERRAL_SERVICES as readonly string[]).includes(serviceLabel)
+  ) {
+    return {
+      error: "Invalid service requested. Choose Individual Job Placement or Workplace Readiness Training.",
+      status: 400,
+    };
   }
 
   const serviceName = mapReferralServiceName(state, serviceLabel);
