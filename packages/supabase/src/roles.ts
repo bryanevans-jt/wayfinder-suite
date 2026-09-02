@@ -117,24 +117,33 @@ export function canViewStaffOnlyClientNotes(role: string | null | undefined): bo
   );
 }
 
-export function canWriteStaffOnlyClientNotes(role: string | null | undefined): boolean {
-  return isHospitalitySpecialistRole(role) || isAdminTierRole(role);
+/**
+ * Intake → service-start ops (Referral Queue / Intake Calls / Start Client).
+ * HR Director inherits Hospitality intake work; Admins can execute and oversee.
+ * Weekly/partner check-ins are separate — see canLogHospitalityCheckIns.
+ */
+export function canExecuteHospitalityIntakeOps(role: string | null | undefined): boolean {
+  return isHospitalitySpecialistRole(role) || isHrRole(role) || isAdminTierRole(role);
 }
 
+export function canWriteStaffOnlyClientNotes(role: string | null | undefined): boolean {
+  return canExecuteHospitalityIntakeOps(role);
+}
+
+/** Weekly client / partner check-in logging (not HR — intake-only for HR). */
 export function canLogHospitalityCheckIns(role: string | null | undefined): boolean {
   return isHospitalitySpecialistRole(role) || isAdminTierRole(role);
 }
 
-/** Assign / change Employment Specialist on a client profile (Hospitality Specialist / Admin). */
+/** Assign / change Employment Specialist on a client profile (intake Start Client). */
 export function canAssignClientEs(role: string | null | undefined): boolean {
-  return isHospitalitySpecialistRole(role) || isAdminTierRole(role);
+  return canExecuteHospitalityIntakeOps(role);
 }
 
 /** Edit/reschedule hospitality intake appointment on a client profile. */
 export function canEditClientIntakeAppointment(role: string | null | undefined): boolean {
   return (
-    isHospitalitySpecialistRole(role) ||
-    isAdminTierRole(role) ||
+    canExecuteHospitalityIntakeOps(role) ||
     isSupervisorRole(role) ||
     isEsRole(role)
   );
@@ -142,11 +151,7 @@ export function canEditClientIntakeAppointment(role: string | null | undefined):
 
 /** View hospitality dashboard / weekly client and monthly partner check-ins (read). */
 export function canViewHospitalityWorkspace(role: string | null | undefined): boolean {
-  return (
-    isHospitalitySpecialistRole(role) ||
-    isAdminTierRole(role) ||
-    isHrRole(role)
-  );
+  return isHospitalitySpecialistRole(role) || isAdminTierRole(role);
 }
 
 /** Formal report submissions oversight (Admin / Super Admin / HR) on any client profile. */

@@ -4,6 +4,7 @@ import {
   canEditClientIntakeAppointment,
   isAdminTierRole,
   isEsRole,
+  isHrRole,
   isHospitalitySpecialistRole,
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
@@ -26,7 +27,7 @@ async function assertCanEditIntakeAppointment(clientId: string) {
 
   const role = session.effectiveRole;
   const orgWide =
-    isHospitalitySpecialistRole(role) || isAdminTierRole(role);
+    isHospitalitySpecialistRole(role) || isHrRole(role) || isAdminTierRole(role);
   if (!orgWide && (isEsRole(role) || isSupervisorRole(role))) {
     const ok = await requireStaffClientAccess(session, clientId);
     if (!ok) {

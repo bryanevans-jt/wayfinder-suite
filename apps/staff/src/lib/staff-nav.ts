@@ -238,6 +238,11 @@ export function staffNavSectionsForRole(
               label: "Referral Queue",
               match: (p) => p.startsWith("/dashboard/referrals"),
             },
+            {
+              href: "/dashboard/hospitality/intakes",
+              label: "Intake Calls",
+              match: (p) => p.startsWith("/dashboard/hospitality/intakes"),
+            },
             intakeBillingNav,
             ...(showPreEtsNav ? [preEtsNav] : []),
             communityPartnersNav,
@@ -279,6 +284,11 @@ export function staffNavSectionsForRole(
               href: "/dashboard/referrals",
               label: "Referral Queue",
               match: (p) => p.startsWith("/dashboard/referrals"),
+            },
+            {
+              href: "/dashboard/hospitality/intakes",
+              label: "Intake Calls",
+              match: (p) => p.startsWith("/dashboard/hospitality/intakes"),
             },
             intakeBillingNav,
             ...(showPreEtsNav ? [preEtsNav] : []),
@@ -372,22 +382,12 @@ export function staffNavSectionsForRole(
               label: "Referral Queue",
               match: (p) => p.startsWith("/dashboard/referrals"),
             },
+            {
+              href: "/dashboard/hospitality/intakes",
+              label: "Intake Calls",
+              match: (p) => p.startsWith("/dashboard/hospitality/intakes"),
+            },
             intakeBillingNav,
-            {
-              href: "/dashboard/hospitality",
-              label: "Hospitality Overview",
-              match: (p) => p === "/dashboard/hospitality",
-            },
-            {
-              href: "/dashboard/hospitality/check-ins",
-              label: "Weekly Check-ins",
-              match: (p) => p.startsWith("/dashboard/hospitality/check-ins"),
-            },
-            {
-              href: "/dashboard/hospitality/partner-check-ins",
-              label: "Partner Check-ins",
-              match: (p) => p.startsWith("/dashboard/hospitality/partner-check-ins"),
-            },
             {
               href: "/dashboard/timesheet",
               label: "Weekly Timesheet",

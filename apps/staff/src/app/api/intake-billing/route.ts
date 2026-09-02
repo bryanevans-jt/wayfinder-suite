@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
   canAccessIntakeBilling,
+  canManageIntakeBilling,
   markDueScheduledIntakeBillings,
   updateIntakeBillingStatus,
 } from "@wayfinder/supabase/intake-billing";
@@ -69,7 +70,7 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   const session = await getAppSession();
-  if (!session || !canAccessIntakeBilling(session.effectiveRole)) {
+  if (!session || !canManageIntakeBilling(session.effectiveRole)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

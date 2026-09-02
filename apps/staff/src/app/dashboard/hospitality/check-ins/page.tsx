@@ -1,7 +1,6 @@
 import {
   canLogHospitalityCheckIns,
   canViewHospitalityWorkspace,
-  isHrRole,
   staffHomePath,
 } from "@wayfinder/supabase/roles";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
@@ -27,9 +26,7 @@ export default async function HospitalityCheckInsPage() {
       <p className="mt-2 max-w-2xl text-sm text-brand-black/75">
         {canWrite
           ? "Call every client at least once each week (Sunday–Saturday, Eastern Time) to see how they are doing and how services are going. Open a client to add internal staff notes."
-          : isHrRole(role)
-            ? "Oversight view of weekly wellness calls (Eastern Time). Hospitality Specialist logs check-ins; you can review progress and open client profiles."
-            : "Review weekly wellness call progress. Logging is limited to Hospitality Specialist and Admin."}
+          : "Review weekly wellness call progress. Logging is available to Hospitality Specialist and Admin."}
       </p>
       <HospitalityCheckInsWorkspace canWrite={canWrite} />
     </main>

@@ -1,7 +1,6 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
   canViewHospitalityWorkspace,
-  isHrRole,
   staffHomePath,
 } from "@wayfinder/supabase/roles";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
@@ -60,9 +59,6 @@ export default async function HospitalityDashboardPage() {
         View client activity, Community Network members (including pending), and org connections.
         Use Weekly Check-ins for client wellness calls and Partner Check-ins for monthly Community
         Partner outreach. Open a client to add internal staff notes.
-        {isHrRole(role)
-          ? " HR can review this workspace; Hospitality Specialist logs check-ins and staff notes."
-          : ""}
       </p>
       <HospitalityWorkspace
         clients={data.clients}

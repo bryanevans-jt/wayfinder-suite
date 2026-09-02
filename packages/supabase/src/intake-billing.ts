@@ -21,6 +21,12 @@ export function canAccessIntakeBilling(role: string | null | undefined): boolean
   return isAccountantRole(r) || isHrRole(r) || isAdminTierRole(r);
 }
 
+/** Mark billed / paid / ready — Accounts Specialist and Admin; HR is view-only. */
+export function canManageIntakeBilling(role: string | null | undefined): boolean {
+  const r = normalizeRole(role);
+  return isAccountantRole(r) || isAdminTierRole(r);
+}
+
 export { isAccountantRole } from "./roles";
 
 type BillingRow = {
@@ -70,19 +76,19 @@ export async function isReferralPipelineClient(
   return Boolean(billing);
 }
 
-async function hospitalitySpecialistUserIds(admin: SupabaseClient): Promise<Set<string>> {
+async function intakeOpsUserIdsExcludedFromBillingContact(admin: SupabaseClient): Promise<Set<string>> {
   const { data, error } = await admin
     .from("profiles")
     .select("id")
-    .eq("role", "hospitality_specialist");
+    .in("role", ["hospitality_specialist", "hr"]);
   if (error) {
-    console.error("hospitality specialist ids load failed:", error.message);
+    console.error("intake ops ids load failed:", error.message);
     return new Set();
   }
   return new Set((data ?? []).map((row) => row.id as string));
 }
 
-/** True when an ES/supervisor (etc.) contact log exists — Hospitality Specialist logs do not count. */
+/** True when an ES/supervisor (etc.) contact log exists — Hospitality/HR intake logs do not count. */
 export async function hasNonHospitalityContactLog(
   admin: SupabaseClient,
   clientId: string
@@ -98,11 +104,11 @@ export async function hasNonHospitalityContactLog(
   }
   if (!logs?.length) return false;
 
-  const hospitalityIds = await hospitalitySpecialistUserIds(admin);
+  const intakeOpsIds = await intakeOpsUserIdsExcludedFromBillingContact(admin);
   return logs.some((row) => {
     const loggedBy = row.logged_by as string | null;
     if (!loggedBy) return true; // legacy rows without author — treat as casework
-    return !hospitalityIds.has(loggedBy);
+    return !intakeOpsIds.has(loggedBy);
   });
 }
 

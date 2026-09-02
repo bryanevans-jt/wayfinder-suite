@@ -1,7 +1,6 @@
 import {
   canLogHospitalityCheckIns,
   canViewHospitalityWorkspace,
-  isHrRole,
   staffHomePath,
 } from "@wayfinder/supabase/roles";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
@@ -27,9 +26,7 @@ export default async function HospitalityPartnerCheckInsPage() {
       <p className="mt-2 max-w-2xl text-sm text-brand-black/75">
         {canWrite
           ? "Contact every Community Partner at least once each calendar month (Eastern Time). Use Community Partners for the full directory and map."
-          : isHrRole(role)
-            ? "Oversight view of monthly Community Partner outreach (Eastern Time). Hospitality Specialist logs contacts."
-            : "Review monthly Community Partner outreach. Logging is limited to Hospitality Specialist and Admin."}
+          : "Review monthly Community Partner outreach. Logging is available to Hospitality Specialist and Admin."}
       </p>
       <HospitalityPartnerCheckInsWorkspace canWrite={canWrite} />
     </main>

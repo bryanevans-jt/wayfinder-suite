@@ -38,7 +38,7 @@ function reasonLabel(reason: string | null): string {
   return "—";
 }
 
-export function IntakeBillingWorkspace() {
+export function IntakeBillingWorkspace({ canManage = true }: { canManage?: boolean }) {
   const searchParams = useSearchParams();
   const focusClientId = searchParams.get("client");
   const [filter, setFilter] = useState<(typeof FILTERS)[number][0]>(
@@ -85,6 +85,7 @@ export function IntakeBillingWorkspace() {
   }, [focusClientId, loading, displayRows]);
 
   async function act(id: string, action: "billed" | "paid" | "ready") {
+    if (!canManage) return;
     const res = await fetch("/api/intake-billing", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -134,7 +135,7 @@ export function IntakeBillingWorkspace() {
                 <th className="px-3 py-2">Auth #</th>
                 <th className="px-3 py-2">Ready</th>
                 <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">Actions</th>
+                <th className="px-3 py-2">{canManage ? "Actions" : "Status detail"}</th>
               </tr>
             </thead>
             <tbody>
@@ -179,7 +180,9 @@ export function IntakeBillingWorkspace() {
                     </td>
                     <td className="px-3 py-3 capitalize">{row.status.replaceAll("_", " ")}</td>
                     <td className="px-3 py-3">
-                      {row.status === "scheduled" ? (
+                      {!canManage ? (
+                        <span className="text-xs text-brand-black/55">View only</span>
+                      ) : row.status === "scheduled" ? (
                         <button
                           type="button"
                           onClick={() => void act(row.id, "ready")}
@@ -188,7 +191,7 @@ export function IntakeBillingWorkspace() {
                           Mark ready
                         </button>
                       ) : null}
-                      {row.status === "ready_to_bill" ? (
+                      {canManage && row.status === "ready_to_bill" ? (
                         <button
                           type="button"
                           onClick={() => void act(row.id, "billed")}
@@ -197,7 +200,7 @@ export function IntakeBillingWorkspace() {
                           Mark billed
                         </button>
                       ) : null}
-                      {row.status === "billed" ? (
+                      {canManage && row.status === "billed" ? (
                         <button
                           type="button"
                           onClick={() => void act(row.id, "paid")}
@@ -206,7 +209,7 @@ export function IntakeBillingWorkspace() {
                           Payment received
                         </button>
                       ) : null}
-                      {row.status === "paid" ? (
+                      {canManage && row.status === "paid" ? (
                         <span className="text-xs font-medium uppercase tracking-wide text-brand-black/45">
                           Paid
                         </span>

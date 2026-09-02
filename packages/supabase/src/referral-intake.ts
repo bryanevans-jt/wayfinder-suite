@@ -122,6 +122,18 @@ export async function loadHrIntakeRecipientUserIds(admin: SupabaseClient): Promi
   return (data ?? []).map((r) => r.id as string);
 }
 
+/** Recipients for post-activation intake work (Intake Calls). */
+export async function loadHospitalityIntakeRecipientUserIds(
+  admin: SupabaseClient
+): Promise<string[]> {
+  const { data } = await admin
+    .from("profiles")
+    .select("id")
+    .in("role", ["hospitality_specialist", "hr", "admin", "super_admin"])
+    .eq("is_active", true);
+  return (data ?? []).map((r) => r.id as string);
+}
+
 export function canManageReferrals(role: string | null | undefined): boolean {
   return isHrRole(role) || isAdminRole(role) || isSuperAdminRole(role) || isAdminTierRole(role);
 }
@@ -776,14 +788,10 @@ export async function activateReferralToFirstStage(
     },
     { onConflict: "client_id" }
   );
-  const { data: hospitality } = await admin
-    .from("profiles")
-    .select("id")
-    .eq("role", "hospitality_specialist")
-    .eq("is_active", true);
-  for (const h of hospitality ?? []) {
+  const intakeRecipients = await loadHospitalityIntakeRecipientUserIds(admin);
+  for (const userId of intakeRecipients) {
     await notifyUser(admin, {
-      userId: h.id as string,
+      userId,
       app: "staff",
       kind: "referral_needs_intake",
       title: `New client ready to start: ${clientLabel}`,

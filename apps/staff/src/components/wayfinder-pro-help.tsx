@@ -93,7 +93,7 @@ function sectionsForRole(role: string | null): Section[] {
         steps: [
           "Portal → Admin Portal for clients, offices, services, and team members.",
           "Oversight → Team Operations, Compliance, Explore Analytics.",
-          "Tools → Time Clock, WRT Preview, Submit Reports, Community Partners.",
+          "Tools → Time Clock, WRT Preview, Submit Reports, Referral Queue, Intake Calls, Community Partners.",
         ],
       },
       {
@@ -318,10 +318,11 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "HR Workspace",
         body:
-          "HR focuses on people and performance: timesheets, Time Clock / PTO approvals, aggregated analytics, and exports for hours worked and billable oversight. Client-named analytics dumps are not available.",
+          "HR owns people ops plus the client start path: referrals through Intake Calls / Start Client, timesheets, Time Clock / PTO, analytics, and exports. Client-named analytics dumps are not available. Weekly wellness and partner check-ins are not an HR task.",
         steps: [
           "HR Dashboard for people tools.",
-          "Hospitality Overview / Weekly Check-ins / Partner Check-ins for wellness and partner outreach oversight (view-only; Hospitality logs).",
+          "Referral Queue → Intake Calls to move a client from referral through Start Client (assign supervisor / ES / office).",
+          "Intake Billing is view-only for HR — Accounts Specialist marks billed and paid.",
           "Account → My Profile to update your name, city, and contact details.",
           "Weekly Timesheet to view any ES week.",
           "Time Clock for hours worked and the org PTO approval queue.",
