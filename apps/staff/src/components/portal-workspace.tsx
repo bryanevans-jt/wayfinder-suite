@@ -2409,64 +2409,119 @@ function EsStaffListItem({
 
   if (editing && !staff.is_removed) {
     return (
-      <tr className="border-t border-neutral-100 bg-neutral-50/80">
-        <td className="px-3 py-3">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="mb-1 w-full min-w-[140px] rounded border border-neutral-300 px-2 py-1 text-sm"
-            placeholder="Full name"
-            disabled={busy}
-          />
-          <p className="text-xs text-brand-black/60">{staff.email || "—"}</p>
-        </td>
-        <td className="px-3 py-3 text-sm text-brand-black/70">{positionLabel}</td>
-        <td className="px-3 py-3">
-          <OfficeCheckboxGroup
-            label=""
-            offices={offices}
-            selected={officeIds}
-            disabled={busy}
-            onChange={setOfficeIds}
-          />
-        </td>
-        <td className="px-3 py-3 text-brand-black/70">{staff.client_count}</td>
-        <td className="px-3 py-3">
-          <label className="flex items-center gap-2 text-sm">
+      <>
+        <tr className="border-t border-neutral-100 bg-neutral-50/80">
+          <td className="px-3 py-3">
             <input
-              type="checkbox"
-              checked={isActive}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="mb-1 w-full min-w-[140px] rounded border border-neutral-300 px-2 py-1 text-sm"
+              placeholder="Full name"
               disabled={busy}
-              onChange={(e) => setIsActive(e.target.checked)}
             />
-            Active
-          </label>
-        </td>
-        <td className="whitespace-nowrap px-3 py-3">
-          <button
-            type="button"
-            disabled={busy || !name.trim()}
-            className="mr-3 font-medium text-brand-green hover:underline disabled:opacity-60"
-            onClick={() =>
-              void onSave({
-                full_name: name.trim(),
-                is_active: isActive,
-                office_ids: officeIds,
-              }).then(() => setEditing(false))
-            }
-          >
-            Save
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            className="text-brand-black/60 hover:underline disabled:opacity-60"
-            onClick={() => setEditing(false)}
-          >
-            Cancel
-          </button>
-        </td>
-      </tr>
+            <p className="text-xs text-brand-black/60">{staff.email || "—"}</p>
+          </td>
+          <td className="px-3 py-3 text-sm text-brand-black/70">{positionLabel}</td>
+          <td className="px-3 py-3">
+            <OfficeCheckboxGroup
+              label=""
+              offices={offices}
+              selected={officeIds}
+              disabled={busy}
+              onChange={setOfficeIds}
+            />
+          </td>
+          <td className="px-3 py-3 text-brand-black/70">{staff.client_count}</td>
+          <td className="px-3 py-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={isActive}
+                disabled={busy}
+                onChange={(e) => setIsActive(e.target.checked)}
+              />
+              Active
+            </label>
+          </td>
+          <td className="px-3 py-3 text-sm text-brand-black/55">Editing…</td>
+        </tr>
+        <tr className="border-t border-neutral-100 bg-neutral-50/80">
+          <td colSpan={6} className="px-3 pb-4 pt-1">
+            <div className="flex flex-wrap items-center gap-2 border-t border-neutral-200 pt-3">
+              <button
+                type="button"
+                disabled={busy || !name.trim()}
+                className="rounded-lg bg-brand-green px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-60"
+                onClick={() =>
+                  void onSave({
+                    full_name: name.trim(),
+                    is_active: isActive,
+                    office_ids: officeIds,
+                  }).then(() => setEditing(false))
+                }
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-brand-black hover:bg-white disabled:opacity-60"
+                onClick={() => setEditing(false)}
+              >
+                Cancel
+              </button>
+              {onSendLoginEmail ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-brand-black hover:bg-white disabled:opacity-60"
+                  onClick={() => void onSendLoginEmail()}
+                >
+                  Send login email
+                </button>
+              ) : null}
+              {onSetAsTransitionSpecialist ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-brand-black hover:bg-white disabled:opacity-60"
+                  onClick={() => void onSetAsTransitionSpecialist()}
+                >
+                  Set as Transition Specialist
+                </button>
+              ) : null}
+              {onSetAsEmploymentSpecialist ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-brand-black hover:bg-white disabled:opacity-60"
+                  onClick={() => void onSetAsEmploymentSpecialist()}
+                >
+                  Set as Employment Specialist
+                </button>
+              ) : null}
+              {onPromote ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-brand-black hover:bg-white disabled:opacity-60"
+                  onClick={() => void onPromote()}
+                >
+                  Promote to Regional Supervisor
+                </button>
+              ) : null}
+              <button
+                type="button"
+                disabled={busy}
+                className="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
+                onClick={() => void onDelete()}
+              >
+                Remove
+              </button>
+            </div>
+          </td>
+        </tr>
+      </>
     );
   }
 
@@ -2541,64 +2596,14 @@ function EsStaffListItem({
             </>
           ) : null
         ) : (
-          <>
-            <button
-              type="button"
-              disabled={busy}
-              className="mr-3 font-medium text-brand-green hover:underline disabled:opacity-60"
-              onClick={() => setEditing(true)}
-            >
-              Edit
-            </button>
-            {onSendLoginEmail ? (
-              <button
-                type="button"
-                disabled={busy}
-                className="mr-3 font-medium text-brand-black/75 hover:underline disabled:opacity-60"
-                onClick={() => void onSendLoginEmail()}
-              >
-                Send login email
-              </button>
-            ) : null}
-            {onSetAsTransitionSpecialist ? (
-              <button
-                type="button"
-                disabled={busy}
-                className="mr-3 font-medium text-brand-black/75 hover:underline disabled:opacity-60"
-                onClick={() => void onSetAsTransitionSpecialist()}
-              >
-                Set as Transition Specialist
-              </button>
-            ) : null}
-            {onSetAsEmploymentSpecialist ? (
-              <button
-                type="button"
-                disabled={busy}
-                className="mr-3 font-medium text-brand-black/75 hover:underline disabled:opacity-60"
-                onClick={() => void onSetAsEmploymentSpecialist()}
-              >
-                Set as Employment Specialist
-              </button>
-            ) : null}
-            {onPromote ? (
-              <button
-                type="button"
-                disabled={busy}
-                className="mr-3 font-medium text-brand-black/75 hover:underline disabled:opacity-60"
-                onClick={() => void onPromote()}
-              >
-                Promote to Regional Supervisor
-              </button>
-            ) : null}
-            <button
-              type="button"
-              disabled={busy}
-              className="text-red-700 hover:underline disabled:opacity-60"
-              onClick={() => void onDelete()}
-            >
-              Remove
-            </button>
-          </>
+          <button
+            type="button"
+            disabled={busy}
+            className="font-medium text-brand-green hover:underline disabled:opacity-60"
+            onClick={() => setEditing(true)}
+          >
+            Edit
+          </button>
         )}
       </td>
     </tr>
