@@ -1905,9 +1905,10 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
       ) : nav.primary === "settings" && (nav.settings ?? "users") === "users" && canManageOrg ? (
         <section className="mt-6 max-w-3xl space-y-6">
           <div>
-            <h2 className="text-lg font-semibold text-brand-black">Administrators</h2>
+            <h2 className="text-lg font-semibold text-brand-black">Administrators &amp; Org Roles</h2>
             <p className="mt-1 text-sm text-brand-black/70">
-              Admin and super admin accounts. Protected accounts cannot be edited or deactivated.
+              Admin, Super Admin, Accounts Specialist, HR Director, and Hospitality Specialist.
+              Protected accounts cannot be edited or removed.
             </p>
           </div>
           <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white">
@@ -1924,7 +1925,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 {b.admins.length === 0 ? (
                   <tr>
                     <td colSpan={4} className="px-3 py-8 text-center text-brand-black/60">
-                      No administrators found.
+                      No administrators or org-role accounts found.
                     </td>
                   </tr>
                 ) : (
@@ -1934,7 +1935,17 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                       admin={a}
                       busy={busy}
                       canEdit={
-                        !a.is_protected && (canAssignAdmins || a.role === "admin")
+                        !a.is_protected &&
+                        (canAssignAdmins ||
+                          a.role === "admin" ||
+                          a.role === "accountant" ||
+                          a.role === "hr" ||
+                          a.role === "hospitality_specialist")
+                      }
+                      canRemove={
+                        canAssignAdmins &&
+                        !a.is_protected &&
+                        a.role !== "super_admin"
                       }
                       onSave={(payload) =>
                         run(async () => {
@@ -1942,6 +1953,22 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                             method: "PATCH",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ user_id: a.id, ...payload }),
+                          });
+                          const data = (await res.json()) as { error?: string };
+                          if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                        })
+                      }
+                      onRemove={() =>
+                        run(async () => {
+                          if (
+                            !confirm(
+                              `Remove ${a.display_name}? They will be inactive and no longer appear in day-to-day pickers. A Super Admin can restore them by setting Active again.`
+                            )
+                          ) {
+                            return;
+                          }
+                          const res = await fetch(`/api/portal/users?user_id=${a.id}`, {
+                            method: "DELETE",
                           });
                           const data = (await res.json()) as { error?: string };
                           if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
@@ -2192,12 +2219,16 @@ function AdminUserListItem({
   admin,
   busy,
   canEdit,
+  canRemove,
   onSave,
+  onRemove,
 }: {
   admin: AdminUserRow;
   busy: boolean;
   canEdit: boolean;
+  canRemove?: boolean;
   onSave: (payload: { full_name: string; is_active: boolean }) => Promise<void>;
+  onRemove?: () => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(admin.full_name ?? admin.display_name);
@@ -2208,57 +2239,85 @@ function AdminUserListItem({
     setIsActive(admin.is_active);
   }, [admin]);
 
-  const roleLabel = admin.role === "super_admin" ? "Super Admin" : "Admin";
+  const roleLabel =
+    admin.role === "super_admin"
+      ? "Super Admin"
+      : admin.role === "admin"
+        ? "Admin"
+        : admin.role === "accountant"
+          ? "Accounts Specialist"
+          : admin.role === "hr"
+            ? "HR Director"
+            : admin.role === "hospitality_specialist"
+              ? "Hospitality Specialist"
+              : admin.role;
 
   if (editing && canEdit) {
     return (
-      <tr className="border-t border-neutral-100 bg-neutral-50/80">
-        <td className="px-3 py-3">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full min-w-[140px] rounded border border-neutral-300 px-2 py-1 text-sm"
-            disabled={busy}
-          />
-          {admin.email ? (
-            <p className="mt-1 text-xs text-brand-black/60">{admin.email}</p>
-          ) : null}
-        </td>
-        <td className="px-3 py-3">{roleLabel}</td>
-        <td className="px-3 py-3">
-          <label className="flex items-center gap-2 text-sm">
+      <>
+        <tr className="border-t border-neutral-100 bg-neutral-50/80">
+          <td className="px-3 py-3">
             <input
-              type="checkbox"
-              checked={isActive}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full min-w-[140px] rounded border border-neutral-300 px-2 py-1 text-sm"
               disabled={busy}
-              onChange={(e) => setIsActive(e.target.checked)}
             />
-            Active
-          </label>
-        </td>
-        <td className="whitespace-nowrap px-3 py-3">
-          <button
-            type="button"
-            disabled={busy || !name.trim()}
-            className="mr-3 font-medium text-brand-green hover:underline disabled:opacity-60"
-            onClick={() =>
-              void onSave({ full_name: name.trim(), is_active: isActive }).then(() =>
-                setEditing(false)
-              )
-            }
-          >
-            Save
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            className="text-brand-black/60 hover:underline disabled:opacity-60"
-            onClick={() => setEditing(false)}
-          >
-            Cancel
-          </button>
-        </td>
-      </tr>
+            {admin.email ? (
+              <p className="mt-1 text-xs text-brand-black/60">{admin.email}</p>
+            ) : null}
+          </td>
+          <td className="px-3 py-3">{roleLabel}</td>
+          <td className="px-3 py-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={isActive}
+                disabled={busy}
+                onChange={(e) => setIsActive(e.target.checked)}
+              />
+              Active
+            </label>
+          </td>
+          <td className="px-3 py-3 text-sm text-brand-black/55">Editing…</td>
+        </tr>
+        <tr className="border-t border-neutral-100 bg-neutral-50/80">
+          <td colSpan={4} className="px-3 pb-4 pt-1">
+            <div className="flex flex-wrap items-center gap-2 border-t border-neutral-200 pt-3">
+              <button
+                type="button"
+                disabled={busy || !name.trim()}
+                className="rounded-lg bg-brand-green px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-60"
+                onClick={() =>
+                  void onSave({ full_name: name.trim(), is_active: isActive }).then(() =>
+                    setEditing(false)
+                  )
+                }
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-brand-black hover:bg-white disabled:opacity-60"
+                onClick={() => setEditing(false)}
+              >
+                Cancel
+              </button>
+              {canRemove && onRemove && !admin.is_removed ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
+                  onClick={() => void onRemove()}
+                >
+                  Remove
+                </button>
+              ) : null}
+            </div>
+          </td>
+        </tr>
+      </>
     );
   }
 
@@ -2286,7 +2345,7 @@ function AdminUserListItem({
               : "bg-neutral-200 text-brand-black/60"
           }`}
         >
-          {admin.is_active ? "Active" : "Inactive"}
+          {admin.is_active ? "Active" : admin.is_removed ? "Removed" : "Inactive"}
         </span>
       </td>
       <td className="whitespace-nowrap px-3 py-3">

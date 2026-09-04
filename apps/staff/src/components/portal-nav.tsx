@@ -60,7 +60,7 @@ const REPORTS_LABELS: Record<PortalReportsSubNav, string> = {
 };
 
 const SETTINGS_LABELS: Record<PortalSettingsSubNav, string> = {
-  users: "Administrators",
+  users: "Administrators & Org Roles",
   advanced: "Advanced Connections",
   pto: "PTO Settings",
   wrt: "WRT Curriculum",

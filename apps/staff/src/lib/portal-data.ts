@@ -136,9 +136,15 @@ export type PortalBootstrap = {
     email: string;
     full_name: string | null;
     display_name: string;
-    role: "admin" | "super_admin";
+    role:
+      | "admin"
+      | "super_admin"
+      | "accountant"
+      | "hr"
+      | "hospitality_specialist";
     is_active: boolean;
     is_protected: boolean;
+    is_removed: boolean;
   }[];
   staffNameById: Record<string, string>;
   clients: {
@@ -745,7 +751,11 @@ export async function loadPortalBootstrap(
         a.display_name.localeCompare(b.display_name, undefined, { sensitivity: "base" })
       ),
     admins: (profiles ?? [])
-      .filter((p) => p.role === "admin" || p.role === "super_admin")
+      .filter((p) =>
+        ["admin", "super_admin", "accountant", "hr", "hospitality_specialist"].includes(
+          String(p.role ?? "")
+        )
+      )
       .map((p) => {
         const id = p.id as string;
         const profile = profileById.get(id);
@@ -754,9 +764,15 @@ export async function loadPortalBootstrap(
           email: emailById.get(id) ?? "",
           full_name: profile?.full_name ?? null,
           display_name: staffNameFor(id),
-          role: p.role as "admin" | "super_admin",
+          role: p.role as
+            | "admin"
+            | "super_admin"
+            | "accountant"
+            | "hr"
+            | "hospitality_specialist",
           is_active: profile?.is_active !== false,
           is_protected: protectedIds.has(id),
+          is_removed: Boolean(profile?.staff_removed_at),
         };
       })
       .sort((a, b) =>
