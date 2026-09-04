@@ -65,7 +65,7 @@ export function ReferralTrainingPhasePanel() {
           className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="ryan.herrington@thejoshuatree.org"
+          placeholder="devon.poole@thejoshuatree.org"
         />
       </label>
       <button

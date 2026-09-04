@@ -32,7 +32,7 @@ const REFERRAL_FORM_SECRET = "your-secret-here";
 | Variable | Purpose |
 |---|---|
 | `REFERRAL_FORM_SECRET` | Optional shared secret from the website |
-| `REFERRAL_NOTIFY_EMAIL` | Live HR inbox (default ryan.herrington@…) |
+| `REFERRAL_NOTIFY_EMAIL` | Live HR inbox (default devon.poole@…) |
 | `REFERRAL_TRAINING_CC` | Comma-separated admin emails CC’d while training phase is on |
 | `REFERRAL_CORS_ORIGINS` | Allowed website origins (include `https://thejoshuatree.org` and `https://www.thejoshuatree.org`) |
 | `CRON_SECRET` | Required for referral SLA / inactivity crons |

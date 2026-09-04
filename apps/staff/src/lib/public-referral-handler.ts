@@ -92,7 +92,7 @@ export async function handlePublicReferralPost(request: Request, state: Referral
       const notifyEmail =
         (process.env.REFERRAL_NOTIFY_EMAIL ?? "").trim() ||
         (cfg?.referral_notify_email as string | null)?.trim() ||
-        "ryan.herrington@thejoshuatree.org";
+        "devon.poole@thejoshuatree.org";
 
       const auth = await getGoogleAuth();
       const attachments: { filename: string; content: string; encoding: "base64"; mimeType?: string }[] =

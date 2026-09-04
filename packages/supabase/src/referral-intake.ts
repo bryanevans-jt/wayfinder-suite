@@ -111,7 +111,7 @@ export async function loadReferralNotifyEmail(admin: SupabaseClient): Promise<st
     .limit(1)
     .maybeSingle();
   const fromDb = (data?.referral_notify_email as string | null)?.trim();
-  return fromDb || "ryan.herrington@thejoshuatree.org";
+  return fromDb || "devon.poole@thejoshuatree.org";
 }
 
 /** HR intake notification recipients: hr (+ admin when training on). */
