@@ -102,6 +102,7 @@ export type PortalBootstrap = {
     email: string;
     full_name: string | null;
     display_name: string;
+    role: "es" | "transition_specialist";
     is_active: boolean;
     /** Soft-removed from Team lists; Super Admin can restore. */
     is_removed: boolean;
@@ -672,11 +673,14 @@ export async function loadPortalBootstrap(
         const id = p.id as string;
         const email = emailById.get(id) ?? "";
         const profile = profileById.get(id);
+        const role =
+          p.role === "transition_specialist" ? ("transition_specialist" as const) : ("es" as const);
         return {
           id,
           email,
           full_name: profile?.full_name ?? null,
           display_name: staffNameFor(id),
+          role,
           is_active: profile?.is_active !== false,
           is_removed: Boolean(profile?.staff_removed_at),
           office_ids: staffOfficeByUser.get(id) ?? [],

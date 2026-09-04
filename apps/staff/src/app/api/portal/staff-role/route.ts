@@ -1,23 +1,29 @@
 import { assertPortalMutation, jsonPortalError } from "@/lib/portal-auth";
 import { assertStaffUserEditable, upsertStaffProfile } from "@/lib/portal-staff-users";
+import { roleDisplayName } from "@wayfinder/supabase/roles";
 import { NextRequest } from "next/server";
+
+const FIELD_OR_SUPERVISOR = new Set(["es", "transition_specialist", "supervisor"]);
 
 type Body = {
   user_id?: string;
-  /** Target role after promote/demote. */
-  role?: "es" | "supervisor";
+  /** Target role after convert / promote / demote. */
+  role?: "es" | "transition_specialist" | "supervisor";
 };
 
 /**
- * Promote ES → Supervisor or demote Supervisor → ES (Super Admin only).
- * Keeps the same Auth login and es_client_assignments (caseload).
+ * Convert among Employment Specialist, Transition Specialist, and Regional Supervisor
+ * (Super Admin only). Keeps the same Auth login and es_client_assignments (caseload).
  */
 export async function PATCH(request: NextRequest) {
   try {
     const { admin, isSuperAdmin } = await assertPortalMutation("super_admin");
     if (!isSuperAdmin) {
       return Response.json(
-        { error: "Only a Super Admin can promote or demote Employment Specialists and supervisors." },
+        {
+          error:
+            "Only a Super Admin can change Employment Specialist, Transition Specialist, or Regional Supervisor roles here.",
+        },
         { status: 403 }
       );
     }
@@ -29,9 +35,12 @@ export async function PATCH(request: NextRequest) {
     if (!userId) {
       return Response.json({ error: "user_id is required" }, { status: 400 });
     }
-    if (nextRole !== "es" && nextRole !== "supervisor") {
+    if (!nextRole || !FIELD_OR_SUPERVISOR.has(nextRole)) {
       return Response.json(
-        { error: "role must be “es” or “supervisor”." },
+        {
+          error:
+            "role must be “es”, “transition_specialist”, or “supervisor”.",
+        },
         { status: 400 }
       );
     }
@@ -52,10 +61,10 @@ export async function PATCH(request: NextRequest) {
     }
 
     const current = String(profile.role ?? "").toLowerCase();
-    if (current !== "es" && current !== "supervisor") {
+    if (!FIELD_OR_SUPERVISOR.has(current)) {
       return Response.json(
         {
-          error: `Only Employment Specialists and supervisors can be promoted or demoted here (current role: ${current || "unknown"}).`,
+          error: `Only field specialists and Regional Supervisors can be changed here (current role: ${current || "unknown"}). Use Assign Staff Role by Email for other roles.`,
         },
         { status: 400 }
       );
@@ -65,8 +74,8 @@ export async function PATCH(request: NextRequest) {
       return Response.json({ ok: true, unchanged: true, role: nextRole });
     }
 
-    // Demoting a supervisor: drop who they supervise (they keep their own client caseload).
-    if (current === "supervisor" && nextRole === "es") {
+    // Leaving supervisor: drop who they supervise (they keep their own client caseload).
+    if (current === "supervisor" && nextRole !== "supervisor") {
       const { count: esCount } = await admin
         .from("supervisor_es_assignments")
         .select("id", { count: "exact", head: true })
@@ -87,6 +96,7 @@ export async function PATCH(request: NextRequest) {
       ok: true,
       role: nextRole,
       previousRole: current,
+      roleLabel: roleDisplayName(nextRole),
     });
   } catch (error) {
     return await jsonPortalError(error);

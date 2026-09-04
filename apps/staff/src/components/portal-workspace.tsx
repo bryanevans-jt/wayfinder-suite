@@ -110,6 +110,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
   const [newEsEmail, setNewEsEmail] = useState("");
   const [newEsOfficeIds, setNewEsOfficeIds] = useState<string[]>([]);
   const [newEsSilentAdd, setNewEsSilentAdd] = useState(false);
+  const [newEsRole, setNewEsRole] = useState<"es" | "transition_specialist">("es");
   const [newCounselorName, setNewCounselorName] = useState("");
   const [newCounselorEmail, setNewCounselorEmail] = useState("");
   const [newCounselorOfficeIds, setNewCounselorOfficeIds] = useState<string[]>([]);
@@ -885,6 +886,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                       email: newEsEmail,
                       office_ids: newEsOfficeIds,
                       silent_add: newEsSilentAdd,
+                      role: newEsRole,
                     }),
                   });
                   const data = (await res.json()) as { error?: string };
@@ -893,13 +895,15 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                   setNewEsEmail("");
                   setNewEsOfficeIds([]);
                   setNewEsSilentAdd(false);
+                  setNewEsRole("es");
                 });
               }}
             >
-              <h2 className="text-lg font-semibold text-brand-black">Add Employment Specialist</h2>
+              <h2 className="text-lg font-semibold text-brand-black">Add Field Specialist</h2>
               <p className="text-sm text-brand-black/70">
-                By default we email new users a login link. Use silent add while staging the
-                rollout — they stay inactive until you activate them and send a login email.
+                Add an Employment Specialist or Transition Specialist. By default we email new users
+                a login link. Use silent add while staging the rollout — they stay inactive until
+                you activate them and send a login email.
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <input
@@ -918,6 +922,20 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                   required
                 />
               </div>
+              <label className="block text-sm">
+                <span className="font-medium text-brand-black">Position</span>
+                <select
+                  value={newEsRole}
+                  onChange={(e) =>
+                    setNewEsRole(e.target.value as "es" | "transition_specialist")
+                  }
+                  className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm sm:max-w-xs"
+                  disabled={busy}
+                >
+                  <option value="es">Employment Specialist</option>
+                  <option value="transition_specialist">Transition Specialist</option>
+                </select>
+              </label>
               <OfficeCheckboxGroup
                 label="Offices"
                 offices={b.offices}
@@ -942,7 +960,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 disabled={busy}
                 className="rounded-lg bg-brand-gold px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
               >
-                Add Employment Specialist
+                Add Field Specialist
               </button>
             </form>
           ) : (
@@ -969,6 +987,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               <thead className="bg-neutral-50 text-brand-black/70">
                 <tr>
                   <th className="px-3 py-2">Name</th>
+                  <th className="px-3 py-2">Position</th>
                   <th className="px-3 py-2">Offices</th>
                   <th className="px-3 py-2">Clients</th>
                   <th className="px-3 py-2">Status</th>
@@ -978,14 +997,19 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               <tbody>
                 {visibleEsStaff.length === 0 ? (
                   <tr>
-                    <td colSpan={canManageOrg ? 5 : 4} className="px-3 py-8 text-center text-brand-black/60">
+                    <td colSpan={canManageOrg ? 6 : 5} className="px-3 py-8 text-center text-brand-black/60">
                       {showRemovedEs
-                        ? "No Employment Specialists match this view."
-                        : "No Employment Specialists in your scope."}
+                        ? "No Field Specialists match this view."
+                        : "No Field Specialists in your scope."}
                     </td>
                   </tr>
                 ) : canManageOrg ? (
-                  visibleEsStaff.map((es) => (
+                  visibleEsStaff.map((es) => {
+                    const positionLabel =
+                      es.role === "transition_specialist"
+                        ? "Transition Specialist"
+                        : "Employment Specialist";
+                    return (
                     <EsStaffListItem
                       key={es.id}
                       staff={es}
@@ -995,10 +1019,10 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                       isSuperAdmin={isSuperAdminMode}
                       onViewProfile={() =>
                         setStaffProfile({
-                          title: "Employment Specialist",
+                          title: positionLabel,
                           name: es.display_name,
                           email: es.email || null,
-                          role: "Employment Specialist",
+                          role: positionLabel,
                           offices: es.office_ids.map((id) => officeName(id)).join(", ") || "—",
                           active: es.is_active,
                         })
@@ -1022,12 +1046,57 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                                 const res = await fetch("/api/portal/staff-users/send-login-email", {
                                   method: "POST",
                                   headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ user_id: es.id, role: "es" }),
+                                  body: JSON.stringify({ user_id: es.id, role: es.role }),
                                 });
                                 const data = (await res.json()) as { error?: string };
                                 if (!res.ok) {
                                   throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
                                 }
+                              })
+                          : undefined
+                      }
+                      onSetAsTransitionSpecialist={
+                        isSuperAdminMode && es.role === "es"
+                          ? () =>
+                              run(async () => {
+                                if (
+                                  !confirm(
+                                    `Set ${es.display_name} as Transition Specialist? Their login and client caseload will be kept. They will get Pre-ETS when that module is enabled for Transition Specialists.`
+                                  )
+                                ) {
+                                  return;
+                                }
+                                const res = await fetch("/api/portal/staff-role", {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({
+                                    user_id: es.id,
+                                    role: "transition_specialist",
+                                  }),
+                                });
+                                const data = (await res.json()) as { error?: string };
+                                if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                              })
+                          : undefined
+                      }
+                      onSetAsEmploymentSpecialist={
+                        isSuperAdminMode && es.role === "transition_specialist"
+                          ? () =>
+                              run(async () => {
+                                if (
+                                  !confirm(
+                                    `Set ${es.display_name} as Employment Specialist? Their login and client caseload will be kept.`
+                                  )
+                                ) {
+                                  return;
+                                }
+                                const res = await fetch("/api/portal/staff-role", {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ user_id: es.id, role: "es" }),
+                                });
+                                const data = (await res.json()) as { error?: string };
+                                if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
                               })
                           : undefined
                       }
@@ -1037,7 +1106,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                               run(async () => {
                                 if (
                                   !confirm(
-                                    `Promote ${es.display_name} to Supervisor? Their login and client caseload will be kept.`
+                                    `Promote ${es.display_name} to Regional Supervisor? Their login and client caseload will be kept.`
                                   )
                                 ) {
                                   return;
@@ -1081,7 +1150,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                               : "";
                           if (
                             !confirm(
-                              `Remove ${es.display_name} as an Employment Specialist?${clientNote} They will no longer appear in the app. A Super Admin can restore them later.`
+                              `Remove ${es.display_name} as a Field Specialist?${clientNote} They will no longer appear in the app. A Super Admin can restore them later.`
                             )
                           ) {
                             return;
@@ -1114,11 +1183,16 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                           : undefined
                       }
                     />
-                  ))
+                    );
+                  })
                 ) : (
                   visibleEsStaff.map((es) => {
                     const officeLabels =
                       es.office_ids.map((id) => officeName(id)).join(", ") || "—";
+                    const positionLabel =
+                      es.role === "transition_specialist"
+                        ? "Transition Specialist"
+                        : "Employment Specialist";
                     return (
                       <tr key={es.id} className="border-t border-neutral-100">
                         <td className="px-3 py-3">
@@ -1127,10 +1201,10 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                             className="font-medium text-brand-green hover:underline"
                             onClick={() =>
                               setStaffProfile({
-                                title: "Employment Specialist",
+                                title: positionLabel,
                                 name: es.display_name,
                                 email: es.email || null,
-                                role: "Employment Specialist",
+                                role: positionLabel,
                                 offices: officeLabels,
                                 active: es.is_active,
                               })
@@ -1142,6 +1216,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                             <p className="text-xs text-brand-black/60">{es.email}</p>
                           ) : null}
                         </td>
+                        <td className="px-3 py-3">{positionLabel}</td>
                         <td className="px-3 py-3">{officeLabels}</td>
                         <td className="px-3 py-3">
                           <button
@@ -1918,10 +1993,11 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 >
                   <option value="admin">Admin</option>
                   <option value="es">Employment Specialist</option>
-                  <option value="supervisor">Supervisor</option>
+                  <option value="transition_specialist">Transition Specialist</option>
+                  <option value="supervisor">Regional Supervisor</option>
                   <option value="counselor">Counselor</option>
                   <option value="accountant">Accounts Specialist</option>
-                  <option value="hr">HR</option>
+                  <option value="hr">HR Director</option>
                   <option value="hospitality_specialist">Hospitality Specialist</option>
                   <option value="wrt_admin">WRT Admin</option>
                 </select>
@@ -2284,6 +2360,8 @@ function EsStaffListItem({
   onViewClients,
   onSave,
   onSendLoginEmail,
+  onSetAsTransitionSpecialist,
+  onSetAsEmploymentSpecialist,
   onPromote,
   onRestore,
   onDelete,
@@ -2302,6 +2380,8 @@ function EsStaffListItem({
     office_ids: string[];
   }) => Promise<void>;
   onSendLoginEmail?: () => Promise<void>;
+  onSetAsTransitionSpecialist?: () => Promise<void>;
+  onSetAsEmploymentSpecialist?: () => Promise<void>;
   onPromote?: () => Promise<void>;
   onRestore?: () => Promise<void>;
   onDelete: () => Promise<void>;
@@ -2311,6 +2391,10 @@ function EsStaffListItem({
   const [name, setName] = useState(staff.full_name ?? staff.display_name);
   const [isActive, setIsActive] = useState(staff.is_active);
   const [officeIds, setOfficeIds] = useState(staff.office_ids);
+  const positionLabel =
+    staff.role === "transition_specialist"
+      ? "Transition Specialist"
+      : "Employment Specialist";
 
   useEffect(() => {
     setName(staff.full_name ?? staff.display_name);
@@ -2336,6 +2420,7 @@ function EsStaffListItem({
           />
           <p className="text-xs text-brand-black/60">{staff.email || "—"}</p>
         </td>
+        <td className="px-3 py-3 text-sm text-brand-black/70">{positionLabel}</td>
         <td className="px-3 py-3">
           <OfficeCheckboxGroup
             label=""
@@ -2403,6 +2488,7 @@ function EsStaffListItem({
           <p className="text-xs text-brand-black/60">{staff.email}</p>
         ) : null}
       </td>
+      <td className="px-3 py-3 text-sm">{positionLabel}</td>
       <td className="px-3 py-3">{officeLabels}</td>
       <td className="px-3 py-3">
         {onViewClients ? (
@@ -2474,6 +2560,26 @@ function EsStaffListItem({
                 Send login email
               </button>
             ) : null}
+            {onSetAsTransitionSpecialist ? (
+              <button
+                type="button"
+                disabled={busy}
+                className="mr-3 font-medium text-brand-black/75 hover:underline disabled:opacity-60"
+                onClick={() => void onSetAsTransitionSpecialist()}
+              >
+                Set as Transition Specialist
+              </button>
+            ) : null}
+            {onSetAsEmploymentSpecialist ? (
+              <button
+                type="button"
+                disabled={busy}
+                className="mr-3 font-medium text-brand-black/75 hover:underline disabled:opacity-60"
+                onClick={() => void onSetAsEmploymentSpecialist()}
+              >
+                Set as Employment Specialist
+              </button>
+            ) : null}
             {onPromote ? (
               <button
                 type="button"
@@ -2481,7 +2587,7 @@ function EsStaffListItem({
                 className="mr-3 font-medium text-brand-black/75 hover:underline disabled:opacity-60"
                 onClick={() => void onPromote()}
               >
-                Promote to Supervisor
+                Promote to Regional Supervisor
               </button>
             ) : null}
             <button
@@ -2892,7 +2998,7 @@ function SupervisorStaffListItem({
             className="mr-3 font-medium text-brand-black/75 hover:underline disabled:opacity-60"
             onClick={() => void onDemote()}
           >
-            Demote to ES
+            Demote to Employment Specialist
           </button>
         ) : null}
         <button
