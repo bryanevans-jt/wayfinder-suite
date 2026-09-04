@@ -2,7 +2,7 @@ import { weekEndSaturday, weekStartSunday } from "@wayfinder/supabase/es-time-tr
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
   isAdminTierRole,
-  isEsRole,
+  isFieldSpecialistRole,
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
@@ -31,7 +31,7 @@ export default async function TimesheetPage({ searchParams }: PageProps) {
 
   const role = session.effectiveRole;
   const canAccess =
-    isEsRole(role) ||
+    isFieldSpecialistRole(role) ||
     isSupervisorRole(role) ||
     role === "accountant" ||
     role === "hr" ||
@@ -58,16 +58,16 @@ export default async function TimesheetPage({ searchParams }: PageProps) {
     role === "accountant" ||
     role === "hr";
 
-  const useOrgPayrollClock = canPickEs && !isEsRole(role);
+  const useOrgPayrollClock = canPickEs && !isFieldSpecialistRole(role);
 
   const esPickerOptions =
-    canPickEs && !isEsRole(role)
+    canPickEs && !isFieldSpecialistRole(role)
       ? await loadStaffEsPickerOptions(admin, role ?? "", session.effectiveUserId)
       : [];
 
   let esUserId = session.effectiveUserId;
 
-  if (canPickEs && !isEsRole(role)) {
+  if (canPickEs && !isFieldSpecialistRole(role)) {
     if (params.es) {
       const allowed = esPickerOptions.some((opt) => opt.id === params.es);
       if (!allowed) {
@@ -105,7 +105,7 @@ export default async function TimesheetPage({ searchParams }: PageProps) {
       isSupervisorRole(role) || isAdminTierRole(role)
         ? loadPendingWeekSubmissionsForSupervisor(admin, session.effectiveUserId)
         : Promise.resolve([]),
-      canPickEs && !isEsRole(role)
+      canPickEs && !isFieldSpecialistRole(role)
         ? loadEsCaseloadClientOptions(admin, esUserId)
         : Promise.resolve([]),
       useOrgPayrollClock
@@ -136,7 +136,7 @@ export default async function TimesheetPage({ searchParams }: PageProps) {
         supervisedEsOptions={esPickerOptions}
         caseloadClients={caseloadClients}
         initialClientFilter={params.client ?? ""}
-        canPickEs={canPickEs && !isEsRole(role)}
+        canPickEs={canPickEs && !isFieldSpecialistRole(role)}
         payrollClockMinutes={clockPayrollMinutes}
       />
     </main>

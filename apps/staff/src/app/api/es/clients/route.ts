@@ -1,4 +1,4 @@
-import { createClientWithInvite, isEsRole } from "@wayfinder/supabase";
+import { createClientWithInvite, isFieldSpecialistRole } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
   respondWithLoggedError,
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: USER_FACING_AUTH_REQUIRED }, { status: 401 });
   }
 
-  if (!isEsRole(session.effectiveRole)) {
+  if (!isFieldSpecialistRole(session.effectiveRole)) {
     return NextResponse.json({ error: USER_FACING_FORBIDDEN }, { status: 403 });
   }
 

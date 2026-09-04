@@ -1,7 +1,11 @@
 import { createServerClient } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { assertNotPreviewMutation } from "@wayfinder/supabase/preview-server";
-import { isAdminTierRole, isEsRole, isSupervisorRole } from "@wayfinder/supabase/roles";
+import {
+  isAdminTierRole,
+  isFieldSpecialistRole,
+  isSupervisorRole,
+} from "@wayfinder/supabase/roles";
 import { esIsAssignedToClient } from "@/lib/es-caseload-data";
 import { clientInSupervisorScope, loadSupervisorScope } from "@/lib/supervisor-client-scope";
 
@@ -13,7 +17,7 @@ export class NaturalSupportAccessError extends Error {
   }
 }
 
-/** ES, supervisor (scoped), admin, and super_admin may invite Natural Support for a client. */
+/** Field specialist, supervisor (scoped), admin, and super_admin may invite Natural Support for a client. */
 export async function assertNaturalSupportClientAccess(
   clientId: string,
   forMutation = false
@@ -46,7 +50,7 @@ export async function assertNaturalSupportClientAccess(
     return { supabase, user, role };
   }
 
-  if (isEsRole(role)) {
+  if (isFieldSpecialistRole(role)) {
     const assigned = await esIsAssignedToClient(user.id, clientId);
     if (!assigned) {
       throw new NaturalSupportAccessError("Client not assigned to you", 403);

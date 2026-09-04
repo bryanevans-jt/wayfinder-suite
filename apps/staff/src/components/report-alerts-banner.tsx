@@ -1,7 +1,11 @@
 "use client";
 
 import { buildJtReportsPrefillUrl } from "@wayfinder/branding";
-import { isAdminTierRole, isEsRole, isSupervisorRole } from "@wayfinder/supabase/roles";
+import {
+  isAdminTierRole,
+  isFieldSpecialistRole,
+  isSupervisorRole,
+} from "@wayfinder/supabase/roles";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -23,7 +27,11 @@ type Props = {
 const DISMISS_STORAGE_KEY = "wayfinder-report-alerts-dismissed";
 
 function showAlertsForRole(staffRole: string | null): boolean {
-  return isEsRole(staffRole) || isSupervisorRole(staffRole) || isAdminTierRole(staffRole);
+  return (
+    isFieldSpecialistRole(staffRole) ||
+    isSupervisorRole(staffRole) ||
+    isAdminTierRole(staffRole)
+  );
 }
 
 function alertFingerprint(alerts: ReportAlert[]): string {

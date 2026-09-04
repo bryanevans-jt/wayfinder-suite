@@ -1,5 +1,9 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
-import { isAdminTierRole, isEsRole, isSupervisorRole } from "@wayfinder/supabase/roles";
+import {
+  isAdminTierRole,
+  isFieldSpecialistRole,
+  isSupervisorRole,
+} from "@wayfinder/supabase/roles";
 import { loadReportAlertsForStaffUser } from "@/lib/report-alerts-data";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
@@ -15,7 +19,11 @@ export async function GET() {
   }
 
   const role = session.effectiveRole;
-  if (!isEsRole(role) && !isSupervisorRole(role) && !isAdminTierRole(role)) {
+  if (
+    !isFieldSpecialistRole(role) &&
+    !isSupervisorRole(role) &&
+    !isAdminTierRole(role)
+  ) {
     return NextResponse.json({ alerts: [] });
   }
 

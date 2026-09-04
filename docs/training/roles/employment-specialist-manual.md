@@ -4,6 +4,8 @@
 
 Full reference for day-to-day casework, messaging, time tracking, Community Partners, and formal reporting.
 
+**Related role:** Transition Specialists share this Employment Specialist shell **plus Pre-ETS**. Employment Specialists do **not** have Pre-ETS.
+
 **Conference binder (all-in-one):** [GA ES Conference Binder](../conference/ga-es-conference-binder.md)
 
 ---
@@ -23,8 +25,8 @@ Share [Getting Signed In](../shared/getting-signed-in.md) with every participant
 ## 2. Wayfinder Pro Sidebar (Your Layout)
 
 **Daily work:** Clients · Messages · Timesheet · Reporting  
-**Resources:** Community Partners · Analytics · Data exports  
-**Account:** My Profile · Our Team (Core Four, Share a Moment) · Help
+**Resources:** Community Partners (Feature Toggle) · Analytics · Data exports  
+**Account:** My Profile · Team Directory · Our Team (Core Four, Share a Moment) · Help
 
 > **Screenshot:** `assets/screenshots/es-sidebar-daily-work.png`  
 > URL: `/dashboard/clients`
@@ -106,7 +108,7 @@ Quick cheat sheet: [ES Reporting Quick Reference](../reports/joshua-tree-reports
 
 ## 7. Community Partners (Employer Network)
 
-**Path:** Sidebar → **Community Partners** (`/dashboard/community-partners`)
+**Path:** Sidebar → **Community Partners** (`/dashboard/community-partners`) — only when Super Admin has Community Partners enabled in Feature Toggles. TSE and Job Coaching referral options are similarly gated.
 
 - Search employers on the map and in the directory.
 - Share the **public join link** with employers.
@@ -156,8 +158,10 @@ If you do not know the answer: “I will confirm with our team and follow up tom
 
 ## 10. Our Team (Culture)
 
+**Team Directory** — staff contacts and roles.  
 **Core Four** — JTSG values reference.  
-**Share a Moment** — Submit team photos (emailed to leadership). Not available to counselors.
+**Share a Moment** — Submit team photos (emailed to leadership). Not available to counselors.  
+**GroupMe celebrations** — optional birthday/anniversary posts when enabled in Feature Toggles.
 
 ---
 
@@ -181,7 +185,7 @@ Give participants: [Client Quick Start](../roles/client-quick-start.md)
 Use: [Counselor Setup Guide](../scripts/counselor-setup-guide-for-es.md)  
 Give counselors: [Counselor Quick Start](../roles/counselor-quick-start.md)
 
-Counselors sign in to **Wayfinder Pro** with their **GVRA or Tennessee VR work email** (not `@thejoshuatree.org`) and only see **My clients**.
+Counselors sign in to **Wayfinder Pro** with their **GVRA or Tennessee VR work email** (not `@thejoshuatree.org`) and only see **My Clients**.
 
 ---
 

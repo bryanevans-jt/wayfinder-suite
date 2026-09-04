@@ -1,4 +1,4 @@
-import { createServerClient, isEsRole } from "@wayfinder/supabase";
+import { createServerClient, isFieldSpecialistRole } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { esIsAssignedToClient } from "@/lib/es-caseload-data";
 import { supervisorCanAccessEs } from "@/lib/supervisor-client-scope";
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
     let senderRole: "es" | "supervisor" | null = null;
 
     if (thread.current_es_user_id === staffUserId) {
-      if (isEsRole(role)) {
+      if (isFieldSpecialistRole(role)) {
         senderRole = "es";
       } else if (role === "supervisor") {
         const assigned =

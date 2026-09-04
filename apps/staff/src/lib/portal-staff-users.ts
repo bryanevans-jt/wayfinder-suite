@@ -269,7 +269,7 @@ export async function clearStaffCaseloadAssignments(
   return clientIds.length;
 }
 
-/** Soft-remove an Employment Specialist from day-to-day use (login kept, inactive). */
+/** Soft-remove a field specialist from day-to-day use (login kept, inactive). */
 export async function softRemoveEmploymentSpecialist(
   admin: AdminClient,
   userId: string
@@ -277,8 +277,17 @@ export async function softRemoveEmploymentSpecialist(
   const unassignedClients = await clearStaffCaseloadAssignments(admin, userId);
   await admin.from("supervisor_es_assignments").delete().eq("es_user_id", userId);
   await replaceStaffOfficeAssignments(admin, userId, []);
+
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .maybeSingle();
+  const role =
+    profile?.role === "transition_specialist" ? "transition_specialist" : "es";
+
   await upsertStaffProfile(admin, userId, {
-    role: "es",
+    role,
     is_active: false,
     staff_removed_at: new Date().toISOString(),
   });

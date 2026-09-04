@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   isAdminTierRole,
-  isEsRole,
+  isFieldSpecialistRole,
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
 import {
@@ -103,7 +103,7 @@ export async function loadReportAlertsForStaffUser(
     return productionRows.map(mapAlert).filter((r): r is ReportAlertRow => r !== null);
   }
 
-  if (isEsRole(role)) {
+  if (isFieldSpecialistRole(role)) {
     return productionRows
       .filter((row) => row.es_user_id === userId)
       .map(mapAlert)

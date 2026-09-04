@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { filterGaReferralServiceLabels } from "@/lib/feature-toggles";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 const GA_SERVICES = [
@@ -10,25 +11,17 @@ const GA_SERVICES = [
   "Workplace Readiness Training",
 ] as const;
 
-const TN_SERVICES = [
-  "Traditional Supported Employment",
-  "Individual Job Placement",
-  "Job Coaching",
-  "Job Readiness Training",
-] as const;
-
-function serviceLabelFromName(state: string | null, serviceName: string | null): string {
+function serviceLabelFromName(serviceName: string | null): string {
   if (!serviceName) return "";
   const n = serviceName.toLowerCase();
   if (n.includes("workplace readiness")) return "Workplace Readiness Training";
-  if (n.includes("job readiness")) return "Job Readiness Training";
+  if (n.includes("job readiness")) return "Workplace Readiness Training";
   if (n.includes("job coaching")) return "Job Coaching";
   if (n.includes("individual job placement")) return "Individual Job Placement";
   if (n.includes("traditional supported employment") || n.includes("supported employment")) {
     return "Traditional Supported Employment";
   }
-  const options = state === "TN" ? TN_SERVICES : GA_SERVICES;
-  const hit = options.find((label) => n.includes(label.toLowerCase()));
+  const hit = GA_SERVICES.find((label) => n.includes(label.toLowerCase()));
   return hit ?? "";
 }
 
@@ -78,7 +71,7 @@ export function ReferralInfoEditForm({ initial }: Props) {
     secondaryPhone: initial.secondary_phone ?? "",
     homeAddressLine1: initial.home_address_line1 ?? "",
     homeCity: initial.home_city ?? "",
-    homeState: initial.home_state === "TN" || initial.home_state === "GA" ? initial.home_state : (initial.referral_state === "TN" ? "TN" : "GA"),
+    homeState: initial.home_state === "TN" || initial.home_state === "GA" ? initial.home_state : "GA",
     homeZip: initial.home_zip ?? "",
     gender: initial.gender ?? "",
     ethnicity: initial.ethnicity ?? "",
@@ -87,16 +80,46 @@ export function ReferralInfoEditForm({ initial }: Props) {
     meetingPreference: initial.meeting_preference ?? "",
     counselorAvailability: initial.counselor_availability ?? "",
     authorizationNumber: initial.authorization_number ?? "",
-    referralState: (initial.referral_state === "TN" ? "TN" : "GA") as "GA" | "TN",
+    referralState: "GA" as const,
     counselorName: initial.counselorName ?? "",
     counselorEmail: initial.counselorEmail ?? "",
-    serviceLabel: serviceLabelFromName(initial.referral_state, initial.serviceName),
+    serviceLabel: serviceLabelFromName(initial.serviceName),
   });
 
-  const services = useMemo(
-    () => (form.referralState === "TN" ? TN_SERVICES : GA_SERVICES),
-    [form.referralState]
-  );
+  const [toggles, setToggles] = useState({
+    traditionalSupportedEmploymentEnabled: false,
+    jobCoachingEnabled: false,
+  });
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/staff/feature-toggles");
+        const data = (await res.json()) as {
+          traditional_supported_employment_enabled?: boolean;
+          job_coaching_enabled?: boolean;
+        };
+        if (res.ok) {
+          setToggles({
+            traditionalSupportedEmploymentEnabled:
+              data.traditional_supported_employment_enabled === true,
+            jobCoachingEnabled: data.job_coaching_enabled === true,
+          });
+        }
+      } catch {
+        /* keep defaults: IJP + WRT only */
+      }
+    })();
+  }, []);
+
+  const services = useMemo(() => {
+    const filtered = filterGaReferralServiceLabels(GA_SERVICES, toggles);
+    // Keep the currently assigned service visible even if its toggle is off.
+    if (form.serviceLabel && !filtered.includes(form.serviceLabel)) {
+      return [...filtered, form.serviceLabel];
+    }
+    return filtered;
+  }, [toggles, form.serviceLabel]);
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -174,13 +197,9 @@ export function ReferralInfoEditForm({ initial }: Props) {
             <select
               className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2"
               value={form.referralState}
-              onChange={(e) => {
-                const next = e.target.value as "GA" | "TN";
-                setForm((prev) => ({ ...prev, referralState: next, serviceLabel: "" }));
-              }}
+              disabled
             >
               <option value="GA">GA</option>
-              <option value="TN">TN</option>
             </select>
           </label>
           <label className="text-sm">

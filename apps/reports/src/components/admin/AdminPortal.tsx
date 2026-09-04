@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { SignOutButton } from '@/components/SignOutButton';
 import { ALL_VPR_SERVICE_STAGES } from '@/lib/constants';
-import { TnCatalogAdmin } from '@/components/admin/TnCatalogAdmin';
+// TN catalog admin hidden while Georgia-only reporting is in effect.
+// import { TnCatalogAdmin } from '@/components/admin/TnCatalogAdmin';
 
 interface Props {
   userEmail: string;
@@ -333,7 +334,7 @@ export function AdminPortal({ userEmail, isSuperadmin }: Props) {
         </div>
       </section>
 
-      <TnCatalogAdmin onMessage={setMessage} />
+      {/* <TnCatalogAdmin onMessage={setMessage} /> */}
 
       <section className="bg-white rounded-xl shadow p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">Report Notification Recipients</h2>

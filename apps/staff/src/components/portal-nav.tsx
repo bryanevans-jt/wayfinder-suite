@@ -21,6 +21,7 @@ export type PortalSettingsSubNav =
   | "demos"
   | "referrals"
   | "pre_ets"
+  | "features"
   | "services"
   | "emails";
 
@@ -44,8 +45,8 @@ const PRIMARY_LABELS: Record<PortalPrimaryNav, string> = {
 };
 
 const TEAM_LABELS: Record<PortalTeamSubNav, string> = {
-  es: "Employment Specialists",
-  supervisors: "Supervisors",
+  es: "Field Specialists",
+  supervisors: "Regional Supervisors",
 };
 
 const OFFICES_LABELS: Record<PortalOfficesSubNav, string> = {
@@ -67,6 +68,7 @@ const SETTINGS_LABELS: Record<PortalSettingsSubNav, string> = {
   demos: "Demo Training",
   referrals: "Referral Settings",
   pre_ets: "Pre-ETS",
+  features: "Feature Toggles",
   services: "Service Offerings",
   emails: "Email Templates",
   errors: "Error Log",
@@ -119,7 +121,20 @@ export function PortalNav({ mode, canManage, nav, onChange }: Props) {
 
   const settingsSubs: PortalSettingsSubNav[] =
     mode === "super_admin"
-      ? ["users", "advanced", "pto", "wrt", "payroll", "demos", "referrals", "pre_ets", "services", "emails", "errors"]
+      ? [
+          "users",
+          "advanced",
+          "pto",
+          "wrt",
+          "payroll",
+          "demos",
+          "referrals",
+          "pre_ets",
+          "features",
+          "services",
+          "emails",
+          "errors",
+        ]
       : ["users", "advanced", "pto", "wrt"];
 
   return (

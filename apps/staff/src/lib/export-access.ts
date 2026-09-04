@@ -1,4 +1,8 @@
-import { createServerClient, isEsRole, isSupervisorRole } from "@wayfinder/supabase";
+import {
+  createServerClient,
+  isFieldSpecialistRole,
+  isSupervisorRole,
+} from "@wayfinder/supabase";
 import {
   USER_FACING_AUTH_REQUIRED,
   USER_FACING_FORBIDDEN,
@@ -15,11 +19,12 @@ export async function assertStaffExportSession(allowed: StaffExportRole[]) {
   }
 
   const role = session.effectiveRole;
-  const es = isEsRole(role);
+  const fieldSpecialist = isFieldSpecialistRole(role);
   const supervisor = isSupervisorRole(role);
 
   const ok =
-    (allowed.includes("es") && es) || (allowed.includes("supervisor") && supervisor);
+    (allowed.includes("es") && fieldSpecialist) ||
+    (allowed.includes("supervisor") && supervisor);
 
   if (!ok) {
     return { error: NextResponse.json({ error: USER_FACING_FORBIDDEN }, { status: 403 }) };
@@ -29,7 +34,7 @@ export async function assertStaffExportSession(allowed: StaffExportRole[]) {
   return {
     supabase,
     user: { id: session.effectiveUserId },
-    role: es ? ("es" as const) : ("supervisor" as const),
+    role: fieldSpecialist ? ("es" as const) : ("supervisor" as const),
     readOnly: session.isPreviewing,
   };
 }

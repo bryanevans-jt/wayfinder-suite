@@ -18,6 +18,12 @@ export type ServiceSelectGroup = {
 export type ServiceSelectOptions = {
   /** When true, include Customized Supported Employment in pickers. Default: hidden. */
   includeCustomizedSupportedEmployment?: boolean;
+  /** When true, include Traditional Supported Employment in pickers. Default: hidden. */
+  includeTraditionalSupportedEmployment?: boolean;
+  /** When true, include Job Coaching in pickers. Default: hidden. */
+  includeJobCoaching?: boolean;
+  /** When true (default), hide Tennessee services from pickers. */
+  excludeTennessee?: boolean;
 };
 
 const STATE_GROUP_LABELS: Record<string, string> = {
@@ -86,16 +92,39 @@ export function resolveClientServiceIdForEdit(
   return currentServiceId;
 }
 
+/** GA Traditional Supported Employment (not Customized). */
+export function isTraditionalSupportedEmploymentService(row: ServiceRowInput): boolean {
+  const { baseName } = parseServiceParts(row.name, row.state);
+  return baseName.toLowerCase() === "traditional supported employment";
+}
+
+export function isJobCoachingService(row: ServiceRowInput): boolean {
+  const { baseName } = parseServiceParts(row.name, row.state);
+  return baseName.toLowerCase() === "job coaching";
+}
+
 function activeServicesForSelect(
   rows: ServiceRowInput[],
   options?: ServiceSelectOptions
 ): ServiceRowInput[] {
+  const excludeTn = options?.excludeTennessee !== false;
   return rows.filter((r) => {
     if (isDeprecatedTnTraditionalService(r)) return false;
+    const { state } = parseServiceParts(r.name, r.state);
+    if (excludeTn && state === "TN") return false;
     if (
       !options?.includeCustomizedSupportedEmployment &&
       isCustomizedSupportedEmploymentService(r)
     ) {
+      return false;
+    }
+    if (
+      !options?.includeTraditionalSupportedEmployment &&
+      isTraditionalSupportedEmploymentService(r)
+    ) {
+      return false;
+    }
+    if (!options?.includeJobCoaching && isJobCoachingService(r)) {
       return false;
     }
     return true;

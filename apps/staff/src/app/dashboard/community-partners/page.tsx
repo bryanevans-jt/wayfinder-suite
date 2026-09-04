@@ -4,7 +4,8 @@ import {
 } from "@/components/community-partners-workspace";
 import { COMMUNITY_PARTNERS_NETWORK_NAME } from "@/lib/employer-constants";
 import { canEditCommunityPartners, isCommunityPartnersRole } from "@/lib/community-partners-auth";
-import { isAdminTierRole } from "@wayfinder/supabase/roles";
+import { loadFeatureToggles } from "@/lib/feature-toggles";
+import { isAdminTierRole, staffHomePath } from "@wayfinder/supabase/roles";
 import { createServerClient } from "@wayfinder/supabase";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { redirect } from "next/navigation";
@@ -16,6 +17,12 @@ export default async function CommunityPartnersPage() {
   const session = await getAppSession();
   if (!session) {
     redirect("/login");
+  }
+
+  const adminForToggles = createServiceRoleClient();
+  const toggles = await loadFeatureToggles(adminForToggles);
+  if (!toggles.communityPartnersEnabled) {
+    redirect(staffHomePath(session.effectiveRole));
   }
 
   if (!isCommunityPartnersRole(session.effectiveRole)) {

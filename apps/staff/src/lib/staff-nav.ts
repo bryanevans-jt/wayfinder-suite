@@ -4,21 +4,27 @@ import {
   isAdminTierRole,
   isCounselorRole,
   isEsRole,
+  isFieldSpecialistRole,
   isHospitalitySpecialistRole,
   isHrRole,
   isInstructorRole,
   isSuperAdminRole,
   isSupervisorRole,
   isSupervisorTierRole,
+  isTransitionSpecialistRole,
   isWrtAdminRole,
   staffHomePath,
 } from "@wayfinder/supabase/roles";
+import { buildReportsAppUrl } from "@wayfinder/branding";
 
 export { canAccessFormalReporting };
 
 import type { WayfinderNavBadge } from "@wayfinder/branding";
 
 export const COMMUNITY_PARTNERS_PATH = "/dashboard/community-partners";
+export const TEAM_DIRECTORY_PATH = "/dashboard/team";
+export const INTAKE_CALLS_PATH = "/dashboard/intake/calls";
+export const TRAINING_CENTER_URL = "https://careers.thejoshuatree.org/training";
 
 const COUNSELOR_BLOCKED_PREFIXES = [
   "/dashboard/clients",
@@ -40,6 +46,8 @@ const COUNSELOR_BLOCKED_PREFIXES = [
   "/dashboard/share-moments",
   "/dashboard/core-four",
   "/dashboard/pre-ets",
+  "/dashboard/team",
+  "/dashboard/intake",
 ];
 
 const PORTAL_PREFIXES = [
@@ -52,12 +60,18 @@ export type StaffNavItem = {
   href: string;
   label: string;
   match: (pathname: string) => boolean;
+  /** Open in a new tab (external product or careers site). */
+  external?: boolean;
 };
 
 export type StaffNavSection = {
   /** Optional group label shown above a nav cluster. */
   label?: string;
   items: StaffNavItem[];
+};
+
+export type StaffNavOptions = {
+  showCommunityPartners?: boolean;
 };
 
 const timeClockNav: StaffNavItem = {
@@ -67,9 +81,10 @@ const timeClockNav: StaffNavItem = {
 };
 
 const reportingNav: StaffNavItem = {
-  href: "/dashboard/reporting",
+  href: buildReportsAppUrl("/reports"),
   label: "Submit Reports",
-  match: (p) => p === "/dashboard/reporting",
+  match: () => false,
+  external: true,
 };
 
 const dataExportsNav: StaffNavItem = {
@@ -89,6 +104,19 @@ const communityPartnersNav: StaffNavItem = {
   label: "Community Partners",
   match: (p) =>
     p.startsWith(COMMUNITY_PARTNERS_PATH) || p.startsWith("/dashboard/employer-network"),
+};
+
+const teamDirectoryNav: StaffNavItem = {
+  href: TEAM_DIRECTORY_PATH,
+  label: "Team Directory",
+  match: (p) => p.startsWith(TEAM_DIRECTORY_PATH),
+};
+
+const trainingCenterNav: StaffNavItem = {
+  href: TRAINING_CENTER_URL,
+  label: "Training Center",
+  match: () => false,
+  external: true,
 };
 
 const analyticsNav: StaffNavItem = {
@@ -139,11 +167,24 @@ const preEtsNav: StaffNavItem = {
   match: (p) => p.startsWith("/dashboard/pre-ets"),
 };
 
+const intakeCallsNav: StaffNavItem = {
+  href: INTAKE_CALLS_PATH,
+  label: "Intake Calls",
+  match: (p) =>
+    p.startsWith(INTAKE_CALLS_PATH) || p.startsWith("/dashboard/hospitality/intakes"),
+};
+
+const referralQueueNav: StaffNavItem = {
+  href: "/dashboard/referrals",
+  label: "Referral Queue",
+  match: (p) => p.startsWith("/dashboard/referrals"),
+};
+
 export const PRE_ETS_DASHBOARD_PATH = preEtsNav.href;
 
 const cultureNavSection: StaffNavSection = {
   label: "Our Team",
-  items: [coreFourNav, shareMomentsNav],
+  items: [teamDirectoryNav, coreFourNav, shareMomentsNav],
 };
 
 function withCultureAndHelp(sections: StaffNavSection[]): StaffNavSection[] {
@@ -177,6 +218,16 @@ function withPreEtsNav(items: StaffNavItem[], showPreEtsNav: boolean): StaffNavI
   return [preEtsNav, ...items];
 }
 
+function maybePartners(items: StaffNavItem[], show: boolean): StaffNavItem[] {
+  if (show) return items;
+  return items.filter((i) => i.href !== COMMUNITY_PARTNERS_PATH);
+}
+
+function withTraining(items: StaffNavItem[]): StaffNavItem[] {
+  if (items.some((i) => i.href === TRAINING_CENTER_URL)) return items;
+  return [...items, trainingCenterNav];
+}
+
 export function isPreEtsStaffPath(pathname: string): boolean {
   return pathname === PRE_ETS_DASHBOARD_PATH || pathname.startsWith(`${PRE_ETS_DASHBOARD_PATH}/`);
 }
@@ -185,8 +236,11 @@ export function isPreEtsStaffPath(pathname: string): boolean {
 export function staffNavSectionsForRole(
   staffRole: string | null,
   showAuditLink = false,
-  showPreEtsNav = false
+  showPreEtsNav = false,
+  options: StaffNavOptions = {}
 ): StaffNavSection[] {
+  const showCp = options.showCommunityPartners === true;
+
   if (isCounselorRole(staffRole)) {
     return withHelpSections([
       {
@@ -225,28 +279,25 @@ export function staffNavSectionsForRole(
         },
         {
           label: "Tools",
-          items: [
-            timeClockNav,
-            {
-              href: "/dashboard/wrt",
-              label: "WRT Preview",
-              match: (p) => p.startsWith("/dashboard/wrt"),
-            },
-            reportingNav,
-            {
-              href: "/dashboard/referrals",
-              label: "Referral Queue",
-              match: (p) => p.startsWith("/dashboard/referrals"),
-            },
-            {
-              href: "/dashboard/hospitality/intakes",
-              label: "Intake Calls",
-              match: (p) => p.startsWith("/dashboard/hospitality/intakes"),
-            },
-            intakeBillingNav,
-            ...(showPreEtsNav ? [preEtsNav] : []),
-            communityPartnersNav,
-          ],
+          items: withTraining(
+            maybePartners(
+              [
+                timeClockNav,
+                {
+                  href: "/dashboard/wrt",
+                  label: "WRT Preview",
+                  match: (p) => p.startsWith("/dashboard/wrt"),
+                },
+                reportingNav,
+                referralQueueNav,
+                intakeCallsNav,
+                intakeBillingNav,
+                ...(showPreEtsNav ? [preEtsNav] : []),
+                communityPartnersNav,
+              ],
+              showCp
+            )
+          ),
         },
       ],
       staffRole
@@ -272,28 +323,25 @@ export function staffNavSectionsForRole(
         },
         {
           label: "Tools",
-          items: [
-            timeClockNav,
-            {
-              href: "/dashboard/wrt",
-              label: "WRT Preview",
-              match: (p) => p.startsWith("/dashboard/wrt"),
-            },
-            reportingNav,
-            {
-              href: "/dashboard/referrals",
-              label: "Referral Queue",
-              match: (p) => p.startsWith("/dashboard/referrals"),
-            },
-            {
-              href: "/dashboard/hospitality/intakes",
-              label: "Intake Calls",
-              match: (p) => p.startsWith("/dashboard/hospitality/intakes"),
-            },
-            intakeBillingNav,
-            ...(showPreEtsNav ? [preEtsNav] : []),
-            communityPartnersNav,
-          ],
+          items: withTraining(
+            maybePartners(
+              [
+                timeClockNav,
+                {
+                  href: "/dashboard/wrt",
+                  label: "WRT Preview",
+                  match: (p) => p.startsWith("/dashboard/wrt"),
+                },
+                reportingNav,
+                referralQueueNav,
+                intakeCallsNav,
+                intakeBillingNav,
+                ...(showPreEtsNav ? [preEtsNav] : []),
+                communityPartnersNav,
+              ],
+              showCp
+            )
+          ),
         },
       ],
       staffRole
@@ -308,7 +356,7 @@ export function staffNavSectionsForRole(
           items: [
             {
               href: "/dashboard/supervisor",
-              label: "Supervisor Portal",
+              label: "Regional Supervisor Portal",
               match: (p) => p.startsWith("/dashboard/supervisor"),
             },
             {
@@ -330,7 +378,12 @@ export function staffNavSectionsForRole(
         },
         {
           label: "Tools",
-          items: withPreEtsNav([dataExportsNav, communityPartnersNav], showPreEtsNav),
+          items: withTraining(
+            maybePartners(
+              withPreEtsNav([dataExportsNav, communityPartnersNav], showPreEtsNav),
+              showCp
+            )
+          ),
         },
       ],
       staffRole
@@ -344,21 +397,21 @@ export function staffNavSectionsForRole(
           label: "Accounts",
           items: withPreEtsNav(
             [
-            intakeBillingNav,
-            {
-              href: "/dashboard/timesheet",
-              label: "Weekly Timesheet",
-              match: (p) => p.startsWith("/dashboard/timesheet"),
-            },
-            timeClockNav,
-            dataExportsNav,
+              intakeBillingNav,
+              {
+                href: "/dashboard/timesheet",
+                label: "Weekly Timesheet",
+                match: (p) => p.startsWith("/dashboard/timesheet"),
+              },
+              timeClockNav,
+              dataExportsNav,
             ],
             showPreEtsNav
           ),
         },
         {
           label: "Reference",
-          items: [communityPartnersNav],
+          items: withTraining(maybePartners([communityPartnersNav], showCp)),
         },
       ],
       staffRole
@@ -372,30 +425,22 @@ export function staffNavSectionsForRole(
           label: "HR",
           items: withPreEtsNav(
             [
-            {
-              href: "/dashboard/hr",
-              label: "HR Dashboard",
-              match: (p) => p.startsWith("/dashboard/hr"),
-            },
-            {
-              href: "/dashboard/referrals",
-              label: "Referral Queue",
-              match: (p) => p.startsWith("/dashboard/referrals"),
-            },
-            {
-              href: "/dashboard/hospitality/intakes",
-              label: "Intake Calls",
-              match: (p) => p.startsWith("/dashboard/hospitality/intakes"),
-            },
-            intakeBillingNav,
-            {
-              href: "/dashboard/timesheet",
-              label: "Weekly Timesheet",
-              match: (p) => p.startsWith("/dashboard/timesheet"),
-            },
-            timeClockNav,
-            analyticsNav,
-            dataExportsNav,
+              {
+                href: "/dashboard/hr",
+                label: "HR Dashboard",
+                match: (p) => p.startsWith("/dashboard/hr"),
+              },
+              referralQueueNav,
+              intakeCallsNav,
+              intakeBillingNav,
+              {
+                href: "/dashboard/timesheet",
+                label: "Weekly Timesheet",
+                match: (p) => p.startsWith("/dashboard/timesheet"),
+              },
+              timeClockNav,
+              analyticsNav,
+              dataExportsNav,
             ],
             showPreEtsNav
           ),
@@ -410,30 +455,34 @@ export function staffNavSectionsForRole(
       [
         {
           label: "Hospitality",
-          items: [
-            {
-              href: "/dashboard/hospitality",
-              label: "Hospitality Dashboard",
-              match: (p) => p === "/dashboard/hospitality",
-            },
-            {
-              href: "/dashboard/hospitality/intakes",
-              label: "Intake Calls",
-              match: (p) => p.startsWith("/dashboard/hospitality/intakes"),
-            },
-            {
-              href: "/dashboard/hospitality/check-ins",
-              label: "Weekly Check-ins",
-              match: (p) => p.startsWith("/dashboard/hospitality/check-ins"),
-            },
-            {
-              href: "/dashboard/hospitality/partner-check-ins",
-              label: "Partner Check-ins",
-              match: (p) => p.startsWith("/dashboard/hospitality/partner-check-ins"),
-            },
-            communityPartnersNav,
-            timeClockNav,
-          ],
+          items: maybePartners(
+            [
+              {
+                href: "/dashboard/hospitality",
+                label: "Hospitality Dashboard",
+                match: (p) => p === "/dashboard/hospitality",
+              },
+              intakeCallsNav,
+              {
+                href: "/dashboard/hospitality/check-ins",
+                label: "Weekly Check-ins",
+                match: (p) => p.startsWith("/dashboard/hospitality/check-ins"),
+              },
+              ...(showCp
+                ? [
+                    {
+                      href: "/dashboard/hospitality/partner-check-ins",
+                      label: "Partner Check-ins",
+                      match: (p: string) =>
+                        p.startsWith("/dashboard/hospitality/partner-check-ins"),
+                    } satisfies StaffNavItem,
+                    communityPartnersNav,
+                  ]
+                : []),
+              timeClockNav,
+            ],
+            showCp
+          ),
         },
       ],
       staffRole
@@ -445,10 +494,7 @@ export function staffNavSectionsForRole(
       [
         {
           label: "Pre-ETS",
-          items: [
-            ...(showPreEtsNav ? [preEtsNav] : []),
-            timeClockNav,
-          ],
+          items: [...(showPreEtsNav ? [preEtsNav] : []), timeClockNav],
         },
       ],
       staffRole
@@ -476,20 +522,60 @@ export function staffNavSectionsForRole(
         },
         {
           label: "Reference",
-          items: [communityPartnersNav],
+          items: withTraining(maybePartners([communityPartnersNav], showCp)),
         },
       ],
       staffRole
     );
   }
 
-  if (isEsRole(staffRole)) {
+  // Transition Specialist: ES shell + Pre-ETS (always when enabled for role / settings)
+  if (isTransitionSpecialistRole(staffRole)) {
     return withHelpAndProfile(
       [
         {
           label: "Daily Work",
           items: withPreEtsNav(
             [
+              {
+                href: "/dashboard/clients",
+                label: "Clients",
+                match: (p) => p.startsWith("/dashboard/clients"),
+              },
+              {
+                href: "/dashboard/messages",
+                label: "Messages",
+                match: (p) => p === "/dashboard/messages",
+              },
+              timeClockNav,
+              {
+                href: "/dashboard/timesheet",
+                label: "My Time (Timesheet)",
+                match: (p) => p.startsWith("/dashboard/timesheet"),
+              },
+              reportingNav,
+            ],
+            true
+          ),
+        },
+        {
+          label: "Resources",
+          items: withTraining(
+            maybePartners([communityPartnersNav, analyticsNav, dataExportsNav], showCp)
+          ),
+        },
+      ],
+      staffRole
+    );
+  }
+
+  // Employment Specialist — no Pre-ETS
+  if (isEsRole(staffRole)) {
+    return withHelpAndProfile(
+      [
+        {
+          label: "Daily Work",
+          items: [
             {
               href: "/dashboard/clients",
               label: "Clients",
@@ -507,13 +593,13 @@ export function staffNavSectionsForRole(
               match: (p) => p.startsWith("/dashboard/timesheet"),
             },
             reportingNav,
-            ],
-            showPreEtsNav
-          ),
+          ],
         },
         {
           label: "Resources",
-          items: [communityPartnersNav, analyticsNav, dataExportsNav],
+          items: withTraining(
+            maybePartners([communityPartnersNav, analyticsNav, dataExportsNav], showCp)
+          ),
         },
       ],
       staffRole
@@ -589,7 +675,7 @@ export function portalPathAllowedForRole(
 export function showStaffNotifications(role: string | null | undefined): boolean {
   const r = (role ?? "").trim().toLowerCase();
   return (
-    isEsRole(r) ||
+    isFieldSpecialistRole(r) ||
     r === "supervisor" ||
     r === "admin" ||
     r === "super_admin" ||
@@ -604,10 +690,11 @@ export function staffWorkspaceLabel(staffRole: string | null): string {
   if (isCounselorRole(staffRole)) return "Counselor Workspace";
   if (isSuperAdminRole(staffRole)) return "Super Admin";
   if (isAdminTierRole(staffRole)) return "Admin Workspace";
-  if (isSupervisorRole(staffRole)) return "Supervisor Workspace";
+  if (isSupervisorRole(staffRole)) return "Regional Supervisor Workspace";
+  if (isTransitionSpecialistRole(staffRole)) return "Transition Specialist";
   if (isEsRole(staffRole)) return "Employment Specialist";
   if (staffRole === "accountant") return "Accounts Specialist";
-  if (isHrRole(staffRole)) return "HR Workspace";
+  if (isHrRole(staffRole)) return "HR Director Workspace";
   if (isHospitalitySpecialistRole(staffRole)) return "Hospitality Workspace";
   return "Team Member Workspace";
 }

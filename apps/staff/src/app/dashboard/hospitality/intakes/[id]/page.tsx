@@ -37,7 +37,7 @@ export default async function HospitalityIntakeDetailPage({ params }: PageProps)
     <main className="px-6 py-10">
       <p className="text-sm">
         <Link
-          href="/dashboard/hospitality/intakes"
+          href="/dashboard/intake/calls"
           className="font-medium text-brand-green hover:underline"
         >
           ← Intake Calls

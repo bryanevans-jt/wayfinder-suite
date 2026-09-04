@@ -1,5 +1,6 @@
 export const STAFF_ROLES = [
   "es",
+  "transition_specialist",
   "supervisor",
   "accountant",
   "admin",
@@ -16,6 +17,7 @@ export const CLIENT_ROLES = ["client", "support"] as const;
 /** Roles a super admin can assign from the Users settings screen. */
 export const ASSIGNABLE_STAFF_ROLES = [
   "es",
+  "transition_specialist",
   "supervisor",
   "accountant",
   "admin",
@@ -23,7 +25,6 @@ export const ASSIGNABLE_STAFF_ROLES = [
   "hr",
   "hospitality_specialist",
   "wrt_admin",
-  "instructor",
 ] as const;
 
 export type StaffRole = (typeof STAFF_ROLES)[number];
@@ -54,6 +55,15 @@ export function isSupportRole(role: string | null | undefined): boolean {
 /** Employment Specialist field access. */
 export function isEsRole(role: string | null | undefined): boolean {
   return normalizeRole(role) === "es";
+}
+
+export function isTransitionSpecialistRole(role: string | null | undefined): boolean {
+  return normalizeRole(role) === "transition_specialist";
+}
+
+/** ES or Transition Specialist — shared caseload / messages / time shell. */
+export function isFieldSpecialistRole(role: string | null | undefined): boolean {
+  return isEsRole(role) || isTransitionSpecialistRole(role);
 }
 
 export function isWrtAdminRole(role: string | null | undefined): boolean {
@@ -113,7 +123,7 @@ export function canViewStaffOnlyClientNotes(role: string | null | undefined): bo
     isHrRole(role) ||
     isHospitalitySpecialistRole(role) ||
     isSupervisorRole(role) ||
-    isEsRole(role)
+    isFieldSpecialistRole(role)
   );
 }
 
@@ -127,7 +137,7 @@ export function canExecuteHospitalityIntakeOps(role: string | null | undefined):
 }
 
 export function canWriteStaffOnlyClientNotes(role: string | null | undefined): boolean {
-  return canExecuteHospitalityIntakeOps(role);
+  return canExecuteHospitalityIntakeOps(role) || isSupervisorRole(role);
 }
 
 /** Weekly client / partner check-in logging (not HR — intake-only for HR). */
@@ -135,9 +145,9 @@ export function canLogHospitalityCheckIns(role: string | null | undefined): bool
   return isHospitalitySpecialistRole(role) || isAdminTierRole(role);
 }
 
-/** Assign / change Employment Specialist on a client profile (intake Start Client). */
+/** Assign / change ES or Transition Specialist on a client (intake + Regional Supervisor). */
 export function canAssignClientEs(role: string | null | undefined): boolean {
-  return canExecuteHospitalityIntakeOps(role);
+  return canExecuteHospitalityIntakeOps(role) || isSupervisorRole(role);
 }
 
 /** Edit/reschedule hospitality intake appointment on a client profile. */
@@ -145,7 +155,7 @@ export function canEditClientIntakeAppointment(role: string | null | undefined):
   return (
     canExecuteHospitalityIntakeOps(role) ||
     isSupervisorRole(role) ||
-    isEsRole(role)
+    isFieldSpecialistRole(role)
   );
 }
 
@@ -157,6 +167,11 @@ export function canViewHospitalityWorkspace(role: string | null | undefined): bo
 /** Formal report submissions oversight (Admin / Super Admin / HR) on any client profile. */
 export function canOverseeFormalReportSubmissions(role: string | null | undefined): boolean {
   return isAdminTierRole(role) || isHrRole(role);
+}
+
+/** Super Admin or HR may edit team directory celebration fields / Admin titles. */
+export function canManageTeamDirectory(role: string | null | undefined): boolean {
+  return isSuperAdminRole(role) || isHrRole(role);
 }
 
 export function isAssignableStaffRole(
@@ -182,9 +197,9 @@ export function isKnownRole(role: string | null | undefined): boolean {
   return isStaffRole(role) || isClientRole(role);
 }
 
-/** Formal reporting (Joshua Tree Reports) — ES, supervisors, and admin tier. */
+/** Formal reporting (Joshua Tree Reports) — field specialists, supervisors, and admin tier. */
 export function canAccessFormalReporting(role: string | null | undefined): boolean {
-  return isEsRole(role) || isSupervisorRole(role) || isAdminTierRole(role);
+  return isFieldSpecialistRole(role) || isSupervisorRole(role) || isAdminTierRole(role);
 }
 
 export function staffHomePath(role: string | null | undefined): string {
@@ -197,7 +212,7 @@ export function staffHomePath(role: string | null | undefined): string {
   if (r === "hr") return "/dashboard/hr";
   if (r === "hospitality_specialist") return "/dashboard/hospitality";
   if (r === "wrt_admin") return "/dashboard/wrt";
-  if (r === "instructor") return "/dashboard/pre-ets";
+  if (r === "instructor" || r === "transition_specialist") return "/dashboard/pre-ets";
   return "/dashboard/clients";
 }
 
@@ -213,19 +228,30 @@ export function roleDisplayName(role: string | null | undefined): string {
   const labels: Record<string, string> = {
     super_admin: "Super Admin",
     admin: "Admin",
-    supervisor: "Supervisor",
+    supervisor: "Regional Supervisor",
     es: "Employment Specialist",
+    transition_specialist: "Transition Specialist",
     counselor: "Counselor",
     client: "Client",
-    support: "Natural support",
+    support: "Natural Support",
     accountant: "Accounts Specialist",
-    hr: "HR",
+    hr: "HR Director",
     hospitality_specialist: "Hospitality Specialist",
     wrt_admin: "WRT Admin",
     instructor: "Instructor",
   };
   const key = normalizeRole(role);
   return labels[key] ?? key;
+}
+
+/** Directory position: custom job_title when set, else role display name. */
+export function directoryPositionLabel(opts: {
+  role: string | null | undefined;
+  jobTitle?: string | null;
+}): string {
+  const title = (opts.jobTitle ?? "").trim();
+  if (title) return title;
+  return roleDisplayName(opts.role);
 }
 
 export const PREVIEWABLE_ROLES = [

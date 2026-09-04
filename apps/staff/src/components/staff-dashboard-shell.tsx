@@ -13,6 +13,7 @@ type Props = {
   staffRole: string | null;
   showAuditLink?: boolean;
   showPreEtsNav?: boolean;
+  showCommunityPartners?: boolean;
   children: React.ReactNode;
 };
 
@@ -20,6 +21,7 @@ export function StaffDashboardShell({
   staffRole,
   showAuditLink = false,
   showPreEtsNav = false,
+  showCommunityPartners = false,
   children,
 }: Props) {
   const pathname = usePathname() ?? "";
@@ -51,6 +53,7 @@ export function StaffDashboardShell({
           staffRole={staffRole}
           showAuditLink={showAuditLink}
           showPreEtsNav={showPreEtsNav}
+          showCommunityPartners={showCommunityPartners}
         />
       </aside>
 
@@ -110,6 +113,7 @@ export function StaffDashboardShell({
               staffRole={staffRole}
               showAuditLink={showAuditLink}
               showPreEtsNav={showPreEtsNav}
+              showCommunityPartners={showCommunityPartners}
               onNavigate={() => setMenuOpen(false)}
               className="flex-1 overflow-y-auto"
             />

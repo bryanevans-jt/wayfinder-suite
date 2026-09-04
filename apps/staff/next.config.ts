@@ -30,6 +30,16 @@ const nextConfig: NextConfig = {
         destination: "/dashboard/community-partners/:id",
         permanent: true,
       },
+      {
+        source: "/dashboard/hospitality/intakes",
+        destination: "/dashboard/intake/calls",
+        permanent: false,
+      },
+      {
+        source: "/dashboard/hospitality/intakes/:id",
+        destination: "/dashboard/intake/calls/:id",
+        permanent: false,
+      },
     ];
   },
 };

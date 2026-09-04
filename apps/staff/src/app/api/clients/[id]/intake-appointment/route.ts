@@ -3,7 +3,7 @@ import { assertNotPreviewMutation, getAppSession } from "@wayfinder/supabase/pre
 import {
   canEditClientIntakeAppointment,
   isAdminTierRole,
-  isEsRole,
+  isFieldSpecialistRole,
   isHrRole,
   isHospitalitySpecialistRole,
   isSupervisorRole,
@@ -28,7 +28,7 @@ async function assertCanEditIntakeAppointment(clientId: string) {
   const role = session.effectiveRole;
   const orgWide =
     isHospitalitySpecialistRole(role) || isHrRole(role) || isAdminTierRole(role);
-  if (!orgWide && (isEsRole(role) || isSupervisorRole(role))) {
+  if (!orgWide && (isFieldSpecialistRole(role) || isSupervisorRole(role))) {
     const ok = await requireStaffClientAccess(session, clientId);
     if (!ok) {
       return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };

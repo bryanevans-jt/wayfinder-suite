@@ -3,10 +3,11 @@
 import {
   isAdminTierRole,
   isCounselorRole,
-  isEsRole,
+  isFieldSpecialistRole,
   isHrRole,
   isSuperAdminRole,
   isSupervisorRole,
+  isTransitionSpecialistRole,
   isWrtAdminRole,
 } from "@wayfinder/supabase/roles";
 
@@ -36,10 +37,11 @@ function sectionsForRole(role: string | null): Section[] {
           "Clients is the home tab. Team, Offices, Reports, and Settings cover organization control. Setup panels live under Settings — not as extras at the bottom of the page.",
         steps: [
           "Clients → search, add, import, and manage the roster (including View Archived).",
-          "Team → Employment Specialists and Supervisors.",
+          "Team → Employment Specialists and Regional Supervisors.",
           "Offices → Directory and Counselors; you can hide/show offices.",
           "Reports → Audit Activity (org audit CSV) and Message Audit.",
-          "Settings → Administrators, Advanced Connections, PTO Settings, WRT Curriculum, Payroll Settings, Demo Training, Error Log.",
+          "Settings → Feature Toggles (Community Partners, TSE, Job Coaching, GroupMe celebrations), Administrators, Advanced Connections, PTO Settings, WRT Curriculum, Payroll Settings, Demo Training, Error Log.",
+          "Account → Team Directory for staff contacts.",
         ],
       },
       {
@@ -93,7 +95,8 @@ function sectionsForRole(role: string | null): Section[] {
         steps: [
           "Portal → Admin Portal for clients, offices, services, and team members.",
           "Oversight → Team Operations, Compliance, Explore Analytics.",
-          "Tools → Time Clock, WRT Preview, Submit Reports, Referral Queue, Intake Calls, Community Partners.",
+          "Tools → Time Clock, WRT Preview, Submit Reports, Referral Queue, Intake Calls, Community Partners (Feature Toggle).",
+          "Account → Team Directory.",
         ],
       },
       {
@@ -144,17 +147,18 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Sidebar Layout",
         body:
-          "Daily work is at the top (portal, messages, time clock, timesheet). Oversight covers your team’s coaching queue and compliance. Check Notifications for SLA alerts and client milestones.",
+          "Your role displays as Regional Supervisor. Daily work is at the top (portal, messages, time clock, timesheet). Oversight covers your team’s coaching queue and compliance. Check Notifications for SLA alerts and client milestones.",
         steps: [
-          "Daily Work → Supervisor Portal, Messages, Time Clock, Weekly Timesheet.",
+          "Daily Work → Regional Supervisor Portal, Messages, Time Clock, Weekly Timesheet.",
           "Oversight → Team Operations, Compliance, Submit Reports, Explore Analytics.",
-          "Tools → Download Exports, Community Partners.",
+          "Tools → Download Exports, Community Partners (when enabled in Feature Toggles).",
+          "Account → Team Directory for staff contacts; GroupMe celebrations can be toggled by Super Admin.",
         ],
       },
       {
-        title: "This Week (Supervisor Portal)",
+        title: "This Week (Regional Supervisor Portal)",
         body:
-          "On Supervisor Portal → Clients, This Week shows open coaching and compliance counts so you can triage before browsing the roster.",
+          "On Regional Supervisor Portal → Clients, This Week shows open coaching and compliance counts so you can triage before browsing the roster.",
         steps: [
           "Message SLA overdue and thin contact logs open Team Operations.",
           "Report gaps open Compliance; timesheets to review open Weekly Timesheet.",
@@ -187,11 +191,11 @@ function sectionsForRole(role: string | null): Section[] {
         ],
       },
       {
-        title: "Supervisor Portal and Coaching",
+        title: "Regional Supervisor Portal and Coaching",
         body:
           "Your portal shows team overview. Team Operations adds a coaching queue for overdue message replies and thin contact logs.",
         steps: [
-          "Supervisor Portal: see your Employment Specialists and high-level caseload signals.",
+          "Regional Supervisor Portal: see your Employment Specialists and high-level caseload signals.",
           "Team Operations: capacity view plus coaching queue (SLA overdue and fewer than four contacts per month).",
           "Messages: intervene on client threads in your scope.",
           "Compliance: your team’s SE Monthly gaps and pending timesheet approvals.",
@@ -201,15 +205,16 @@ function sectionsForRole(role: string | null): Section[] {
     ];
   }
 
-  if (isEsRole(role)) {
-    return [
+  if (isFieldSpecialistRole(role)) {
+    const sections: Section[] = [
       {
         title: "Sidebar Layout",
         body:
-          "Clients is your home base. The sidebar groups daily work (clients, messages, time clock, timesheet, reports) and resources (partners, analytics, exports). Notifications surface message SLA and employment celebrations.",
+          "Clients is your home base. The sidebar groups daily work (clients, messages, time clock, timesheet, reports) and resources (partners when enabled, analytics, exports). Notifications surface message SLA and employment celebrations. Employment Specialists do not have Pre-ETS — that belongs to Transition Specialists.",
         steps: [
           "Daily Work → Clients, Messages, Time Clock, My Time (Timesheet), Submit Reports.",
-          "Resources → Community Partners, Explore Analytics, Download Exports.",
+          "Resources → Community Partners (Feature Toggle), Explore Analytics, Download Exports.",
+          "Account → Team Directory for staff contacts.",
         ],
       },
       {
@@ -275,6 +280,21 @@ function sectionsForRole(role: string | null): Section[] {
         ],
       },
     ];
+
+    if (isTransitionSpecialistRole(role)) {
+      sections.push({
+        title: "Pre-ETS (Transition Specialist)",
+        body:
+          "Transition Specialists use the same Employment Specialist caseload shell plus Pre-ETS for student authorizations, sessions, attendance, and worksheets. Employment Specialists do not see Pre-ETS.",
+        steps: [
+          "Open Pre-ETS from the sidebar for schools, students, sessions, and worksheets.",
+          "Clients, Messages, Time Clock, Timesheet, and Submit Reports work the same as for Employment Specialists on your assigned caseload.",
+          "Use Explore Analytics and Download Exports for your own caseload scope.",
+        ],
+      });
+    }
+
+    return sections;
   }
 
   if (role === "accountant") {
@@ -475,7 +495,7 @@ export function WayfinderProHelp({ role }: Props) {
             <code className="text-xs">docs/training/</code> in the Wayfinder suite repository.
           </p>
           <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-brand-black/85">
-            {isEsRole(role) ? (
+            {isFieldSpecialistRole(role) ? (
               <li>
                 Share the client quick start:{" "}
                 <a
@@ -488,7 +508,7 @@ export function WayfinderProHelp({ role }: Props) {
                 </a>
               </li>
             ) : null}
-            {isEsRole(role) || isSupervisorRole(role) ? (
+            {isFieldSpecialistRole(role) || isSupervisorRole(role) ? (
               <li>Employer outreach script — Community Partners folder in training materials</li>
             ) : null}
           </ul>

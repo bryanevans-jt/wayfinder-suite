@@ -7,7 +7,7 @@ export default async function AdminPortalPage() {
   return (
     <PortalWorkspace
       mode="admin"
-      title="Admin"
+      title="Admin Portal"
       subtitle="Manage clients, team members, offices, and reports. PTO and WRT curriculum live under Settings."
     />
   );

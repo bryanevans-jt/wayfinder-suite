@@ -6,7 +6,7 @@ import {
 } from "@wayfinder/supabase/es-time-tracking";
 import {
   isAdminTierRole,
-  isEsRole,
+  isFieldSpecialistRole,
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
@@ -57,7 +57,7 @@ async function assertTimeAccess() {
   }
   const role = session.effectiveRole;
   if (
-    !isEsRole(role) &&
+    !isFieldSpecialistRole(role) &&
     !isSupervisorRole(role) &&
     role !== "accountant" &&
     !isAdminTierRole(role)
@@ -70,8 +70,8 @@ async function assertTimeAccess() {
 export async function submitEsWeek(weekStartInput?: string) {
   await assertNotPreviewMutation();
   const session = await assertTimeAccess();
-  if (!isEsRole(session.effectiveRole)) {
-    throw new Error("Only Employment Specialists can submit weeks");
+  if (!isFieldSpecialistRole(session.effectiveRole)) {
+    throw new Error("Only field specialists can submit weeks");
   }
 
   const admin = requireAdmin();
@@ -316,8 +316,8 @@ export async function addNonClientTimeEntry(
 ) {
   await assertNotPreviewMutation();
   const session = await assertTimeAccess();
-  if (!isEsRole(session.effectiveRole)) {
-    throw new Error("Only Employment Specialists can log time");
+  if (!isFieldSpecialistRole(session.effectiveRole)) {
+    throw new Error("Only field specialists can log time");
   }
 
   const admin = requireAdmin();

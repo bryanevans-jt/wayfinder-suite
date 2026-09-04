@@ -1,4 +1,9 @@
-import { createServerClient, isCounselorRole, isEsRole, isSupervisorRole } from "@wayfinder/supabase";
+import {
+  createServerClient,
+  isCounselorRole,
+  isFieldSpecialistRole,
+  isSupervisorRole,
+} from "@wayfinder/supabase";
 import { canViewClientProfiles } from "@wayfinder/supabase/roles";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { getAppSession, type AppSession } from "@wayfinder/supabase/preview-server";
@@ -44,7 +49,7 @@ export async function requireCounselorSession() {
 }
 
 export async function requireEsClientAccess(session: AppSession, clientId: string) {
-  if (!isEsRole(session.effectiveRole)) {
+  if (!isFieldSpecialistRole(session.effectiveRole)) {
     return false;
   }
 
@@ -68,7 +73,7 @@ export async function requireSupervisorClientAccess(session: AppSession, clientI
 }
 
 export async function requireStaffClientAccess(session: AppSession, clientId: string) {
-  if (isEsRole(session.effectiveRole)) {
+  if (isFieldSpecialistRole(session.effectiveRole)) {
     return requireEsClientAccess(session, clientId);
   }
   if (isSupervisorRole(session.effectiveRole)) {

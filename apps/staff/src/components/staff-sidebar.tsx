@@ -37,6 +37,7 @@ export type StaffSidebarPanelProps = {
   staffRole: string | null;
   showAuditLink?: boolean;
   showPreEtsNav?: boolean;
+  showCommunityPartners?: boolean;
   onNavigate?: () => void;
   className?: string;
 };
@@ -45,11 +46,14 @@ export function StaffSidebarPanel({
   staffRole,
   showAuditLink = false,
   showPreEtsNav = false,
+  showCommunityPartners = false,
   onNavigate,
   className = "",
 }: StaffSidebarPanelProps) {
   const pathname = usePathname() ?? "";
-  const sections = staffNavSectionsForRole(staffRole, showAuditLink, showPreEtsNav);
+  const sections = staffNavSectionsForRole(staffRole, showAuditLink, showPreEtsNav, {
+    showCommunityPartners,
+  });
 
   return (
     <div className={`flex min-h-0 flex-col ${className}`.trim()}>
@@ -76,20 +80,33 @@ export function StaffSidebarPanel({
               <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
                 {section.items.map((item) => {
                   const active = item.match(pathname);
+                  const className = `block w-full rounded-lg px-3 py-2 text-sm font-medium leading-snug transition-colors ${
+                    active
+                      ? "bg-brand-green/10 text-brand-green"
+                      : "text-brand-black hover:bg-neutral-100"
+                  }`;
                   return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        onClick={onNavigate}
-                        aria-current={active ? "page" : undefined}
-                        className={`block w-full rounded-lg px-3 py-2 text-sm font-medium leading-snug transition-colors ${
-                          active
-                            ? "bg-brand-green/10 text-brand-green"
-                            : "text-brand-black hover:bg-neutral-100"
-                        }`}
-                      >
-                        {item.label}
-                      </Link>
+                    <li key={`${item.label}-${item.href}`}>
+                      {item.external ? (
+                        <a
+                          href={item.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={onNavigate}
+                          className={className}
+                        >
+                          {item.label}
+                        </a>
+                      ) : (
+                        <Link
+                          href={item.href}
+                          onClick={onNavigate}
+                          aria-current={active ? "page" : undefined}
+                          className={className}
+                        >
+                          {item.label}
+                        </Link>
+                      )}
                     </li>
                   );
                 })}
@@ -107,6 +124,7 @@ type StaffSidebarProps = {
   staffRole: string | null;
   showAuditLink?: boolean;
   showPreEtsNav?: boolean;
+  showCommunityPartners?: boolean;
 };
 
 /** @deprecated Prefer StaffDashboardShell for responsive layout. */
@@ -114,6 +132,7 @@ export function StaffSidebar({
   staffRole,
   showAuditLink = false,
   showPreEtsNav = false,
+  showCommunityPartners = false,
 }: StaffSidebarProps) {
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-neutral-200 bg-white">
@@ -121,6 +140,7 @@ export function StaffSidebar({
         staffRole={staffRole}
         showAuditLink={showAuditLink}
         showPreEtsNav={showPreEtsNav}
+        showCommunityPartners={showCommunityPartners}
       />
     </aside>
   );

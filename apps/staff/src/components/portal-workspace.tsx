@@ -30,6 +30,7 @@ import { DemoTrainingWorkspace } from "@/components/demo-training-workspace";
 import { PayrollSettingsPanel } from "@/components/payroll-settings-panel";
 import { PreEtsSettingsPanel } from "@/components/pre-ets-settings-panel";
 import { ReferralTrainingPhasePanel } from "@/components/referral-training-phase-panel";
+import { FeatureTogglesPanel } from "@/components/feature-toggles-panel";
 import { ServiceOfferingsPanel } from "@/components/service-offerings-panel";
 import { EmailTemplatesPanel } from "@/components/email-templates-panel";
 import { PtoSettingsPanel } from "@/components/pto-settings-panel";
@@ -1576,7 +1577,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 }
                 links={b.esClientLinks}
                 leftOptions={b.caseloadAssignees
-                  .filter((e) => e.role === "es")
+                  .filter((e) => e.role === "es" || e.role === "transition_specialist")
                   .map((e) => ({
                     id: e.id,
                     label: e.display_name,
@@ -1813,6 +1814,10 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
       ) : nav.primary === "settings" && nav.settings === "pre_ets" && mode === "super_admin" ? (
         <div className="mt-6">
           <PreEtsSettingsPanel />
+        </div>
+      ) : nav.primary === "settings" && nav.settings === "features" && mode === "super_admin" ? (
+        <div className="mt-6">
+          <FeatureTogglesPanel />
         </div>
       ) : nav.primary === "settings" && nav.settings === "services" && mode === "super_admin" ? (
         <div className="mt-6">

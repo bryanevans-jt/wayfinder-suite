@@ -134,7 +134,7 @@ export function HospitalityIntakeWorkspace() {
             >
               <div>
                 <Link
-                  href={`/dashboard/hospitality/intakes/${t.client?.id}`}
+                  href={`/dashboard/intake/calls/${t.client?.id}`}
                   className="font-semibold text-brand-green hover:underline"
                 >
                   {t.client?.full_name || t.client?.contact_email || t.client?.id}

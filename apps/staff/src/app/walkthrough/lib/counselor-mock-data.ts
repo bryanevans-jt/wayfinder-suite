@@ -40,7 +40,7 @@ export const DEMO_COUNSELOR_CLIENTS: DemoCounselorClient[] = [
   {
     linkId: "sample-morgan-ellis",
     displayName: "Morgan Ellis",
-    serviceName: "Traditional Supported Employment",
+    serviceName: "Individual Job Placement",
     stage: "Job Development",
     applications: 4,
     lastActivity: "2026-08-27T15:20:00.000Z",
@@ -73,7 +73,7 @@ export const DEMO_COUNSELOR_CLIENTS: DemoCounselorClient[] = [
   {
     linkId: "sample-alex-reed",
     displayName: "Alex Reed",
-    serviceName: "Traditional Supported Employment",
+    serviceName: "Individual Job Placement",
     stage: "Closed",
     applications: 2,
     lastActivity: "2026-08-22T11:00:00.000Z",
@@ -148,7 +148,7 @@ export const DEMO_COUNSELOR_FEEDS: Record<string, ClientActivityFeedItem[]> = {
       starts_at: "2026-08-05T18:00:00.000Z",
       location: "Savannah office · Room B",
       timezone: "America/New_York",
-      service_name: "Traditional Supported Employment",
+      service_name: "Individual Job Placement",
       es_name: "Avery Quinn",
     },
     {
@@ -181,7 +181,7 @@ export const DEMO_COUNSELOR_FEEDS: Record<string, ClientActivityFeedItem[]> = {
       starts_at: "2026-08-19T18:00:00.000Z",
       location: "Savannah office · Room B",
       timezone: "America/New_York",
-      service_name: "Traditional Supported Employment",
+      service_name: "Individual Job Placement",
       es_name: "Avery Quinn",
     },
     {
@@ -574,7 +574,7 @@ export const DEMO_COUNSELOR_FEEDS: Record<string, ClientActivityFeedItem[]> = {
       starts_at: "2026-08-05T17:30:00.000Z",
       location: "Savannah office · Room A",
       timezone: "America/New_York",
-      service_name: "Traditional Supported Employment",
+      service_name: "Individual Job Placement",
       es_name: "Avery Quinn",
     },
     {
@@ -599,7 +599,7 @@ export const DEMO_COUNSELOR_FEEDS: Record<string, ClientActivityFeedItem[]> = {
       starts_at: "2026-08-19T17:30:00.000Z",
       location: "Savannah office · Room A",
       timezone: "America/New_York",
-      service_name: "Traditional Supported Employment",
+      service_name: "Individual Job Placement",
       es_name: "Avery Quinn",
     },
     {

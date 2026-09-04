@@ -145,7 +145,7 @@ export default async function CounselorPortalPage({
     <main className="px-6 py-10" aria-labelledby="counselor-clients-heading">
       <header className="max-w-5xl">
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-green">
-          Counselor portal
+          Counselor Portal
         </p>
         <h1 id="counselor-clients-heading" className="mt-1 text-3xl font-semibold text-brand-green">
           Your Clients

@@ -2,7 +2,7 @@ import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { weekStartSunday } from "@wayfinder/supabase/es-time-tracking";
 import {
   isAdminTierRole,
-  isEsRole,
+  isFieldSpecialistRole,
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
@@ -23,7 +23,7 @@ export async function GET(request: Request) {
 
   const role = session.effectiveRole;
   const canAccess =
-    isEsRole(role) ||
+    isFieldSpecialistRole(role) ||
     isSupervisorRole(role) ||
     role === "accountant" ||
     role === "hr" ||
@@ -39,11 +39,11 @@ export async function GET(request: Request) {
   let esUserId = session.effectiveUserId;
 
   if (requestedEs) {
-    if (isEsRole(role) && requestedEs !== session.effectiveUserId) {
+    if (isFieldSpecialistRole(role) && requestedEs !== session.effectiveUserId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     esUserId = requestedEs;
-  } else if (!isEsRole(role)) {
+  } else if (!isFieldSpecialistRole(role)) {
     return NextResponse.json({ error: "es query param required" }, { status: 400 });
   }
 

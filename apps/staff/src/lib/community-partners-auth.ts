@@ -4,14 +4,19 @@ import {
   USER_FACING_AUTH_REQUIRED,
   USER_FACING_FORBIDDEN,
 } from "@wayfinder/supabase/error-log";
-import { isAdminTierRole, isEsRole, isSupervisorRole, isWrtAdminRole } from "@wayfinder/supabase/roles";
+import {
+  isAdminTierRole,
+  isFieldSpecialistRole,
+  isSupervisorRole,
+  isWrtAdminRole,
+} from "@wayfinder/supabase/roles";
 import { NextResponse } from "next/server";
 
 /** JTSG staff who can view the Community Partners directory and map. */
 export function isCommunityPartnersRole(role: string | null | undefined): boolean {
   const r = (role ?? "").trim().toLowerCase();
   return (
-    isEsRole(r) ||
+    isFieldSpecialistRole(r) ||
     isAdminTierRole(r) ||
     isSupervisorRole(r) ||
     isWrtAdminRole(r) ||
@@ -23,7 +28,7 @@ export function isCommunityPartnersRole(role: string | null | undefined): boolea
 
 export function canEditCommunityPartners(role: string | null | undefined): boolean {
   const r = (role ?? "").trim().toLowerCase();
-  return isEsRole(r) || isAdminTierRole(r) || isSupervisorRole(r);
+  return isFieldSpecialistRole(r) || isAdminTierRole(r) || isSupervisorRole(r);
 }
 
 export async function assertCommunityPartnersSession() {

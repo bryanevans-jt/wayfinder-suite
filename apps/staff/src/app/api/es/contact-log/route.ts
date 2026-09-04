@@ -2,7 +2,11 @@ import { saveClientContactLog } from "@/lib/save-client-contact-log";
 import { recordContactLogEvent } from "@/lib/contact-log-events";
 import { clientInSupervisorScope, loadSupervisorScope } from "@/lib/supervisor-client-scope";
 import { esIsAssignedToClient } from "@/lib/es-caseload-data";
-import { createServerClient, isEsRole, isSupervisorRole } from "@wayfinder/supabase";
+import {
+  createServerClient,
+  isFieldSpecialistRole,
+  isSupervisorRole,
+} from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
   finishActionFailure,
@@ -58,7 +62,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: USER_FACING_AUTH_REQUIRED }, { status: 401 });
   }
 
-  if (!isEsRole(session.effectiveRole) && !isSupervisorRole(session.effectiveRole)) {
+  if (
+    !isFieldSpecialistRole(session.effectiveRole) &&
+    !isSupervisorRole(session.effectiveRole)
+  ) {
     return NextResponse.json({ ok: false, error: USER_FACING_FORBIDDEN }, { status: 403 });
   }
 
@@ -89,7 +96,7 @@ export async function POST(request: Request) {
   }
 
   let allowed = false;
-  if (isEsRole(session.effectiveRole)) {
+  if (isFieldSpecialistRole(session.effectiveRole)) {
     allowed = await esIsAssignedToClient(session.effectiveUserId, clientId);
   } else if (isSupervisorRole(session.effectiveRole)) {
     const scope = await loadSupervisorScope(admin, session.effectiveUserId);
@@ -172,7 +179,10 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ ok: false, error: USER_FACING_AUTH_REQUIRED }, { status: 401 });
   }
 
-  if (!isEsRole(session.effectiveRole) && !isSupervisorRole(session.effectiveRole)) {
+  if (
+    !isFieldSpecialistRole(session.effectiveRole) &&
+    !isSupervisorRole(session.effectiveRole)
+  ) {
     return NextResponse.json({ ok: false, error: USER_FACING_FORBIDDEN }, { status: 403 });
   }
 
@@ -208,7 +218,7 @@ export async function PATCH(request: Request) {
   }
 
   let allowed = false;
-  if (isEsRole(session.effectiveRole)) {
+  if (isFieldSpecialistRole(session.effectiveRole)) {
     allowed = await esIsAssignedToClient(session.effectiveUserId, clientId);
   } else if (isSupervisorRole(session.effectiveRole)) {
     const scope = await loadSupervisorScope(admin, session.effectiveUserId);

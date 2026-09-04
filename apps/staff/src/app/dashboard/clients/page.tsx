@@ -1,4 +1,9 @@
-import { createServerClient, isEsReplyOverdue, isEsRole, staffHomePath } from "@wayfinder/supabase";
+import {
+  createServerClient,
+  isEsReplyOverdue,
+  isFieldSpecialistRole,
+  staffHomePath,
+} from "@wayfinder/supabase";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import {
   clientDisplayName,
@@ -46,7 +51,7 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
   const effectiveRole = session.effectiveRole;
   const effectiveUserId = session.effectiveUserId;
 
-  if (!isEsRole(effectiveRole)) {
+  if (!isFieldSpecialistRole(effectiveRole)) {
     redirect(staffHomePath(effectiveRole));
   }
 

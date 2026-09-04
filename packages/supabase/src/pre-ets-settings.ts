@@ -7,6 +7,7 @@ import {
   isInstructorRole,
   isSuperAdminRole,
   isSupervisorRole,
+  isTransitionSpecialistRole,
   normalizeRole,
 } from "./roles";
 
@@ -16,6 +17,7 @@ export const PRE_ETS_ROLLOUT_ROLES = [
   "accountant",
   "supervisor",
   "es",
+  "transition_specialist",
   "instructor",
   "hr",
 ] as const;
@@ -263,13 +265,13 @@ export function canViewPreEtsHr(
   return canAccessPreEts(role, settings);
 }
 
-/** Field delivery: instructor or ES when enabled. */
+/** Field delivery: Transition Specialist (or legacy instructor) / ES when enabled. */
 export function canDeliverPreEtsSessions(
   role: string | null | undefined,
   settings?: Pick<PreEtsSettingsRow, "module_enabled" | "enabled_roles"> | null
 ): boolean {
   const r = normalizeRole(role);
-  if (isInstructorRole(r) || isEsRole(r)) {
+  if (isTransitionSpecialistRole(r) || isInstructorRole(r) || isEsRole(r)) {
     return canAccessPreEts(r, settings);
   }
   if (isSuperAdminRole(r)) {

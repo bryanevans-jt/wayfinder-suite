@@ -30,9 +30,10 @@ const ROLLOUT_ROLE_LABELS: Record<string, string> = {
   super_admin: "Super Admin",
   admin: "Admin",
   accountant: "Accounts Specialist",
-  supervisor: "Supervisor",
+  supervisor: "Regional Supervisor",
   es: "Employment Specialist",
-  instructor: "Instructor",
+  transition_specialist: "Transition Specialist",
+  instructor: "Instructor (legacy)",
   hr: "HR Director",
 };
 

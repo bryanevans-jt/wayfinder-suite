@@ -57,14 +57,14 @@ export function StateSelector({ user, onSelect }: Props) {
       <div className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-lg mt-10">
         <h1 className="text-3xl font-bold mb-4 text-center text-green-800">Official Reporting</h1>
         <p className="text-gray-600 mb-6 text-center">
-          Welcome, {user.displayName}! Choose the state for this report based on the client&apos;s
-          assigned office.
+          Welcome, {user.displayName}! Official reporting is Georgia (GVRA) only. Choose Georgia
+          based on the client&apos;s assigned office.
         </p>
         {error ? <p className="text-red-600 text-sm mb-4">{error}</p> : null}
         {states.length === 0 ? (
           <p className="text-sm text-gray-600">
             No reporting states are available for your account yet. ES and supervisors need clients
-            in a GA or TN office; admins see states with enabled report types in the admin portal.
+            in a Georgia office; admins see states with enabled report types in the admin portal.
           </p>
         ) : (
           <>

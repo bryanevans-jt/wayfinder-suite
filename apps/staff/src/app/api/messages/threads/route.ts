@@ -1,4 +1,9 @@
-import { createServerClient, isEsRole, isEsReplyOverdue, isSupervisorTierRole } from "@wayfinder/supabase";
+import {
+  createServerClient,
+  isEsReplyOverdue,
+  isFieldSpecialistRole,
+  isSupervisorTierRole,
+} from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { loadStaffNameById } from "@/lib/operations-data";
 import { loadSupervisorScope } from "@/lib/supervisor-client-scope";
@@ -20,10 +25,10 @@ export async function GET(request: NextRequest) {
     }
 
     const role = session.effectiveRole ?? "";
-    const isEs = isEsRole(role);
-    const isSupervisor = isSupervisorTierRole(role) && !isEs;
+    const isFieldSpecialist = isFieldSpecialistRole(role);
+    const isSupervisor = isSupervisorTierRole(role) && !isFieldSpecialist;
 
-    if (!isEs && !isSupervisor) {
+    if (!isFieldSpecialist && !isSupervisor) {
       return NextResponse.json({ error: USER_FACING_FORBIDDEN }, { status: 403 });
     }
 
@@ -53,7 +58,7 @@ export async function GET(request: NextRequest) {
       .from("client_message_threads")
       .select("id, client_id, client_label, current_es_user_id, last_client_message_at, last_es_message_at");
 
-    if (isEs) {
+    if (isFieldSpecialist) {
       threadsQuery = threadsQuery.eq("current_es_user_id", effectiveUserId);
     } else if (role === "supervisor") {
       const scope = await loadSupervisorScope(admin, effectiveUserId);

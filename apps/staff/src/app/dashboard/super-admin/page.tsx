@@ -7,7 +7,7 @@ export default async function SuperAdminPortalPage() {
   return (
     <PortalWorkspace
       mode="super_admin"
-      title="Super Admin"
+      title="Super Admin Portal"
       subtitle="Full organization control. Clients is your home tab; PTO, WRT, payroll, demos, and error logs live under Settings."
     />
   );

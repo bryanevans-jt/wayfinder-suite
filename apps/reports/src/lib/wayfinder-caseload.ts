@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { clientDisplayName, employmentCategoryLabel } from "@wayfinder/branding";
 import {
   isAdminTierRole,
-  isEsRole,
+  isFieldSpecialistRole,
   isSuperAdminRole,
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
@@ -31,9 +31,9 @@ async function loadProfileRole(admin: SupabaseClient, userId: string): Promise<s
 
 /** States available in the reporting app for admin-tier users. */
 async function loadCatalogReportingStates(_admin: SupabaseClient): Promise<ReportingState[]> {
-  // GA: hardcoded report list. TN: builtin Vocational Progress Report (+ optional catalog types).
+  // Georgia only in the reporting UI (TN catalog retired from staff-facing selectors).
   void _admin;
-  return ["GA", "TN"];
+  return ["GA"];
 }
 
 async function loadSupervisorScope(admin: SupabaseClient, supervisorUserId: string): Promise<SupervisorScope> {
@@ -69,7 +69,7 @@ async function loadSupervisorScope(admin: SupabaseClient, supervisorUserId: stri
         .from("profiles")
         .select("id")
         .in("id", [...candidateUserIds])
-        .eq("role", "es");
+        .in("role", ["es", "transition_specialist"]);
       for (const profile of esProfiles ?? []) {
         esUserIds.add(profile.id as string);
       }
@@ -88,7 +88,7 @@ async function loadScopedClientIds(
     return "all";
   }
 
-  if (isEsRole(role)) {
+  if (isFieldSpecialistRole(role)) {
     const { data: links } = await admin
       .from("es_client_assignments")
       .select("client_id")
@@ -246,11 +246,11 @@ export async function getAvailableReportingStates(
   for (const row of data ?? []) {
     const embed = row.offices as { state?: string } | { state?: string }[] | null;
     const state = Array.isArray(embed) ? embed[0]?.state : embed?.state;
-    if (state === "GA" || state === "TN") {
+    if (state === "GA") {
       states.add(state);
     }
   }
-  return [...states].sort();
+  return [...states].filter((s) => s !== "TN").sort();
 }
 
 export async function searchCaseloadClients(
@@ -359,7 +359,10 @@ export async function assertReportingUser(
 ): Promise<{ role: string | null; isAdmin: boolean }> {
   const role = await loadProfileRole(admin, userId);
   const allowed =
-    isEsRole(role) || isSupervisorRole(role) || isAdminTierRole(role) || isSuperAdminRole(role);
+    isFieldSpecialistRole(role) ||
+    isSupervisorRole(role) ||
+    isAdminTierRole(role) ||
+    isSuperAdminRole(role);
   if (!allowed) {
     throw new Error("Forbidden");
   }

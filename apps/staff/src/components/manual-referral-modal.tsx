@@ -1,21 +1,13 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
-
-type ReferralState = "GA" | "TN";
+import { filterGaReferralServiceLabels } from "@/lib/feature-toggles";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 const GA_SERVICES = [
   "Traditional Supported Employment",
   "Job Coaching",
   "Individual Job Placement",
   "Workplace Readiness Training",
-] as const;
-
-const TN_SERVICES = [
-  "Traditional Supported Employment",
-  "Individual Job Placement",
-  "Job Coaching",
-  "Job Readiness Training",
 ] as const;
 
 type FilePayload = { name: string; mimeType: string; data: string } | null;
@@ -64,14 +56,43 @@ const emptyForm = {
 };
 
 export function ManualReferralModal({ open, onClose, onCreated }: Props) {
-  const [state, setState] = useState<ReferralState>("GA");
+  const state = "GA" as const;
   const [form, setForm] = useState(emptyForm);
   const [authFile, setAuthFile] = useState<File | null>(null);
   const [otherFile, setOtherFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toggles, setToggles] = useState({
+    traditionalSupportedEmploymentEnabled: false,
+    jobCoachingEnabled: false,
+  });
 
-  const services = useMemo(() => (state === "GA" ? GA_SERVICES : TN_SERVICES), [state]);
+  useEffect(() => {
+    if (!open) return;
+    void (async () => {
+      try {
+        const res = await fetch("/api/staff/feature-toggles");
+        const data = (await res.json()) as {
+          traditional_supported_employment_enabled?: boolean;
+          job_coaching_enabled?: boolean;
+        };
+        if (res.ok) {
+          setToggles({
+            traditionalSupportedEmploymentEnabled:
+              data.traditional_supported_employment_enabled === true,
+            jobCoachingEnabled: data.job_coaching_enabled === true,
+          });
+        }
+      } catch {
+        /* keep defaults: IJP + WRT only */
+      }
+    })();
+  }, [open]);
+
+  const services = useMemo(
+    () => filterGaReferralServiceLabels(GA_SERVICES, toggles),
+    [toggles]
+  );
 
   if (!open) return null;
 
@@ -158,10 +179,7 @@ export function ManualReferralModal({ open, onClose, onCreated }: Props) {
               <select
                 className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2"
                 value={state}
-                onChange={(e) => {
-                  setState(e.target.value as ReferralState);
-                  setForm((prev) => ({ ...prev, service: "" }));
-                }}
+                disabled
               >
                 <option value="GA">Georgia (GVRA)</option>
               </select>

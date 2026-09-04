@@ -8,13 +8,18 @@ import {
   softRemoveEmploymentSpecialist,
   upsertStaffProfile,
 } from "@/lib/portal-staff-users";
+import { isFieldSpecialistRole } from "@wayfinder/supabase/roles";
 import { NextRequest } from "next/server";
+
+type FieldSpecialistRole = "es" | "transition_specialist";
 
 type CreateBody = {
   email?: string;
   full_name?: string;
   office_ids?: string[];
   silent_add?: boolean;
+  /** Defaults to es; may be transition_specialist when specified. */
+  role?: FieldSpecialistRole;
 };
 
 type PatchBody = {
@@ -23,6 +28,10 @@ type PatchBody = {
   is_active?: boolean;
   office_ids?: string[];
 };
+
+function resolveCreateRole(raw: unknown): FieldSpecialistRole {
+  return raw === "transition_specialist" ? "transition_specialist" : "es";
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,6 +42,7 @@ export async function POST(request: NextRequest) {
     const fullName = (body.full_name ?? "").trim();
     const officeIds = (body.office_ids ?? []).map((id) => id.trim()).filter(Boolean);
     const silentAdd = body.silent_add === true;
+    const createRole = resolveCreateRole(body.role);
 
     if (!email || !fullName) {
       return Response.json({ error: "Email and full name are required" }, { status: 400 });
@@ -60,16 +70,18 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
 
       const role = existing?.role as string | undefined;
-      if (role && !["es", "client"].includes(role)) {
+      if (role && !["es", "transition_specialist", "client"].includes(role)) {
         return Response.json(
-          { error: `This account already has the “${role}” role and cannot be converted to ES here.` },
+          {
+            error: `This account already has the “${role}” role and cannot be converted to a field specialist here.`,
+          },
           { status: 409 }
         );
       }
     }
 
     await upsertStaffProfile(admin, userId, {
-      role: "es",
+      role: createRole,
       full_name: fullName,
       is_active: silentAdd ? false : true,
     });
@@ -105,9 +117,13 @@ export async function PATCH(request: NextRequest) {
       .eq("id", userId)
       .maybeSingle();
 
-    if (profile?.role !== "es") {
-      return Response.json({ error: "User is not an Employment Specialist" }, { status: 400 });
+    if (!profile || !isFieldSpecialistRole(profile.role)) {
+      return Response.json({ error: "User is not a Field Specialist" }, { status: 400 });
     }
+
+    const specialistRole = (profile.role === "transition_specialist"
+      ? "transition_specialist"
+      : "es") as FieldSpecialistRole;
 
     const wasInactive = profile.is_active === false;
     const wasRemoved = Boolean(profile.staff_removed_at);
@@ -115,7 +131,7 @@ export async function PATCH(request: NextRequest) {
       return Response.json(
         {
           error:
-            "Only a Super Admin can restore a removed Employment Specialist. Ask a Super Admin to bring them back.",
+            "Only a Super Admin can restore a removed Field Specialist. Ask a Super Admin to bring them back.",
         },
         { status: 403 }
       );
@@ -132,7 +148,7 @@ export async function PATCH(request: NextRequest) {
         await softRemoveEmploymentSpecialist(admin, userId);
         if (body.full_name !== undefined) {
           await upsertStaffProfile(admin, userId, {
-            role: "es",
+            role: specialistRole,
             full_name: fullName,
             is_active: false,
             staff_removed_at: new Date().toISOString(),
@@ -149,7 +165,7 @@ export async function PATCH(request: NextRequest) {
       }
 
       await upsertStaffProfile(admin, userId, {
-        role: "es",
+        role: specialistRole,
         ...(body.full_name !== undefined ? { full_name: fullName } : {}),
         ...(body.is_active !== undefined ? { is_active: body.is_active } : {}),
         ...(body.is_active === true ? { staff_removed_at: null } : {}),
@@ -182,7 +198,7 @@ export async function DELETE(request: NextRequest) {
 
     if (hard && !isSuperAdmin) {
       return Response.json(
-        { error: "Only a Super Admin can permanently delete an Employment Specialist." },
+        { error: "Only a Super Admin can permanently delete a Field Specialist." },
         { status: 403 }
       );
     }
@@ -198,8 +214,8 @@ export async function DELETE(request: NextRequest) {
       .eq("id", userId)
       .maybeSingle();
 
-    if (profile?.role !== "es") {
-      return Response.json({ error: "User is not an Employment Specialist" }, { status: 400 });
+    if (!isFieldSpecialistRole(profile?.role)) {
+      return Response.json({ error: "User is not a Field Specialist" }, { status: 400 });
     }
 
     if (hard) {

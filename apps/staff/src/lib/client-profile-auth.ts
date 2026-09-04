@@ -11,7 +11,7 @@ import { canManageReferrals } from "@wayfinder/supabase/referral-intake";
 import {
   canViewClientProfiles,
   isAdminTierRole,
-  isEsRole,
+  isFieldSpecialistRole,
   isHrRole,
   isSupervisorTierRole,
 } from "@wayfinder/supabase/roles";
@@ -51,7 +51,7 @@ export async function assertClientProfileAccess(clientId: string, forMutation = 
   const userId = session.effectiveUserId;
 
   let allowed = false;
-  if (isEsRole(role)) {
+  if (isFieldSpecialistRole(role)) {
     allowed = await esIsAssignedToClient(userId, clientId);
   } else if (isSupervisorTierRole(role)) {
     allowed = await esIsAssignedToClient(userId, clientId);

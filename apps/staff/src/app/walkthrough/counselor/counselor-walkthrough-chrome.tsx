@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { DemoBanner } from "../components/demo-banner";
 
 const NAV = [
-  { href: "/walkthrough/counselor", label: "My clients" },
+  { href: "/walkthrough/counselor", label: "My Clients" },
   { href: "/walkthrough/counselor/quick-start", label: "Quick Start" },
 ] as const;
 

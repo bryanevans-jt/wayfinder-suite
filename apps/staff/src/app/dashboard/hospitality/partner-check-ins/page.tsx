@@ -3,9 +3,11 @@ import {
   canViewHospitalityWorkspace,
   staffHomePath,
 } from "@wayfinder/supabase/roles";
+import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { redirect } from "next/navigation";
 import { HospitalityPartnerCheckInsWorkspace } from "@/components/hospitality-partner-check-ins-workspace";
+import { loadFeatureToggles } from "@/lib/feature-toggles";
 
 export default async function HospitalityPartnerCheckInsPage() {
   const session = await getAppSession();
@@ -15,6 +17,11 @@ export default async function HospitalityPartnerCheckInsPage() {
 
   const role = session.effectiveRole ?? "";
   if (!canViewHospitalityWorkspace(role)) {
+    redirect(staffHomePath(role));
+  }
+
+  const toggles = await loadFeatureToggles(createServiceRoleClient());
+  if (!toggles.communityPartnersEnabled) {
     redirect(staffHomePath(role));
   }
 

@@ -1,6 +1,7 @@
-import { clientDisplayName } from "@wayfinder/branding";
 import { createServerClient } from "@wayfinder/supabase";
-import { isAdminTierRole } from "@wayfinder/supabase/roles";
+import { isAdminTierRole, staffHomePath } from "@wayfinder/supabase/roles";
+import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { EmployerApplicationsPanel } from "@/components/employer-applications-panel";
 import { EmployerClientMatchPanel } from "@/components/employer-client-match-panel";
 import type { EmployerRow } from "@/components/community-partners-workspace";
@@ -10,6 +11,7 @@ import {
   type EmployerStatusLogEntry,
 } from "@/components/employer-status-log-panel";
 import { canEditCommunityPartners, isCommunityPartnersRole } from "@/lib/community-partners-auth";
+import { loadFeatureToggles } from "@/lib/feature-toggles";
 import { fetchOfficesForPicker } from "@/lib/office-visibility";
 import { COMMUNITY_PARTNERS_NETWORK_NAME } from "@/lib/employer-constants";
 import {
@@ -18,7 +20,7 @@ import {
   type ClientMatchCandidate,
 } from "@/lib/employer-matching";
 import { supabaseEmbedOne } from "@/lib/supabase-embed";
-import { getAppSession } from "@wayfinder/supabase/preview-server";
+import { clientDisplayName } from "@wayfinder/branding";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
@@ -35,6 +37,11 @@ export default async function CommunityPartnerDetailPage({ params }: PageProps) 
   const session = await getAppSession();
   if (!session) {
     redirect("/login");
+  }
+
+  const toggles = await loadFeatureToggles(createServiceRoleClient());
+  if (!toggles.communityPartnersEnabled) {
+    redirect(staffHomePath(session.effectiveRole));
   }
 
   if (!isCommunityPartnersRole(session.effectiveRole)) {

@@ -4,7 +4,7 @@ import { canAccessFormalReporting } from "@/lib/staff-nav";
 import { SUPPORT_CONTACT_EMAIL, SUPPORT_CONTACT_MAILTO, SUPPORT_CONTACT_NAME } from "@wayfinder/branding";
 import {
   isAdminTierRole,
-  isEsRole,
+  isFieldSpecialistRole,
   isHrRole,
   isSuperAdminRole,
   isSupervisorRole,
@@ -76,7 +76,7 @@ const EXPORT_CARDS: ExportCard[] = [
 ];
 
 function canUseExport(role: string | null, card: ExportCard): boolean {
-  if (isEsRole(role)) {
+  if (isFieldSpecialistRole(role)) {
     return card.roles.includes("es");
   }
   if (isSupervisorRole(role)) {

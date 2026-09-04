@@ -436,6 +436,21 @@ export async function PATCH(request: NextRequest) {
           });
           if (assignErr) throw new Error(assignErr.message);
         }
+
+        const nextEsId = esResolved.esUserId ?? null;
+        if (nextEsId !== currentEsId) {
+          const { error: auditErr } = await admin.from("client_intake_events").insert({
+            client_id: id,
+            actor_user_id: user.id,
+            event_type: "es_assignment_changed",
+            from_value: currentEsId,
+            to_value: nextEsId,
+            metadata: { source: "portal_clients" },
+          });
+          if (auditErr) {
+            console.error("[portal-clients] es assignment audit failed:", auditErr.message);
+          }
+        }
       }
     }
 

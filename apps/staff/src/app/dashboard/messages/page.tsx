@@ -1,4 +1,8 @@
-import { isEsRole, isSupervisorTierRole, staffHomePath } from "@wayfinder/supabase/roles";
+import {
+  isFieldSpecialistRole,
+  isSupervisorTierRole,
+  staffHomePath,
+} from "@wayfinder/supabase/roles";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -11,7 +15,7 @@ export default async function MessagesPage() {
   }
 
   const role = session.effectiveRole;
-  const canAccess = isEsRole(role) || isSupervisorTierRole(role);
+  const canAccess = isFieldSpecialistRole(role) || isSupervisorTierRole(role);
   if (!canAccess) {
     redirect(staffHomePath(role));
   }

@@ -6,7 +6,7 @@ import {
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import {
   isAdminTierRole,
-  isEsRole,
+  isFieldSpecialistRole,
   isHrRole,
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
@@ -102,7 +102,7 @@ export async function assertAnalyticsSession(): Promise<
     };
   }
 
-  if (isEsRole(role)) {
+  if (isFieldSpecialistRole(role)) {
     return {
       admin,
       actorUserId: session.actorUserId,

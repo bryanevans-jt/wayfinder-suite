@@ -1,6 +1,8 @@
 import { StaffDashboardShell } from "@/components/staff-dashboard-shell";
 import { PreviewBanner } from "@/components/preview-banner";
+import { loadFeatureToggles } from "@/lib/feature-toggles";
 import { preEtsAccessAllowedForRole } from "@/lib/pre-ets-access";
+import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { getAppSession, staffAppOrigin } from "@wayfinder/supabase/preview-server";
 import { isSuperAdminRole } from "@wayfinder/supabase/roles";
 
@@ -17,6 +19,15 @@ export default async function DashboardLayout({
   );
   const showPreEtsNav = await preEtsAccessAllowedForRole(navRole);
 
+  let showCommunityPartners = false;
+  try {
+    const admin = createServiceRoleClient();
+    const toggles = await loadFeatureToggles(admin);
+    showCommunityPartners = toggles.communityPartnersEnabled;
+  } catch {
+    showCommunityPartners = false;
+  }
+
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col bg-white">
       {session?.isPreviewing && session.preview ? (
@@ -30,6 +41,7 @@ export default async function DashboardLayout({
         staffRole={navRole}
         showAuditLink={showAuditLink}
         showPreEtsNav={showPreEtsNav}
+        showCommunityPartners={showCommunityPartners}
       >
         {children}
       </StaffDashboardShell>

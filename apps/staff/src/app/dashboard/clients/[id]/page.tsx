@@ -3,7 +3,7 @@ import { StaffClientActivityTimeline } from "@/components/staff-client-activity-
 import {
   buildClientActivityFkIds,
   createServerClient,
-  isEsRole,
+  isFieldSpecialistRole,
   isSupervisorRole,
   listContactLogsForClientIds,
 } from "@wayfinder/supabase";
@@ -309,7 +309,7 @@ export default async function EsClientDetailPage({ params }: PageProps) {
   }));
 
   const showPriorHistory =
-    isEsRole(role) || isSupervisorRole(role) || isAdminTierRole(role);
+    isFieldSpecialistRole(role) || isSupervisorRole(role) || isAdminTierRole(role);
   let priorFeed: ReturnType<typeof buildClientActivityFeed> | null = null;
   let priorEnrollmentName: string | null = null;
   if (showPriorHistory && client.prior_client_id) {
@@ -400,7 +400,7 @@ export default async function EsClientDetailPage({ params }: PageProps) {
   const backHref = portalPathForRole(session.effectiveRole) ?? staffHomePath(session.effectiveRole);
   const backLabel = isSupervisorRole(session.effectiveRole)
     ? "Back to supervisor portal"
-    : isEsRole(session.effectiveRole)
+    : isFieldSpecialistRole(session.effectiveRole)
       ? "Back to clients"
       : "Back";
   const showStaffNotes = canViewStaffOnlyClientNotes(role);

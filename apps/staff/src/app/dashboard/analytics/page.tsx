@@ -3,7 +3,7 @@ import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { redirect } from "next/navigation";
 import {
   isAdminTierRole,
-  isEsRole,
+  isFieldSpecialistRole,
   isHrRole,
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
@@ -14,7 +14,7 @@ export default async function AnalyticsPage() {
 
   if (
     !session ||
-    (!isEsRole(role) &&
+    (!isFieldSpecialistRole(role) &&
       !isSupervisorRole(role) &&
       !isAdminTierRole(role) &&
       !isHrRole(role))

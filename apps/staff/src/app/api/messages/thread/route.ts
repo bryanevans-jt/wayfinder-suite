@@ -1,4 +1,8 @@
-import { createServerClient, isEsRole, isSupervisorTierRole } from "@wayfinder/supabase";
+import {
+  createServerClient,
+  isFieldSpecialistRole,
+  isSupervisorTierRole,
+} from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { esIsAssignedToClient } from "@/lib/es-caseload-data";
 import { supervisorCanAccessEs } from "@/lib/supervisor-client-scope";
@@ -54,7 +58,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: USER_FACING_NOT_FOUND }, { status: 404 });
     }
 
-    const isEs = isEsRole(role) && thread.current_es_user_id === effectiveUserId;
+    const isFieldSpecialist =
+      isFieldSpecialistRole(role) && thread.current_es_user_id === effectiveUserId;
     let isSupervisor = false;
     if (isSupervisorTierRole(role) && role === "supervisor") {
       if (thread.current_es_user_id === effectiveUserId) {
@@ -79,7 +84,7 @@ export async function GET(request: Request) {
       }
     }
 
-    if (!isEs && !isSupervisor && role !== "admin" && role !== "super_admin") {
+    if (!isFieldSpecialist && !isSupervisor && role !== "admin" && role !== "super_admin") {
       return NextResponse.json({ error: USER_FACING_FORBIDDEN }, { status: 403 });
     }
 

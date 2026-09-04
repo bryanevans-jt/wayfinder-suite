@@ -13,7 +13,7 @@ import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import {
   isAdminTierRole,
-  isEsRole,
+  isFieldSpecialistRole,
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
 import path from "node:path";
@@ -28,7 +28,7 @@ async function assertTimesheetExportAccess(
 ) {
   const role = session.effectiveRole;
   const canAccess =
-    isEsRole(role) ||
+    isFieldSpecialistRole(role) ||
     isSupervisorRole(role) ||
     role === "accountant" ||
     role === "hr" ||
@@ -38,7 +38,7 @@ async function assertTimesheetExportAccess(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  if (isEsRole(role) && esUserId !== session.effectiveUserId) {
+  if (isFieldSpecialistRole(role) && esUserId !== session.effectiveUserId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -70,7 +70,7 @@ export async function GET(request: Request) {
 
   if (requestedEs) {
     esUserId = requestedEs;
-  } else if (!isEsRole(session.effectiveRole)) {
+  } else if (!isFieldSpecialistRole(session.effectiveRole)) {
     return NextResponse.json({ error: "es query param required" }, { status: 400 });
   }
 

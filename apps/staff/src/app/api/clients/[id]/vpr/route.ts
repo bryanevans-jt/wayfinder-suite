@@ -1,6 +1,6 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { createServerClient } from "@wayfinder/supabase";
-import { isEsRole, isSupervisorRole } from "@wayfinder/supabase/roles";
+import { isFieldSpecialistRole, isSupervisorRole } from "@wayfinder/supabase/roles";
 import { getAppSession, assertNotPreviewMutation } from "@wayfinder/supabase/preview-server";
 import { requireStaffClientAccess } from "@/lib/app-session";
 import { loadClientDisplayNameById } from "@/lib/client-display-names";
@@ -32,7 +32,7 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   const role = session.effectiveRole;
-  if (!isEsRole(role) && !isSupervisorRole(role)) {
+  if (!isFieldSpecialistRole(role) && !isSupervisorRole(role)) {
     return NextResponse.json({ error: USER_FACING_FORBIDDEN }, { status: 403 });
   }
 

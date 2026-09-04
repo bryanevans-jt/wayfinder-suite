@@ -1,4 +1,4 @@
-import { createServerClient, isEsRole, isSupervisorRole } from "@wayfinder/supabase";
+import { createServerClient, isFieldSpecialistRole, isSupervisorRole } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { assertNotPreviewMutation, getAppSession } from "@wayfinder/supabase/preview-server";
@@ -17,12 +17,12 @@ export type EsClientAccess = {
   userId: string;
 };
 
-/** Confirms the signed-in ES is assigned to the client (service-role lookup avoids RLS gaps). */
+/** Confirms the signed-in field specialist is assigned to the client (service-role lookup avoids RLS gaps). */
 export async function assertEsAssignedToClient(clientId: string): Promise<EsClientAccess> {
   return assertStaffClientWriteAccess(clientId, { esOnly: true });
 }
 
-/** ES assigned to client, or supervisor with scope over the client's caseload. */
+/** Field specialist assigned to client, or supervisor with scope over the client's caseload. */
 export async function assertStaffClientWriteAccess(
   clientId: string,
   options: { esOnly?: boolean } = {}
@@ -42,7 +42,7 @@ export async function assertStaffClientWriteAccess(
 
   let allowed = false;
 
-  if (isEsRole(session.effectiveRole)) {
+  if (isFieldSpecialistRole(session.effectiveRole)) {
     allowed = await esIsAssignedToClient(session.effectiveUserId, clientId);
   } else if (isSupervisorRole(session.effectiveRole)) {
     if (options.esOnly) {

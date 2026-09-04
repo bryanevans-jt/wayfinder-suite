@@ -39,7 +39,7 @@ export default async function CounselorQuickStartPage() {
         <h2 className="pt-4 text-lg font-semibold text-brand-black">What You Can Do</h2>
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            <strong>My clients</strong> — see activity for assigned participants
+            <strong>My Clients</strong> — see activity for assigned participants
           </li>
           <li>
             <strong>Notifications</strong> — weekly summaries and hire celebrations (30/60/90 days)
@@ -60,7 +60,7 @@ export default async function CounselorQuickStartPage() {
           href="/dashboard/counselor"
           className="text-sm font-medium text-brand-green hover:underline"
         >
-          Back to My clients
+          Back to My Clients
         </Link>
         {" · "}
         <Link href="/dashboard/help" className="text-sm font-medium text-brand-green hover:underline">

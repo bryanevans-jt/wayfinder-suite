@@ -1,8 +1,8 @@
-# Supervisor Manual
+# Regional Supervisor Manual
 
 **Wayfinder Pro · Georgia Program**
 
-Team oversight, coaching queue, compliance, reporting support, and helping ESs, clients, and counselors succeed.
+Team oversight, coaching queue, compliance, reporting support, and helping ESs, clients, and counselors succeed. Your role label in Wayfinder Pro is **Regional Supervisor**.
 
 **Conference binder (all-in-one):** [GA Supervisor Conference Binder](../conference/ga-supervisor-conference-binder.md)
 
@@ -21,16 +21,16 @@ Team oversight, coaching queue, compliance, reporting support, and helping ESs, 
 
 ## 2. Sidebar Layout
 
-**Daily work:** Supervisor portal · Messages · Timesheet  
+**Daily work:** Regional Supervisor portal · Messages · Timesheet  
 **Oversight:** Team operations · Compliance · Reporting · Analytics  
-**Tools:** Data exports · Community Partners  
-**Account:** My Profile · Our Team · Help
+**Tools:** Data exports · Community Partners (when Feature Toggles enable it)  
+**Account:** My Profile · Team Directory · Our Team · Help
 
 ---
 
-## 3. Supervisor Portal
+## 3. Regional Supervisor Portal
 
-**Path:** Sidebar → **Supervisor portal** (`/dashboard/supervisor`)
+**Path:** Sidebar → **Regional Supervisor portal** (`/dashboard/supervisor`)
 
 - Overview of Employment Specialists on your team.
 - High-level caseload and activity signals.
@@ -115,9 +115,17 @@ Supervisors submit or review official reports when appropriate; primary submitte
 
 ## 11. Community Partners (Coaching ESs)
 
-**Path:** Sidebar → **Community Partners**
+**Path:** Sidebar → **Community Partners** (hidden when the Community Partners Feature Toggle is off)
 
 Coach ESs on employer outreach. Full scripts and objection handling: [Community Partners Field Guide](../shared/community-partners-field-guide.md)
+
+Traditional Supported Employment (TSE) and Job Coaching service options are also controlled by Feature Toggles.
+
+---
+
+## 11b. Team Directory & Celebrations
+
+**Team Directory** (`/dashboard/team`) lists staff contacts. Birthday / work-anniversary GroupMe posts can be enabled under Super Admin → Feature Toggles.
 
 ---
 

@@ -4,12 +4,12 @@ import {
   USER_FACING_AUTH_REQUIRED,
   USER_FACING_FORBIDDEN,
 } from "@wayfinder/supabase/error-log";
-import { isEsRole } from "@wayfinder/supabase/roles";
+import { isFieldSpecialistRole } from "@wayfinder/supabase/roles";
 import { NextResponse } from "next/server";
 
 /** @deprecated Use isCommunityPartnersRole from community-partners-auth for employer access */
 export function isEsWorkspaceRole(role: string | null | undefined): boolean {
-  return isEsRole(role);
+  return isFieldSpecialistRole(role);
 }
 
 export async function assertEsWorkspaceSession() {

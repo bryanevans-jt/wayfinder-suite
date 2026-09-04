@@ -4,7 +4,7 @@ import { displayServiceTimes, minutesToDecimalHours } from "@wayfinder/supabase/
 import {
   canViewClientProfiles,
   isAdminTierRole,
-  isEsRole,
+  isFieldSpecialistRole,
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
 import Link from "next/link";
@@ -173,7 +173,7 @@ export function TimesheetWorkspace({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-brand-black">
-              {isEsRole(role) ? "My Weekly Timesheet" : `${esName}'s Weekly Timesheet`}
+              {isFieldSpecialistRole(role) ? "My Weekly Timesheet" : `${esName}'s Weekly Timesheet`}
             </h2>
             <p className="text-sm text-brand-black/70">
               Week (Sun–Sat): {formatWeekLabel(weekStart, weekEnd)}
@@ -274,7 +274,7 @@ export function TimesheetWorkspace({
         <h3 className="text-base font-semibold text-brand-black">Line Items</h3>
         {visibleEntries.length === 0 ? (
           <p className="mt-2 text-sm text-brand-black/70">
-            {isEsRole(role) || isSupervisorRole(role) ? (
+            {isFieldSpecialistRole(role) || isSupervisorRole(role) ? (
               <>
                 No time entries this week. Log contact, applications, meetings, or stage updates from a{" "}
                 <Link href="/dashboard/clients" className="text-brand-green underline">
@@ -310,7 +310,7 @@ export function TimesheetWorkspace({
                     <td className="px-3 py-2">
                       {e.client_id &&
                       e.client_name &&
-                      (isEsRole(role) || isSupervisorRole(role) || canViewClientProfiles(role)) ? (
+                      (isFieldSpecialistRole(role) || isSupervisorRole(role) || canViewClientProfiles(role)) ? (
                         <Link
                           href={`/dashboard/clients/${e.client_id}`}
                           className="font-medium text-brand-green hover:underline"

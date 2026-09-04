@@ -1,30 +1,38 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ServiceSelectOptions } from "@wayfinder/branding";
+import {
+  loadFeatureToggles,
+  toServiceSelectOptions as togglesToServiceSelectOptions,
+} from "@/lib/feature-toggles";
 
 export type ServiceOfferings = {
   customizedSupportedEmploymentEnabled: boolean;
+  traditionalSupportedEmploymentEnabled: boolean;
+  jobCoachingEnabled: boolean;
 };
 
+/** @deprecated Prefer loadFeatureToggles from feature-toggles.ts */
 export async function loadServiceOfferings(
   admin: SupabaseClient
 ): Promise<ServiceOfferings> {
-  const { data } = await admin
-    .from("admin_config")
-    .select("customized_supported_employment_enabled")
-    .limit(1)
-    .maybeSingle();
-
+  const t = await loadFeatureToggles(admin);
   return {
-    customizedSupportedEmploymentEnabled:
-      data?.customized_supported_employment_enabled === true,
+    customizedSupportedEmploymentEnabled: t.customizedSupportedEmploymentEnabled,
+    traditionalSupportedEmploymentEnabled: t.traditionalSupportedEmploymentEnabled,
+    jobCoachingEnabled: t.jobCoachingEnabled,
   };
 }
 
 export function toServiceSelectOptions(
   offerings: ServiceOfferings
 ): ServiceSelectOptions {
-  return {
-    includeCustomizedSupportedEmployment:
-      offerings.customizedSupportedEmploymentEnabled,
-  };
+  return togglesToServiceSelectOptions({
+    communityPartnersEnabled: false,
+    traditionalSupportedEmploymentEnabled: offerings.traditionalSupportedEmploymentEnabled,
+    jobCoachingEnabled: offerings.jobCoachingEnabled,
+    customizedSupportedEmploymentEnabled: offerings.customizedSupportedEmploymentEnabled,
+    groupmeCelebrationsEnabled: true,
+    celebrationBirthdayTemplate: "",
+    celebrationAnniversaryTemplate: "",
+  });
 }

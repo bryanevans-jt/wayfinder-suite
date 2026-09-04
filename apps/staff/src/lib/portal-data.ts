@@ -87,14 +87,14 @@ export type PortalBootstrap = {
     display_name: string;
     office_ids: string[];
   }[];
-  /** ES and supervisors eligible for direct client caseload assignment. */
+  /** ES, Transition Specialists, and supervisors eligible for direct client caseload assignment. */
   caseloadAssignees: {
     id: string;
     email: string;
     full_name: string | null;
     display_name: string;
     office_ids: string[];
-    role: "es" | "supervisor";
+    role: "es" | "transition_specialist" | "supervisor";
     is_active: boolean;
   }[];
   esStaff: {
@@ -345,8 +345,12 @@ export async function loadPortalBootstrap(
 
   const activeProfiles = (profiles ?? []).filter((p) => p.is_active !== false);
 
-  let esProfiles = activeProfiles.filter((p) => p.role === "es");
-  const allEsProfiles = (profiles ?? []).filter((p) => p.role === "es");
+  let esProfiles = activeProfiles.filter(
+    (p) => p.role === "es" || p.role === "transition_specialist"
+  );
+  const allEsProfiles = (profiles ?? []).filter(
+    (p) => p.role === "es" || p.role === "transition_specialist"
+  );
   const allSupervisorProfiles = (profiles ?? []).filter((p) => p.role === "supervisor");
   let clientRows = clientsQuery.data ?? [];
 
@@ -592,7 +596,11 @@ export async function loadPortalBootstrap(
     })(),
     caseloadAssignees: (() => {
       let assigneeProfiles = (profiles ?? []).filter(
-        (p) => (p.role === "es" || p.role === "supervisor") && p.is_active !== false
+        (p) =>
+          (p.role === "es" ||
+            p.role === "transition_specialist" ||
+            p.role === "supervisor") &&
+          p.is_active !== false
       );
 
       if (scope?.supervisorUserId) {
@@ -615,14 +623,19 @@ export async function loadPortalBootstrap(
           const id = p.id as string;
           const profile = profileById.get(id);
           const isSupervisor = p.role === "supervisor";
+          const isTs = p.role === "transition_specialist";
           const name = staffNameFor(id);
           return {
             id,
             email: emailById.get(id) ?? "",
             full_name: profile?.full_name ?? null,
-            display_name: isSupervisor ? `${name} (Supervisor)` : name,
+            display_name: isSupervisor
+              ? `${name} (Regional Supervisor)`
+              : isTs
+                ? `${name} (Transition Specialist)`
+                : name,
             office_ids: staffOfficeByUser.get(id) ?? [],
-            role: p.role as "es" | "supervisor",
+            role: p.role as "es" | "transition_specialist" | "supervisor",
             is_active: true,
           };
         })
