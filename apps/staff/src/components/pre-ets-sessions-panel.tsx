@@ -320,6 +320,10 @@ export function PreEtsSessionsPanel() {
     window.open(`/api/pre-ets/sessions/${sessionId}/roster-pdf${qs}`, "_blank");
   }
 
+  function printActivityPlan(sessionId: string) {
+    window.open(`/api/pre-ets/sessions/${sessionId}/activity-plan-pdf`, "_blank");
+  }
+
   async function createSession() {
     if (!newAuthId) return;
     const res = await fetch("/api/pre-ets/sessions", {
@@ -351,8 +355,8 @@ export function PreEtsSessionsPanel() {
         <div>
           <h2 className="text-lg font-semibold text-brand-black">Sessions</h2>
           <p className="mt-1 text-sm text-brand-black/65">
-            Schedule sessions, upload signed rosters to Drive, mark attendance, and submit Lesson
-            Activity Reports.
+            Schedule sessions, print rosters and Activity Plans for paper use, upload signed rosters
+            to Drive, mark attendance, and submit Lesson Activity Reports in the app.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-sm">
@@ -437,6 +441,13 @@ export function PreEtsSessionsPanel() {
                 >
                   Print roster PDF
                 </button>
+                <button
+                  type="button"
+                  className="rounded-lg border border-brand-gold px-3 py-1.5 text-sm font-semibold text-brand-gold"
+                  onClick={() => printActivityPlan(selected.id)}
+                >
+                  Print Activity Plan
+                </button>
                 {report ? (
                   <a
                     href={`/api/pre-ets/sessions/${selected.id}/car-pdf`}
@@ -444,10 +455,15 @@ export function PreEtsSessionsPanel() {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    Download CAR PDF
+                    Download filled CAR PDF
                   </a>
                 ) : null}
               </div>
+              <p className="mt-2 text-xs text-brand-black/60">
+                Bring a printed Activity Plan to each session (fill out on paper). You may also
+                complete checkboxes and sign in the app below — when documentation is complete, the
+                signed roster and Activity Plan are emailed to Accounts and your Supervisor.
+              </p>
 
               {canSupervise ? (
                 <div className="mt-4 space-y-2 text-sm">
@@ -547,7 +563,10 @@ export function PreEtsSessionsPanel() {
             </div>
 
             <div className="rounded-xl border border-neutral-200 bg-white p-4">
-              <h3 className="font-semibold text-brand-black">Lesson Activity Report</h3>
+              <h3 className="font-semibold text-brand-black">Lesson Activity Report (Activity Plan)</h3>
+              <p className="mt-1 text-xs text-brand-black/60">
+                Optional in-app copy — a paper Activity Plan is still required for each session.
+              </p>
               {!report ? (
                 <p className="mt-2 text-sm text-brand-black/55">No report draft for this session.</p>
               ) : (

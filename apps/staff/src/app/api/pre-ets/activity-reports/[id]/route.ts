@@ -135,10 +135,8 @@ export async function PATCH(
         .maybeSingle();
 
       if (report?.session_id) {
-        const { maybeCompleteSessionDocumentation } = await import(
-          "@wayfinder/supabase/pre-ets-session-attendance"
-        );
-        await maybeCompleteSessionDocumentation(
+        const { finalizePreEtsSessionDocumentation } = await import("@/lib/pre-ets-finalize-session");
+        await finalizePreEtsSessionDocumentation(
           admin,
           report.session_id as string,
           auth.settings.school_year

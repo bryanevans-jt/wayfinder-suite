@@ -14,7 +14,7 @@ export async function GET() {
       .from("profiles")
       .select("id, full_name, role")
       .eq("is_active", true)
-      .in("role", ["instructor", "es", "supervisor"])
+      .in("role", ["instructor", "transition_specialist", "es", "supervisor"])
       .order("full_name");
 
     if (error) {

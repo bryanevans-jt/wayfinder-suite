@@ -265,13 +265,13 @@ export function canViewPreEtsHr(
   return canAccessPreEts(role, settings);
 }
 
-/** Field delivery: Transition Specialist (or legacy instructor) / ES when enabled. */
+/** Field delivery: Transition Specialist / legacy instructor only (not ES). */
 export function canDeliverPreEtsSessions(
   role: string | null | undefined,
   settings?: Pick<PreEtsSettingsRow, "module_enabled" | "enabled_roles"> | null
 ): boolean {
   const r = normalizeRole(role);
-  if (isTransitionSpecialistRole(r) || isInstructorRole(r) || isEsRole(r)) {
+  if (isTransitionSpecialistRole(r) || isInstructorRole(r)) {
     return canAccessPreEts(r, settings);
   }
   if (isSuperAdminRole(r)) {

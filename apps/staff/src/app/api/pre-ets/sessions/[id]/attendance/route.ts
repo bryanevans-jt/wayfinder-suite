@@ -83,11 +83,9 @@ export async function PATCH(
     }
 
     if (body.finalize) {
-      const { maybeCompleteSessionDocumentation } = await import(
-        "@wayfinder/supabase/pre-ets-session-attendance"
-      );
+      const { finalizePreEtsSessionDocumentation } = await import("@/lib/pre-ets-finalize-session");
       if (body.schoolYear) {
-        await maybeCompleteSessionDocumentation(admin, sessionId, body.schoolYear);
+        await finalizePreEtsSessionDocumentation(admin, sessionId, body.schoolYear);
       }
     }
 

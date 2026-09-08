@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { loadPreEtsSettings } from "./pre-ets-settings";
+import { canAccessPreEts, loadPreEtsSettings } from "./pre-ets-settings";
 
 export type PreEtsSessionDocStatus = {
   sessionId: string;
@@ -197,4 +197,38 @@ export async function loadSupervisorNotifyUserIds(admin: SupabaseClient): Promis
     .select("id")
     .in("role", ["super_admin", "supervisor", "admin"]);
   return (data ?? []).map((r) => r.id as string);
+}
+
+/** Active Accounts Specialists with Pre-ETS access. */
+export async function loadPreEtsAccountsSpecialistUserIds(
+  admin: SupabaseClient
+): Promise<string[]> {
+  const settings = await loadPreEtsSettings(admin);
+  const { data } = await admin
+    .from("profiles")
+    .select("id, role, is_active")
+    .eq("role", "accountant")
+    .eq("is_active", true);
+
+  return (data ?? [])
+    .filter((row) => canAccessPreEts(row.role as string, settings))
+    .map((row) => row.id as string);
+}
+
+/** Supervisor assigned to a Pre-ETS school, if any. */
+export async function loadPreEtsSchoolSupervisorUserId(
+  admin: SupabaseClient,
+  schoolId: string | null
+): Promise<string | null> {
+  if (!schoolId) return null;
+
+  const { data } = await admin
+    .from("pre_ets_staff_school_assignments")
+    .select("user_id")
+    .eq("school_id", schoolId)
+    .eq("assignment_role", "supervisor")
+    .limit(1)
+    .maybeSingle();
+
+  return (data?.user_id as string | undefined) ?? null;
 }

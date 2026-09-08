@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { isInstructorRole, isEsRole, normalizeRole } from "./roles";
+import { isInstructorRole, isEsRole, isTransitionSpecialistRole, normalizeRole } from "./roles";
 
 export type PreEtsSchoolInstructor = {
   userId: string;
@@ -13,7 +13,7 @@ export async function loadPreEtsAssignedSchoolIds(
   role: string | null | undefined
 ): Promise<string[] | null> {
   const r = normalizeRole(role);
-  if (!isInstructorRole(r) && !isEsRole(r)) {
+  if (!isInstructorRole(r) && !isTransitionSpecialistRole(r) && !isEsRole(r)) {
     return null;
   }
 

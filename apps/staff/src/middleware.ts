@@ -15,9 +15,11 @@ import {
   isCounselorBlockedStaffPath,
   isPortalPath,
   isPreEtsStaffPath,
+  isTransitionSpecialistBlockedStaffPath,
   portalPathAllowedForRole,
 } from "@/lib/staff-nav";
 import { isPreEtsApiPath, preEtsAccessAllowedForRole } from "@/lib/pre-ets-access";
+import { isTransitionSpecialistRole } from "@wayfinder/supabase/roles";
 
 export async function middleware(request: NextRequest) {
   const response = await wayfinderAuthMiddleware(request, { app: "staff" });
@@ -75,6 +77,12 @@ export async function middleware(request: NextRequest) {
       url.pathname = staffHomePath(role);
       return NextResponse.redirect(url);
     }
+  }
+
+  if (isTransitionSpecialistRole(role) && isTransitionSpecialistBlockedStaffPath(pathname)) {
+    const url = request.nextUrl.clone();
+    url.pathname = staffHomePath(role);
+    return NextResponse.redirect(url);
   }
 
   if (!isCounselorBlockedStaffPath(pathname)) {

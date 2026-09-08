@@ -113,10 +113,8 @@ export async function POST(
       });
     }
 
-    const { maybeCompleteSessionDocumentation } = await import(
-      "@wayfinder/supabase/pre-ets-session-attendance"
-    );
-    await maybeCompleteSessionDocumentation(admin, sessionId, auth.settings.school_year);
+    const { finalizePreEtsSessionDocumentation } = await import("@/lib/pre-ets-finalize-session");
+    await finalizePreEtsSessionDocumentation(admin, sessionId, auth.settings.school_year);
 
     return NextResponse.json({
       ok: true,

@@ -108,6 +108,27 @@ export function carPdfPlaceholders(input: CarPdfInput): Record<string, string> {
   };
 }
 
+/** Empty lesson fields for paper Activity Plan / CAR before the session. */
+export function blankCarPdfInput(
+  meta: Pick<CarPdfInput, "sessionDate" | "schoolName" | "authNumber" | "instructorName" | "serviceCode">
+): CarPdfInput {
+  return {
+    ...meta,
+    lessonTopic: null,
+    learningObjective: null,
+    lessonStructure: null,
+    participantCount: null,
+    studentsOnTime: null,
+    studentsEngaged: null,
+    studentsParticipated: null,
+    studentsDisruptive: null,
+    facultyPresent: null,
+    additionalNotes: null,
+    signatureData: null,
+    signedDate: null,
+  };
+}
+
 export async function buildPreEtsCarPdf(
   input: CarPdfInput,
   settings: Pick<PreEtsSettingsRow, "template_car_doc_id">,
