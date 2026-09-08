@@ -1,7 +1,13 @@
 import { ClientActivityTimeline, isGoldApplicationStatus } from "@wayfinder/branding";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { DEMO_COUNSELOR_FEEDS, getDemoClient } from "../../../lib/counselor-mock-data";
+import { CounselorDemoServiceHistory } from "../../counselor-demo-service-history";
+import {
+  DEMO_COUNSELOR_FEEDS,
+  getDemoClient,
+  getDemoClientEpisodes,
+  getDemoEpisodeFeedsForClient,
+} from "../../../lib/counselor-mock-data";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -12,6 +18,8 @@ export default async function CounselorDemoClientPage({ params }: PageProps) {
     notFound();
   }
 
+  const episodes = getDemoClientEpisodes(id);
+  const useEpisodeSections = client.hasServiceEpisodes && episodes.length > 0;
   const feed = DEMO_COUNSELOR_FEEDS[id] ?? [];
   const gold = isGoldApplicationStatus(client.latestAppStatus);
 
@@ -30,9 +38,15 @@ export default async function CounselorDemoClientPage({ params }: PageProps) {
             <h1 id="demo-client-heading" className="text-3xl font-semibold text-brand-green">
               {client.displayName}
             </h1>
-            <p className="mt-1 text-sm font-medium text-brand-black/60">{client.serviceName}</p>
             <p className="mt-2 text-sm text-brand-black/80">
               <span className="font-medium text-brand-green">Current stage</span> · {client.stage}
+              {client.authorizationNumber ? (
+                <>
+                  {" "}
+                  · Auth{" "}
+                  <span className="font-medium">{client.authorizationNumber}</span>
+                </>
+              ) : null}
             </p>
             <p className="mt-1 text-sm text-brand-black/70">
               Employment Specialist · {client.esName}
@@ -48,16 +62,26 @@ export default async function CounselorDemoClientPage({ params }: PageProps) {
 
       <section className="mx-auto max-w-3xl py-10" aria-labelledby="demo-timeline-heading">
         <h2 id="demo-timeline-heading" className="text-lg font-semibold text-brand-green">
-          Activity Timeline
+          {useEpisodeSections ? "Service activity" : "Activity Timeline"}
         </h2>
         <p className="mt-1 text-sm text-brand-black/70">
-          Contact notes, job applications, milestone updates, and confirmed upcoming meetings,
-          oldest first. This view is read-only.
+          {useEpisodeSections
+            ? "Contact notes and milestone updates grouped by authorization. Active services are shown first; prior services appear when history is enabled. This view is read-only."
+            : "Contact notes, job applications, milestone updates, and confirmed upcoming meetings, oldest first. This view is read-only."}
         </p>
-        <ClientActivityTimeline
-          feed={feed}
-          emptyMessage="No contact logs, applications, milestone events, or upcoming meetings yet for this client."
-        />
+        <div className="mt-6">
+          {useEpisodeSections ? (
+            <CounselorDemoServiceHistory
+              episodes={episodes}
+              episodeFeeds={getDemoEpisodeFeedsForClient(id)}
+            />
+          ) : (
+            <ClientActivityTimeline
+              feed={feed}
+              emptyMessage="No contact logs, applications, milestone events, or upcoming meetings yet for this client."
+            />
+          )}
+        </div>
       </section>
     </main>
   );

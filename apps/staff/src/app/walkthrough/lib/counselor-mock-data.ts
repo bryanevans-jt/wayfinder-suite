@@ -17,11 +17,25 @@ export type DemoCounselorClient = {
   displayName: string;
   serviceName: string;
   stage: string;
+  authorizationNumber?: string | null;
   applications: number;
   lastActivity: string;
   latestAppStatus: string | null;
   archived: boolean;
   esName: string;
+  /** When true, client profile uses service episode accordions + history toggle. */
+  hasServiceEpisodes?: boolean;
+};
+
+export type DemoServiceEpisode = {
+  id: string;
+  clientId: string;
+  participantId: string | null;
+  serviceName: string;
+  authorizationNumber: string;
+  status: "active" | "complete" | "dismissed";
+  startedAt: string;
+  endedAt: string | null;
 };
 
 /** Ordered by last name for counselor caseload (grid also sorts A–Z by last name). */
@@ -42,11 +56,13 @@ export const DEMO_COUNSELOR_CLIENTS: DemoCounselorClient[] = [
     displayName: "Morgan Ellis",
     serviceName: "Individual Job Placement",
     stage: "Job Development",
+    authorizationNumber: "GA-IJP-2026-0881",
     applications: 4,
     lastActivity: "2026-08-27T15:20:00.000Z",
     latestAppStatus: "Interview scheduled",
     archived: false,
     esName: "Avery Quinn",
+    hasServiceEpisodes: true,
   },
   {
     linkId: "sample-casey-nguyen",
@@ -625,6 +641,126 @@ export const DEMO_COUNSELOR_FEEDS: Record<string, ClientActivityFeedItem[]> = {
   ],
 };
 
+/** Service episodes for demo clients with multi-authorization history (WRT → IJP, etc.). */
+export const DEMO_COUNSELOR_EPISODES: Record<string, DemoServiceEpisode[]> = {
+  "sample-morgan-ellis": [
+    {
+      id: "ep-me-wrt",
+      clientId: "sample-morgan-ellis",
+      participantId: "demo-participant-morgan",
+      serviceName: "Workplace Readiness Training (GA)",
+      authorizationNumber: "GA-WRT-2025-0142",
+      status: "complete",
+      startedAt: "2026-03-10T00:00:00.000Z",
+      endedAt: "2026-06-14T00:00:00.000Z",
+    },
+    {
+      id: "ep-me-ijp",
+      clientId: "sample-morgan-ellis",
+      participantId: "demo-participant-morgan",
+      serviceName: "Individual Job Placement (GA)",
+      authorizationNumber: "GA-IJP-2026-0881",
+      status: "active",
+      startedAt: "2026-06-20T00:00:00.000Z",
+      endedAt: null,
+    },
+  ],
+};
+
+/** Activity grouped by authorization episode (keys match DemoServiceEpisode.id). */
+export const DEMO_COUNSELOR_EPISODE_FEEDS: Record<string, ClientActivityFeedItem[]> = {
+  "ep-me-wrt": [
+    {
+      kind: "milestone",
+      id: "m-me-wrt-1",
+      at: "2026-03-10T14:00:00.000Z",
+      title: "Open",
+    },
+    {
+      kind: "contact",
+      id: "c-me-wrt-1",
+      at: "2026-03-14T15:00:00.000Z",
+      public_outcome: "Group session",
+      notes: "Introduced Workplace Readiness Training schedule and attendance expectations.",
+    },
+    {
+      kind: "contact",
+      id: "c-me-wrt-2",
+      at: "2026-03-21T16:30:00.000Z",
+      public_outcome: "Group session",
+      notes: "Soft-skills module on workplace communication and professional greetings.",
+    },
+    {
+      kind: "contact",
+      id: "c-me-wrt-3",
+      at: "2026-04-04T15:00:00.000Z",
+      public_outcome: "Group session",
+      notes: "Resume basics; Morgan drafted a strengths list and work history outline.",
+    },
+    {
+      kind: "contact",
+      id: "c-me-wrt-4",
+      at: "2026-04-18T14:30:00.000Z",
+      public_outcome: "Phone call",
+      notes: "Discussed transportation plan for training site and backup rides.",
+    },
+    {
+      kind: "contact",
+      id: "c-me-wrt-5",
+      at: "2026-05-02T16:00:00.000Z",
+      public_outcome: "Group session",
+      notes: "Mock interview rotation; feedback on eye contact and pacing.",
+    },
+    {
+      kind: "contact",
+      id: "c-me-wrt-6",
+      at: "2026-05-16T15:30:00.000Z",
+      public_outcome: "Met in person at school",
+      notes: "In-person check-in: practiced interview answers and reviewed hygiene expectations.",
+    },
+    {
+      kind: "contact",
+      id: "c-me-wrt-7",
+      at: "2026-06-06T14:00:00.000Z",
+      public_outcome: "Group session",
+      notes: "Job-seeking module; completed sample applications and follow-up email templates.",
+    },
+    {
+      kind: "milestone",
+      id: "m-me-wrt-2",
+      at: "2026-06-14T16:00:00.000Z",
+      title: "Complete",
+    },
+    {
+      kind: "contact",
+      id: "c-me-wrt-8",
+      at: "2026-06-14T16:15:00.000Z",
+      public_outcome: "Email",
+      notes: "WRT completion summary sent to counselor; referred for Individual Job Placement.",
+    },
+  ],
+};
+
 export function getDemoClient(linkId: string) {
   return DEMO_COUNSELOR_CLIENTS.find((c) => c.linkId === linkId) ?? null;
+}
+
+export function getDemoClientEpisodes(linkId: string): DemoServiceEpisode[] {
+  return DEMO_COUNSELOR_EPISODES[linkId] ?? [];
+}
+
+export function getDemoEpisodeFeed(episodeId: string): ClientActivityFeedItem[] {
+  if (episodeId === "ep-me-ijp") {
+    return DEMO_COUNSELOR_FEEDS["sample-morgan-ellis"] ?? [];
+  }
+  return DEMO_COUNSELOR_EPISODE_FEEDS[episodeId] ?? [];
+}
+
+export function getDemoEpisodeFeedsForClient(linkId: string): Record<string, ClientActivityFeedItem[]> {
+  const episodes = getDemoClientEpisodes(linkId);
+  const feeds: Record<string, ClientActivityFeedItem[]> = {};
+  for (const ep of episodes) {
+    feeds[ep.id] = getDemoEpisodeFeed(ep.id);
+  }
+  return feeds;
 }

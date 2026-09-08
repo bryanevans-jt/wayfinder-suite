@@ -35,7 +35,9 @@ export function CounselorDemoHome() {
         <p className="mt-2 max-w-2xl text-sm text-brand-black/80">
           Signed in as{" "}
           <span className="font-medium text-brand-black">{DEMO_COUNSELOR.full_name}</span> (
-          {DEMO_COUNSELOR.agency}). Open a card to see the full activity timeline. This portal is{" "}
+          {DEMO_COUNSELOR.agency}). Open a card to see activity —{" "}
+          <span className="font-medium text-brand-black">Morgan Ellis</span> shows completed WRT and
+          current IJP with the prior-service history toggle. This portal is{" "}
           <span className="font-medium text-brand-black">view-only</span> — you cannot edit client
           records here.
         </p>

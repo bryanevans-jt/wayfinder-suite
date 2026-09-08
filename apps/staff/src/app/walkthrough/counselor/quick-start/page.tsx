@@ -55,7 +55,8 @@ export default function CounselorDemoQuickStartPage() {
         <h2 className="pt-4 text-lg font-semibold text-brand-black">What You Can Do</h2>
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            <strong>My Clients</strong> — see activity for assigned participants
+            <strong>My Clients</strong> — see activity for assigned participants (open{" "}
+            <strong>Morgan Ellis</strong> to try the prior-service history toggle after WRT → IJP)
           </li>
           <li>
             <strong>Notifications</strong> — weekly summaries and hire celebrations (30/60/90 days)
