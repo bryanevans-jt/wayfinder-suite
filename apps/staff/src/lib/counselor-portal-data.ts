@@ -94,11 +94,12 @@ async function queryAssignedClientRows(
     return { data, error: null as null };
   }
 
-  // Older DBs may lack the roster full_name, contact_email, or archived_at columns.
+  // Older DBs may lack optional roster / referral columns.
   const missingOptionalColumn =
     error.message.includes("full_name") ||
     error.message.includes("archived_at") ||
-    error.message.includes("contact_email");
+    error.message.includes("contact_email") ||
+    error.message.includes("referral_state");
   if (!missingOptionalColumn) {
     return { data: null, error };
   }

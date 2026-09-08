@@ -6,6 +6,7 @@ import {
   STAFF_CLOCK_TIMEZONE,
   zonedDateTimeParts,
 } from "./staff-time-clock-shared";
+import { isMissingSchemaError } from "./schema-fallback";
 
 export type ServiceActivityType = {
   id: string;
@@ -271,34 +272,67 @@ export async function insertEsTimeEntry(
   const serviceDate = localDateStringInTz(new Date(service_start_at), STAFF_CLOCK_TIMEZONE);
   const flags = computeTimeEntryFlags(serviceDate);
 
-  const { data, error } = await supabase
-    .from("es_time_entries")
-    .insert({
-      es_user_id: input.esUserId,
-      client_id: input.clientId,
-      activity_type_id: input.activityTypeId,
-      service_date: serviceDate,
-      duration_minutes: normalized.durationMinutes,
-      service_start_at,
-      service_end_at,
-      narrative: input.narrative?.trim() || null,
-      linked_source_type: input.linkedSourceType ?? null,
-      linked_source_id: input.linkedSourceId ?? null,
-      service_episode_id: input.serviceEpisodeId ?? null,
-      client_present: input.clientPresent === true,
-      delivery_mode: input.deliveryMode ?? null,
-      status: "approved",
-      approved_at: new Date().toISOString(),
-      flags,
-    })
-    .select("id")
-    .maybeSingle();
+  const baseRow = {
+    es_user_id: input.esUserId,
+    client_id: input.clientId,
+    activity_type_id: input.activityTypeId,
+    service_date: serviceDate,
+    duration_minutes: normalized.durationMinutes,
+    service_start_at,
+    service_end_at,
+    narrative: input.narrative?.trim() || null,
+    linked_source_type: input.linkedSourceType ?? null,
+    linked_source_id: input.linkedSourceId ?? null,
+    flags,
+  };
 
-  if (error || !data?.id) {
-    throw new Error(error?.message ?? "Could not save time entry");
+  const extendedRow = {
+    ...baseRow,
+    service_episode_id: input.serviceEpisodeId ?? null,
+    client_present: input.clientPresent === true,
+    delivery_mode: input.deliveryMode ?? null,
+    status: "approved" as const,
+    approved_at: new Date().toISOString(),
+  };
+
+  const legacyApprovedRow = {
+    ...baseRow,
+    status: "approved" as const,
+    approved_at: new Date().toISOString(),
+  };
+
+  const legacyDraftRow = {
+    ...baseRow,
+    status: "draft" as const,
+  };
+
+  const insertShapes: Record<string, unknown>[] = [
+    extendedRow,
+    legacyApprovedRow,
+    legacyDraftRow,
+  ];
+
+  let lastError: string | undefined;
+  for (const row of insertShapes) {
+    const { data, error } = await supabase
+      .from("es_time_entries")
+      .insert(row)
+      .select("id")
+      .maybeSingle();
+
+    if (!error && data?.id) {
+      return data.id as string;
+    }
+    if (error) {
+      lastError = error.message;
+      if (isMissingSchemaError(error.message)) {
+        continue;
+      }
+      throw new Error(error.message);
+    }
   }
 
-  return data.id as string;
+  throw new Error(lastError ?? "Could not save time entry");
 }
 
 export function groupActivityTypesByCategory(

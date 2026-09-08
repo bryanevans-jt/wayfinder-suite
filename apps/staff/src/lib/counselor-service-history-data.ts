@@ -4,6 +4,7 @@ import {
   loadEpisodesForParticipant,
   type ServiceEpisodeRow,
 } from "@wayfinder/supabase/service-episodes";
+import { isVocationalEpisodesSchemaAvailable } from "@wayfinder/supabase/schema-fallback";
 
 export async function loadCounselorServiceHistoryContext(
   clientId: string,
@@ -11,8 +12,13 @@ export async function loadCounselorServiceHistoryContext(
 ): Promise<{
   activeEpisodes: ServiceEpisodeRow[];
   priorEpisodes: ServiceEpisodeRow[];
+  episodesAvailable: boolean;
 }> {
   const admin = createServiceRoleClient();
+  const episodesAvailable = await isVocationalEpisodesSchemaAvailable(admin);
+  if (!episodesAvailable) {
+    return { activeEpisodes: [], priorEpisodes: [], episodesAvailable: false };
+  }
 
   const { data: client } = await admin
     .from("clients")
@@ -32,7 +38,7 @@ export async function loadCounselorServiceHistoryContext(
       .maybeSingle();
 
     if (!episode) {
-      return { activeEpisodes: [], priorEpisodes: [] };
+      return { activeEpisodes: [], priorEpisodes: [], episodesAvailable: true };
     }
 
     const row: ServiceEpisodeRow = {
@@ -48,11 +54,12 @@ export async function loadCounselorServiceHistoryContext(
     };
 
     if (row.status === "active") {
-      return { activeEpisodes: [row], priorEpisodes: [] };
+      return { activeEpisodes: [row], priorEpisodes: [], episodesAvailable: true };
     }
     return {
       activeEpisodes: [],
       priorEpisodes: showHistory ? [row] : [],
+      episodesAvailable: true,
     };
   }
 
@@ -64,18 +71,22 @@ export async function loadCounselorServiceHistoryContext(
     ? all.filter((e) => e.status !== "active").sort((a, b) => a.started_at.localeCompare(b.started_at))
     : [];
 
-  return { activeEpisodes: active, priorEpisodes: prior };
+  return { activeEpisodes: active, priorEpisodes: prior, episodesAvailable: true };
 }
 
 export async function loadCounselorShowHistoryPreference(
   profileUserId: string
 ): Promise<boolean> {
   const admin = createServiceRoleClient();
-  const { data } = await admin
+  const { data, error } = await admin
     .from("profiles")
     .select("counselor_show_prior_service_history")
     .eq("id", profileUserId)
     .maybeSingle();
+
+  if (error?.message?.includes("counselor_show_prior_service_history")) {
+    return true;
+  }
 
   if (data?.counselor_show_prior_service_history === false) {
     return false;

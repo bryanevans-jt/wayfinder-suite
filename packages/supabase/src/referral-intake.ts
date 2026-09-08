@@ -511,7 +511,7 @@ export async function createPublicReferral(
     fullName: clientName,
     dateOfBirth: payload.dob ?? null,
     contactEmail: payload.clientEmail ?? null,
-  });
+  }).catch(() => undefined);
 
   await admin.from("client_intake_events").insert({
     client_id: created.id,
@@ -754,7 +754,7 @@ export async function activateReferralToFirstStage(
     serviceId,
     authorizationNumber: authNumber || override || "PENDING",
     participantId,
-  });
+  }).catch(() => undefined);
 
   await admin.from("client_intake_events").insert({
     client_id: opts.clientId,

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isMissingSchemaError } from "./schema-fallback";
 
 /** Normalize a person name for fuzzy comparison (first + last focus). */
 export function normalizeParticipantName(fullName: string): string {
@@ -53,11 +54,15 @@ export async function resolveParticipantForClient(
     return { kind: "none" };
   }
 
-  const { data: candidates } = await admin
+  const { data: candidates, error: candidatesError } = await admin
     .from("participants")
     .select("id, date_of_birth, normalized_name, primary_email")
     .eq("date_of_birth", dob)
     .limit(50);
+
+  if (candidatesError && isMissingSchemaError(candidatesError.message)) {
+    return { kind: "none" };
+  }
 
   const name = opts.fullName.trim();
   const email = (opts.contactEmail ?? "").trim().toLowerCase();
@@ -87,7 +92,13 @@ export async function resolveParticipantForClient(
   }
 
   if (exactId) {
-    await admin.from("clients").update({ participant_id: exactId }).eq("id", opts.clientId);
+    const { error: linkError } = await admin
+      .from("clients")
+      .update({ participant_id: exactId })
+      .eq("id", opts.clientId);
+    if (linkError && isMissingSchemaError(linkError.message)) {
+      return { kind: "none" };
+    }
     return { kind: "exact", participantId: exactId };
   }
 
@@ -103,19 +114,31 @@ export async function resolveParticipantForClient(
     .maybeSingle();
 
   if (error || !created?.id) {
+    if (error && isMissingSchemaError(error.message)) {
+      return { kind: "none" };
+    }
     return { kind: "none" };
   }
 
   const newId = created.id as string;
-  await admin.from("clients").update({ participant_id: newId }).eq("id", opts.clientId);
+  const { error: clientLinkError } = await admin
+    .from("clients")
+    .update({ participant_id: newId })
+    .eq("id", opts.clientId);
+  if (clientLinkError && isMissingSchemaError(clientLinkError.message)) {
+    return { kind: "none" };
+  }
 
   if (suggestId && suggestId !== newId) {
-    await admin.from("participant_link_flags").insert({
+    const { error: flagError } = await admin.from("participant_link_flags").insert({
       client_id: opts.clientId,
       suggested_participant_id: suggestId,
       match_reason: suggestReason,
       status: "pending",
     });
+    if (flagError && isMissingSchemaError(flagError.message)) {
+      return { kind: "new", participantId: newId };
+    }
     return { kind: "suggest", participantId: newId, reason: suggestReason };
   }
 

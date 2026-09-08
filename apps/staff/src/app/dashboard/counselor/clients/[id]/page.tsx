@@ -4,6 +4,7 @@ import { clientDisplayName, isGoldApplicationStatus } from "@wayfinder/branding"
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CounselorHistoryPreferenceToggle } from "@/components/counselor-history-preference-toggle";
+import { CounselorLegacyActivityTimeline } from "@/components/counselor-legacy-activity-timeline";
 import { CounselorServiceHistorySections } from "@/components/counselor-service-history-sections";
 import { StaffSupportNote } from "@/components/staff-support-note";
 import { requireCounselorSession } from "@/lib/app-session";
@@ -54,10 +55,10 @@ export default async function CounselorClientActivityPage({ params }: PageProps)
   }
 
   const showHistory = await loadCounselorShowHistoryPreference(session.effectiveUserId);
-  const { activeEpisodes, priorEpisodes } = await loadCounselorServiceHistoryContext(
-    client.linkId,
-    showHistory
-  );
+  const { activeEpisodes, priorEpisodes, episodesAvailable } =
+    await loadCounselorServiceHistoryContext(client.linkId, showHistory);
+  const useEpisodeSections =
+    episodesAvailable && (activeEpisodes.length > 0 || priorEpisodes.length > 0);
 
   const admin = getCounselorPortalAdmin() ?? createServiceRoleClient();
   const dataClient = admin ?? (await createServerClient());
@@ -137,25 +138,36 @@ export default async function CounselorClientActivityPage({ params }: PageProps)
         </div>
 
         <div className="mt-4 max-w-lg">
-          <CounselorHistoryPreferenceToggle initialShowHistory={showHistory} />
+          {useEpisodeSections ? (
+            <CounselorHistoryPreferenceToggle initialShowHistory={showHistory} />
+          ) : null}
         </div>
       </header>
 
       <section className="mx-auto max-w-3xl py-10" aria-labelledby="counselor-activity-heading">
         <h2 id="counselor-activity-heading" className="text-lg font-semibold text-brand-green">
-          Service activity
+          {useEpisodeSections ? "Service activity" : "Activity Timeline"}
         </h2>
         <p className="mt-1 text-sm text-brand-black/70">
-          Contact notes and milestone updates grouped by authorization. Active services are shown
-          first; prior services appear when history is enabled. This view is read-only.
+          {useEpisodeSections
+            ? "Contact notes and milestone updates grouped by authorization. Active services are shown first; prior services appear when history is enabled. This view is read-only."
+            : "Contact notes, job applications, milestone updates, and confirmed upcoming meetings, oldest first. This view is read-only."}
         </p>
         <div className="mt-6">
-          <CounselorServiceHistorySections
-            currentClientId={client.linkId}
-            activeEpisodes={activeEpisodes}
-            priorEpisodes={priorEpisodes}
-            showHistory={showHistory}
-          />
+          {useEpisodeSections ? (
+            <CounselorServiceHistorySections
+              currentClientId={client.linkId}
+              activeEpisodes={activeEpisodes}
+              priorEpisodes={priorEpisodes}
+              showHistory={showHistory}
+            />
+          ) : (
+            <CounselorLegacyActivityTimeline
+              dataClient={dataClient}
+              activityFkIds={client.activityFkIds}
+              linkId={client.linkId}
+            />
+          )}
         </div>
       </section>
 

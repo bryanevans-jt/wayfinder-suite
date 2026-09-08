@@ -69,7 +69,8 @@
     "./pre-ets-schedule-plans": "./src/pre-ets-schedule-plans.ts",
     "./pre-ets-staff-assignments": "./src/pre-ets-staff-assignments.ts",
     "./participants": "./src/participants.ts",
-    "./service-episodes": "./src/service-episodes.ts"
+    "./service-episodes": "./src/service-episodes.ts",
+    "./schema-fallback": "./src/schema-fallback.ts"
   },
   "scripts": {
     "lint": "tsc --noEmit"

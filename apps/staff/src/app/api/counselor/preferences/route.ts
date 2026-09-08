@@ -31,6 +31,9 @@ export async function PATCH(request: Request) {
       .eq("id", session.effectiveUserId);
 
     if (error) {
+      if (error.message.includes("counselor_show_prior_service_history")) {
+        return NextResponse.json({ ok: true, showPriorServiceHistory: show, persisted: false });
+      }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
   } catch {
@@ -40,6 +43,9 @@ export async function PATCH(request: Request) {
       .update({ counselor_show_prior_service_history: show })
       .eq("id", session.effectiveUserId);
     if (error) {
+      if (error.message.includes("counselor_show_prior_service_history")) {
+        return NextResponse.json({ ok: true, showPriorServiceHistory: show, persisted: false });
+      }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
   }

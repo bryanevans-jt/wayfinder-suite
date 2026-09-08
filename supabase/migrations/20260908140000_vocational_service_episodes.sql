@@ -88,9 +88,9 @@ alter table public.profiles
 comment on column public.profiles.counselor_show_prior_service_history is
   'When false, counselor client profiles show only current authorization activity.';
 
--- GA-only operations flag
+-- GA-only operations flag (default off until explicitly enabled in Super Admin)
 alter table public.admin_config
-  add column if not exists ga_only_mode boolean not null default true;
+  add column if not exists ga_only_mode boolean not null default false;
 
 comment on column public.admin_config.ga_only_mode is
   'When true, TN services/offices are hidden from active workflows; counselors never see TN data.';
@@ -127,7 +127,7 @@ and not exists (
   where m.service_id = s.id and lower(trim(m.title)) = 'complete'
 );
 
--- Job Coaching GA: remove redundant Closed if Complete exists
+-- Job Coaching GA: remove redundant Closed if Complete exists and nothing references Closed
 delete from public.service_milestones sm
 using public.services s
 where sm.service_id = s.id
@@ -136,6 +136,12 @@ where sm.service_id = s.id
   and exists (
     select 1 from public.service_milestones m2
     where m2.service_id = s.id and lower(trim(m2.title)) = 'complete'
+  )
+  and not exists (
+    select 1 from public.clients c where c.current_stage_id = sm.id
+  )
+  and not exists (
+    select 1 from public.client_stage_events e where e.milestone_id = sm.id
   );
 
 -- Move clients on old Closed milestones to Complete
@@ -227,17 +233,12 @@ create trigger clients_sync_service_episode
   execute function public.sync_service_episode_on_stage_change();
 
 -- ---------------------------------------------------------------------------
--- Simplify es_time_entries: no approval workflow; new entries are approved
--- ---------------------------------------------------------------------------
+-- Simplify es_time_entries: no approval workflow; new entries are approved.
+-- Preserve rejected entries for audit; only promote in-flight draft/submitted rows.
 update public.es_time_entries
 set status = 'approved',
     approved_at = coalesce(approved_at, created_at)
 where status in ('draft', 'submitted');
-
-update public.es_time_entries
-set status = 'approved',
-    approved_at = coalesce(approved_at, created_at)
-where status = 'rejected';
 
 alter table public.es_time_entries
   alter column status set default 'approved';
@@ -260,7 +261,7 @@ select
     when c.archived_at is not null and c.archived_at <= now() then 'complete'
     else 'active'
   end,
-  coalesce(c.intake_status_changed_at, c.referred_at, now())
+  coalesce(c.intake_status_changed_at, c.referred_at, c.created_at, now())
 from public.clients c
 where c.current_service_id is not null
   and c.intake_status = 'active'

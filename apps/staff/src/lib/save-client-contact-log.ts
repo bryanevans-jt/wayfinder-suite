@@ -84,10 +84,16 @@ export async function saveClientContactLog(
   });
 
   if (episodeId) {
-    await admin
+    const { error: episodeLinkError } = await admin
       .from("contact_logs")
       .update({ service_episode_id: episodeId })
       .eq("id", contactLogId);
+    if (episodeLinkError) {
+      console.warn(
+        "saveClientContactLog: could not link contact log to service episode:",
+        episodeLinkError.message
+      );
+    }
   }
 
   await recordContactLogEvent(admin, {

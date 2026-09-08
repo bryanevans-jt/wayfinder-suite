@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isMissingSchemaError, isVocationalEpisodesSchemaAvailable } from "./schema-fallback";
 
 export type ServiceEpisodeStatus = "active" | "complete" | "dismissed";
 
@@ -47,6 +48,10 @@ export async function ensureServiceEpisodeForActivation(
     participantId?: string | null;
   }
 ): Promise<string | null> {
+  if (!(await isVocationalEpisodesSchemaAvailable(admin))) {
+    return null;
+  }
+
   const auth = opts.authorizationNumber.trim() || "PENDING";
 
   const { data: existing } = await admin
@@ -93,6 +98,10 @@ export async function loadActiveEpisodesForClient(
   admin: SupabaseClient,
   clientId: string
 ): Promise<ServiceEpisodeRow[]> {
+  if (!(await isVocationalEpisodesSchemaAvailable(admin))) {
+    return [];
+  }
+
   const { data: client } = await admin
     .from("clients")
     .select("participant_id")
@@ -118,6 +127,10 @@ export async function loadEpisodesForParticipant(
   participantId: string,
   options: { includeStatuses?: ServiceEpisodeStatus[] } = {}
 ): Promise<ServiceEpisodeRow[]> {
+  if (!(await isVocationalEpisodesSchemaAvailable(admin))) {
+    return [];
+  }
+
   let query = admin
     .from("service_episodes")
     .select(
@@ -186,6 +199,10 @@ export async function resolveEpisodeForActivity(
     episodeId?: string | null;
   }
 ): Promise<EpisodeActivityResolution> {
+  if (!(await isVocationalEpisodesSchemaAvailable(admin))) {
+    return { episodeId: null, needsPicker: false, choices: [] };
+  }
+
   const active = await loadActiveEpisodesForClient(admin, opts.clientId);
 
   if (opts.episodeId) {
@@ -219,7 +236,11 @@ export async function loadEpisodeActivitySummary(
   contactLogs: Array<{ id: string; created_at: string; public_outcome: string | null; notes: string | null }>;
   stageEvents: Array<{ id: string; created_at: string; title: string | null }>;
 }> {
-  const [{ data: logs }, { data: events }] = await Promise.all([
+  if (!(await isVocationalEpisodesSchemaAvailable(admin))) {
+    return { contactLogs: [], stageEvents: [] };
+  }
+
+  const [{ data: logs, error: logsError }, { data: events, error: eventsError }] = await Promise.all([
     admin
       .from("contact_logs")
       .select("id, created_at, public_outcome, notes")
@@ -231,6 +252,13 @@ export async function loadEpisodeActivitySummary(
       .eq("service_episode_id", episodeId)
       .order("created_at", { ascending: true }),
   ]);
+
+  if (
+    (logsError && isMissingSchemaError(logsError.message)) ||
+    (eventsError && isMissingSchemaError(eventsError.message))
+  ) {
+    return { contactLogs: [], stageEvents: [] };
+  }
 
   return {
     contactLogs: (logs ?? []) as Array<{
@@ -260,12 +288,26 @@ export async function clientPresentRatioLast30Days(
   since.setDate(since.getDate() - 30);
   const sinceIso = since.toISOString().slice(0, 10);
 
-  const { data } = await admin
+  const { data, error } = await admin
     .from("es_time_entries")
     .select("duration_minutes, client_present")
     .eq("client_id", clientId)
     .gte("service_date", sinceIso)
     .neq("status", "rejected");
+
+  if (error?.message && isMissingSchemaError(error.message)) {
+    const { data: legacyRows } = await admin
+      .from("es_time_entries")
+      .select("duration_minutes")
+      .eq("client_id", clientId)
+      .gte("service_date", sinceIso)
+      .neq("status", "rejected");
+    let total = 0;
+    for (const row of legacyRows ?? []) {
+      total += Number(row.duration_minutes) || 0;
+    }
+    return { ratio: 1, totalMinutes: total, presentMinutes: total };
+  }
 
   let total = 0;
   let present = 0;
