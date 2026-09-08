@@ -236,14 +236,81 @@ export async function replaceCounselorOfficeAssignments(
   if (insertErr) throw new Error(insertErr.message);
 }
 
-/**
- * Clears an ES/supervisor's caseload so clients become Unassigned
- * (no es_client_assignments row) and message threads stop routing to them.
- */
-export async function clearStaffCaseloadAssignments(
+export type CaseloadReleaseResult = {
+  totalClients: number;
+  reassignedToSupervisor: number;
+  leftUnassigned: number;
+  alreadyReassigned: number;
+};
+
+async function isActiveSupervisor(admin: AdminClient, userId: string): Promise<boolean> {
+  const { data } = await admin
+    .from("profiles")
+    .select("role, is_active")
+    .eq("id", userId)
+    .maybeSingle();
+  return data?.role === "supervisor" && data.is_active !== false;
+}
+
+/** Assign (or reassign) a client caseload row and message routing to one staff user. */
+export async function assignClientCaseload(
   admin: AdminClient,
-  userId: string
-): Promise<number> {
+  clientId: string,
+  esUserId: string
+): Promise<void> {
+  const { error: clearErr } = await admin
+    .from("es_client_assignments")
+    .delete()
+    .eq("client_id", clientId);
+  if (clearErr) throw new Error(clearErr.message);
+
+  const { error: assignErr } = await admin.from("es_client_assignments").insert({
+    es_user_id: esUserId,
+    client_id: clientId,
+  });
+  if (assignErr) throw new Error(assignErr.message);
+
+  const { error: threadErr } = await admin
+    .from("client_message_threads")
+    .update({ current_es_user_id: esUserId })
+    .eq("client_id", clientId);
+  if (threadErr) throw new Error(threadErr.message);
+}
+
+async function resolveSupervisorForClient(
+  admin: AdminClient,
+  opts: {
+    departingEsUserId: string;
+    clientId: string;
+    linkedSupervisorIds: string[];
+    clientSupervisorUserId?: string | null;
+  }
+): Promise<string | null> {
+  const clientSupervisor = (opts.clientSupervisorUserId ?? "").trim();
+  if (clientSupervisor && (await isActiveSupervisor(admin, clientSupervisor))) {
+    return clientSupervisor;
+  }
+
+  for (const supervisorId of opts.linkedSupervisorIds) {
+    if (await isActiveSupervisor(admin, supervisorId)) {
+      return supervisorId;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Release an ES/supervisor caseload. When reassignToSupervisor is true (default),
+ * each client moves to their supervisor unless they already have another assignee.
+ */
+export async function releaseStaffCaseloadAssignments(
+  admin: AdminClient,
+  userId: string,
+  options: { reassignToSupervisor?: boolean } = {}
+): Promise<CaseloadReleaseResult> {
+  const reassignToSupervisor = options.reassignToSupervisor !== false;
+
   const { data: links, error: listErr } = await admin
     .from("es_client_assignments")
     .select("client_id")
@@ -252,29 +319,194 @@ export async function clearStaffCaseloadAssignments(
 
   const clientIds = [...new Set((links ?? []).map((row) => row.client_id as string).filter(Boolean))];
 
-  const { error: clearErr } = await admin
-    .from("es_client_assignments")
-    .delete()
+  const { data: supervisorLinks } = await admin
+    .from("supervisor_es_assignments")
+    .select("supervisor_user_id")
     .eq("es_user_id", userId);
-  if (clearErr) throw new Error(clearErr.message);
+  const linkedSupervisorIds = [
+    ...new Set((supervisorLinks ?? []).map((row) => row.supervisor_user_id as string).filter(Boolean)),
+  ];
 
-  if (clientIds.length > 0) {
+  const result: CaseloadReleaseResult = {
+    totalClients: clientIds.length,
+    reassignedToSupervisor: 0,
+    leftUnassigned: 0,
+    alreadyReassigned: 0,
+  };
+
+  if (clientIds.length === 0) {
+    return result;
+  }
+
+  const { data: clientRows } = await admin
+    .from("clients")
+    .select("id, supervisor_user_id")
+    .in("id", clientIds);
+
+  const supervisorByClient = new Map(
+    (clientRows ?? []).map((row) => [row.id as string, (row.supervisor_user_id as string | null) ?? null])
+  );
+
+  for (const clientId of clientIds) {
+    const { data: currentAssignment } = await admin
+      .from("es_client_assignments")
+      .select("es_user_id")
+      .eq("client_id", clientId)
+      .maybeSingle();
+
+    const currentAssignee = (currentAssignment?.es_user_id as string | undefined) ?? null;
+    if (currentAssignee && currentAssignee !== userId) {
+      result.alreadyReassigned += 1;
+      continue;
+    }
+
+    if (reassignToSupervisor) {
+      const supervisorId = await resolveSupervisorForClient(admin, {
+        departingEsUserId: userId,
+        clientId,
+        linkedSupervisorIds,
+        clientSupervisorUserId: supervisorByClient.get(clientId),
+      });
+
+      if (supervisorId) {
+        await assignClientCaseload(admin, clientId, supervisorId);
+        result.reassignedToSupervisor += 1;
+        continue;
+      }
+    }
+
+    const { error: clearErr } = await admin
+      .from("es_client_assignments")
+      .delete()
+      .eq("client_id", clientId)
+      .eq("es_user_id", userId);
+    if (clearErr) throw new Error(clearErr.message);
+
     const { error: threadErr } = await admin
       .from("client_message_threads")
       .update({ current_es_user_id: null })
+      .eq("client_id", clientId)
       .eq("current_es_user_id", userId);
     if (threadErr) throw new Error(threadErr.message);
+
+    result.leftUnassigned += 1;
   }
 
-  return clientIds.length;
+  return result;
+}
+
+/** @deprecated Use releaseStaffCaseloadAssignments. */
+export async function clearStaffCaseloadAssignments(
+  admin: AdminClient,
+  userId: string
+): Promise<number> {
+  const result = await releaseStaffCaseloadAssignments(admin, userId, {
+    reassignToSupervisor: false,
+  });
+  return result.totalClients;
+}
+
+/**
+ * Reassign unassigned active clients to their supervisor (repair after ES removal).
+ * Skips clients that already have a caseload assignee.
+ */
+export async function repairOrphanedClientsToSupervisors(
+  admin: AdminClient,
+  options: { esUserId?: string | null } = {}
+): Promise<CaseloadReleaseResult> {
+  const esUserId = (options.esUserId ?? "").trim() || null;
+
+  const { data: assignedRows, error: assignedErr } = await admin
+    .from("es_client_assignments")
+    .select("client_id");
+  if (assignedErr) throw new Error(assignedErr.message);
+
+  const assignedClientIds = new Set(
+    (assignedRows ?? []).map((row) => row.client_id as string).filter(Boolean)
+  );
+
+  let candidateClientIds: string[] = [];
+
+  if (esUserId) {
+    const { data: timeRows, error: timeErr } = await admin
+      .from("es_time_entries")
+      .select("client_id")
+      .eq("es_user_id", esUserId)
+      .not("client_id", "is", null);
+    if (timeErr) throw new Error(timeErr.message);
+
+    candidateClientIds = [
+      ...new Set((timeRows ?? []).map((row) => row.client_id as string).filter(Boolean)),
+    ].filter((id) => !assignedClientIds.has(id));
+  } else {
+    let clientQuery = admin
+      .from("clients")
+      .select("id, supervisor_user_id")
+      .eq("intake_status", "active")
+      .not("supervisor_user_id", "is", null);
+
+    const { data: clientRows, error: clientErr } = await clientQuery;
+    if (clientErr?.message?.includes("supervisor_user_id")) {
+      return {
+        totalClients: 0,
+        reassignedToSupervisor: 0,
+        leftUnassigned: 0,
+        alreadyReassigned: 0,
+      };
+    }
+    if (clientErr) throw new Error(clientErr.message);
+
+    candidateClientIds = (clientRows ?? [])
+      .map((row) => row.id as string)
+      .filter((id) => !assignedClientIds.has(id));
+  }
+
+  const result: CaseloadReleaseResult = {
+    totalClients: candidateClientIds.length,
+    reassignedToSupervisor: 0,
+    leftUnassigned: 0,
+    alreadyReassigned: 0,
+  };
+
+  if (candidateClientIds.length === 0) {
+    return result;
+  }
+
+  const { data: clients } = await admin
+    .from("clients")
+    .select("id, supervisor_user_id")
+    .in("id", candidateClientIds);
+
+  for (const client of clients ?? []) {
+    const clientId = client.id as string;
+
+    if (assignedClientIds.has(clientId)) {
+      result.alreadyReassigned += 1;
+      continue;
+    }
+
+    const supervisorId = (client.supervisor_user_id as string | null) ?? null;
+    if (!supervisorId || !(await isActiveSupervisor(admin, supervisorId))) {
+      result.leftUnassigned += 1;
+      continue;
+    }
+
+    await assignClientCaseload(admin, clientId, supervisorId);
+    assignedClientIds.add(clientId);
+    result.reassignedToSupervisor += 1;
+  }
+
+  return result;
 }
 
 /** Soft-remove a field specialist from day-to-day use (login kept, inactive). */
 export async function softRemoveEmploymentSpecialist(
   admin: AdminClient,
   userId: string
-): Promise<{ unassignedClients: number }> {
-  const unassignedClients = await clearStaffCaseloadAssignments(admin, userId);
+): Promise<CaseloadReleaseResult> {
+  const release = await releaseStaffCaseloadAssignments(admin, userId, {
+    reassignToSupervisor: true,
+  });
   await admin.from("supervisor_es_assignments").delete().eq("es_user_id", userId);
   await replaceStaffOfficeAssignments(admin, userId, []);
 
@@ -291,12 +523,12 @@ export async function softRemoveEmploymentSpecialist(
     is_active: false,
     staff_removed_at: new Date().toISOString(),
   });
-  return { unassignedClients };
+  return release;
 }
 
 /** Permanently remove Auth user + profile (cascades assignment FKs). */
 export async function hardDeleteStaffAuthUser(admin: AdminClient, userId: string): Promise<void> {
-  await clearStaffCaseloadAssignments(admin, userId);
+  await releaseStaffCaseloadAssignments(admin, userId, { reassignToSupervisor: true });
   await admin.from("supervisor_es_assignments").delete().eq("es_user_id", userId);
   await admin.from("supervisor_es_assignments").delete().eq("supervisor_user_id", userId);
   await replaceStaffOfficeAssignments(admin, userId, []);

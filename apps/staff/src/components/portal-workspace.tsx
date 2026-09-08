@@ -982,6 +982,50 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
             </label>
           ) : null}
 
+          {canManageOrg ? (
+            <div className="rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 text-sm text-brand-black/80">
+              <p className="font-medium text-brand-black">Orphaned client caseload</p>
+              <p className="mt-1 text-brand-black/70">
+                If clients were left unassigned when an Employment Specialist was removed, reassign
+                them to each client&apos;s supervisor (when set). Clients already assigned to
+                someone else are skipped.
+              </p>
+              <button
+                type="button"
+                disabled={busy}
+                className="mt-3 rounded-lg border border-brand-green bg-white px-3 py-1.5 text-sm font-medium text-brand-green hover:bg-brand-green/5 disabled:opacity-60"
+                onClick={() =>
+                  void run(async () => {
+                    if (
+                      !confirm(
+                        "Reassign unassigned active clients to their supervisor where possible?"
+                      )
+                    ) {
+                      return;
+                    }
+                    const res = await fetch("/api/portal/repair-caseload", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({}),
+                    });
+                    const data = (await res.json()) as {
+                      error?: string;
+                      reassignedToSupervisor?: number;
+                      leftUnassigned?: number;
+                      alreadyReassigned?: number;
+                    };
+                    if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                    alert(
+                      `Reassigned ${data.reassignedToSupervisor ?? 0} client(s) to supervisors. ${data.leftUnassigned ?? 0} still unassigned (no supervisor on file). ${data.alreadyReassigned ?? 0} already had an assignee.`
+                    );
+                  })
+                }
+              >
+                Reassign orphaned clients to supervisors
+              </button>
+            </div>
+          ) : null}
+
           <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white">
             <table className="min-w-full text-left text-sm">
               <thead className="bg-neutral-50 text-brand-black/70">
@@ -1127,7 +1171,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                               run(async () => {
                                 if (
                                   !confirm(
-                                    `Restore ${es.display_name} as an active Employment Specialist? Their clients were left Unassigned when they were removed — reassign them as needed.`
+                                    `Restore ${es.display_name} as an active Employment Specialist? Their clients were reassigned to supervisors when they were removed — reassign caseload as needed.`
                                   )
                                 ) {
                                   return;
@@ -1146,7 +1190,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                         run(async () => {
                           const clientNote =
                             es.client_count > 0
-                              ? ` Their ${es.client_count} assigned client(s) will become Unassigned.`
+                              ? ` Their ${es.client_count} assigned client(s) will move to the supervisor when one is linked, otherwise Unassigned.`
                               : "";
                           if (
                             !confirm(

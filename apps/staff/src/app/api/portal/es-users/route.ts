@@ -223,8 +223,12 @@ export async function DELETE(request: NextRequest) {
       return Response.json({ ok: true, hardDeleted: true });
     }
 
-    const { unassignedClients } = await softRemoveEmploymentSpecialist(admin, userId);
-    return Response.json({ ok: true, unassignedClients });
+    const release = await softRemoveEmploymentSpecialist(admin, userId);
+    return Response.json({
+      ok: true,
+      ...release,
+      unassignedClients: release.leftUnassigned,
+    });
   } catch (error) {
     return await jsonPortalError(error);
   }
