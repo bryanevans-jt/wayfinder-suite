@@ -10,6 +10,7 @@ import {
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
 import { ReportingVsExportsGuide } from "./reporting-vs-exports-guide";
+import { BillableHoursOversightPanel } from "./billable-hours-oversight-panel";
 
 type Props = {
   role: string | null;
@@ -191,6 +192,13 @@ export function ExportsWorkspace({ role, readOnly = false }: Props) {
           </li>
         </ul>
       </section>
+
+      {isSupervisorRole(role) ||
+      isAdminTierRole(role) ||
+      isHrRole(role) ||
+      role === "accountant" ? (
+        <BillableHoursOversightPanel />
+      ) : null}
     </div>
   );
 }

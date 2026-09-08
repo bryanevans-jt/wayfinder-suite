@@ -8,9 +8,11 @@ import { DEFAULT_ACTIVITY_CODES } from "@wayfinder/supabase/es-time-tracking";
 import type { ServiceActivityType } from "@wayfinder/supabase/es-time-tracking";
 import { defaultActivityMinutes } from "@wayfinder/supabase/es-time-tracking";
 import type { ActionResult } from "@wayfinder/supabase/error-log";
+import type { ServiceEpisodeRow } from "@wayfinder/supabase/service-episodes";
 import { suggestContactLogFollowUps } from "@wayfinder/supabase/contact-log-suggestions";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { ServiceEpisodePicker } from "@/components/service-episode-picker";
 import { TimeActivityFields, useTimeActivityDefaults } from "@/components/time-activity-fields";
 import { ContactLogDailyCopy } from "@/components/contact-log-daily-copy";
 
@@ -21,6 +23,7 @@ type Props = {
   currentStageTitle?: string | null;
   esName?: string | null;
   canSubmitVpr?: boolean;
+  activeEpisodes?: ServiceEpisodeRow[];
 };
 
 export function ClientContactLogForm({
@@ -30,6 +33,7 @@ export function ClientContactLogForm({
   currentStageTitle = "",
   esName = "",
   canSubmitVpr = true,
+  activeEpisodes = [],
 }: Props) {
   const router = useRouter();
   const defaults = useTimeActivityDefaults(activities, DEFAULT_ACTIVITY_CODES.contact);
@@ -39,9 +43,18 @@ export function ClientContactLogForm({
   const [durationMinutes, setDurationMinutes] = useState(defaults.durationMinutes);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
+  const [clientPresent, setClientPresent] = useState(true);
+  const [deliveryMode, setDeliveryMode] = useState<"in_person" | "virtual" | "phone">("in_person");
+  const [serviceEpisodeId, setServiceEpisodeId] = useState(activeEpisodes[0]?.id ?? "");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (!serviceEpisodeId && activeEpisodes[0]?.id) {
+      setServiceEpisodeId(activeEpisodes[0].id);
+    }
+  }, [activeEpisodes, serviceEpisodeId]);
 
   useEffect(() => {
     const match =
@@ -76,6 +89,10 @@ export function ClientContactLogForm({
       setError("Enter a start time, an end time, or both when logging service time.");
       return;
     }
+    if (activeEpisodes.length > 1 && !serviceEpisodeId) {
+      setError("Select which authorization this activity belongs to.");
+      return;
+    }
     startTransition(async () => {
       try {
         const res = await fetch("/api/es/contact-log", {
@@ -85,6 +102,9 @@ export function ClientContactLogForm({
             clientId,
             contactNotes,
             internalNotes,
+            serviceEpisodeId: serviceEpisodeId || undefined,
+            clientPresent,
+            deliveryMode,
             time:
               activityTypeId && durationMinutes > 0
                 ? {
@@ -159,6 +179,39 @@ export function ClientContactLogForm({
             disabled={pending}
           />
         </label>
+        <ServiceEpisodePicker
+          episodes={activeEpisodes}
+          value={serviceEpisodeId}
+          onChange={setServiceEpisodeId}
+          required={activeEpisodes.length > 1}
+        />
+        <div className="flex flex-wrap gap-4">
+          <label className="flex items-center gap-2 text-sm text-brand-black">
+            <input
+              type="checkbox"
+              checked={clientPresent}
+              onChange={(e) => setClientPresent(e.target.checked)}
+              disabled={pending}
+              className="h-4 w-4 rounded border-neutral-300 text-brand-green focus:ring-brand-green"
+            />
+            Client was present
+          </label>
+          <label className="text-sm text-brand-black">
+            <span className="mr-2 font-medium">Delivery</span>
+            <select
+              value={deliveryMode}
+              onChange={(e) =>
+                setDeliveryMode(e.target.value as "in_person" | "virtual" | "phone")
+              }
+              disabled={pending}
+              className="rounded-lg border border-neutral-300 px-2 py-1 text-sm"
+            >
+              <option value="in_person">In person</option>
+              <option value="virtual">Virtual</option>
+              <option value="phone">Phone</option>
+            </select>
+          </label>
+        </div>
         <TimeActivityFields
           activities={activities}
           defaultCode={DEFAULT_ACTIVITY_CODES.contact}

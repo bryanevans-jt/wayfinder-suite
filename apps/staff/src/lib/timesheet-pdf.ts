@@ -262,7 +262,7 @@ export function groupApprovedClientEntries(entries: EsTimeEntryRow[]): ClientTim
   const groups = new Map<string, ClientTimesheetGroup>();
 
   for (const entry of entries) {
-    if (entry.status !== "approved" || !entry.client_id) continue;
+    if (entry.status === "rejected" || !entry.client_id) continue;
     const existing = groups.get(entry.client_id) ?? {
       clientId: entry.client_id,
       clientName: entry.client_name ?? "Client",

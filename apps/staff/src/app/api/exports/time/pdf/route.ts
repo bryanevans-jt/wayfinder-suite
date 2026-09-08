@@ -84,12 +84,6 @@ export async function GET(request: Request) {
     const admin = adminOrResponse;
 
     const weekSubmission = await loadWeekSubmission(admin, esUserId, weekStart);
-    if (!weekSubmission || weekSubmission.status !== "approved") {
-      return NextResponse.json(
-        { error: "PDF export is available after supervisor approval" },
-        { status: 403 }
-      );
-    }
 
     const entries = await loadEsTimeEntriesForWeek(admin, esUserId, weekStart);
     const approvedGroups = groupApprovedClientEntries(entries);
@@ -111,27 +105,29 @@ export async function GET(request: Request) {
       (esProfile?.full_name as string | null)?.trim() || "Employment Specialist";
 
     let approvedByName: string | null = null;
-    const { data: weekRow } = await admin
-      .from("es_time_week_submissions")
-      .select("approved_by")
-      .eq("id", weekSubmission.id)
-      .maybeSingle();
-
-    const approvedBy = (weekRow?.approved_by as string | null) ?? null;
-    if (approvedBy) {
-      const { data: approver } = await admin
-        .from("profiles")
-        .select("full_name")
-        .eq("id", approvedBy)
+    if (weekSubmission?.id) {
+      const { data: weekRow } = await admin
+        .from("es_time_week_submissions")
+        .select("approved_by")
+        .eq("id", weekSubmission.id)
         .maybeSingle();
-      approvedByName = (approver?.full_name as string | null)?.trim() || null;
+
+      const approvedBy = (weekRow?.approved_by as string | null) ?? null;
+      if (approvedBy) {
+        const { data: approver } = await admin
+          .from("profiles")
+          .select("full_name")
+          .eq("id", approvedBy)
+          .maybeSingle();
+        approvedByName = (approver?.full_name as string | null)?.trim() || null;
+      }
     }
 
     const shared = {
       esName,
       weekStart,
       weekEnd,
-      approvedAt: weekSubmission.approved_at,
+      approvedAt: weekSubmission?.approved_at ?? null,
       approvedByName,
       publicDir: path.join(process.cwd(), "public"),
     };

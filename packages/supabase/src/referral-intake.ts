@@ -505,6 +505,14 @@ export async function createPublicReferral(
     return { error: patchErr.message, status: 500 };
   }
 
+  const { resolveParticipantForClient } = await import("./participants");
+  await resolveParticipantForClient(admin, {
+    clientId: created.id,
+    fullName: clientName,
+    dateOfBirth: payload.dob ?? null,
+    contactEmail: payload.clientEmail ?? null,
+  });
+
   await admin.from("client_intake_events").insert({
     client_id: created.id,
     actor_user_id: opts?.actorUserId ?? null,
@@ -718,6 +726,35 @@ export async function activateReferralToFirstStage(
     .eq("id", opts.clientId);
 
   if (updErr) return { error: updErr.message };
+
+  const { data: clientRow } = await admin
+    .from("clients")
+    .select("participant_id, full_name, contact_email, date_of_birth")
+    .eq("id", opts.clientId)
+    .maybeSingle();
+
+  const { resolveParticipantForClient } = await import("./participants");
+  const { ensureServiceEpisodeForActivation } = await import("./service-episodes");
+
+  let participantId = (clientRow?.participant_id as string | null) ?? null;
+  if (!participantId && clientRow) {
+    const match = await resolveParticipantForClient(admin, {
+      clientId: opts.clientId,
+      fullName: String(clientRow.full_name ?? ""),
+      dateOfBirth: (clientRow.date_of_birth as string | null) ?? null,
+      contactEmail: (clientRow.contact_email as string | null) ?? null,
+    });
+    if (match.kind !== "none") {
+      participantId = match.participantId;
+    }
+  }
+
+  await ensureServiceEpisodeForActivation(admin, {
+    clientId: opts.clientId,
+    serviceId,
+    authorizationNumber: authNumber || override || "PENDING",
+    participantId,
+  });
 
   await admin.from("client_intake_events").insert({
     client_id: opts.clientId,

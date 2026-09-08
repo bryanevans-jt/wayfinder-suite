@@ -43,6 +43,10 @@ import { ClientStageForm } from "./client-stage-form";
 import { NaturalSupportPanel } from "./natural-support-panel";
 import { ClientActivityReportPanel } from "@/components/client-activity-report-panel";
 import { SubmittedFormalReportsPanel } from "@/components/submitted-formal-reports-panel";
+import { ClientPresentGuidanceBanner } from "@/components/client-present-guidance-banner";
+import { ServiceEpisodeBadges } from "@/components/service-episode-badges";
+import { VocationalServiceRenderedExportPanel } from "@/components/vocational-service-rendered-export-panel";
+import { loadClientEpisodeContext } from "@/lib/client-episode-data";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -414,6 +418,9 @@ export default async function EsClientDetailPage({ params }: PageProps) {
     !session.isPreviewing &&
     (hasWriteAccess || canAssignClientEs(role) || canLogHospitalityCheckIns(role));
 
+  const episodeContext = await loadClientEpisodeContext(client.id as string);
+  const exportEpisode = episodeContext.currentEpisode ?? episodeContext.activeEpisodes[0] ?? null;
+
   return (
     <main className="px-6 py-10">
       <Link
@@ -458,6 +465,16 @@ export default async function EsClientDetailPage({ params }: PageProps) {
               ? "You can assign or change the Employment Specialist below. Other profile fields are view-only for your role."
               : "View-only client profile."}
         </p>
+        <div className="mt-4 space-y-3">
+          <ServiceEpisodeBadges episodes={episodeContext.allEpisodes} />
+          {canWriteCasework ? (
+            <ClientPresentGuidanceBanner
+              ratio={episodeContext.clientPresentStats.ratio}
+              totalMinutes={episodeContext.clientPresentStats.totalMinutes}
+              presentMinutes={episodeContext.clientPresentStats.presentMinutes}
+            />
+          ) : null}
+        </div>
       </header>
 
       {readOnly && !session.isPreviewing && !canEditEsAssignment && !canEditIntakeAppt ? (
@@ -537,6 +554,17 @@ export default async function EsClientDetailPage({ params }: PageProps) {
             currentStageTitle={stage?.title ?? null}
             esName={esDisplayName}
             canSubmitVpr={!session.isPreviewing}
+            activeEpisodes={episodeContext.activeEpisodes}
+          />
+        ) : null}
+        {canWriteCasework && exportEpisode ? (
+          <VocationalServiceRenderedExportPanel
+            clientId={client.id}
+            episodeId={exportEpisode.id}
+            defaultEsName={esDisplayName ?? "Employment Specialist"}
+            defaultCounselorName={counselor?.full_name ?? "—"}
+            serviceName={(service?.name ?? "Service").replace(/\s*\(GA\)\s*$/i, "").trim()}
+            clientName={displayName}
           />
         ) : null}
         {!readOnly ? (

@@ -221,6 +221,9 @@ export type InsertEsTimeEntryInput = {
   startTime?: string | null;
   endTime?: string | null;
   recordedAt?: Date;
+  serviceEpisodeId?: string | null;
+  clientPresent?: boolean;
+  deliveryMode?: "in_person" | "virtual" | "phone" | null;
 };
 
 export async function insertEsTimeEntry(
@@ -281,7 +284,11 @@ export async function insertEsTimeEntry(
       narrative: input.narrative?.trim() || null,
       linked_source_type: input.linkedSourceType ?? null,
       linked_source_id: input.linkedSourceId ?? null,
-      status: "draft",
+      service_episode_id: input.serviceEpisodeId ?? null,
+      client_present: input.clientPresent === true,
+      delivery_mode: input.deliveryMode ?? null,
+      status: "approved",
+      approved_at: new Date().toISOString(),
       flags,
     })
     .select("id")

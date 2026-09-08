@@ -63,10 +63,10 @@ export async function GET(request: Request) {
       .select(
         "es_user_id, client_id, service_date, duration_minutes, service_start_at, service_end_at, activity_type_id, service_activity_types(code, name)"
       )
-      .eq("status", "approved")
       .gte("service_date", period.start)
       .lte("service_date", period.end)
-      .not("client_id", "is", null);
+      .not("client_id", "is", null)
+      .neq("status", "rejected");
 
     if (isSupervisorRole(role) && !isAdminTierRole(role)) {
       const scope = await loadSupervisorScope(admin, session.effectiveUserId);

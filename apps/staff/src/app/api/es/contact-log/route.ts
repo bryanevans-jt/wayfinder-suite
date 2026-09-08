@@ -23,6 +23,9 @@ type Body = {
   clientId?: string;
   contactNotes?: string;
   internalNotes?: string;
+  serviceEpisodeId?: string;
+  clientPresent?: boolean;
+  deliveryMode?: "in_person" | "virtual" | "phone";
   time?: {
     activityTypeId?: string;
     durationMinutes?: number;
@@ -129,6 +132,9 @@ export async function POST(request: Request) {
       clientId,
       contactNotes: body.contactNotes ?? "",
       internalNotes: body.internalNotes ?? "",
+      serviceEpisodeId: body.serviceEpisodeId,
+      clientPresent: body.clientPresent,
+      deliveryMode: body.deliveryMode,
       time: timeInput,
     });
 

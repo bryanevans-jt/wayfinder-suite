@@ -7,6 +7,7 @@ import {
 } from "@wayfinder/supabase";
 import type { ActionResult } from "@wayfinder/supabase/error-log";
 import { friendlyApplicationSaveError } from "@wayfinder/supabase/error-log";
+import { resolveEpisodeForActivity } from "@wayfinder/supabase/service-episodes";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { recordContactLogEvent } from "@/lib/contact-log-events";
 
@@ -14,6 +15,9 @@ export type SaveClientContactLogInput = {
   clientId: string;
   contactNotes: string;
   internalNotes: string;
+  serviceEpisodeId?: string | null;
+  clientPresent?: boolean;
+  deliveryMode?: "in_person" | "virtual" | "phone" | null;
   time?: {
     activityTypeId: string;
     durationMinutes: number;
@@ -57,12 +61,34 @@ export async function saveClientContactLog(
 
   const fkIds = await clientFkIds(admin, input.clientId);
 
+  const episodeResolution = await resolveEpisodeForActivity(admin, {
+    clientId: input.clientId,
+    episodeId: input.serviceEpisodeId,
+  });
+
+  if (episodeResolution.needsPicker) {
+    return {
+      ok: false,
+      error:
+        "This client has more than one active authorization. Select which service this activity belongs to.",
+    };
+  }
+
+  const episodeId = episodeResolution.episodeId;
+
   const contactLogId = await insertContactLogForClient(admin, {
     loggedBy: userId,
     fkIds,
     outcome,
     notes: input.internalNotes.trim() || null,
   });
+
+  if (episodeId) {
+    await admin
+      .from("contact_logs")
+      .update({ service_episode_id: episodeId })
+      .eq("id", contactLogId);
+  }
 
   await recordContactLogEvent(admin, {
     contactLogId,
@@ -92,6 +118,9 @@ export async function saveClientContactLog(
         narrative,
         linkedSourceType: "contact_log",
         linkedSourceId: contactLogId,
+        serviceEpisodeId: episodeId,
+        clientPresent: input.clientPresent === true,
+        deliveryMode: input.deliveryMode ?? null,
       });
     } catch (timeErr) {
       const timeMessage =

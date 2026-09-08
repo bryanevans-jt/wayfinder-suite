@@ -1,20 +1,20 @@
 import { createServerClient } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
-import { loadIntakeAppointmentsAsMeetings } from "@wayfinder/supabase/hospitality-intake-activity";
+import { clientDisplayName, isGoldApplicationStatus } from "@wayfinder/branding";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CounselorHistoryPreferenceToggle } from "@/components/counselor-history-preference-toggle";
+import { CounselorServiceHistorySections } from "@/components/counselor-service-history-sections";
 import { StaffSupportNote } from "@/components/staff-support-note";
 import { requireCounselorSession } from "@/lib/app-session";
-import {
-  buildClientActivityFeed,
-  ClientActivityTimeline,
-  clientDisplayName,
-  isGoldApplicationStatus,
-} from "@wayfinder/branding";
 import {
   fetchCounselorClientForActivity,
   getCounselorPortalAdmin,
 } from "@/lib/counselor-portal-data";
+import {
+  loadCounselorServiceHistoryContext,
+  loadCounselorShowHistoryPreference,
+} from "@/lib/counselor-service-history-data";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -53,9 +53,14 @@ export default async function CounselorClientActivityPage({ params }: PageProps)
     notFound();
   }
 
-  const admin = getCounselorPortalAdmin();
+  const showHistory = await loadCounselorShowHistoryPreference(session.effectiveUserId);
+  const { activeEpisodes, priorEpisodes } = await loadCounselorServiceHistoryContext(
+    client.linkId,
+    showHistory
+  );
+
+  const admin = getCounselorPortalAdmin() ?? createServiceRoleClient();
   const dataClient = admin ?? (await createServerClient());
-  const activityFkIds = client.activityFkIds;
 
   const clientProfileUserId = (client.user_id ?? client.profile_id) as string | null;
 
@@ -67,8 +72,14 @@ export default async function CounselorClientActivityPage({ params }: PageProps)
         .maybeSingle()
     : { data: null };
 
+  const { data: clientRow } = await dataClient
+    .from("clients")
+    .select("full_name, authorization_number")
+    .eq("id", client.linkId)
+    .maybeSingle();
+
   const displayName = clientDisplayName({
-    full_name: clientProfile?.full_name ?? client.full_name ?? null,
+    full_name: clientProfile?.full_name ?? client.full_name ?? clientRow?.full_name ?? null,
     first_name: clientProfile?.first_name ?? null,
     last_name: clientProfile?.last_name ?? null,
     contact_email: client.contact_email,
@@ -83,89 +94,14 @@ export default async function CounselorClientActivityPage({ params }: PageProps)
         .maybeSingle()
     : { data: null as { title: string } | null };
 
-  const now = new Date().toISOString();
-  const intakeAdmin = admin ?? createServiceRoleClient();
+  const { data: applications } = await dataClient
+    .from("applications")
+    .select("status, created_at")
+    .in("client_id", client.activityFkIds)
+    .order("created_at", { ascending: false })
+    .limit(1);
 
-  const [
-    { data: logs },
-    { data: stageEvents },
-    { data: applications },
-    { data: meetings },
-    intakeMeetings,
-  ] = await Promise.all([
-    dataClient
-      .from("contact_logs")
-      .select("id, created_at, public_outcome, notes")
-      .in("client_id", activityFkIds)
-      .order("created_at", { ascending: true }),
-    dataClient
-      .from("client_stage_events")
-      .select("id, created_at, milestone_id, service_milestones(title)")
-      .in("client_id", activityFkIds)
-      .order("created_at", { ascending: true }),
-    dataClient
-      .from("applications")
-      .select("id, status, company_name, notes, created_at")
-      .in("client_id", activityFkIds)
-      .order("created_at", { ascending: true }),
-    dataClient
-      .from("client_meeting_requests")
-      .select("id, status, starts_at, timezone, location, created_at, service_id, es_user_id")
-      .in("client_id", activityFkIds)
-      .eq("status", "accepted")
-      .gte("starts_at", now)
-      .order("starts_at", { ascending: true }),
-    loadIntakeAppointmentsAsMeetings(intakeAdmin, [client.linkId, ...activityFkIds]),
-  ]);
-
-  const meetingServiceIds = [
-    ...new Set((meetings ?? []).map((m) => m.service_id).filter(Boolean)),
-  ] as string[];
-  const meetingEsIds = [
-    ...new Set((meetings ?? []).map((m) => m.es_user_id).filter(Boolean)),
-  ] as string[];
-
-  const [{ data: meetingServices }, { data: meetingEsProfiles }] = await Promise.all([
-    meetingServiceIds.length
-      ? dataClient.from("services").select("id, name").in("id", meetingServiceIds)
-      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
-    meetingEsIds.length
-      ? dataClient.from("profiles").select("id, full_name").in("id", meetingEsIds)
-      : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
-  ]);
-
-  const meetingServiceNameById = new Map((meetingServices ?? []).map((s) => [s.id, s.name]));
-  const meetingEsNameById = new Map((meetingEsProfiles ?? []).map((p) => [p.id, p.full_name]));
-
-  const feed = buildClientActivityFeed({
-    logs: (logs ?? []) as Parameters<typeof buildClientActivityFeed>[0]["logs"],
-    stageEvents: (stageEvents ?? []) as Parameters<
-      typeof buildClientActivityFeed
-    >[0]["stageEvents"],
-    applications: (applications ?? []) as Parameters<
-      typeof buildClientActivityFeed
-    >[0]["applications"],
-    meetings: [
-      ...(meetings ?? []).map((m) => ({
-        id: m.id as string,
-        created_at: m.created_at as string,
-        status: m.status as string,
-        starts_at: m.starts_at as string,
-        location: m.location as string,
-        timezone: m.timezone as string,
-        service_name: m.service_id
-          ? (meetingServiceNameById.get(m.service_id as string) ?? null)
-          : null,
-        es_name: m.es_user_id ? (meetingEsNameById.get(m.es_user_id as string) ?? null) : null,
-      })),
-      ...intakeMeetings,
-    ],
-  });
-
-  const latestApp = [...(applications ?? [])].sort(
-    (a, b) =>
-      new Date(b.created_at as string).getTime() - new Date(a.created_at as string).getTime()
-  )[0];
+  const latestApp = applications?.[0];
   const gold = isGoldApplicationStatus(latestApp?.status as string | undefined);
 
   return (
@@ -184,6 +120,13 @@ export default async function CounselorClientActivityPage({ params }: PageProps)
             <p className="mt-2 text-sm text-brand-black/80">
               <span className="font-medium text-brand-green">Current stage</span> ·{" "}
               {currentMs?.title ?? "—"}
+              {clientRow?.authorization_number ? (
+                <>
+                  {" "}
+                  · Auth{" "}
+                  <span className="font-medium">{String(clientRow.authorization_number)}</span>
+                </>
+              ) : null}
             </p>
           </div>
           {gold ? (
@@ -192,18 +135,28 @@ export default async function CounselorClientActivityPage({ params }: PageProps)
             </span>
           ) : null}
         </div>
+
+        <div className="mt-4 max-w-lg">
+          <CounselorHistoryPreferenceToggle initialShowHistory={showHistory} />
+        </div>
       </header>
 
-      <section className="mx-auto max-w-3xl py-10">
-        <h2 className="text-lg font-semibold text-brand-green">Activity Timeline</h2>
+      <section className="mx-auto max-w-3xl py-10" aria-labelledby="counselor-activity-heading">
+        <h2 id="counselor-activity-heading" className="text-lg font-semibold text-brand-green">
+          Service activity
+        </h2>
         <p className="mt-1 text-sm text-brand-black/70">
-          Contact notes, job applications, milestone updates, and confirmed upcoming meetings,
-          oldest first. This view is read-only.
+          Contact notes and milestone updates grouped by authorization. Active services are shown
+          first; prior services appear when history is enabled. This view is read-only.
         </p>
-        <ClientActivityTimeline
-          feed={feed}
-          emptyMessage="No contact logs, applications, milestone events, or upcoming meetings yet for this client."
-        />
+        <div className="mt-6">
+          <CounselorServiceHistorySections
+            currentClientId={client.linkId}
+            activeEpisodes={activeEpisodes}
+            priorEpisodes={priorEpisodes}
+            showHistory={showHistory}
+          />
+        </div>
       </section>
 
       <footer className="mx-auto max-w-3xl border-t border-neutral-100 pt-6">
