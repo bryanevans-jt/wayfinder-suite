@@ -2,8 +2,9 @@ import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { loadPreEtsSessionCompliance } from "@wayfinder/supabase/pre-ets-compliance";
 import {
-  isPreEtsOnlyFieldRole,
+  isInstructorRole,
   isSuperAdminRole,
+  isTransitionSpecialistRole,
   normalizeRole,
 } from "@wayfinder/supabase/roles";
 import { loadPreEtsAssignedSchoolIds } from "@wayfinder/supabase/pre-ets-staff-assignments";
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
   try {
     const admin = createServiceRoleClient();
     const role = normalizeRole(auth.role);
-    const isFieldStaff = isPreEtsOnlyFieldRole(role);
+    const isFieldStaff = isInstructorRole(role) || isTransitionSpecialistRole(role);
     const assignedSchoolIds = await loadPreEtsAssignedSchoolIds(admin, auth.userId, auth.role);
 
     const sessions = await loadPreEtsSessionCompliance(admin, {

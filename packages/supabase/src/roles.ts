@@ -61,14 +61,14 @@ export function isTransitionSpecialistRole(role: string | null | undefined): boo
   return normalizeRole(role) === "transition_specialist";
 }
 
-/** Employment Specialist — GA caseload, messages, and time shell (not Pre-ETS-only roles). */
+/** ES or Transition Specialist — shared caseload / messages / time shell. */
 export function isFieldSpecialistRole(role: string | null | undefined): boolean {
-  return isEsRole(role);
+  return isEsRole(role) || isTransitionSpecialistRole(role);
 }
 
-/** Pre-ETS field delivery only (Transition Specialist or legacy instructor). */
+/** Pre-ETS-only field role (Transition Instructor / legacy instructor). */
 export function isPreEtsOnlyFieldRole(role: string | null | undefined): boolean {
-  return isTransitionSpecialistRole(role) || isInstructorRole(role);
+  return isInstructorRole(role);
 }
 
 export function isWrtAdminRole(role: string | null | undefined): boolean {
@@ -150,7 +150,7 @@ export function canLogHospitalityCheckIns(role: string | null | undefined): bool
   return isHospitalitySpecialistRole(role) || isAdminTierRole(role);
 }
 
-/** Assign / change Employment Specialist on a client (intake + Regional Supervisor). */
+/** Assign / change ES or Transition Specialist on a client (intake + Regional Supervisor). */
 export function canAssignClientEs(role: string | null | undefined): boolean {
   return canExecuteHospitalityIntakeOps(role) || isSupervisorRole(role);
 }
@@ -202,10 +202,9 @@ export function isKnownRole(role: string | null | undefined): boolean {
   return isStaffRole(role) || isClientRole(role);
 }
 
-/** Formal reporting (Joshua Tree Reports) — ES and supervisors/admin tier (not Pre-ETS-only roles). */
+/** Formal reporting (Joshua Tree Reports) — field specialists, supervisors, and admin tier. */
 export function canAccessFormalReporting(role: string | null | undefined): boolean {
-  if (isTransitionSpecialistRole(role) || isInstructorRole(role)) return false;
-  return isEsRole(role) || isSupervisorRole(role) || isAdminTierRole(role);
+  return isFieldSpecialistRole(role) || isSupervisorRole(role) || isAdminTierRole(role);
 }
 
 export function staffHomePath(role: string | null | undefined): string {
@@ -218,7 +217,7 @@ export function staffHomePath(role: string | null | undefined): string {
   if (r === "hr") return "/dashboard/hr";
   if (r === "hospitality_specialist") return "/dashboard/hospitality";
   if (r === "wrt_admin") return "/dashboard/wrt";
-  if (r === "instructor" || r === "transition_specialist") return "/dashboard/pre-ets";
+  if (r === "instructor") return "/dashboard/pre-ets";
   return "/dashboard/clients";
 }
 

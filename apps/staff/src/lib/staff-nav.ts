@@ -56,8 +56,8 @@ const PORTAL_PREFIXES = [
   "/dashboard/supervisor",
 ];
 
-/** Pre-ETS-only staff (Transition Specialist / legacy instructor) may use these paths only. */
-const TRANSITION_SPECIALIST_ALLOWED_PREFIXES = [
+/** Pre-ETS-only staff (Transition Instructor / legacy instructor) may use these paths only. */
+const PRE_ETS_INSTRUCTOR_ALLOWED_PREFIXES = [
   "/dashboard/pre-ets",
   "/dashboard/time-clock",
   "/api/pre-ets",
@@ -500,19 +500,7 @@ export function staffNavSectionsForRole(
     );
   }
 
-  // Transition Specialist: Pre-ETS-only (same shell as legacy instructor)
-  if (isTransitionSpecialistRole(staffRole)) {
-    return withHelpAndProfile(
-      [
-        {
-          label: "Pre-ETS",
-          items: [...(showPreEtsNav ? [preEtsNav] : []), timeClockNav],
-        },
-      ],
-      staffRole
-    );
-  }
-
+  // Transition Instructor: Pre-ETS + time clock only
   if (isInstructorRole(staffRole)) {
     return withHelpAndProfile(
       [
@@ -547,6 +535,46 @@ export function staffNavSectionsForRole(
         {
           label: "Reference",
           items: withTraining(maybePartners([communityPartnersNav], showCp)),
+        },
+      ],
+      staffRole
+    );
+  }
+
+  // Transition Specialist: ES shell + Pre-ETS (always when enabled for role / settings)
+  if (isTransitionSpecialistRole(staffRole)) {
+    return withHelpAndProfile(
+      [
+        {
+          label: "Daily Work",
+          items: withPreEtsNav(
+            [
+              {
+                href: "/dashboard/clients",
+                label: "Clients",
+                match: (p) => p.startsWith("/dashboard/clients"),
+              },
+              {
+                href: "/dashboard/messages",
+                label: "Messages",
+                match: (p) => p === "/dashboard/messages",
+              },
+              timeClockNav,
+              {
+                href: "/dashboard/timesheet",
+                label: "My Time (Timesheet)",
+                match: (p) => p.startsWith("/dashboard/timesheet"),
+              },
+              reportingNav,
+            ],
+            true
+          ),
+        },
+        {
+          label: "Resources",
+          items: withTraining(
+            maybePartners([communityPartnersNav, analyticsNav, dataExportsNav], showCp)
+          ),
         },
       ],
       staffRole
@@ -629,7 +657,7 @@ export function isCounselorBlockedStaffPath(pathname: string): boolean {
   );
 }
 
-export function isTransitionSpecialistBlockedStaffPath(pathname: string): boolean {
+export function isPreEtsInstructorBlockedStaffPath(pathname: string): boolean {
   if (pathname.startsWith("/walkthrough") || pathname === "/login" || pathname.startsWith("/auth")) {
     return false;
   }
@@ -642,9 +670,14 @@ export function isTransitionSpecialistBlockedStaffPath(pathname: string): boolea
   if (!scoped) {
     return false;
   }
-  return !TRANSITION_SPECIALIST_ALLOWED_PREFIXES.some(
+  return !PRE_ETS_INSTRUCTOR_ALLOWED_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`)
   );
+}
+
+/** @deprecated Use isPreEtsInstructorBlockedStaffPath */
+export function isTransitionSpecialistBlockedStaffPath(pathname: string): boolean {
+  return isPreEtsInstructorBlockedStaffPath(pathname);
 }
 
 export function portalPathForRole(role: string | null | undefined): string | null {
@@ -678,7 +711,6 @@ export function showStaffNotifications(role: string | null | undefined): boolean
   const r = (role ?? "").trim().toLowerCase();
   return (
     isFieldSpecialistRole(r) ||
-    isTransitionSpecialistRole(r) ||
     isInstructorRole(r) ||
     r === "supervisor" ||
     r === "admin" ||

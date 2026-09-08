@@ -1,7 +1,7 @@
 import { isFieldSpecialistRole, isSupervisorRole } from "@wayfinder/supabase/roles";
 import { esIsAssignedToClient } from "@/lib/es-caseload-data";
 
-export const CASELOAD_ASSIGNEE_ROLES = ["es", "supervisor"] as const;
+export const CASELOAD_ASSIGNEE_ROLES = ["es", "transition_specialist", "supervisor"] as const;
 
 export type CaseloadAssigneeRole = (typeof CASELOAD_ASSIGNEE_ROLES)[number];
 
@@ -9,6 +9,7 @@ export function isCaseloadAssigneeRole(role: string | null | undefined): role is
   const normalized = role?.trim().toLowerCase();
   return (
     normalized === "es" ||
+    normalized === "transition_specialist" ||
     normalized === "supervisor"
   );
 }
