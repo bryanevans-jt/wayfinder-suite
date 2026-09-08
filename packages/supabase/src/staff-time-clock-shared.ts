@@ -1,5 +1,6 @@
 import {
   isCounselorRole,
+  isInstructorRole,
   isStaffRole,
 } from "./roles";
 
@@ -44,9 +45,9 @@ type ZonedParts = {
   second: number;
 };
 
-/** Joshua Tree salaried team (not counselors, clients, or natural supports). */
+/** Joshua Tree salaried team (not counselors, clients, natural supports, or Pre-ETS instructors). */
 export function canUseStaffClock(role: string | null | undefined): boolean {
-  return isStaffRole(role) && !isCounselorRole(role);
+  return isStaffRole(role) && !isCounselorRole(role) && !isInstructorRole(role);
 }
 
 export function zonedDateTimeParts(

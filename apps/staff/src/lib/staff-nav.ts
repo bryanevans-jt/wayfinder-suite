@@ -59,9 +59,7 @@ const PORTAL_PREFIXES = [
 /** Pre-ETS-only staff (Transition Instructor / legacy instructor) may use these paths only. */
 const PRE_ETS_INSTRUCTOR_ALLOWED_PREFIXES = [
   "/dashboard/pre-ets",
-  "/dashboard/time-clock",
   "/api/pre-ets",
-  "/api/staff-clock",
   "/api/profile",
   "/api/notifications",
   "/api/pre-ets-access",
@@ -500,13 +498,13 @@ export function staffNavSectionsForRole(
     );
   }
 
-  // Transition Instructor: Pre-ETS + time clock only
+  // Transition Instructor: Pre-ETS only
   if (isInstructorRole(staffRole)) {
     return withHelpAndProfile(
       [
         {
           label: "Pre-ETS",
-          items: [...(showPreEtsNav ? [preEtsNav] : []), timeClockNav],
+          items: [...(showPreEtsNav ? [preEtsNav] : [])],
         },
       ],
       staffRole
@@ -673,11 +671,6 @@ export function isPreEtsInstructorBlockedStaffPath(pathname: string): boolean {
   return !PRE_ETS_INSTRUCTOR_ALLOWED_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`)
   );
-}
-
-/** @deprecated Use isPreEtsInstructorBlockedStaffPath */
-export function isTransitionSpecialistBlockedStaffPath(pathname: string): boolean {
-  return isPreEtsInstructorBlockedStaffPath(pathname);
 }
 
 export function portalPathForRole(role: string | null | undefined): string | null {
