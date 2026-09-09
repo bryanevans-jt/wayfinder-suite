@@ -4,6 +4,7 @@ import {
   canAccessPreEtsAccounts,
   canDeliverPreEtsSessions,
   canManagePreEtsSettings,
+  canManagePreEtsSetup,
   canSupervisePreEts,
   loadPreEtsSettings,
 } from "@wayfinder/supabase/pre-ets-settings";
@@ -17,7 +18,7 @@ export type PreEtsApiSession = {
 };
 
 export async function requirePreEtsApi(
-  mode: "access" | "accounts" | "deliver" | "supervise" | "settings" = "access"
+  mode: "access" | "accounts" | "deliver" | "supervise" | "setup" | "settings" = "access"
 ): Promise<PreEtsApiSession | NextResponse> {
   const session = await getAppSession();
   if (!session) {
@@ -37,7 +38,9 @@ export async function requirePreEtsApi(
           ? canDeliverPreEtsSessions(role, settings)
           : mode === "supervise"
             ? canSupervisePreEts(role, settings)
-            : canAccessPreEts(role, settings);
+            : mode === "setup"
+              ? canManagePreEtsSetup(role, settings)
+              : canAccessPreEts(role, settings);
 
   if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

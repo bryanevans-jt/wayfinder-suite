@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadPreEtsSettings } from "./pre-ets-settings";
 import type { ParsedDistrictWorksheet, ParsedWorksheetGroup } from "./pre-ets-worksheet-parser";
+import { linkPreEtsClassSetupToSchool } from "./pre-ets-class-setup";
 import {
   countPendingAuthorizationsForDistrictMonth,
   findProgramGroupId,
@@ -288,6 +289,15 @@ export async function commitWorksheetImport(
       });
 
       if (!programGroupId) continue;
+
+      await linkPreEtsClassSetupToSchool(admin, {
+        schoolYear: parsed.schoolYear,
+        districtNumber: parsed.districtNumber,
+        schoolName,
+        schoolId,
+        programGroupId,
+        classTime: group.classTime,
+      });
 
       const groupStudents = group.students.filter((s) => !s.notApproved);
       const byAuth = new Map<string, typeof groupStudents>();

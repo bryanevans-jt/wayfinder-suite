@@ -1,30 +1,18 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
+import { applyPreEtsClassSetupAssignments } from "@wayfinder/supabase/pre-ets-class-setup";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
-export async function GET() {
-  const route = "api/pre-ets/instructors";
+export async function POST() {
+  const route = "api/pre-ets/setup/apply-assignments";
   const auth = await requirePreEtsApi("setup");
   if (isPreEtsApiError(auth)) return auth;
 
   try {
     const admin = createServiceRoleClient();
-    const { data, error } = await admin
-      .from("profiles")
-      .select("id, full_name, role")
-      .eq("is_active", true)
-      .in("role", ["instructor", "transition_specialist", "es", "supervisor"])
-      .order("full_name");
-
-    if (error) {
-      return respondWithLoggedError("staff", route, error, {
-        userId: auth.userId,
-        userRole: auth.role,
-      });
-    }
-
-    return NextResponse.json({ staff: data ?? [] });
+    const result = await applyPreEtsClassSetupAssignments(admin, auth.settings.school_year);
+    return NextResponse.json(result);
   } catch (err) {
     return respondWithLoggedError("staff", route, err, {
       userId: auth.userId,

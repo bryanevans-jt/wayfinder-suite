@@ -83,8 +83,8 @@ export function PreEtsAssignmentsPanel() {
       <div>
         <h2 className="text-lg font-semibold text-brand-black">Staff school assignments</h2>
         <p className="mt-1 text-sm text-brand-black/65">
-          Assign instructors and ES staff to schools. When assignments exist, field staff only see
-          sessions for their assigned schools.
+          Assign Transition Specialists and supervisors to schools. Use Class setup for bulk
+          planning; linked rows sync here when Accounts commits district worksheets.
         </p>
       </div>
 

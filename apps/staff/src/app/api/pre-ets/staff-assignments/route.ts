@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
   const route = "api/pre-ets/staff-assignments";
-  const auth = await requirePreEtsApi("supervise");
+  const auth = await requirePreEtsApi("setup");
   if (isPreEtsApiError(auth)) return auth;
 
   const url = new URL(request.url);
@@ -42,7 +42,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const route = "api/pre-ets/staff-assignments";
-  const auth = await requirePreEtsApi("supervise");
+  const auth = await requirePreEtsApi("setup");
   if (isPreEtsApiError(auth)) return auth;
 
   try {
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   const route = "api/pre-ets/staff-assignments";
-  const auth = await requirePreEtsApi("supervise");
+  const auth = await requirePreEtsApi("setup");
   if (isPreEtsApiError(auth)) return auth;
 
   const url = new URL(request.url);

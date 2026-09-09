@@ -280,6 +280,19 @@ export function canDeliverPreEtsSessions(
   return false;
 }
 
+/** Pre-ETS planning setup — supervisors, accounts, HR, and admins. */
+export function canManagePreEtsSetup(
+  role: string | null | undefined,
+  settings?: Pick<PreEtsSettingsRow, "module_enabled" | "enabled_roles"> | null
+): boolean {
+  const r = normalizeRole(role);
+  if (isSuperAdminRole(r)) return true;
+  if (isAdminRole(r) || isAccountantRole(r) || isHrRole(r) || isSupervisorRole(r)) {
+    return canAccessPreEts(r, settings);
+  }
+  return false;
+}
+
 /** Supervisor regional oversight when supervisor is enabled. */
 export function canSupervisePreEts(
   role: string | null | undefined,

@@ -5,6 +5,7 @@ import {
   canAccessPreEtsAccounts,
   canDeliverPreEtsSessions,
   canManagePreEtsSettings,
+  canManagePreEtsSetup,
   canSupervisePreEts,
   canViewPreEtsHr,
   loadPreEtsSettings,
@@ -33,6 +34,7 @@ export async function GET() {
       canManageSettings: canManagePreEtsSettings(role),
       canAccounts: canAccessPreEtsAccounts(role, settings),
       canSupervise: canSupervisePreEts(role, settings),
+      canManageSetup: canManagePreEtsSetup(role, settings),
       canDeliver: canDeliverPreEtsSessions(role, settings),
       canViewHr: canViewPreEtsHr(role, settings),
     };

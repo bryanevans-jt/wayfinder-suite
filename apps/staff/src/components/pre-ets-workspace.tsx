@@ -11,6 +11,7 @@ import { PreEtsInvoicePanel } from "@/components/pre-ets-invoice-panel";
 import { PreEtsSchedulePanel } from "@/components/pre-ets-schedule-panel";
 import { PreEtsSearchPanel } from "@/components/pre-ets-search-panel";
 import { PreEtsSessionsPanel } from "@/components/pre-ets-sessions-panel";
+import { PreEtsSetupPanel } from "@/components/pre-ets-setup-panel";
 import { PreEtsWorksheetPanel } from "@/components/pre-ets-worksheet-panel";
 
 type Tab =
@@ -23,7 +24,8 @@ type Tab =
   | "invoices"
   | "hr"
   | "search"
-  | "assignments";
+  | "assignments"
+  | "setup";
 
 type AccessPayload = {
   access?: {
@@ -31,6 +33,7 @@ type AccessPayload = {
     canManageSettings: boolean;
     canAccounts: boolean;
     canSupervise: boolean;
+    canManageSetup: boolean;
     canDeliver: boolean;
     canViewHr: boolean;
   };
@@ -86,8 +89,9 @@ export function PreEtsWorkspace() {
     { id: "hr", label: "HR overview", show: access.canViewHr },
     { id: "worksheets", label: "Worksheets", show: access.canAccounts },
     { id: "authorizations", label: "Rosters & auths", show: access.canAccess && !isHrOnly },
+    { id: "setup", label: "Class setup", show: access.canManageSetup },
     { id: "schedule", label: "Schedule", show: access.canSupervise },
-    { id: "assignments", label: "Assignments", show: access.canSupervise },
+    { id: "assignments", label: "Assignments", show: access.canManageSetup },
     { id: "sessions", label: "Sessions & reports", show: access.canDeliver || access.canSupervise },
     { id: "my-compliance", label: "My documentation", show: access.canDeliver && !access.canSupervise },
     { id: "compliance", label: "Compliance", show: access.canSupervise },
@@ -141,8 +145,9 @@ export function PreEtsWorkspace() {
       {tab === "hr" && access.canViewHr ? <PreEtsHrPanel /> : null}
       {tab === "worksheets" && access.canAccounts ? <PreEtsWorksheetPanel /> : null}
       {tab === "authorizations" ? <PreEtsAuthorizationsPanel /> : null}
+      {tab === "setup" && access.canManageSetup ? <PreEtsSetupPanel /> : null}
       {tab === "schedule" && access.canSupervise ? <PreEtsSchedulePanel /> : null}
-      {tab === "assignments" && access.canSupervise ? <PreEtsAssignmentsPanel /> : null}
+      {tab === "assignments" && access.canManageSetup ? <PreEtsAssignmentsPanel /> : null}
       {tab === "sessions" ? <PreEtsSessionsPanel /> : null}
       {tab === "my-compliance" && access.canDeliver && !access.canSupervise ? (
         <PreEtsMyCompliancePanel />
