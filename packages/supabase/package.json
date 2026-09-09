@@ -50,6 +50,7 @@
     "./contact-logs-query": "./src/contact-logs-query.ts",
     "./client-archive": "./src/client-archive.ts",
     "./referral-intake": "./src/referral-intake.ts",
+    "./referral-services": "./src/referral-services.ts",
     "./referral-labels": "./src/referral-labels.ts",
     "./counselor-dedupe": "./src/counselor-dedupe.ts",
     "./counselor-name-match": "./src/counselor-name-match.ts",

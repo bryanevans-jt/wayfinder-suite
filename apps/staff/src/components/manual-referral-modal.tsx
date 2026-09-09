@@ -1,7 +1,7 @@
 "use client";
 
 import { filterGaReferralServiceLabels } from "@/lib/feature-toggles";
-import { GA_REFERRAL_SERVICE_LABELS } from "@wayfinder/supabase/referral-intake";
+import { GA_REFERRAL_SERVICE_LABELS } from "@wayfinder/supabase/referral-services";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 type FilePayload = { name: string; mimeType: string; data: string } | null;

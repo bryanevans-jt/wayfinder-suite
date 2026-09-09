@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ServiceSelectOptions } from "@wayfinder/branding";
-export { filterGaReferralServiceLabels } from "@wayfinder/supabase/referral-intake";
+export { filterGaReferralServiceLabels } from "@wayfinder/supabase/referral-services";
 
 export type FeatureToggles = {
   communityPartnersEnabled: boolean;
