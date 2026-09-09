@@ -1,14 +1,8 @@
 "use client";
 
 import { filterGaReferralServiceLabels } from "@/lib/feature-toggles";
+import { GA_REFERRAL_SERVICE_LABELS } from "@wayfinder/supabase/referral-intake";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-
-const GA_SERVICES = [
-  "Traditional Supported Employment",
-  "Job Coaching",
-  "Individual Job Placement",
-  "Workplace Readiness Training",
-] as const;
 
 type FilePayload = { name: string; mimeType: string; data: string } | null;
 
@@ -90,7 +84,7 @@ export function ManualReferralModal({ open, onClose, onCreated }: Props) {
   }, [open]);
 
   const services = useMemo(
-    () => filterGaReferralServiceLabels(GA_SERVICES, toggles),
+    () => filterGaReferralServiceLabels(GA_REFERRAL_SERVICE_LABELS, toggles),
     [toggles]
   );
 

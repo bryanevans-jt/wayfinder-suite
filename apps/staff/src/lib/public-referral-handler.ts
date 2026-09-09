@@ -2,6 +2,8 @@ import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
   buildReferralEmailBodies,
   createPublicReferral,
+  GA_WEBSITE_REFERRAL_SERVICES,
+  loadGaWebsiteReferralServices,
   notifyHrOfNewReferral,
   type PublicReferralPayload,
   type ReferralState,
@@ -31,9 +33,24 @@ export function corsHeaders(origin: string | null): HeadersInit {
       : allowed[0] ?? "*";
   return {
     "Access-Control-Allow-Origin": allow,
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, x-referral-secret",
   };
+}
+
+export async function handlePublicReferralServicesGet(request: Request) {
+  const headers = corsHeaders(request.headers.get("origin"));
+  try {
+    const admin = createServiceRoleClient();
+    const services = await loadGaWebsiteReferralServices(admin);
+    return NextResponse.json({ services }, { headers });
+  } catch (err) {
+    console.error("public referral services failed:", err);
+    return NextResponse.json(
+      { services: [...GA_WEBSITE_REFERRAL_SERVICES] },
+      { headers }
+    );
+  }
 }
 
 export async function OPTIONS(request: Request) {

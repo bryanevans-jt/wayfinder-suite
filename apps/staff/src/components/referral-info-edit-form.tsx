@@ -1,15 +1,9 @@
 "use client";
 
 import { filterGaReferralServiceLabels } from "@/lib/feature-toggles";
+import { GA_REFERRAL_SERVICE_LABELS } from "@wayfinder/supabase/referral-intake";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-
-const GA_SERVICES = [
-  "Traditional Supported Employment",
-  "Job Coaching",
-  "Individual Job Placement",
-  "Workplace Readiness Training",
-] as const;
 
 function serviceLabelFromName(serviceName: string | null): string {
   if (!serviceName) return "";
@@ -21,7 +15,7 @@ function serviceLabelFromName(serviceName: string | null): string {
   if (n.includes("traditional supported employment") || n.includes("supported employment")) {
     return "Traditional Supported Employment";
   }
-  const hit = GA_SERVICES.find((label) => n.includes(label.toLowerCase()));
+  const hit = GA_REFERRAL_SERVICE_LABELS.find((label) => n.includes(label.toLowerCase()));
   return hit ?? "";
 }
 
@@ -113,7 +107,7 @@ export function ReferralInfoEditForm({ initial }: Props) {
   }, []);
 
   const services = useMemo(() => {
-    const filtered = filterGaReferralServiceLabels(GA_SERVICES, toggles);
+    const filtered = filterGaReferralServiceLabels(GA_REFERRAL_SERVICE_LABELS, toggles);
     // Keep the currently assigned service visible even if its toggle is off.
     if (form.serviceLabel && !filtered.includes(form.serviceLabel)) {
       return [...filtered, form.serviceLabel];

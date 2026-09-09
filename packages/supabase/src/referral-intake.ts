@@ -22,11 +22,53 @@ import {
 export type ReferralState = "GA" | "TN";
 export type IntakeStatus = "new_referral" | "pending_authorization" | "active" | "discarded";
 
-/** GA public website referral form — active service options. */
+/** All GA referral form service labels (toggle-gated options filtered at runtime). */
+export const GA_REFERRAL_SERVICE_LABELS = [
+  "Traditional Supported Employment",
+  "Job Coaching",
+  "Individual Job Placement",
+  "Workplace Readiness Training",
+] as const;
+
+/** GA public website referral form — always-on service options (IJP + WRT). */
 export const GA_WEBSITE_REFERRAL_SERVICES = [
   "Individual Job Placement",
   "Workplace Readiness Training",
 ] as const;
+
+export function filterGaReferralServiceLabels(
+  labels: readonly string[],
+  toggles: {
+    traditionalSupportedEmploymentEnabled: boolean;
+    jobCoachingEnabled: boolean;
+  }
+): string[] {
+  return labels.filter((label) => {
+    const n = label.toLowerCase();
+    if (n.includes("traditional supported employment") || n === "supported employment") {
+      return toggles.traditionalSupportedEmploymentEnabled;
+    }
+    if (n.includes("job coaching")) {
+      return toggles.jobCoachingEnabled;
+    }
+    return true;
+  });
+}
+
+/** Active GA website referral services from Super Admin feature toggles. */
+export async function loadGaWebsiteReferralServices(admin: SupabaseClient): Promise<string[]> {
+  const { data } = await admin
+    .from("admin_config")
+    .select("traditional_supported_employment_enabled, job_coaching_enabled")
+    .limit(1)
+    .maybeSingle();
+
+  return filterGaReferralServiceLabels(GA_REFERRAL_SERVICE_LABELS, {
+    traditionalSupportedEmploymentEnabled:
+      data?.traditional_supported_employment_enabled === true,
+    jobCoachingEnabled: data?.job_coaching_enabled === true,
+  });
+}
 
 export type ReferralFilePayload = {
   name: string;
@@ -413,15 +455,14 @@ export async function createPublicReferral(
   }
 
   const serviceLabel = (payload.service ?? "").trim();
-  if (
-    state === "GA" &&
-    source === "website" &&
-    !(GA_WEBSITE_REFERRAL_SERVICES as readonly string[]).includes(serviceLabel)
-  ) {
-    return {
-      error: "Invalid service requested. Choose Individual Job Placement or Workplace Readiness Training.",
-      status: 400,
-    };
+  if (state === "GA" && source === "website") {
+    const allowedServices = await loadGaWebsiteReferralServices(admin);
+    if (!allowedServices.includes(serviceLabel)) {
+      return {
+        error: `Invalid service requested. Choose one of: ${allowedServices.join(", ")}.`,
+        status: 400,
+      };
+    }
   }
 
   const serviceName = mapReferralServiceName(state, serviceLabel);

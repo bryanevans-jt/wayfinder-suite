@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ServiceSelectOptions } from "@wayfinder/branding";
+export { filterGaReferralServiceLabels } from "@wayfinder/supabase/referral-intake";
 
 export type FeatureToggles = {
   communityPartnersEnabled: boolean;
@@ -55,21 +56,3 @@ export function toServiceSelectOptions(toggles: FeatureToggles): ServiceSelectOp
   };
 }
 
-export function filterGaReferralServiceLabels(
-  labels: readonly string[],
-  toggles: Pick<
-    FeatureToggles,
-    "traditionalSupportedEmploymentEnabled" | "jobCoachingEnabled"
-  >
-): string[] {
-  return labels.filter((label) => {
-    const n = label.toLowerCase();
-    if (n.includes("traditional supported employment") || n === "supported employment") {
-      return toggles.traditionalSupportedEmploymentEnabled;
-    }
-    if (n.includes("job coaching")) {
-      return toggles.jobCoachingEnabled;
-    }
-    return true;
-  });
-}

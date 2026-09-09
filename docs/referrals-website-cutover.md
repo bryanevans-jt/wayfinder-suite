@@ -6,7 +6,7 @@ Same look as your current GA form; submit URL points at Wayfinder Pro instead of
 
 | Page | File to copy |
 |---|---|
-| **Georgia (GVRA)** | [`docs/website-embeds/ga-gvra-referral-form.html`](website-embeds/ga-gvra-referral-form.html) — **Individual Job Placement** and **Workplace Readiness Training** |
+| **Georgia (GVRA)** | [`docs/website-embeds/ga-gvra-referral-form.html`](website-embeds/ga-gvra-referral-form.html) — loads services from Wayfinder (IJP + WRT always; Job Coaching and TSE when enabled in Super Admin → Feature Toggles) |
 | **Tennessee (TDHS VR)** | [`docs/website-embeds/tn-tdhs-referral-form.html`](website-embeds/tn-tdhs-referral-form.html) — **retired** (closed notice; API returns 410) |
 
 1. Open the file in the repo.
@@ -16,7 +16,7 @@ Same look as your current GA form; submit URL points at Wayfinder Pro instead of
 
 Endpoints:
 
-- GA: `https://wayfinder-pro.thejoshuatree.org/api/public/referrals/ga` (IJP and WRT)
+- GA: `GET/POST https://wayfinder-pro.thejoshuatree.org/api/public/referrals/ga` (`GET` returns toggle-aware service list; `POST` submits referral)
 - TN: retired — `POST /api/public/referrals/tn` returns **410 Gone**
 
 ## Optional form secret
