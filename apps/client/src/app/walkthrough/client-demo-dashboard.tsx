@@ -16,7 +16,7 @@ import { CLIENT_DASHBOARD_SECTIONS as LABELS } from "@/lib/dashboard-section-lab
 import {
   DEMO_ACTIVITY_FEED,
   DEMO_APPLICATIONS,
-  DEMO_CLIENT_EMAIL,
+  DEMO_CLIENT_NAME,
   DEMO_MEETING,
   DEMO_MESSAGES,
   DEMO_MILESTONES,
@@ -78,7 +78,7 @@ export function ClientDemoDashboard() {
         </p>
         <h1 className="text-2xl font-semibold text-brand-green sm:text-3xl">Welcome</h1>
         <p className="text-brand-black/85">
-          Signed in as <span className="font-medium text-brand-green">{DEMO_CLIENT_EMAIL}</span>
+          Signed in as <span className="font-medium text-brand-green">{DEMO_CLIENT_NAME}</span>
           {" · "}
           <Link href="/quick-start" className="font-medium text-brand-green hover:underline">
             Help
@@ -123,8 +123,8 @@ export function ClientDemoDashboard() {
           {LABELS.celebrating}
         </h2>
         <p className="mt-1 text-sm text-brand-black/80">
-          Sample: Jordan reached a <strong>30-day employment milestone</strong> — your team would
-          see a celebration card here when this happens in the live app.
+          Sample: You reached a <strong>30-day employment milestone</strong> — celebrations like this
+          appear on your live dashboard when you hit employment milestones.
         </p>
       </section>
 

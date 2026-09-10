@@ -1,6 +1,7 @@
 import type { TrailMilestone } from "@/app/dashboard/desert-trail";
 
-export const DEMO_CLIENT_EMAIL = "participant@example.com";
+export const DEMO_CLIENT_NAME = "Jordan Rivera";
+export const DEMO_CLIENT_EMAIL = "jordan.rivera@example.com";
 
 export const DEMO_SERVICE = {
   name: "Traditional Supported Employment (GA)",
@@ -69,7 +70,7 @@ export const DEMO_MEETING = {
 export const DEMO_MESSAGES = [
   {
     id: "msg1",
-    body: "Hi Alex! I scheduled a practice interview for Thursday. Let me know if that time still works.",
+    body: "Hi Jordan! I scheduled a practice interview for Thursday. Let me know if that time still works.",
     sender_role: "es",
     sender_name: "Taylor Brooks",
     created_at: "2026-06-27T14:10:00.000Z",
