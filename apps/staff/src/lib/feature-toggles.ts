@@ -25,8 +25,8 @@ export async function loadFeatureToggles(admin: SupabaseClient): Promise<Feature
 
   return {
     communityPartnersEnabled: data?.community_partners_enabled === true,
-    traditionalSupportedEmploymentEnabled:
-      data?.traditional_supported_employment_enabled === true,
+    /** Always offered — no longer gated by admin_config (column kept for legacy). */
+    traditionalSupportedEmploymentEnabled: true,
     jobCoachingEnabled: data?.job_coaching_enabled === true,
     customizedSupportedEmploymentEnabled:
       data?.customized_supported_employment_enabled === true,
@@ -51,7 +51,7 @@ export async function loadServiceOfferings(admin: SupabaseClient) {
 export function toServiceSelectOptions(toggles: FeatureToggles): ServiceSelectOptions {
   return {
     includeCustomizedSupportedEmployment: toggles.customizedSupportedEmploymentEnabled,
-    includeTraditionalSupportedEmployment: toggles.traditionalSupportedEmploymentEnabled,
+    includeTraditionalSupportedEmployment: true,
     includeJobCoaching: toggles.jobCoachingEnabled,
   };
 }

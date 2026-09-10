@@ -81,7 +81,6 @@ export function ReferralInfoEditForm({ initial }: Props) {
   });
 
   const [toggles, setToggles] = useState({
-    traditionalSupportedEmploymentEnabled: false,
     jobCoachingEnabled: false,
   });
 
@@ -90,18 +89,15 @@ export function ReferralInfoEditForm({ initial }: Props) {
       try {
         const res = await fetch("/api/staff/feature-toggles");
         const data = (await res.json()) as {
-          traditional_supported_employment_enabled?: boolean;
           job_coaching_enabled?: boolean;
         };
         if (res.ok) {
           setToggles({
-            traditionalSupportedEmploymentEnabled:
-              data.traditional_supported_employment_enabled === true,
             jobCoachingEnabled: data.job_coaching_enabled === true,
           });
         }
       } catch {
-        /* keep defaults: IJP + WRT only */
+        /* keep defaults: WRT, IJP, and TSE always; Job Coaching off until toggled on */
       }
     })();
   }, []);
