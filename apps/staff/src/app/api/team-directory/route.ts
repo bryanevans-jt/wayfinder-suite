@@ -4,6 +4,7 @@ import {
   canManageTeamDirectory,
   directoryPositionLabel,
   isStaffRole,
+  isTeamDirectoryMemberRole,
   isAdminRole,
   isSuperAdminRole,
 } from "@wayfinder/supabase/roles";
@@ -50,7 +51,7 @@ export async function GET() {
 
   const canEdit = canManageTeamDirectory(session.effectiveRole);
   const members = ((data ?? []) as ProfileRow[])
-    .filter((p) => isStaffRole(p.role))
+    .filter((p) => isTeamDirectoryMemberRole(p.role))
     .map((p) => ({
       id: p.id,
       full_name: (p.full_name ?? "").trim() || "Teammate",
@@ -94,8 +95,8 @@ export async function PATCH(request: Request) {
     .eq("id", userId)
     .maybeSingle();
 
-  if (!target || !isStaffRole(target.role)) {
-    return NextResponse.json({ error: "Staff member not found" }, { status: 404 });
+  if (!target || !isTeamDirectoryMemberRole(target.role)) {
+    return NextResponse.json({ error: "Team member not found" }, { status: 404 });
   }
 
   const patch: Record<string, unknown> = {};

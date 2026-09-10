@@ -174,6 +174,25 @@ export function canOverseeFormalReportSubmissions(role: string | null | undefine
   return isAdminTierRole(role) || isHrRole(role);
 }
 
+/** Joshua Tree Service Group teammates shown in Team Directory / celebrations. */
+export const TEAM_DIRECTORY_ROLES = [
+  "super_admin",
+  "admin",
+  "hr",
+  "accountant",
+  "supervisor",
+  "transition_specialist",
+  "es",
+  "instructor",
+] as const;
+
+export type TeamDirectoryRole = (typeof TEAM_DIRECTORY_ROLES)[number];
+
+export function isTeamDirectoryMemberRole(role: string | null | undefined): boolean {
+  const r = normalizeRole(role);
+  return (TEAM_DIRECTORY_ROLES as readonly string[]).includes(r);
+}
+
 /** Super Admin or HR may edit team directory celebration fields / Admin titles. */
 export function canManageTeamDirectory(role: string | null | undefined): boolean {
   return isSuperAdminRole(role) || isHrRole(role);

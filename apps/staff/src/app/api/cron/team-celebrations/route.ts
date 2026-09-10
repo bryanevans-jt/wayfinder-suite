@@ -1,6 +1,6 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithCronLoggedError } from "@wayfinder/supabase/error-log";
-import { isStaffRole } from "@wayfinder/supabase/roles";
+import { isTeamDirectoryMemberRole } from "@wayfinder/supabase/roles";
 import { loadFeatureToggles } from "@/lib/feature-toggles";
 import {
   easternMonthDay,
@@ -90,7 +90,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const staff = ((profiles ?? []) as ProfileRow[]).filter((p) => isStaffRole(p.role));
+    const staff = ((profiles ?? []) as ProfileRow[]).filter((p) =>
+      isTeamDirectoryMemberRole(p.role)
+    );
     let birthdays = 0;
     let anniversaries = 0;
     const errors: string[] = [];
