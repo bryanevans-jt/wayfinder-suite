@@ -3,6 +3,7 @@ import {
   canEditOwnStaffProfile,
   isAdminTierRole,
   isCounselorRole,
+  isGvraSupervisorRole,
   isEsRole,
   isFieldSpecialistRole,
   isHospitalitySpecialistRole,
@@ -26,7 +27,9 @@ export const TEAM_DIRECTORY_PATH = "/dashboard/team";
 export const INTAKE_CALLS_PATH = "/dashboard/intake/calls";
 export const TRAINING_CENTER_URL = "https://careers.thejoshuatree.org/training";
 
-const COUNSELOR_BLOCKED_PREFIXES = [
+export const GVRA_SUPERVISOR_HOME_PATH = "/dashboard/gvra-supervisor";
+
+const GVRA_PARTNER_BLOCKED_PREFIXES = [
   "/dashboard/clients",
   "/dashboard/community-partners",
   "/dashboard/employer-network",
@@ -49,6 +52,9 @@ const COUNSELOR_BLOCKED_PREFIXES = [
   "/dashboard/team",
   "/dashboard/intake",
 ];
+
+const COUNSELOR_BLOCKED_PREFIXES = [...GVRA_PARTNER_BLOCKED_PREFIXES, GVRA_SUPERVISOR_HOME_PATH];
+const GVRA_SUPERVISOR_BLOCKED_PREFIXES = GVRA_PARTNER_BLOCKED_PREFIXES;
 
 const PORTAL_PREFIXES = [
   "/dashboard/super-admin",
@@ -258,6 +264,20 @@ export function staffNavSectionsForRole(
             href: "/dashboard/counselor",
             label: "My Clients",
             match: (p) => p.startsWith("/dashboard/counselor"),
+          },
+        ],
+      },
+    ]);
+  }
+
+  if (isGvraSupervisorRole(staffRole)) {
+    return withHelpSections([
+      {
+        items: [
+          {
+            href: GVRA_SUPERVISOR_HOME_PATH,
+            label: "Counselors & Clients",
+            match: (p) => p.startsWith(GVRA_SUPERVISOR_HOME_PATH),
           },
         ],
       },
@@ -642,7 +662,9 @@ export function staffNavBadge(role: string | null | undefined): WayfinderNavBadg
   if (isSuperAdminRole(role)) return "Super Admin";
   if (isAdminTierRole(role) && !isSuperAdminRole(role)) return "Admin";
   if (isSupervisorTierRole(role) && !isAdminTierRole(role)) return "Supervisor";
-  return isCounselorRole(role) ? "Counselor" : "Pro";
+  if (isCounselorRole(role)) return "Counselor";
+  if (isGvraSupervisorRole(role)) return "GVRA Supervisor";
+  return "Pro";
 }
 
 export function staffHomeHref(role: string | null | undefined): string {
@@ -653,6 +675,16 @@ export function isCounselorBlockedStaffPath(pathname: string): boolean {
   return COUNSELOR_BLOCKED_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`)
   );
+}
+
+export function isGvraSupervisorBlockedStaffPath(pathname: string): boolean {
+  return GVRA_SUPERVISOR_BLOCKED_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`)
+  );
+}
+
+export function isGvraSupervisorOnlyStaffPath(pathname: string): boolean {
+  return pathname === GVRA_SUPERVISOR_HOME_PATH || pathname.startsWith(`${GVRA_SUPERVISOR_HOME_PATH}/`);
 }
 
 export function isPreEtsInstructorBlockedStaffPath(pathname: string): boolean {
@@ -717,6 +749,7 @@ export function showStaffNotifications(role: string | null | undefined): boolean
 
 export function staffWorkspaceLabel(staffRole: string | null): string {
   if (isCounselorRole(staffRole)) return "Counselor Workspace";
+  if (isGvraSupervisorRole(staffRole)) return "GVRA Supervisor Workspace";
   if (isSuperAdminRole(staffRole)) return "Super Admin";
   if (isAdminTierRole(staffRole)) return "Admin Workspace";
   if (isSupervisorRole(staffRole)) return "Regional Supervisor Workspace";

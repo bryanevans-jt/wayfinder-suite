@@ -5,6 +5,7 @@ import { WAYFINDER_LOGO_PATH } from "./constants";
 export type WayfinderNavBadge =
   | "Pro"
   | "Counselor"
+  | "GVRA Supervisor"
   | "Client"
   | "Super Admin"
   | "Admin"

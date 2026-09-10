@@ -1,6 +1,6 @@
 import { TeamDirectoryWorkspace } from "@/components/team-directory-workspace";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
-import { isStaffRole } from "@wayfinder/supabase/roles";
+import { isGvraSupervisorRole, isStaffRole } from "@wayfinder/supabase/roles";
 import { redirect } from "next/navigation";
 
 export default async function TeamDirectoryPage() {
@@ -10,6 +10,9 @@ export default async function TeamDirectoryPage() {
   }
   if (session.effectiveRole === "counselor") {
     redirect("/dashboard/counselor");
+  }
+  if (isGvraSupervisorRole(session.effectiveRole)) {
+    redirect("/dashboard/gvra-supervisor");
   }
 
   return (

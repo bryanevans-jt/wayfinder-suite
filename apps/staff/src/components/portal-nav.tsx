@@ -9,7 +9,7 @@ export type PortalPrimaryNav =
   | "connections";
 
 export type PortalTeamSubNav = "es" | "supervisors";
-export type PortalOfficesSubNav = "directory" | "counselors";
+export type PortalOfficesSubNav = "directory" | "counselors" | "gvra_supervisors";
 export type PortalReportsSubNav = "activity" | "messages";
 export type PortalSettingsSubNav =
   | "users"
@@ -52,6 +52,7 @@ const TEAM_LABELS: Record<PortalTeamSubNav, string> = {
 const OFFICES_LABELS: Record<PortalOfficesSubNav, string> = {
   directory: "Directory",
   counselors: "Counselors",
+  gvra_supervisors: "GVRA Supervisors",
 };
 
 const REPORTS_LABELS: Record<PortalReportsSubNav, string> = {
@@ -113,7 +114,9 @@ export function PortalNav({ mode, canManage, nav, onChange }: Props) {
 
   const teamSubs: PortalTeamSubNav[] = canManage ? ["es", "supervisors"] : ["es"];
 
-  const officesSubs: PortalOfficesSubNav[] = canManage ? ["directory", "counselors"] : [];
+  const officesSubs: PortalOfficesSubNav[] = canManage
+    ? ["directory", "counselors", "gvra_supervisors"]
+    : [];
 
   const reportsSubs: PortalReportsSubNav[] = canManage
     ? ["activity", "messages"]
@@ -245,6 +248,10 @@ export function isTeamEsNav(nav: PortalNavState): boolean {
 
 export function isOfficesCounselorsNav(nav: PortalNavState): boolean {
   return nav.primary === "offices" && nav.offices === "counselors";
+}
+
+export function isOfficesGvraSupervisorsNav(nav: PortalNavState): boolean {
+  return nav.primary === "offices" && nav.offices === "gvra_supervisors";
 }
 
 export function isTeamSupervisorsNav(nav: PortalNavState): boolean {

@@ -3,6 +3,7 @@ import {
   getSupabaseAnonKey,
   getSupabaseUrl,
   isCounselorRole,
+  isGvraSupervisorRole,
   staffHomePath,
   type SupabaseCookieToSet,
   wayfinderServerAuthOptions,
@@ -13,6 +14,8 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {
   isCounselorBlockedStaffPath,
+  isGvraSupervisorBlockedStaffPath,
+  isGvraSupervisorOnlyStaffPath,
   isPortalPath,
   isPreEtsStaffPath,
   isPreEtsInstructorBlockedStaffPath,
@@ -80,6 +83,18 @@ export async function middleware(request: NextRequest) {
   }
 
   if (isInstructorRole(role) && isPreEtsInstructorBlockedStaffPath(pathname)) {
+    const url = request.nextUrl.clone();
+    url.pathname = staffHomePath(role);
+    return NextResponse.redirect(url);
+  }
+
+  if (isGvraSupervisorOnlyStaffPath(pathname) && !isGvraSupervisorRole(role)) {
+    const url = request.nextUrl.clone();
+    url.pathname = staffHomePath(role);
+    return NextResponse.redirect(url);
+  }
+
+  if (isGvraSupervisorRole(role) && isGvraSupervisorBlockedStaffPath(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = staffHomePath(role);
     return NextResponse.redirect(url);

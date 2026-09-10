@@ -46,6 +46,7 @@ import {
   PortalNav,
   isActivityLogsNav,
   isOfficesCounselorsNav,
+  isOfficesGvraSupervisorsNav,
   isTeamEsNav,
   isTeamSupervisorsNav,
   type PortalNavState,
@@ -121,6 +122,10 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
   const [newSupervisorEmail, setNewSupervisorEmail] = useState("");
   const [newSupervisorOfficeIds, setNewSupervisorOfficeIds] = useState<string[]>([]);
   const [newSupervisorSilentAdd, setNewSupervisorSilentAdd] = useState(false);
+  const [newGvraSupervisorName, setNewGvraSupervisorName] = useState("");
+  const [newGvraSupervisorEmail, setNewGvraSupervisorEmail] = useState("");
+  const [newGvraSupervisorOfficeIds, setNewGvraSupervisorOfficeIds] = useState<string[]>([]);
+  const [newGvraSupervisorSilentAdd, setNewGvraSupervisorSilentAdd] = useState(true);
   const [supportModalClient, setSupportModalClient] = useState<{
     id: string;
     label: string;
@@ -250,6 +255,12 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
     const valdosta = b.offices.find((o) => o.name.toLowerCase().includes("valdosta"));
     if (valdosta) setBulkLoginOfficeId(valdosta.id);
   }, [b, bulkLoginOfficeId]);
+
+  useEffect(() => {
+    if (!b || newGvraSupervisorOfficeIds.length > 0) return;
+    const valdosta = b.offices.find((o) => o.name.toLowerCase().includes("valdosta"));
+    if (valdosta) setNewGvraSupervisorOfficeIds([valdosta.id]);
+  }, [b, newGvraSupervisorOfficeIds.length]);
 
   const bulkLoginEligible = useMemo(() => {
     if (!b || !bulkLoginOfficeId) return [];
@@ -642,6 +653,158 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                             const res = await fetch(`/api/portal/counselors?id=${c.id}`, {
                               method: "DELETE",
                             });
+                            const data = (await res.json()) as { error?: string };
+                            if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                          })
+                        }
+                      />
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : isOfficesGvraSupervisorsNav(nav) && canManageOrg ? (
+          <section className="mt-6 max-w-4xl space-y-6">
+            <p className="text-sm text-brand-black/70">
+              GVRA Supervisors oversee counselors by GVRA office. They see the same read-only
+              counselor portal data for assigned offices only. These accounts are hidden from Joshua
+              Tree team lists and the Team Directory.
+            </p>
+            <form
+              className="space-y-4 rounded-xl border border-neutral-200 bg-white p-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void run(async () => {
+                  const res = await fetch("/api/portal/gvra-supervisors", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      full_name: newGvraSupervisorName,
+                      email: newGvraSupervisorEmail,
+                      office_ids: newGvraSupervisorOfficeIds,
+                      silent_add: newGvraSupervisorSilentAdd,
+                    }),
+                  });
+                  const data = (await res.json()) as { error?: string };
+                  if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                  setNewGvraSupervisorName("");
+                  setNewGvraSupervisorEmail("");
+                  setNewGvraSupervisorOfficeIds([]);
+                  setNewGvraSupervisorSilentAdd(true);
+                });
+              }}
+            >
+              <h2 className="text-lg font-semibold text-brand-black">Add GVRA Supervisor</h2>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input
+                  value={newGvraSupervisorName}
+                  onChange={(e) => setNewGvraSupervisorName(e.target.value)}
+                  placeholder="Full name"
+                  className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                  required
+                />
+                <input
+                  type="email"
+                  value={newGvraSupervisorEmail}
+                  onChange={(e) => setNewGvraSupervisorEmail(e.target.value)}
+                  placeholder="Email"
+                  className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+              <OfficeCheckboxGroup
+                label="GVRA offices"
+                offices={b.offices}
+                selected={newGvraSupervisorOfficeIds}
+                disabled={busy}
+                onChange={setNewGvraSupervisorOfficeIds}
+              />
+              <label className="flex items-center gap-2 text-sm text-brand-black/75">
+                <input
+                  type="checkbox"
+                  checked={newGvraSupervisorSilentAdd}
+                  onChange={(e) => setNewGvraSupervisorSilentAdd(e.target.checked)}
+                />
+                Enable login without sending a welcome email
+              </label>
+              <button
+                type="submit"
+                disabled={busy || newGvraSupervisorOfficeIds.length === 0}
+                className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                Add GVRA Supervisor
+              </button>
+            </form>
+            <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white">
+              <table className="min-w-full text-left text-sm">
+                <thead className="bg-neutral-50 text-brand-black/70">
+                  <tr>
+                    <th className="px-3 py-2">Name</th>
+                    <th className="px-3 py-2">Offices</th>
+                    <th className="px-3 py-2">Counselors</th>
+                    <th className="px-3 py-2">Status</th>
+                    <th className="px-3 py-2">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {b.gvraSupervisorStaff.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-3 py-8 text-center text-brand-black/60">
+                        No GVRA Supervisors yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    b.gvraSupervisorStaff.map((s) => (
+                      <GvraSupervisorStaffListItem
+                        key={s.id}
+                        staff={s}
+                        offices={b.offices}
+                        busy={busy}
+                        officeName={officeName}
+                        onSave={(payload) =>
+                          run(async () => {
+                            const res = await fetch("/api/portal/gvra-supervisors", {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ user_id: s.id, ...payload }),
+                            });
+                            const data = (await res.json()) as { error?: string };
+                            if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                          })
+                        }
+                        onSendLoginEmail={
+                          s.email
+                            ? () =>
+                                run(async () => {
+                                  const res = await fetch("/api/portal/staff-users/send-login-email", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                      user_id: s.id,
+                                      role: "gvra_supervisor",
+                                    }),
+                                  });
+                                  const data = (await res.json()) as { error?: string };
+                                  if (!res.ok) {
+                                    throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                                  }
+                                })
+                            : undefined
+                        }
+                        onDelete={() =>
+                          run(async () => {
+                            if (
+                              !confirm(
+                                `Remove ${s.display_name} as a GVRA Supervisor? Their login will be deactivated.`
+                              )
+                            ) {
+                              return;
+                            }
+                            const res = await fetch(
+                              `/api/portal/gvra-supervisors?user_id=${s.id}`,
+                              { method: "DELETE" }
+                            );
                             const data = (await res.json()) as { error?: string };
                             if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
                           })
@@ -2359,6 +2522,7 @@ type ClientRow = PortalBootstrap["clients"][number];
 type EsStaffRow = PortalBootstrap["esStaff"][number];
 type CounselorStaffRow = PortalBootstrap["counselorStaff"][number];
 type SupervisorStaffRow = PortalBootstrap["supervisorStaff"][number];
+type GvraSupervisorStaffRow = PortalBootstrap["gvraSupervisorStaff"][number];
 type AdminUserRow = PortalBootstrap["admins"][number];
 
 function ReadOnlyLinkList({
@@ -3302,6 +3466,157 @@ function SupervisorStaffListItem({
           onClick={() => void onDelete()}
         >
           Delete
+        </button>
+      </td>
+    </tr>
+  );
+}
+
+function GvraSupervisorStaffListItem({
+  staff,
+  offices,
+  busy,
+  officeName,
+  onSave,
+  onSendLoginEmail,
+  onDelete,
+}: {
+  staff: GvraSupervisorStaffRow;
+  offices: PortalBootstrap["offices"];
+  busy: boolean;
+  officeName: (id: string | null) => string;
+  onSave: (payload: {
+    full_name: string;
+    is_active: boolean;
+    office_ids: string[];
+  }) => Promise<void>;
+  onSendLoginEmail?: () => Promise<void>;
+  onDelete: () => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(staff.full_name ?? staff.display_name);
+  const [isActive, setIsActive] = useState(staff.is_active);
+  const [officeIds, setOfficeIds] = useState(staff.office_ids);
+
+  useEffect(() => {
+    setName(staff.full_name ?? staff.display_name);
+    setIsActive(staff.is_active);
+    setOfficeIds(staff.office_ids);
+  }, [staff]);
+
+  const officeLabels =
+    staff.office_ids.length > 0
+      ? staff.office_ids.map((id) => officeName(id)).join(", ")
+      : "—";
+
+  if (editing) {
+    return (
+      <tr className="border-t border-neutral-100 bg-neutral-50/80">
+        <td className="px-3 py-3">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="mb-1 w-full min-w-[140px] rounded border border-neutral-300 px-2 py-1 text-sm"
+            disabled={busy}
+          />
+          <p className="text-xs text-brand-black/60">{staff.email}</p>
+        </td>
+        <td className="px-3 py-3">
+          <OfficeCheckboxGroup
+            label=""
+            offices={offices}
+            selected={officeIds}
+            disabled={busy}
+            onChange={setOfficeIds}
+          />
+        </td>
+        <td className="px-3 py-3 text-brand-black/70">{staff.counselor_count}</td>
+        <td className="px-3 py-3">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={isActive}
+              disabled={busy}
+              onChange={(e) => setIsActive(e.target.checked)}
+            />
+            Active
+          </label>
+        </td>
+        <td className="whitespace-nowrap px-3 py-3">
+          <button
+            type="button"
+            disabled={busy || !name.trim() || officeIds.length === 0}
+            className="mr-3 font-medium text-brand-green hover:underline disabled:opacity-60"
+            onClick={() =>
+              void onSave({
+                full_name: name.trim(),
+                is_active: isActive,
+                office_ids: officeIds,
+              }).then(() => setEditing(false))
+            }
+          >
+            Save
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            className="text-brand-black/60 hover:underline disabled:opacity-60"
+            onClick={() => setEditing(false)}
+          >
+            Cancel
+          </button>
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <tr className="border-t border-neutral-100">
+      <td className="px-3 py-3">
+        <p className="font-medium text-brand-black">{staff.display_name}</p>
+        {staff.email && staff.display_name !== staff.email ? (
+          <p className="text-xs text-brand-black/60">{staff.email}</p>
+        ) : null}
+      </td>
+      <td className="px-3 py-3">{officeLabels}</td>
+      <td className="px-3 py-3">{staff.counselor_count}</td>
+      <td className="px-3 py-3">
+        <span
+          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+            staff.is_active
+              ? "bg-brand-green/10 text-brand-green"
+              : "bg-neutral-200 text-brand-black/60"
+          }`}
+        >
+          {staff.is_active ? "Active" : "Inactive"}
+        </span>
+      </td>
+      <td className="whitespace-nowrap px-3 py-3">
+        <button
+          type="button"
+          disabled={busy}
+          className="mr-3 font-medium text-brand-green hover:underline disabled:opacity-60"
+          onClick={() => setEditing(true)}
+        >
+          Edit
+        </button>
+        {onSendLoginEmail ? (
+          <button
+            type="button"
+            disabled={busy}
+            className="mr-3 font-medium text-brand-black/75 hover:underline disabled:opacity-60"
+            onClick={() => void onSendLoginEmail()}
+          >
+            Send login email
+          </button>
+        ) : null}
+        <button
+          type="button"
+          disabled={busy}
+          className="text-red-700 hover:underline disabled:opacity-60"
+          onClick={() => void onDelete()}
+        >
+          Remove
         </button>
       </td>
     </tr>

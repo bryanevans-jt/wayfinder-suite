@@ -1,7 +1,7 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { isEsReplyOverdue } from "@wayfinder/supabase/business-hours";
 import { MIN_CONTACTS_PER_MONTH } from "@wayfinder/supabase/caseload-triage";
-import { isAdminTierRole, isStaffRole } from "@wayfinder/supabase/roles";
+import { isAdminTierRole, isGvraPartnerRole, isStaffRole } from "@wayfinder/supabase/roles";
 import { loadClientDisplayNameById } from "@/lib/client-display-names";
 import { loadStaffNameById } from "@/lib/staff-names";
 
@@ -246,7 +246,9 @@ export async function loadEsCapacityRows(
       throw new Error(`Could not load staff for capacity view: ${error.message}`);
     }
     targets = (profiles ?? [])
-      .filter((p) => isStaffRole(String(p.role ?? "")))
+      .filter(
+        (p) => isStaffRole(String(p.role ?? "")) && !isGvraPartnerRole(String(p.role ?? ""))
+      )
       .map((p) => ({ id: p.id as string, role: String(p.role) }));
   } else {
     const esIds = await scopedEsUserIds(admin, role, userId);

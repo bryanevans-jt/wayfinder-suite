@@ -1,6 +1,6 @@
 import { createServerClient } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
-import { isCounselorRole } from "@wayfinder/supabase/roles";
+import { isCounselorRole, isGvraSupervisorRole } from "@wayfinder/supabase/roles";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { NextResponse } from "next/server";
 
@@ -10,7 +10,10 @@ type Body = {
 
 export async function PATCH(request: Request) {
   const session = await getAppSession();
-  if (!session || !isCounselorRole(session.effectiveRole)) {
+  if (
+    !session ||
+    (!isCounselorRole(session.effectiveRole) && !isGvraSupervisorRole(session.effectiveRole))
+  ) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

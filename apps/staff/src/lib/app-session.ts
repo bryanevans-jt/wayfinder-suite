@@ -2,10 +2,15 @@ import {
   createServerClient,
   isCounselorRole,
   isFieldSpecialistRole,
+  isGvraSupervisorRole,
   isSupervisorRole,
 } from "@wayfinder/supabase";
 import { canViewClientProfiles } from "@wayfinder/supabase/roles";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import {
+  gvraSupervisorCanAccessCounselor,
+  loadGvraSupervisorOfficeIds,
+} from "@/lib/gvra-supervisor-portal-data";
 import { getAppSession, type AppSession } from "@wayfinder/supabase/preview-server";
 import { notFound, redirect } from "next/navigation";
 import { esIsAssignedToClient } from "@/lib/es-caseload-data";
@@ -46,6 +51,58 @@ export async function requireCounselorSession() {
   }
 
   return { session, counselorRow };
+}
+
+export async function requireGvraSupervisorSession() {
+  const session = await requireAppSession();
+  if (!isGvraSupervisorRole(session.effectiveRole)) {
+    notFound();
+  }
+  return { session };
+}
+
+export async function requireGvraSupervisorCounselorAccess(
+  session: AppSession,
+  counselorId: string
+) {
+  let admin;
+  try {
+    admin = createServiceRoleClient();
+  } catch {
+    notFound();
+  }
+
+  const allowed = await gvraSupervisorCanAccessCounselor(
+    admin,
+    session.effectiveUserId,
+    counselorId
+  );
+  if (!allowed) {
+    notFound();
+  }
+
+  const { data: counselorRow } = await admin
+    .from("counselors")
+    .select("id, full_name, user_id")
+    .eq("id", counselorId)
+    .maybeSingle();
+
+  if (!counselorRow) {
+    notFound();
+  }
+
+  return { admin, counselorRow };
+}
+
+export async function loadGvraSupervisorOfficesForSession(session: AppSession) {
+  let admin;
+  try {
+    admin = createServiceRoleClient();
+  } catch {
+    return { admin: null, officeIds: [] as string[] };
+  }
+  const officeIds = await loadGvraSupervisorOfficeIds(admin, session.effectiveUserId);
+  return { admin, officeIds };
 }
 
 export async function requireEsClientAccess(session: AppSession, clientId: string) {

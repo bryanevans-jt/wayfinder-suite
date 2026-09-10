@@ -5,6 +5,7 @@ export const STAFF_ROLES = [
   "accountant",
   "admin",
   "counselor",
+  "gvra_supervisor",
   "super_admin",
   "hr",
   "hospitality_specialist",
@@ -79,6 +80,15 @@ export function isCounselorRole(role: string | null | undefined): boolean {
   return normalizeRole(role) === "counselor";
 }
 
+export function isGvraSupervisorRole(role: string | null | undefined): boolean {
+  return normalizeRole(role) === "gvra_supervisor";
+}
+
+/** External GVRA partner roles — not Joshua Tree team members. */
+export function isGvraPartnerRole(role: string | null | undefined): boolean {
+  return isCounselorRole(role) || isGvraSupervisorRole(role);
+}
+
 export function isSuperAdminRole(role: string | null | undefined): boolean {
   return normalizeRole(role) === "super_admin";
 }
@@ -108,7 +118,7 @@ export function isInstructorRole(role: string | null | undefined): boolean {
 }
 
 export function canEditOwnStaffProfile(role: string | null | undefined): boolean {
-  return isStaffRole(role) && !isCounselorRole(role);
+  return isStaffRole(role) && !isGvraPartnerRole(role);
 }
 
 /** View client names and profiles without caseload write access. */
@@ -229,6 +239,7 @@ export function canAccessFormalReporting(role: string | null | undefined): boole
 export function staffHomePath(role: string | null | undefined): string {
   const r = normalizeRole(role);
   if (r === "counselor") return "/dashboard/counselor";
+  if (r === "gvra_supervisor") return "/dashboard/gvra-supervisor";
   if (r === "super_admin") return "/dashboard/super-admin";
   if (r === "admin") return "/dashboard/admin";
   if (r === "supervisor") return "/dashboard/supervisor";
@@ -256,6 +267,7 @@ export function roleDisplayName(role: string | null | undefined): string {
     es: "Employment Specialist",
     transition_specialist: "Transition Specialist",
     counselor: "Counselor",
+    gvra_supervisor: "GVRA Supervisor",
     client: "Client",
     support: "Natural Support",
     accountant: "Accounts Specialist",

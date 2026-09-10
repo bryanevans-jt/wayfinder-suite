@@ -130,6 +130,15 @@ export type PortalBootstrap = {
     office_ids: string[];
     es_count: number;
   }[];
+  gvraSupervisorStaff: {
+    id: string;
+    email: string;
+    full_name: string | null;
+    display_name: string;
+    is_active: boolean;
+    office_ids: string[];
+    counselor_count: number;
+  }[];
   supervisors: { id: string; email: string; full_name: string | null; display_name: string }[];
   admins: {
     id: string;
@@ -731,6 +740,34 @@ export async function loadPortalBootstrap(
           is_active: profile?.is_active !== false,
           office_ids: staffOfficeByUser.get(id) ?? [],
           es_count: esCountBySupervisor.get(id) ?? 0,
+        };
+      })
+      .sort((a, b) =>
+        a.display_name.localeCompare(b.display_name, undefined, { sensitivity: "base" })
+      ),
+    gvraSupervisorStaff: (profiles ?? [])
+      .filter((p) => p.role === "gvra_supervisor")
+      .map((p) => {
+        const id = p.id as string;
+        const profile = profileById.get(id);
+        const officeIds = staffOfficeByUser.get(id) ?? [];
+        const counselorIds = new Set<string>();
+        for (const officeId of officeIds) {
+          for (const c of counselors ?? []) {
+            const cOffices = counselorOfficeIds.get(c.id as string) ?? new Set<string>();
+            if (cOffices.has(officeId)) {
+              counselorIds.add(c.id as string);
+            }
+          }
+        }
+        return {
+          id,
+          email: emailById.get(id) ?? "",
+          full_name: profile?.full_name ?? null,
+          display_name: staffNameFor(id),
+          is_active: profile?.is_active !== false,
+          office_ids: officeIds,
+          counselor_count: counselorIds.size,
         };
       })
       .sort((a, b) =>
