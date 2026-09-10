@@ -2,16 +2,16 @@
 
 /** All GA referral form service labels (toggle-gated options filtered at runtime). */
 export const GA_REFERRAL_SERVICE_LABELS = [
-  "Traditional Supported Employment",
-  "Job Coaching",
-  "Individual Job Placement",
   "Workplace Readiness Training",
+  "Individual Job Placement",
+  "Job Coaching",
+  "Traditional Supported Employment",
 ] as const;
 
-/** GA public website referral form — always-on service options (IJP + WRT). */
+/** GA public website referral form — always-on service options (WRT + IJP). */
 export const GA_WEBSITE_REFERRAL_SERVICES = [
-  "Individual Job Placement",
   "Workplace Readiness Training",
+  "Individual Job Placement",
 ] as const;
 
 export function filterGaReferralServiceLabels(
