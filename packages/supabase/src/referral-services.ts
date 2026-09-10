@@ -17,11 +17,15 @@ export const GA_WEBSITE_REFERRAL_SERVICES = [
 export function filterGaReferralServiceLabels(
   labels: readonly string[],
   toggles: {
+    traditionalSupportedEmploymentEnabled: boolean;
     jobCoachingEnabled: boolean;
   }
 ): string[] {
   return labels.filter((label) => {
     const n = label.toLowerCase();
+    if (n.includes("traditional supported employment") || n === "supported employment") {
+      return toggles.traditionalSupportedEmploymentEnabled;
+    }
     if (n.includes("job coaching")) {
       return toggles.jobCoachingEnabled;
     }

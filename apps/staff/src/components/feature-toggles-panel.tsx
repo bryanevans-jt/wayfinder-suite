@@ -95,13 +95,13 @@ export function FeatureTogglesPanel() {
 
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-brand-black">Services &amp; Network</h3>
-        <p className="text-sm text-brand-black/70">
-          Traditional Supported Employment is always available for new referrals and service
-          pickers.
-        </p>
         {(
           [
             ["community_partners_enabled", "Community Partners (nav and pages)"],
+            [
+              "traditional_supported_employment_enabled",
+              "Traditional Supported Employment (new referrals / service pickers)",
+            ],
             ["job_coaching_enabled", "Job Coaching (new referrals / service pickers)"],
             [
               "customized_supported_employment_enabled",

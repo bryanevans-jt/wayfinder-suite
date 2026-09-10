@@ -6,7 +6,7 @@ Same look as your current GA form; submit URL points at Wayfinder Pro instead of
 
 | Page | File to copy |
 |---|---|
-| **Georgia (GVRA)** | [`docs/website-embeds/ga-gvra-referral-form.html`](website-embeds/ga-gvra-referral-form.html) — loads services from Wayfinder (WRT, IJP, and Traditional Supported Employment always; Job Coaching when enabled in Super Admin → Feature Toggles) |
+| **Georgia (GVRA)** | [`docs/website-embeds/ga-gvra-referral-form.html`](website-embeds/ga-gvra-referral-form.html) — loads services from Wayfinder (IJP + WRT always; Job Coaching and TSE when enabled in Super Admin → Feature Toggles) |
 | **Tennessee (TDHS VR)** | [`docs/website-embeds/tn-tdhs-referral-form.html`](website-embeds/tn-tdhs-referral-form.html) — **retired** (closed notice; API returns 410) |
 
 1. Open the file in the repo.

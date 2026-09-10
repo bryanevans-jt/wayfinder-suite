@@ -53,9 +53,6 @@ export async function PATCH(request: Request) {
     }
   }
 
-  // TSE is always offered; keep admin_config aligned even if legacy clients POST false.
-  patch.traditional_supported_employment_enabled = true;
-
   if (typeof body.celebration_birthday_template === "string") {
     patch.celebration_birthday_template =
       body.celebration_birthday_template.trim() || DEFAULT_BIRTHDAY_TEMPLATE;

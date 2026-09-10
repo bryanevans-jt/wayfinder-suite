@@ -18,7 +18,7 @@ export type ServiceSelectGroup = {
 export type ServiceSelectOptions = {
   /** When true, include Customized Supported Employment in pickers. Default: hidden. */
   includeCustomizedSupportedEmployment?: boolean;
-  /** When true, include Traditional Supported Employment in pickers (app always sets true). */
+  /** When true, include Traditional Supported Employment in pickers. Default: hidden. */
   includeTraditionalSupportedEmployment?: boolean;
   /** When true, include Job Coaching in pickers. Default: hidden. */
   includeJobCoaching?: boolean;

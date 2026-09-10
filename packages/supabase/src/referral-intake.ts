@@ -37,11 +37,13 @@ export {
 export async function loadGaWebsiteReferralServices(admin: SupabaseClient): Promise<string[]> {
   const { data } = await admin
     .from("admin_config")
-    .select("job_coaching_enabled")
+    .select("traditional_supported_employment_enabled, job_coaching_enabled")
     .limit(1)
     .maybeSingle();
 
   return filterGaReferralServiceLabels(GA_REFERRAL_SERVICE_LABELS, {
+    traditionalSupportedEmploymentEnabled:
+      data?.traditional_supported_employment_enabled === true,
     jobCoachingEnabled: data?.job_coaching_enabled === true,
   });
 }
