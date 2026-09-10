@@ -37,7 +37,7 @@ begin
   select o.id into valdosta_office_id
   from public.offices o
   where lower(o.name) like '%valdosta%'
-  order by o.created_at
+  order by o.name
   limit 1;
 
   if debbie_id is not null then
@@ -55,7 +55,7 @@ begin
 
       insert into public.staff_office_assignments (user_id, office_id)
       values (debbie_id, valdosta_office_id)
-      on conflict do nothing;
+      on conflict (user_id, office_id) do nothing;
     end if;
   end if;
 end $$;
