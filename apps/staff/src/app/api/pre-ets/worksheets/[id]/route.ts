@@ -108,6 +108,7 @@ export async function POST(
         districtId: result.districtId,
         ytdWarnings: result.ytdWarnings,
         authMatchStats: result.authMatchStats ?? null,
+        schoolNameWarnings: result.schoolNameWarnings ?? [],
         archivedToDrive: archive.ok,
         archiveError: archive.ok ? null : archive.error,
       });

@@ -33,6 +33,13 @@ type AuthMatchStats = {
   pendingAuthsRemaining: number;
 };
 
+type SchoolNameWarning = {
+  worksheetSchoolName: string;
+  resolvedSchoolName: string;
+  source: "worksheet" | "setup" | "existing";
+  ambiguousCandidates?: string[];
+};
+
 export function PreEtsWorksheetPanel() {
   const [imports, setImports] = useState<ImportRow[]>([]);
   const [preview, setPreview] = useState<{
@@ -43,6 +50,7 @@ export function PreEtsWorksheetPanel() {
   const [message, setMessage] = useState<string | null>(null);
   const [ytdWarnings, setYtdWarnings] = useState<YtdWarning[]>([]);
   const [authMatchStats, setAuthMatchStats] = useState<AuthMatchStats | null>(null);
+  const [schoolNameWarnings, setSchoolNameWarnings] = useState<SchoolNameWarning[]>([]);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/pre-ets/worksheets");
@@ -80,6 +88,7 @@ export function PreEtsWorksheetPanel() {
     setBusy(true);
     setMessage(null);
     setAuthMatchStats(null);
+    setSchoolNameWarnings([]);
     const res = await fetch(`/api/pre-ets/worksheets/${importId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -91,6 +100,7 @@ export function PreEtsWorksheetPanel() {
       districtId?: string;
       ytdWarnings?: YtdWarning[];
       authMatchStats?: AuthMatchStats | null;
+      schoolNameWarnings?: SchoolNameWarning[];
       archivedToDrive?: boolean;
       archiveError?: string | null;
       error?: string;
@@ -117,6 +127,7 @@ export function PreEtsWorksheetPanel() {
 
     setYtdWarnings(data.ytdWarnings ?? []);
     setAuthMatchStats(data.authMatchStats ?? null);
+    setSchoolNameWarnings(data.schoolNameWarnings ?? []);
     const archiveNote = data.archivedToDrive
       ? " Archived to Google Drive."
       : data.archiveError
@@ -199,9 +210,12 @@ export function PreEtsWorksheetPanel() {
                 <p className="font-semibold">{office.name}</p>
                 {office.groups.map((g) => (
                   <div key={g.headerRaw} className="ml-3 mt-1 text-brand-black/75">
-                    <p>{g.groupName}</p>
+                    <p>
+                      {g.schoolName}
+                      {g.groupDesignation ? ` · ${g.groupDesignation}` : ""}
+                    </p>
                     <p className="text-brand-black/55">
-                      {g.instructorName ?? "—"} · {g.students.length} students
+                      {g.instructorName ?? "—"} · {g.frequency ?? "—"} · {g.students.length} students
                     </p>
                   </div>
                 ))}
@@ -224,6 +238,29 @@ export function PreEtsWorksheetPanel() {
           >
             Reject
           </button>
+        </div>
+      ) : null}
+
+      {schoolNameWarnings.length > 0 ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">
+          <h3 className="font-semibold text-brand-black">School name matching</h3>
+          <p className="mt-1 text-xs text-brand-black/70">
+            Review these rows when class setup names differ from the worksheet header. Ambiguous
+            matches need an accounts or supervisor decision in Class setup.
+          </p>
+          <ul className="mt-2 max-h-40 overflow-y-auto text-xs text-amber-950">
+            {schoolNameWarnings.map((w) => (
+              <li key={`${w.worksheetSchoolName}-${w.resolvedSchoolName}`}>
+                Worksheet: {w.worksheetSchoolName}
+                {w.resolvedSchoolName !== w.worksheetSchoolName
+                  ? ` → matched ${w.resolvedSchoolName} (${w.source})`
+                  : ""}
+                {w.ambiguousCandidates?.length
+                  ? ` — unclear: ${w.ambiguousCandidates.join(", ")}`
+                  : ""}
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
 

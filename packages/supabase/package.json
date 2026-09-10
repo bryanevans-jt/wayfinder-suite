@@ -65,6 +65,7 @@
     "./pre-ets-worksheet-import": "./src/pre-ets-worksheet-import.ts",
     "./pre-ets-worksheet-auth-match": "./src/pre-ets-worksheet-auth-match.ts",
     "./pre-ets-class-setup": "./src/pre-ets-class-setup.ts",
+    "./pre-ets-school-name-match": "./src/pre-ets-school-name-match.ts",
     "./pre-ets-compliance": "./src/pre-ets-compliance.ts",
     "./pre-ets-session-attendance": "./src/pre-ets-session-attendance.ts",
     "./pre-ets-invoice-packet": "./src/pre-ets-invoice-packet.ts",

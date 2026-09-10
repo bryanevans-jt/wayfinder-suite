@@ -32,7 +32,11 @@ export type ParsedWorksheetStudent = {
 
 export type ParsedWorksheetGroup = {
   headerRaw: string;
+  /** Base school name for district roster (without group designation). */
+  schoolName: string;
+  /** Program group label within the school (e.g. Self Contained, Group 1). */
   groupName: string;
+  groupDesignation: string | null;
   frequency: string | null;
   instructorName: string | null;
   classTime: string | null;
@@ -109,20 +113,44 @@ function isHeaderRow(cells: string[]): boolean {
   return joined.includes("student name") && joined.includes("pid");
 }
 
+function normalizeSchoolYear(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const compact = raw.replace(/\s+/g, "");
+  const short = compact.match(/^(\d{4})-(\d{2})$/);
+  if (short) {
+    const start = Number.parseInt(short[1] ?? "", 10);
+    const endSuffix = Number.parseInt(short[2] ?? "", 10);
+    if (Number.isFinite(start) && Number.isFinite(endSuffix)) {
+      const end = endSuffix < 100 ? start + 1 : endSuffix;
+      return `${start}-${end}`;
+    }
+  }
+  const long = compact.match(/^(\d{4})-(\d{4})$/);
+  if (long) return compact;
+  return compact || null;
+}
+
 function parseTitleLine(line: string): {
   monthLabel: string | null;
   schoolYear: string | null;
 } {
-  const match = line.match(
-    /joshua\s+tree\s+(.+?)\s+pre-ets\s+worksheet\s+(\d{4}\s*[-–]\s*\d{4}|\d{4}-\d{4})/i
+  const normalized = line.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+  const yearMatch = normalized.match(/(\d{4}\s*[-–]\s*\d{2,4}|\d{4}-\d{4}|\d{4}-\d{2})/i);
+  const schoolYear = normalizeSchoolYear(yearMatch?.[1] ?? null);
+
+  const monthMatch = normalized.match(
+    /(?:emsgi\s*\/\s*)?joshua\s+tree(?:\s+service\s+group)?\s+(.+?)\s+pre-?ets\s+worksheet/i
   );
-  if (!match) {
-    return { monthLabel: null, schoolYear: null };
+  if (!monthMatch) {
+    return { monthLabel: null, schoolYear };
   }
-  return {
-    monthLabel: match[1]?.trim() ?? null,
-    schoolYear: match[2]?.replace(/\s+/g, "") ?? null,
-  };
+
+  let monthLabel = monthMatch[1]?.trim() ?? null;
+  if (monthLabel) {
+    monthLabel = monthLabel.replace(/\s+\d{4}\s*[-–]\s*\d{2,4}$/i, "").trim();
+  }
+
+  return { monthLabel: monthLabel || null, schoolYear };
 }
 
 function parseDistrictLine(line: string): string | null {
@@ -170,29 +198,129 @@ export function inferServiceMonth(
   return `${year}-${String(monthNum).padStart(2, "0")}-01`;
 }
 
+const FREQUENCY_ALIASES: Record<string, string> = {
+  weekly: "WEEKLY",
+  biweekly: "BIWEEKLY",
+  "bi-weekly": "BIWEEKLY",
+  "bi weekly": "BIWEEKLY",
+  monthly: "MONTHLY",
+  ft: "FT",
+};
+
+function normalizeFrequencyToken(token: string): string | null {
+  const key = token.trim().toLowerCase().replace(/\s+/g, " ");
+  return FREQUENCY_ALIASES[key] ?? null;
+}
+
 export function parseGroupHeader(headerRaw: string): {
+  schoolName: string;
   groupName: string;
+  groupDesignation: string | null;
   frequency: string | null;
   instructorName: string | null;
 } {
   const trimmed = headerRaw.trim();
   const parts = trimmed.split("-").map((p) => p.trim()).filter(Boolean);
   if (parts.length < 2) {
-    return { groupName: trimmed, frequency: null, instructorName: null };
+    return {
+      schoolName: trimmed,
+      groupName: "Main",
+      groupDesignation: null,
+      frequency: null,
+      instructorName: null,
+    };
   }
-  const instructorName = parts.pop() ?? null;
-  const frequency = parts.pop() ?? null;
-  const groupName = parts.join(" - ").trim() || trimmed;
-  return { groupName, frequency, instructorName };
+
+  let freqIndex = -1;
+  let frequency: string | null = null;
+  for (let i = 0; i < parts.length; i++) {
+    const normalized = normalizeFrequencyToken(parts[i] ?? "");
+    if (normalized) {
+      freqIndex = i;
+      frequency = normalized;
+      break;
+    }
+  }
+
+  if (freqIndex < 0) {
+    const instructorName = parts.pop() ?? null;
+    const freqRaw = parts.pop() ?? null;
+    const schoolName = parts.join(" - ").trim() || trimmed;
+    return {
+      schoolName,
+      groupName: "Main",
+      groupDesignation: null,
+      frequency: freqRaw,
+      instructorName,
+    };
+  }
+
+  const schoolName = parts.slice(0, freqIndex).join(" - ").trim() || trimmed;
+  const afterFreq = parts.slice(freqIndex + 1);
+
+  if (afterFreq.length === 0) {
+    return {
+      schoolName,
+      groupName: "Main",
+      groupDesignation: null,
+      frequency,
+      instructorName: null,
+    };
+  }
+
+  if (afterFreq.length === 1) {
+    return {
+      schoolName,
+      groupName: "Main",
+      groupDesignation: null,
+      frequency,
+      instructorName: afterFreq[0] ?? null,
+    };
+  }
+
+  const instructorName = afterFreq[0] ?? null;
+  const groupDesignation = afterFreq.slice(1).join(" - ").trim() || null;
+  const groupName = groupDesignation ?? "Main";
+
+  return { schoolName, groupName, groupDesignation, frequency, instructorName };
 }
 
 function columnIndex(headers: string[], ...candidates: string[]): number {
-  const lower = headers.map((h) => h.toLowerCase());
+  const lower = headers.map((h) => h.toLowerCase().trim());
   for (const c of candidates) {
-    const idx = lower.findIndex((h) => h === c.toLowerCase() || h.includes(c.toLowerCase()));
+    const needle = c.toLowerCase();
+    const exact = lower.findIndex((h) => h === needle);
+    if (exact >= 0) return exact;
+    const idx = lower.findIndex((h) => h.includes(needle));
     if (idx >= 0) return idx;
   }
   return -1;
+}
+
+/** Prefer the primary Service column when legacy Service 2/3 columns exist. */
+function columnIndexPrimaryService(headers: string[]): number {
+  const lower = headers.map((h) => h.toLowerCase().trim());
+  const exact = lower.findIndex((h) => h === "service");
+  if (exact >= 0) return exact;
+  return lower.findIndex(
+    (h) => h.startsWith("service") && !h.includes("2") && !h.includes("3")
+  );
+}
+
+/** Prefer the primary Code column paired with Service (not Service 2/3 codes). */
+function columnIndexPrimaryCode(headers: string[]): number {
+  const lower = headers.map((h) => h.toLowerCase().trim());
+  const serviceIdx = columnIndexPrimaryService(headers);
+  if (serviceIdx >= 0) {
+    for (let i = serviceIdx + 1; i < lower.length; i++) {
+      const h = lower[i] ?? "";
+      if (h === "code") return i;
+      if (h.startsWith("service")) break;
+    }
+  }
+  const exact = lower.findIndex((h) => h === "code");
+  if (exact >= 0) return exact;
+  return lower.findIndex((h) => h.startsWith("code") && !h.includes("2") && !h.includes("3"));
 }
 
 function parseStudentRow(
@@ -207,8 +335,8 @@ function parseStudentRow(
     name: columnIndex(headers, "student name"),
     pid: columnIndex(headers, "pid"),
     auth: columnIndex(headers, "a & i", "a&i"),
-    service: columnIndex(headers, "service"),
-    code: columnIndex(headers, "code"),
+    service: columnIndexPrimaryService(headers),
+    code: columnIndexPrimaryCode(headers),
     units: columnIndex(headers, "units"),
     classTime: columnIndex(headers, "class time"),
     invoice: columnIndex(headers, "invoice"),
@@ -297,7 +425,10 @@ export function parseDistrictWorksheet(
 
     const cells = parseCsvLine(line);
 
-    if (rowNum === 1 || (!titleLine && /joshua\s+tree/i.test(line))) {
+    if (
+      rowNum === 1 ||
+      (!titleLine && /(?:emsgi\s*\/\s*)?joshua\s+tree/i.test(line) && /pre-?ets/i.test(line))
+    ) {
       titleLine = line.trim();
       const parsed = parseTitleLine(titleLine);
       monthLabel = parsed.monthLabel;
@@ -353,10 +484,13 @@ export function parseDistrictWorksheet(
     }
 
     const headerRaw = line.trim();
-    const { groupName, frequency, instructorName } = parseGroupHeader(headerRaw);
+    const { schoolName, groupName, groupDesignation, frequency, instructorName } =
+      parseGroupHeader(headerRaw);
     currentGroup = {
       headerRaw,
+      schoolName,
       groupName,
+      groupDesignation,
       frequency,
       instructorName,
       classTime: null,

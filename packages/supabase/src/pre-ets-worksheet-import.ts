@@ -1,7 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadPreEtsSettings } from "./pre-ets-settings";
 import type { ParsedDistrictWorksheet, ParsedWorksheetGroup } from "./pre-ets-worksheet-parser";
-import { linkPreEtsClassSetupToSchool } from "./pre-ets-class-setup";
+import {
+  linkPreEtsClassSetupToSchool,
+  resolveWorksheetSchoolName,
+  type SchoolNameResolutionWarning,
+} from "./pre-ets-class-setup";
 import {
   countPendingAuthorizationsForDistrictMonth,
   findProgramGroupId,
@@ -23,8 +27,11 @@ export type CommitWorksheetImportResult =
       districtId: string;
       ytdWarnings: PreEtsYtdWarning[];
       authMatchStats: AuthMatchStats;
+      schoolNameWarnings: SchoolNameResolutionWarning[];
     }
   | { ok: false; error: string };
+
+export type { SchoolNameResolutionWarning } from "./pre-ets-class-setup";
 
 async function upsertProgramGroup(
   admin: SupabaseClient,
@@ -224,6 +231,7 @@ export async function commitWorksheetImport(
     unmatchedStudents: [],
     pendingAuthsRemaining: 0,
   };
+  const schoolNameWarnings: SchoolNameResolutionWarning[] = [];
 
   const { data: district, error: distErr } = await admin
     .from("pre_ets_districts")
@@ -263,7 +271,18 @@ export async function commitWorksheetImport(
     const officeId = officeRow.id as string;
 
     for (const group of office.groups) {
-      const schoolName = group.groupName;
+      const resolution = await resolveWorksheetSchoolName(admin, {
+        districtId,
+        schoolYear: parsed.schoolYear,
+        districtNumber: parsed.districtNumber,
+        worksheetSchoolName: group.schoolName,
+      });
+
+      if (resolution.warning) {
+        schoolNameWarnings.push(resolution.warning);
+      }
+
+      const schoolName = resolution.resolvedName;
       const { data: school, error: schoolErr } = await admin
         .from("pre_ets_schools")
         .upsert(
@@ -434,6 +453,7 @@ export async function commitWorksheetImport(
   const commitWarnings = {
     ytdWarnings,
     authMatchStats,
+    schoolNameWarnings,
   };
 
   await admin
@@ -451,5 +471,6 @@ export async function commitWorksheetImport(
     districtId,
     ytdWarnings,
     authMatchStats,
+    schoolNameWarnings,
   };
 }

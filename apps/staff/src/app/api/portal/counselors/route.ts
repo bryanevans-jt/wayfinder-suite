@@ -3,7 +3,7 @@ import {
   assertStaffUserEditable,
   countClientsForCounselor,
   findAuthUserIdByEmail,
-  inviteStaffAuthUser,
+  provisionStaffAuthUser,
   replaceCounselorOfficeAssignments,
   upsertStaffProfile,
 } from "@/lib/portal-staff-users";
@@ -17,6 +17,7 @@ type CreateBody = {
   full_name?: string;
   email?: string;
   office_ids?: string[];
+  silent_add?: boolean;
 };
 
 type PatchBody = {
@@ -25,18 +26,20 @@ type PatchBody = {
   email?: string;
   is_active?: boolean;
   office_ids?: string[];
+  silent_add?: boolean;
 };
 
 async function linkCounselorLogin(
   admin: Awaited<ReturnType<typeof assertPortalSession>>["admin"],
   counselorId: string,
   email: string,
-  fullName: string
+  fullName: string,
+  options: { sendInvite: boolean }
 ): Promise<string> {
   let userId = await findAuthUserIdByEmail(admin, email);
 
   if (!userId) {
-    userId = await inviteStaffAuthUser(admin, email, { full_name: fullName });
+    userId = await provisionStaffAuthUser(admin, email, { full_name: fullName }, options);
   } else {
     const blocked = await assertStaffUserEditable(admin, userId);
     if (blocked) {
@@ -109,7 +112,10 @@ export async function POST(request: NextRequest) {
 
     try {
       if (email) {
-        await linkCounselorLogin(admin, counselorId, email, fullName);
+        const silentAdd = body.silent_add === true;
+        await linkCounselorLogin(admin, counselorId, email, fullName, {
+          sendInvite: !silentAdd,
+        });
       }
       await replaceCounselorOfficeAssignments(admin, counselorId, officeIds);
     } catch (error) {
@@ -180,7 +186,10 @@ export async function PATCH(request: NextRequest) {
     const loginId = (counselor as { user_id?: string | null }).user_id ?? null;
 
     if (body.email?.trim()) {
-      await linkCounselorLogin(admin, id, body.email.trim().toLowerCase(), fullName);
+      const silentAdd = body.silent_add === true;
+      await linkCounselorLogin(admin, id, body.email.trim().toLowerCase(), fullName, {
+        sendInvite: !silentAdd,
+      });
     } else if (loginId && (body.is_active !== undefined || body.full_name !== undefined)) {
       const blocked = await assertStaffUserEditable(admin, loginId);
       if (blocked) {

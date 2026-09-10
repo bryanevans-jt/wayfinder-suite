@@ -13,6 +13,8 @@ type Props = {
   privacyHref?: string;
   redirectAfterSignIn?: string;
   createSupabaseClient?: () => SupabaseClient;
+  demoMode?: boolean;
+  demoBlockedNotice?: string;
 };
 
 /** Client-only login shell (reports + staff share this component). */
@@ -26,6 +28,8 @@ export function LoginFormShell({
   privacyHref,
   redirectAfterSignIn,
   createSupabaseClient,
+  demoMode,
+  demoBlockedNotice,
 }: Props) {
   return (
     <LoginForm
@@ -38,6 +42,8 @@ export function LoginFormShell({
       privacyHref={privacyHref}
       redirectAfterSignIn={redirectAfterSignIn}
       createSupabaseClient={createSupabaseClient}
+      demoMode={demoMode}
+      demoBlockedNotice={demoBlockedNotice}
     />
   );
 }

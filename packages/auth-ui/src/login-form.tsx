@@ -26,6 +26,10 @@ type LoginFormProps = {
   redirectAfterSignIn?: string;
   /** Override Supabase browser client (e.g. reports host-only auth cookies). */
   createSupabaseClient?: () => SupabaseClient;
+  /** When true, sign-in actions are disabled and show a demo notice instead. */
+  demoMode?: boolean;
+  /** Message shown when demoMode blocks sign-in. */
+  demoBlockedNotice?: string;
 };
 
 function GoogleMark() {
@@ -61,6 +65,8 @@ export function LoginForm({
   privacyHref,
   redirectAfterSignIn = "/dashboard",
   createSupabaseClient = createClient,
+  demoMode = false,
+  demoBlockedNotice = "Demo only — sign-in is disabled here.",
 }: LoginFormProps) {
   const supabase = useMemo(() => createSupabaseClient(), [createSupabaseClient]);
   const [email, setEmail] = useState("");
@@ -68,6 +74,7 @@ export function LoginForm({
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
+    if (demoMode) return;
     let cancelled = false;
     void (async () => {
       const {
@@ -80,11 +87,15 @@ export function LoginForm({
     return () => {
       cancelled = true;
     };
-  }, [supabase, redirectAfterSignIn]);
+  }, [supabase, redirectAfterSignIn, demoMode]);
 
   async function sendMagicLink(e: React.FormEvent) {
     e.preventDefault();
     setNotice(null);
+    if (demoMode) {
+      setNotice(demoBlockedNotice);
+      return;
+    }
     if (!email.trim()) {
       setNotice("Enter your email address.");
       return;
@@ -140,6 +151,10 @@ export function LoginForm({
 
   async function signInWithGoogle() {
     setNotice(null);
+    if (demoMode) {
+      setNotice(demoBlockedNotice);
+      return;
+    }
     setBusy("google");
 
     const {
@@ -177,6 +192,10 @@ export function LoginForm({
 
   async function signInWithPasskey() {
     setNotice(null);
+    if (demoMode) {
+      setNotice(demoBlockedNotice);
+      return;
+    }
     setBusy("passkey");
     const { data, error } = await supabase.auth.signInWithPasskey();
     setBusy(null);

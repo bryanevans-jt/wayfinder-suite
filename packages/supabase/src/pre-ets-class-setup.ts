@@ -1,5 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadPreEtsSettings } from "./pre-ets-settings";
+import { expandSchoolAbbreviation, pickBestSchoolNameMatch } from "./pre-ets-school-name-match";
+
+export type SchoolNameResolutionWarning = {
+  worksheetSchoolName: string;
+  resolvedSchoolName: string;
+  source: "worksheet" | "setup" | "existing";
+  ambiguousCandidates?: string[];
+};
 
 export type PreEtsClassSetupRow = {
   id: string;
@@ -201,6 +209,94 @@ export async function bulkImportPreEtsClassSetup(
   }
 
   return { imported, errors };
+}
+
+export type WorksheetSchoolNameResolution = {
+  resolvedName: string;
+  warning: SchoolNameResolutionWarning | null;
+};
+
+/** Match a worksheet school header to class setup or existing district schools. */
+export async function resolveWorksheetSchoolName(
+  admin: SupabaseClient,
+  input: {
+    districtId: string;
+    schoolYear: string;
+    districtNumber?: string | null;
+    worksheetSchoolName: string;
+  }
+): Promise<WorksheetSchoolNameResolution> {
+  const worksheetSchoolName = normalizeSchoolName(input.worksheetSchoolName);
+  const expanded = expandSchoolAbbreviation(worksheetSchoolName);
+
+  const { data: existingSchools } = await admin
+    .from("pre_ets_schools")
+    .select("id, name")
+    .eq("district_id", input.districtId);
+
+  const settings = await loadPreEtsSettings(admin);
+  const year = input.schoolYear.trim() || settings.school_year;
+
+  let setupQuery = admin
+    .from("pre_ets_class_setup")
+    .select("id, school_name, school_id")
+    .eq("school_year", year);
+
+  if (input.districtNumber?.trim()) {
+    setupQuery = setupQuery.eq("district_number", input.districtNumber.trim());
+  }
+
+  const { data: setupRows } = await setupQuery;
+
+  const candidates: Array<{ name: string; source: "setup" | "existing"; id?: string }> = [];
+  for (const row of setupRows ?? []) {
+    candidates.push({
+      name: String(row.school_name),
+      source: "setup",
+      id: row.id as string,
+    });
+  }
+  for (const row of existingSchools ?? []) {
+    candidates.push({
+      name: String(row.name),
+      source: "existing",
+      id: row.id as string,
+    });
+  }
+
+  const exact = candidates.find(
+    (c) => normalizeLookup(c.name) === normalizeLookup(expanded)
+  );
+  if (exact) {
+    return { resolvedName: exact.name, warning: null };
+  }
+
+  const { match, ambiguous } = pickBestSchoolNameMatch(expanded, candidates);
+  if (match) {
+    const warning: SchoolNameResolutionWarning | null =
+      normalizeLookup(match.name) !== normalizeLookup(expanded)
+        ? {
+            worksheetSchoolName: expanded,
+            resolvedSchoolName: match.name,
+            source: match.source,
+          }
+        : null;
+    return { resolvedName: match.name, warning };
+  }
+
+  if (ambiguous.length > 0) {
+    return {
+      resolvedName: expanded,
+      warning: {
+        worksheetSchoolName: expanded,
+        resolvedSchoolName: expanded,
+        source: "worksheet",
+        ambiguousCandidates: ambiguous.map((m) => m.name),
+      },
+    };
+  }
+
+  return { resolvedName: expanded, warning: null };
 }
 
 /** Link planning rows to schools created during worksheet commit. */

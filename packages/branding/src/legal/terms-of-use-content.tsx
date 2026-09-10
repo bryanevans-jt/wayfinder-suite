@@ -17,12 +17,17 @@ export function TermsOfUseContent({ app }: Props) {
     app === "staff" ? STAFF_APP_PRODUCT_NAME : CLIENT_APP_PRODUCT_NAME;
 
   return (
-    <article className="prose-wayfinder space-y-6 text-sm leading-relaxed text-brand-black/90">
+    <article
+      aria-labelledby="terms-title"
+      className="prose-wayfinder space-y-6 text-sm leading-relaxed text-brand-black/90"
+    >
       <header className="space-y-2 border-b border-neutral-200 pb-6">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-green">
           {productName}
         </p>
-        <h1 className="text-2xl font-semibold text-brand-black sm:text-3xl">Terms of Use</h1>
+        <h1 id="terms-title" className="text-2xl font-semibold text-brand-black sm:text-3xl">
+          Terms of Use
+        </h1>
         <p className="text-brand-black/65">Last updated: {TERMS_OF_USE_LAST_UPDATED}</p>
       </header>
 

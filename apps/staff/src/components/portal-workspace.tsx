@@ -114,6 +114,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
   const [newCounselorName, setNewCounselorName] = useState("");
   const [newCounselorEmail, setNewCounselorEmail] = useState("");
   const [newCounselorOfficeIds, setNewCounselorOfficeIds] = useState<string[]>([]);
+  const [newCounselorSilentAdd, setNewCounselorSilentAdd] = useState(false);
   const [mergeSourceId, setMergeSourceId] = useState<string | null>(null);
   const [newSupervisorName, setNewSupervisorName] = useState("");
   const [newSupervisorEmail, setNewSupervisorEmail] = useState("");
@@ -391,6 +392,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                       full_name: newCounselorName,
                       email: newCounselorEmail,
                       office_ids: newCounselorOfficeIds,
+                      silent_add: newCounselorSilentAdd,
                     }),
                   });
                   const data = (await res.json()) as { error?: string };
@@ -398,6 +400,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                   setNewCounselorName("");
                   setNewCounselorEmail("");
                   setNewCounselorOfficeIds([]);
+                  setNewCounselorSilentAdd(false);
                 });
               }}
             >
@@ -418,6 +421,21 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                   className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
                 />
               </div>
+              {newCounselorEmail.trim() ? (
+                <label className="flex items-start gap-2 text-sm text-brand-black/80">
+                  <input
+                    type="checkbox"
+                    checked={newCounselorSilentAdd}
+                    onChange={(e) => setNewCounselorSilentAdd(e.target.checked)}
+                    disabled={busy}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    Activate login without sending a welcome email — you can walk them through
+                    sign-in and send a magic link later.
+                  </span>
+                </label>
+              ) : null}
               <OfficeCheckboxGroup
                 label="Offices"
                 offices={b.offices}
@@ -2736,6 +2754,7 @@ function CounselorStaffListItem({
     email?: string;
     is_active?: boolean;
     office_ids: string[];
+    silent_add?: boolean;
   }) => Promise<void>;
   onDelete: () => Promise<void>;
 }) {
@@ -2750,6 +2769,7 @@ function CounselorStaffListItem({
         ? [counselor.office_id]
         : []
   );
+  const [silentAdd, setSilentAdd] = useState(false);
 
   useEffect(() => {
     setName(counselor.full_name);
@@ -2762,6 +2782,7 @@ function CounselorStaffListItem({
           ? [counselor.office_id]
           : []
     );
+    setSilentAdd(false);
   }, [counselor]);
 
   const officeLabels =
@@ -2816,7 +2837,21 @@ function CounselorStaffListItem({
               Active login
             </label>
           ) : (
-            <span className="text-xs text-brand-black/60">Roster only — add email to invite</span>
+            <div className="space-y-2">
+              <span className="text-xs text-brand-black/60">Roster only — add email for login</span>
+              {email.trim() ? (
+                <label className="flex items-start gap-2 text-xs text-brand-black/70">
+                  <input
+                    type="checkbox"
+                    checked={silentAdd}
+                    onChange={(e) => setSilentAdd(e.target.checked)}
+                    disabled={busy}
+                    className="mt-0.5"
+                  />
+                  <span>Activate without sending welcome email</span>
+                </label>
+              ) : null}
+            </div>
           )}
         </td>
         <td className="whitespace-nowrap px-3 py-3">
@@ -2827,7 +2862,9 @@ function CounselorStaffListItem({
             onClick={() =>
               void onSave({
                 full_name: name.trim(),
-                ...(email.trim() && !counselor.has_login ? { email: email.trim() } : {}),
+                ...(email.trim() && !counselor.has_login
+                  ? { email: email.trim(), silent_add: silentAdd }
+                  : {}),
                 ...(counselor.has_login ? { is_active: isActive } : {}),
                 office_ids: officeIds,
               }).then(() => setEditing(false))
