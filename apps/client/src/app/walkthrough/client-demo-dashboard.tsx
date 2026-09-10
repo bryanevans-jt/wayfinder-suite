@@ -11,6 +11,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { DesertTrail } from "@/app/dashboard/desert-trail";
+import { CLIENT_DASHBOARD_SECTION_IDS as IDS } from "@/lib/dashboard-section-ids";
+import { CLIENT_DASHBOARD_SECTIONS as LABELS } from "@/lib/dashboard-section-labels";
 import {
   DEMO_ACTIVITY_FEED,
   DEMO_APPLICATIONS,
@@ -69,10 +71,10 @@ export function ClientDemoDashboard() {
     .join(" ");
 
   return (
-    <main className={shellClass}>
+    <main id="demo-dashboard-main" className={shellClass}>
       <header className="space-y-2">
         <p className="text-xs font-medium uppercase tracking-wide text-brand-green sm:text-sm">
-          Wayfinder · Client dashboard
+          Wayfinder · Client Dashboard
         </p>
         <h1 className="text-2xl font-semibold text-brand-green sm:text-3xl">Welcome</h1>
         <p className="text-brand-black/85">
@@ -82,17 +84,55 @@ export function ClientDemoDashboard() {
             Help
           </Link>
         </p>
+        <nav
+          aria-label="On this page"
+          className="flex flex-wrap gap-x-3 gap-y-1 pt-1 text-sm text-brand-black/70"
+        >
+          <a href={`#${IDS.today}`} className="font-medium text-brand-green hover:underline">
+            Today
+          </a>
+          <span aria-hidden="true">·</span>
+          <a href={`#${IDS.yourPath}`} className="font-medium text-brand-green hover:underline">
+            {LABELS.yourPath}
+          </a>
+          <span aria-hidden="true">·</span>
+          <a href={`#${IDS.messages}`} className="font-medium text-brand-green hover:underline">
+            Messages
+          </a>
+          <span aria-hidden="true">·</span>
+          <a href={`#${IDS.applications}`} className="font-medium text-brand-green hover:underline">
+            {LABELS.applications}
+          </a>
+          <span aria-hidden="true">·</span>
+          <a href={`#${IDS.activity}`} className="font-medium text-brand-green hover:underline">
+            {LABELS.yourActivity}
+          </a>
+          <span aria-hidden="true">·</span>
+          <a href={`#${IDS.account}`} className="font-medium text-brand-green hover:underline">
+            {LABELS.account}
+          </a>
+        </nav>
       </header>
 
-      <section className="rounded-2xl border border-brand-green/20 bg-brand-green/5 p-4">
-        <p className="text-sm font-medium text-brand-green">Celebration</p>
+      <section
+        id={IDS.celebrating}
+        aria-labelledby={IDS.celebratingHeading}
+        className="rounded-2xl border border-brand-green/20 bg-brand-green/5 p-4"
+      >
+        <h2 id={IDS.celebratingHeading} className="text-sm font-semibold text-brand-green">
+          {LABELS.celebrating}
+        </h2>
         <p className="mt-1 text-sm text-brand-black/80">
           Sample: Jordan reached a <strong>30-day employment milestone</strong> — your team would
           see a celebration card here when this happens in the live app.
         </p>
       </section>
 
-      <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+      <section
+        id={IDS.yourPath}
+        aria-labelledby={IDS.yourPathHeading}
+        className="scroll-mt-6 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm"
+      >
         <div className="flex flex-col items-center border-b border-neutral-200 pb-6">
           <Image
             src={WAYFINDER_LOGO_PATH}
@@ -105,7 +145,9 @@ export function ClientDemoDashboard() {
           />
         </div>
         <div className="mt-6">
-          <h2 className="text-lg font-semibold text-brand-green">Your path</h2>
+          <h2 id={IDS.yourPathHeading} className="text-lg font-semibold text-brand-green">
+            {LABELS.yourPath}
+          </h2>
           <p className="mt-1 text-sm text-brand-black/70">{DEMO_SERVICE.name}</p>
           <p className="mt-3 text-base font-semibold text-brand-black">
             Current stage:{" "}
@@ -121,8 +163,14 @@ export function ClientDemoDashboard() {
         </div>
       </section>
 
-      <section className="rounded-2xl border-2 border-brand-green/30 bg-gradient-to-br from-brand-white to-brand-green/5 p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-brand-green">Next meeting</h2>
+      <section
+        id={IDS.today}
+        aria-labelledby={IDS.todayHeading}
+        className="scroll-mt-6 rounded-2xl border-2 border-brand-green/30 bg-gradient-to-br from-brand-white to-brand-green/5 p-6 shadow-sm"
+      >
+        <h2 id={IDS.todayHeading} className="text-lg font-semibold text-brand-green">
+          {LABELS.nextMeeting}
+        </h2>
         {meetingStatus === "declined" ? (
           <p className="mt-2 text-sm text-brand-black/70">
             You declined this meeting in the demo. In your live dashboard, your Employment Specialist
@@ -175,8 +223,14 @@ export function ClientDemoDashboard() {
         )}
       </section>
 
-      <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-brand-green">Applications</h2>
+      <section
+        id={IDS.applications}
+        aria-labelledby={IDS.applicationsHeading}
+        className="scroll-mt-6 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm"
+      >
+        <h2 id={IDS.applicationsHeading} className="text-lg font-semibold text-brand-green">
+          {LABELS.applications}
+        </h2>
         <p className="mt-1 text-sm text-brand-black/70">
           Job applications your Employment Specialist has logged for you.
         </p>
@@ -209,21 +263,39 @@ export function ClientDemoDashboard() {
         </ul>
       </section>
 
-      <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-brand-green">Recent activity</h2>
+      <section
+        id={IDS.activity}
+        aria-labelledby={IDS.activityHeading}
+        className="scroll-mt-6 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm"
+      >
+        <h2 id={IDS.activityHeading} className="text-lg font-semibold text-brand-green">
+          {LABELS.yourActivity}
+        </h2>
         <p className="mt-1 text-sm text-brand-black/70">
           A read-only timeline of notes and applications from your team.
         </p>
         <ClientActivityTimeline feed={DEMO_ACTIVITY_FEED} />
       </section>
 
-      <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-brand-green">Message your ES</h2>
+      <section
+        id={IDS.messages}
+        aria-labelledby={IDS.messagesHeading}
+        className="scroll-mt-6 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm"
+      >
+        <h2 id={IDS.messagesHeading} className="text-lg font-semibold text-brand-green">
+          {LABELS.messageEs}
+        </h2>
         <p className="mt-1 text-sm text-brand-black/70">
           Conversation with {DEMO_MEETING.es_name}. Replies typically arrive within two business
           days.
         </p>
-        <div className="mt-4 max-h-72 space-y-3 overflow-y-auto rounded-xl border border-neutral-100 bg-neutral-50/50 p-3">
+        <div
+          className="mt-4 max-h-72 space-y-3 overflow-y-auto rounded-xl border border-neutral-100 bg-neutral-50/50 p-3"
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions"
+          aria-label="Message conversation"
+        >
           {messages.map((m) => (
             <div
               key={m.id}
@@ -244,13 +316,17 @@ export function ClientDemoDashboard() {
           ))}
         </div>
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-          <textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            rows={2}
-            placeholder="Type your message…"
-            className="min-h-[2.75rem] flex-1 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none ring-brand-green focus:ring-2"
-          />
+          <label className="flex min-h-[2.75rem] flex-1 flex-col text-sm font-medium text-brand-black">
+            <span className="sr-only">Message to your Employment Specialist</span>
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              rows={2}
+              placeholder="Type your message…"
+              aria-label="Message to your Employment Specialist"
+              className="min-h-[2.75rem] w-full flex-1 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none ring-brand-green focus:ring-2"
+            />
+          </label>
           <button
             type="button"
             onClick={sendMessage}
@@ -262,8 +338,14 @@ export function ClientDemoDashboard() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-brand-green">Settings</h2>
+      <section
+        id={IDS.account}
+        aria-labelledby={IDS.accountHeading}
+        className="scroll-mt-6 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm"
+      >
+        <h2 id={IDS.accountHeading} className="text-lg font-semibold text-brand-green">
+          {LABELS.account}
+        </h2>
         <div className="mt-4 space-y-3 text-sm">
           <label className="flex items-center gap-2">
             <input
@@ -298,6 +380,19 @@ export function ClientDemoDashboard() {
             Register a passkey
           </button>
         </div>
+      </section>
+
+      <section
+        id={IDS.displayAccessibility}
+        aria-labelledby={IDS.displayAccessibilityHeading}
+        className="rounded-xl border border-neutral-200 bg-white p-4"
+      >
+        <h2 id={IDS.displayAccessibilityHeading} className="text-sm font-semibold text-brand-black/60">
+          {LABELS.displayAccessibility}
+        </h2>
+        <p className="mt-2 text-sm text-brand-black/70">
+          On the live dashboard, display preferences are saved to your account.
+        </p>
       </section>
     </main>
   );

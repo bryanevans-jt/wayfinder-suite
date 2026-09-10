@@ -10,7 +10,7 @@ const STEPS = [
     body: "This is your personal dashboard. Here you can see your progress, upcoming meetings, and job applications.",
   },
   {
-    title: "Your success path",
+    title: "Your Path",
     body: "The steps at the top show where you are in your employment journey. Your Employment Specialist updates these as you move forward.",
   },
   {

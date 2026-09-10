@@ -18,6 +18,8 @@ import { ClientApplicationsCard } from "./client-applications-card";
 import { ClientMessagesPanel } from "./client-messages";
 import { ClientNextMeeting } from "./client-next-meeting";
 import { DashboardActions } from "./dashboard-actions";
+import { CLIENT_DASHBOARD_SECTION_IDS as IDS } from "@/lib/dashboard-section-ids";
+import { CLIENT_DASHBOARD_SECTIONS as LABELS } from "@/lib/dashboard-section-labels";
 import { SuccessPath } from "./success-path";
 
 type DashboardSearchParams = Promise<{ client?: string }>;
@@ -101,7 +103,17 @@ export default async function ClientDashboardPage({
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-6 bg-brand-white px-4 py-8 sm:gap-8 sm:px-6 sm:py-16">
+    <>
+      <a
+        href="#dashboard-main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-brand-white focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-brand-green focus:shadow"
+      >
+        Skip to dashboard content
+      </a>
+      <main
+        id="dashboard-main"
+        className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-6 bg-brand-white px-4 py-8 sm:gap-8 sm:px-6 sm:py-16"
+      >
       <PwaInstallPrompt productName="Wayfinder" storageKey="client-pwa-install-dismissed" />
       <ClientOnboardingTour />
       <header className="space-y-2">
@@ -121,32 +133,32 @@ export default async function ClientDashboardPage({
           aria-label="On this page"
           className="flex flex-wrap gap-x-3 gap-y-1 pt-1 text-sm text-brand-black/70"
         >
-          <a href="#today" className="font-medium text-brand-green hover:underline">
+          <a href={`#${IDS.today}`} className="font-medium text-brand-green hover:underline">
             Today
           </a>
           <span aria-hidden="true">·</span>
-          <a href="#your-path" className="font-medium text-brand-green hover:underline">
-            Your path
+          <a href={`#${IDS.yourPath}`} className="font-medium text-brand-green hover:underline">
+            {LABELS.yourPath}
           </a>
           {!support ? (
             <>
               <span aria-hidden="true">·</span>
-              <a href="#messages" className="font-medium text-brand-green hover:underline">
+              <a href={`#${IDS.messages}`} className="font-medium text-brand-green hover:underline">
                 Messages
               </a>
             </>
           ) : null}
           <span aria-hidden="true">·</span>
-          <a href="#applications" className="font-medium text-brand-green hover:underline">
-            Applications
+          <a href={`#${IDS.applications}`} className="font-medium text-brand-green hover:underline">
+            {LABELS.applications}
           </a>
           <span aria-hidden="true">·</span>
-          <a href="#activity" className="font-medium text-brand-green hover:underline">
-            Activity
+          <a href={`#${IDS.activity}`} className="font-medium text-brand-green hover:underline">
+            {LABELS.yourActivity}
           </a>
           <span aria-hidden="true">·</span>
-          <a href="#account" className="font-medium text-brand-green hover:underline">
-            Account
+          <a href={`#${IDS.account}`} className="font-medium text-brand-green hover:underline">
+            {LABELS.account}
           </a>
         </nav>
       </header>
@@ -167,6 +179,7 @@ export default async function ClientDashboardPage({
         initialLargeText={Boolean(a11yProfile?.accessibility_large_text)}
         initialHighContrast={Boolean(a11yProfile?.accessibility_high_contrast)}
       />
-    </main>
+      </main>
+    </>
   );
 }

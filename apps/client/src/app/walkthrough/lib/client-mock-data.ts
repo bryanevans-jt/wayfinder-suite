@@ -3,35 +3,41 @@ import type { TrailMilestone } from "@/app/dashboard/desert-trail";
 export const DEMO_CLIENT_EMAIL = "participant@example.com";
 
 export const DEMO_SERVICE = {
-  name: "Supported employment",
-  currentStageTitle: "Job development",
+  name: "Traditional Supported Employment (GA)",
+  currentStageTitle: "Phase 2: Job Development",
   currentStageId: "stage-dev",
 };
 
 export const DEMO_MILESTONES: TrailMilestone[] = [
   {
-    id: "stage-assess",
+    id: "stage-intake",
     order_index: 1,
-    title: "Assessment",
-    description: "Goals, skills, and support needs documented with your ES.",
+    title: "Phase 1: Intake",
+    description: "Goals, skills, and support needs documented with your Employment Specialist.",
   },
   {
     id: "stage-dev",
     order_index: 2,
-    title: "Job development",
+    title: "Phase 2: Job Development",
     description: "Exploring employers and preparing applications together.",
   },
   {
-    id: "stage-place",
+    id: "stage-os1",
     order_index: 3,
-    title: "Job placement",
-    description: "Interviewing and starting work with on-the-job support.",
+    title: "Phase 3: Training & OS 1",
+    description: "On-the-job training and early supports as you start work.",
   },
   {
-    id: "stage-retain",
+    id: "stage-os2",
     order_index: 4,
-    title: "Job retention",
-    description: "Ongoing coaching to help you succeed in your role.",
+    title: "Phase 4: Training & OS 2",
+    description: "Continued coaching and skill building in your role.",
+  },
+  {
+    id: "stage-stabilize",
+    order_index: 5,
+    title: "Stabilization / Extended Support",
+    description: "Ongoing coaching to help you succeed and maintain employment.",
   },
 ];
 
@@ -56,7 +62,7 @@ export const DEMO_MEETING = {
   starts_at: "2026-07-10T18:00:00.000Z",
   timezone: "America/New_York",
   location: "Savannah office · Room B",
-  service_name: "Supported employment",
+  service_name: "Traditional Supported Employment (GA)",
   es_name: "Taylor Brooks",
 };
 

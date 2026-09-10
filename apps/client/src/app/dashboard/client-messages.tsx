@@ -4,6 +4,8 @@ import { formatPortalDateTime } from "@wayfinder/branding";
 import { friendlyClientError, USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { CLIENT_DASHBOARD_SECTION_IDS as IDS } from "@/lib/dashboard-section-ids";
+import { CLIENT_DASHBOARD_SECTIONS as LABELS } from "@/lib/dashboard-section-labels";
 
 type MessageRow = {
   id: string;
@@ -81,10 +83,13 @@ export function ClientMessagesPanel() {
   if (loading) {
     return (
       <section
-        id="messages"
+        id={IDS.messages}
+        aria-labelledby={IDS.messagesHeading}
         className="scroll-mt-6 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm"
       >
-        <h2 className="text-lg font-semibold text-brand-green">Message your ES</h2>
+        <h2 id={IDS.messagesHeading} className="text-lg font-semibold text-brand-green">
+          {LABELS.messageEs}
+        </h2>
         <p className="mt-2 text-sm text-brand-black/60">Loading…</p>
       </section>
     );
@@ -92,10 +97,13 @@ export function ClientMessagesPanel() {
 
   return (
     <section
-      id="messages"
+      id={IDS.messages}
+      aria-labelledby={IDS.messagesHeading}
       className="scroll-mt-6 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm"
     >
-      <h2 className="text-lg font-semibold text-brand-green">Message your ES</h2>
+      <h2 id={IDS.messagesHeading} className="text-lg font-semibold text-brand-green">
+        {LABELS.messageEs}
+      </h2>
       <p className="mt-1 text-sm text-brand-black/70">
         {thread?.esName
           ? `Conversation with ${thread.esName}. Replies typically arrive within two business days.`
@@ -108,7 +116,13 @@ export function ClientMessagesPanel() {
         </p>
       ) : null}
 
-      <div className="mt-4 max-h-72 space-y-3 overflow-y-auto rounded-xl border border-neutral-100 bg-neutral-50/50 p-3">
+      <div
+        className="mt-4 max-h-72 space-y-3 overflow-y-auto rounded-xl border border-neutral-100 bg-neutral-50/50 p-3"
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions"
+        aria-label="Message conversation"
+      >
         {(thread?.messages ?? []).length === 0 ? (
           <p className="text-sm text-brand-black/55">No messages yet. Say hello to get started.</p>
         ) : (
@@ -160,7 +174,7 @@ export function ClientMessagesPanel() {
         </button>
       </div>
       {error ? (
-        <p role="alert" className="mt-2 text-sm text-red-700">
+        <p role="alert" aria-live="assertive" className="mt-2 text-sm text-red-700">
           {error}
         </p>
       ) : null}

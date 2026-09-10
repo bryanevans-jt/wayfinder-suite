@@ -2,6 +2,8 @@
 
 import { formatPortalDateTime } from "@wayfinder/branding";
 import { useCallback, useEffect, useState } from "react";
+import { CLIENT_DASHBOARD_SECTION_IDS as IDS } from "@/lib/dashboard-section-ids";
+import { CLIENT_DASHBOARD_SECTIONS as LABELS } from "@/lib/dashboard-section-labels";
 
 type Row = {
   id: string;
@@ -31,9 +33,14 @@ export function ClientCelebrationsCard() {
   if (items.length === 0) return null;
 
   return (
-    <section className="rounded-xl border border-brand-gold/40 bg-brand-gold/10 p-4" aria-live="polite">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-brand-black/70">
-        Celebrating with you
+    <section
+      id={IDS.celebrating}
+      aria-labelledby={IDS.celebratingHeading}
+      className="rounded-xl border border-brand-gold/40 bg-brand-gold/10 p-4"
+      aria-live="polite"
+    >
+      <h2 id={IDS.celebratingHeading} className="text-sm font-semibold text-brand-black/70">
+        {LABELS.celebrating}
       </h2>
       <ul className="mt-3 space-y-3">
         {items.map((item) => (

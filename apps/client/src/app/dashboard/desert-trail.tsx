@@ -53,12 +53,19 @@ export function DesertTrail({
   }
 
   const inner = (
-    <ol className="relative space-y-0 pl-1">
+    <ol className="relative space-y-0 pl-1" aria-label="Your Path milestones">
         {sorted.map((milestone, index) => {
           const isLast = index === sorted.length - 1;
           const isCompleted = index < currentIndex;
           const isCurrent = index === currentIndex;
           const isUpcoming = index > currentIndex;
+          const stepNumber = index + 1;
+          const stepStatus = isCurrent
+            ? "Current step"
+            : isCompleted
+              ? "Completed step"
+              : "Upcoming step";
+          const stepSummary = `${stepStatus}, step ${stepNumber} of ${sorted.length}: ${milestone.title}`;
 
           const lineBelowCompleted = index < currentIndex;
           const lineBelowCurrent = index === currentIndex;
@@ -86,8 +93,8 @@ export function DesertTrail({
           }
 
           return (
-            <li key={milestone.id} className="flex gap-4">
-              <div className="flex w-9 shrink-0 flex-col items-center pt-0.5">
+            <li key={milestone.id} className="flex gap-4" aria-label={stepSummary}>
+              <div className="flex w-9 shrink-0 flex-col items-center pt-0.5" aria-hidden="true">
                 <span className={circleClass} aria-current={isCurrent ? "step" : undefined}>
                   {isCompleted ? (
                     <svg
@@ -114,6 +121,7 @@ export function DesertTrail({
               </div>
               <div className={`min-w-0 flex-1 ${!isLast ? "pb-10" : "pb-1"}`}>
                 <p className="font-semibold text-brand-black">
+                  <span className="sr-only">{stepSummary}. </span>
                   {milestone.title}
                 </p>
                 {milestone.description ? (

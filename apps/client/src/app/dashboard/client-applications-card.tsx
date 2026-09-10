@@ -4,6 +4,8 @@ import {
 } from "@wayfinder/branding";
 import { buildClientActivityFkIds, createServerClient, resolveClientPortalDataAccess } from "@wayfinder/supabase";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
+import { CLIENT_DASHBOARD_SECTION_IDS as IDS } from "@/lib/dashboard-section-ids";
+import { CLIENT_DASHBOARD_SECTIONS as LABELS } from "@/lib/dashboard-section-labels";
 
 type Props = {
   selectedClientId?: string;
@@ -47,10 +49,13 @@ export async function ClientApplicationsCard({ selectedClientId }: Props) {
 
   return (
     <section
-      id="applications"
+      id={IDS.applications}
+      aria-labelledby={IDS.applicationsHeading}
       className="scroll-mt-6 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm"
     >
-      <h2 className="text-lg font-semibold text-brand-green">Applications</h2>
+      <h2 id={IDS.applicationsHeading} className="text-lg font-semibold text-brand-green">
+        {LABELS.applications}
+      </h2>
       <p className="mt-1 text-sm text-brand-black/70">
         Job applications your Employment Specialist has logged for you.
       </p>

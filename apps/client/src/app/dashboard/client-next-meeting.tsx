@@ -1,6 +1,8 @@
-import { formatPortalDateTime } from "@wayfinder/branding";
+import { formatPortalDateTime, serviceDisplayName } from "@wayfinder/branding";
 import { createServerClient, resolveClientPortalDataAccess } from "@wayfinder/supabase";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
+import { CLIENT_DASHBOARD_SECTION_IDS as IDS } from "@/lib/dashboard-section-ids";
+import { CLIENT_DASHBOARD_SECTIONS as LABELS } from "@/lib/dashboard-section-labels";
 import { MeetingActions } from "./meeting-actions";
 
 type Props = {
@@ -24,10 +26,13 @@ export async function ClientNextMeeting({ selectedClientId }: Props) {
   if (!access) {
     return (
       <section
-        id="today"
+        id={IDS.today}
+        aria-labelledby={IDS.todayHeading}
         className="scroll-mt-6 rounded-2xl border-2 border-brand-green/30 bg-gradient-to-br from-brand-white to-brand-green/5 p-6 shadow-sm"
       >
-        <h2 className="text-lg font-semibold text-brand-green">Next meeting</h2>
+        <h2 id={IDS.todayHeading} className="text-lg font-semibold text-brand-green">
+          {LABELS.nextMeeting}
+        </h2>
         <p className="mt-2 text-sm text-brand-black/70">
           No upcoming meetings yet. Your Employment Specialist will send an invite when it&apos;s
           time to meet.
@@ -59,10 +64,16 @@ export async function ClientNextMeeting({ selectedClientId }: Props) {
     if (meeting.service_id) {
       const { data: svc } = await admin
         .from("services")
-        .select("name")
+        .select("id, name, state")
         .eq("id", meeting.service_id as string)
         .maybeSingle();
-      serviceName = svc?.name ?? null;
+      serviceName = svc
+        ? serviceDisplayName({
+            id: svc.id as string,
+            name: svc.name as string,
+            state: (svc.state as string | null) ?? null,
+          })
+        : null;
     }
     if (meeting.es_user_id) {
       const { data: esProfile } = await admin
@@ -78,10 +89,13 @@ export async function ClientNextMeeting({ selectedClientId }: Props) {
 
   return (
     <section
-      id="today"
+      id={IDS.today}
+      aria-labelledby={IDS.todayHeading}
       className="scroll-mt-6 rounded-2xl border-2 border-brand-green/30 bg-gradient-to-br from-brand-white to-brand-green/5 p-6 shadow-sm"
     >
-      <h2 className="text-lg font-semibold text-brand-green">Next meeting</h2>
+      <h2 id={IDS.todayHeading} className="text-lg font-semibold text-brand-green">
+        {LABELS.nextMeeting}
+      </h2>
       {!meeting ? (
         <p className="mt-2 text-sm text-brand-black/70">
           No upcoming meetings. Your Employment Specialist will send an invite when it&apos;s time

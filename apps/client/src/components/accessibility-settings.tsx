@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CLIENT_DASHBOARD_SECTION_IDS as IDS } from "@/lib/dashboard-section-ids";
+import { CLIENT_DASHBOARD_SECTIONS as LABELS } from "@/lib/dashboard-section-labels";
 
 type Props = {
   initialLargeText: boolean;
@@ -34,9 +36,13 @@ export function AccessibilitySettings({ initialLargeText, initialHighContrast }:
   }
 
   return (
-    <section className="rounded-xl border border-neutral-200 bg-white p-4">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-brand-black/60">
-        Display & accessibility
+    <section
+      id={IDS.displayAccessibility}
+      aria-labelledby={IDS.displayAccessibilityHeading}
+      className="rounded-xl border border-neutral-200 bg-white p-4"
+    >
+      <h2 id={IDS.displayAccessibilityHeading} className="text-sm font-semibold text-brand-black/60">
+        {LABELS.displayAccessibility}
       </h2>
       <p className="mt-1 text-xs text-brand-black/65">
         Adjust how Wayfinder looks on this device. Settings are saved to your account.

@@ -13,6 +13,12 @@ export default function WalkthroughLayout({ children }: { children: React.ReactN
 
   return (
     <div className="min-h-screen bg-brand-white">
+      <a
+        href="#demo-dashboard-main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-brand-white focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-brand-green focus:shadow"
+      >
+        Skip to demo dashboard
+      </a>
       <DemoBanner />
       <div className="border-b border-neutral-200 bg-neutral-50/80 px-4 py-2 text-center text-sm">
         <a

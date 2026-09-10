@@ -1,4 +1,8 @@
-import { buildClientActivityFeed, ClientActivityTimeline } from "@wayfinder/branding";
+import {
+  buildClientActivityFeed,
+  ClientActivityTimeline,
+  serviceDisplayName,
+} from "@wayfinder/branding";
 import {
   buildClientActivityFkIds,
   createServerClient,
@@ -6,6 +10,8 @@ import {
 } from "@wayfinder/supabase";
 import { loadIntakeAppointmentsAsMeetings } from "@wayfinder/supabase/hospitality-intake-activity";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
+import { CLIENT_DASHBOARD_SECTION_IDS as IDS } from "@/lib/dashboard-section-ids";
+import { CLIENT_DASHBOARD_SECTIONS as LABELS } from "@/lib/dashboard-section-labels";
 
 type Props = {
   selectedClientId?: string;
@@ -70,14 +76,23 @@ export async function ClientActivity({ selectedClientId }: Props) {
 
   const [{ data: services }, { data: esProfiles }] = await Promise.all([
     serviceIds.length
-      ? admin.from("services").select("id, name").in("id", serviceIds)
-      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      ? admin.from("services").select("id, name, state").in("id", serviceIds)
+      : Promise.resolve({ data: [] as { id: string; name: string; state: string | null }[] }),
     esIds.length
       ? admin.from("profiles").select("id, full_name").in("id", esIds)
       : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
   ]);
 
-  const serviceNameById = new Map((services ?? []).map((s) => [s.id, s.name]));
+  const serviceNameById = new Map(
+    (services ?? []).map((s) => [
+      s.id,
+      serviceDisplayName({
+        id: s.id as string,
+        name: s.name as string,
+        state: (s.state as string | null) ?? null,
+      }),
+    ])
+  );
   const esNameById = new Map((esProfiles ?? []).map((p) => [p.id, p.full_name]));
 
   const feed = buildClientActivityFeed({
@@ -105,10 +120,13 @@ export async function ClientActivity({ selectedClientId }: Props) {
 
   return (
     <section
-      id="activity"
+      id={IDS.activity}
+      aria-labelledby={IDS.activityHeading}
       className="scroll-mt-6 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm"
     >
-      <h2 className="text-lg font-semibold text-brand-green">Your activity</h2>
+      <h2 id={IDS.activityHeading} className="text-lg font-semibold text-brand-green">
+        {LABELS.yourActivity}
+      </h2>
       <p className="mt-1 text-sm text-brand-black/70">
         Updates from your Employment Specialist team, including job applications.
       </p>

@@ -7,6 +7,8 @@ import {
 } from "@wayfinder/supabase";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import Image from "next/image";
+import { CLIENT_DASHBOARD_SECTION_IDS as IDS } from "@/lib/dashboard-section-ids";
+import { CLIENT_DASHBOARD_SECTIONS as LABELS } from "@/lib/dashboard-section-labels";
 import { DesertTrail } from "./desert-trail";
 
 type SuccessPathProps = {
@@ -31,10 +33,13 @@ export async function SuccessPath({ selectedClientId }: SuccessPathProps) {
   if (!ctx) {
     return (
       <section
-        id="your-path"
+        id={IDS.yourPath}
+        aria-labelledby={IDS.yourPathHeading}
         className="scroll-mt-6 rounded-2xl border border-brand-black/15 bg-brand-white p-6 shadow-sm"
       >
-        <h2 className="text-lg font-semibold text-brand-green">Your path</h2>
+        <h2 id={IDS.yourPathHeading} className="text-lg font-semibold text-brand-green">
+          {LABELS.yourPath}
+        </h2>
         <p className="mt-2 text-sm text-brand-black/75">
           {readOnly
             ? "No client assignments are linked to your support account yet."
@@ -57,10 +62,13 @@ export async function SuccessPath({ selectedClientId }: SuccessPathProps) {
   if (!clientRow.current_service_id && !clientRow.current_stage_id) {
     return (
       <section
-        id="your-path"
+        id={IDS.yourPath}
+        aria-labelledby={IDS.yourPathHeading}
         className="scroll-mt-6 rounded-2xl border border-brand-black/15 bg-brand-white p-6 shadow-sm"
       >
-        <h2 className="text-lg font-semibold text-brand-green">Your path</h2>
+        <h2 id={IDS.yourPathHeading} className="text-lg font-semibold text-brand-green">
+          {LABELS.yourPath}
+        </h2>
         <p className="mt-2 text-sm text-brand-black/75">No active service is assigned yet.</p>
       </section>
     );
@@ -74,10 +82,13 @@ export async function SuccessPath({ selectedClientId }: SuccessPathProps) {
   if (!path || path.milestones.length === 0) {
     return (
       <section
-        id="your-path"
+        id={IDS.yourPath}
+        aria-labelledby={IDS.yourPathHeading}
         className="scroll-mt-6 rounded-2xl border border-brand-black/15 bg-brand-white p-6 shadow-sm"
       >
-        <h2 className="text-lg font-semibold text-brand-green">Your path</h2>
+        <h2 id={IDS.yourPathHeading} className="text-lg font-semibold text-brand-green">
+          {LABELS.yourPath}
+        </h2>
         <p className="mt-2 text-sm text-brand-black/75">
           Your service path is being set up. If this message persists, ask your Employment
           Specialist to confirm your service and stage are assigned.
@@ -88,7 +99,8 @@ export async function SuccessPath({ selectedClientId }: SuccessPathProps) {
 
   return (
     <section
-      id="your-path"
+      id={IDS.yourPath}
+      aria-labelledby={IDS.yourPathHeading}
       className="scroll-mt-6 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm"
     >
       <div className="flex flex-col items-center border-b border-neutral-200 pb-6">
@@ -105,7 +117,9 @@ export async function SuccessPath({ selectedClientId }: SuccessPathProps) {
 
       <div className="mt-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-brand-green">Your path</h2>
+          <h2 id={IDS.yourPathHeading} className="text-lg font-semibold text-brand-green">
+            {LABELS.yourPath}
+          </h2>
           <p className="mt-1 text-sm text-brand-black/70">{path.serviceName}</p>
           <p className="mt-3 text-base font-semibold text-brand-black">
             Current stage:{" "}
