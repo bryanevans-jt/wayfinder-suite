@@ -200,6 +200,177 @@ export async function replaceStaffOfficeAssignments(
   if (insertErr) throw new Error(insertErr.message);
 }
 
+export async function linkCounselorLogin(
+  admin: AdminClient,
+  counselorId: string,
+  email: string,
+  fullName: string,
+  options: { sendInvite: boolean }
+): Promise<string> {
+  const normalizedEmail = email.trim().toLowerCase();
+  let userId = await findAuthUserIdByEmail(admin, normalizedEmail);
+
+  if (!userId) {
+    userId = await provisionStaffAuthUser(
+      admin,
+      normalizedEmail,
+      { full_name: fullName },
+      { sendInvite: options.sendInvite }
+    );
+  } else {
+    const blocked = await assertStaffUserEditable(admin, userId);
+    if (blocked) {
+      throw new Error(blocked.error);
+    }
+
+    const { data: existing } = await admin
+      .from("profiles")
+      .select("role")
+      .eq("id", userId)
+      .maybeSingle();
+
+    const role = existing?.role as string | undefined;
+    if (role && !["counselor", "client"].includes(role)) {
+      throw new Error(
+        `This account already has the “${role}” role and cannot be converted to counselor.`
+      );
+    }
+  }
+
+  await upsertStaffProfile(admin, userId, {
+    role: "counselor",
+    full_name: fullName,
+    is_active: true,
+  });
+
+  const { error: linkErr } = await admin
+    .from("counselors")
+    .update({ user_id: userId })
+    .eq("id", counselorId);
+  if (linkErr && !linkErr.message.includes("Could not find the 'user_id'")) {
+    throw new Error(linkErr.message);
+  }
+
+  return userId;
+}
+
+export type CounselorLoginActivationResult = {
+  counselorId: string;
+  fullName: string;
+  email: string | null;
+  outcome: "activated" | "reactivated" | "skipped";
+  reason?: string;
+};
+
+export async function activateCounselorLoginFromContactEmail(
+  admin: AdminClient,
+  counselor: {
+    id: string;
+    full_name: string;
+    contact_email: string | null;
+    user_id: string | null;
+  },
+  options: { sendInvite: boolean }
+): Promise<CounselorLoginActivationResult> {
+  const base = {
+    counselorId: counselor.id,
+    fullName: counselor.full_name,
+    email: counselor.contact_email?.trim().toLowerCase() ?? null,
+  };
+
+  if (counselor.user_id) {
+    const blocked = await assertStaffUserEditable(admin, counselor.user_id);
+    if (blocked) {
+      return { ...base, outcome: "skipped", reason: blocked.error };
+    }
+    await upsertStaffProfile(admin, counselor.user_id, {
+      role: "counselor",
+      full_name: counselor.full_name,
+      is_active: true,
+    });
+    return { ...base, outcome: "reactivated" };
+  }
+
+  const email = counselor.contact_email?.trim().toLowerCase() ?? "";
+  if (!email.includes("@")) {
+    return { ...base, outcome: "skipped", reason: "No referral email on file" };
+  }
+
+  await linkCounselorLogin(admin, counselor.id, email, counselor.full_name, options);
+  return { ...base, email, outcome: "activated" };
+}
+
+export async function listCounselorIdsForOffice(
+  admin: AdminClient,
+  officeId: string
+): Promise<string[]> {
+  const ids = new Set<string>();
+
+  const { data: assignments } = await admin
+    .from("counselor_office_assignments")
+    .select("counselor_id")
+    .eq("office_id", officeId);
+  for (const row of assignments ?? []) {
+    if (row.counselor_id) ids.add(row.counselor_id as string);
+  }
+
+  const { data: legacy } = await admin.from("counselors").select("id").eq("office_id", officeId);
+  for (const row of legacy ?? []) {
+    if (row.id) ids.add(row.id as string);
+  }
+
+  return [...ids];
+}
+
+export async function bulkActivateCounselorLoginsForOffice(
+  admin: AdminClient,
+  officeId: string,
+  options: { sendInvite: boolean }
+): Promise<{
+  results: CounselorLoginActivationResult[];
+  activated: number;
+  reactivated: number;
+  skipped: number;
+}> {
+  const counselorIds = await listCounselorIdsForOffice(admin, officeId);
+  if (counselorIds.length === 0) {
+    return { results: [], activated: 0, reactivated: 0, skipped: 0 };
+  }
+
+  const { data: counselors, error } = await admin
+    .from("counselors")
+    .select("id, full_name, contact_email, user_id")
+    .in("id", counselorIds);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const results: CounselorLoginActivationResult[] = [];
+  let activated = 0;
+  let reactivated = 0;
+  let skipped = 0;
+
+  for (const row of counselors ?? []) {
+    const result = await activateCounselorLoginFromContactEmail(
+      admin,
+      {
+        id: row.id as string,
+        full_name: row.full_name as string,
+        contact_email: (row.contact_email as string | null) ?? null,
+        user_id: (row.user_id as string | null) ?? null,
+      },
+      options
+    );
+    results.push(result);
+    if (result.outcome === "activated") activated++;
+    else if (result.outcome === "reactivated") reactivated++;
+    else skipped++;
+  }
+
+  return { results, activated, reactivated, skipped };
+}
+
 export async function replaceCounselorOfficeAssignments(
   admin: AdminClient,
   counselorId: string,

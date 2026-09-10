@@ -1,9 +1,9 @@
-import { assertPortalMutation, assertPortalSession, jsonPortalError } from "@/lib/portal-auth";
+import { assertPortalMutation, jsonPortalError } from "@/lib/portal-auth";
 import {
+  activateCounselorLoginFromContactEmail,
   assertStaffUserEditable,
   countClientsForCounselor,
-  findAuthUserIdByEmail,
-  provisionStaffAuthUser,
+  linkCounselorLogin,
   replaceCounselorOfficeAssignments,
   upsertStaffProfile,
 } from "@/lib/portal-staff-users";
@@ -27,53 +27,9 @@ type PatchBody = {
   is_active?: boolean;
   office_ids?: string[];
   silent_add?: boolean;
+  /** Use contact_email from referral intake; never sends invite when silent_add is true (default). */
+  activate_from_contact_email?: boolean;
 };
-
-async function linkCounselorLogin(
-  admin: Awaited<ReturnType<typeof assertPortalSession>>["admin"],
-  counselorId: string,
-  email: string,
-  fullName: string,
-  options: { sendInvite: boolean }
-): Promise<string> {
-  let userId = await findAuthUserIdByEmail(admin, email);
-
-  if (!userId) {
-    userId = await provisionStaffAuthUser(admin, email, { full_name: fullName }, options);
-  } else {
-    const blocked = await assertStaffUserEditable(admin, userId);
-    if (blocked) {
-      throw new Error(blocked.error);
-    }
-
-    const { data: existing } = await admin
-      .from("profiles")
-      .select("role")
-      .eq("id", userId)
-      .maybeSingle();
-
-    const role = existing?.role as string | undefined;
-    if (role && !["counselor", "client"].includes(role)) {
-      throw new Error(`This account already has the “${role}” role and cannot be converted to counselor.`);
-    }
-  }
-
-  await upsertStaffProfile(admin, userId, {
-    role: "counselor",
-    full_name: fullName,
-    is_active: true,
-  });
-
-  const { error: linkErr } = await admin
-    .from("counselors")
-    .update({ user_id: userId })
-    .eq("id", counselorId);
-  if (linkErr && !linkErr.message.includes("Could not find the 'user_id'")) {
-    throw new Error(linkErr.message);
-  }
-
-  return userId;
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -153,13 +109,13 @@ export async function PATCH(request: NextRequest) {
 
     let counselorsQuery = await admin
       .from("counselors")
-      .select("id, full_name, user_id")
+      .select("id, full_name, user_id, contact_email")
       .eq("id", id)
       .maybeSingle();
     if (counselorsQuery.error?.message.includes("user_id")) {
       counselorsQuery = await admin
         .from("counselors")
-        .select("id, full_name")
+        .select("id, full_name, contact_email")
         .eq("id", id)
         .maybeSingle();
     }
@@ -184,8 +140,28 @@ export async function PATCH(request: NextRequest) {
     }
 
     const loginId = (counselor as { user_id?: string | null }).user_id ?? null;
+    const contactEmail =
+      (counselor as { contact_email?: string | null }).contact_email ?? null;
 
-    if (body.email?.trim()) {
+    if (body.activate_from_contact_email === true) {
+      const silentAdd = body.silent_add !== false;
+      const result = await activateCounselorLoginFromContactEmail(
+        admin,
+        {
+          id,
+          full_name: fullName,
+          contact_email: contactEmail,
+          user_id: loginId,
+        },
+        { sendInvite: !silentAdd }
+      );
+      if (result.outcome === "skipped") {
+        return Response.json(
+          { error: result.reason ?? "Could not enable login from referral email" },
+          { status: 400 }
+        );
+      }
+    } else if (body.email?.trim()) {
       const silentAdd = body.silent_add === true;
       await linkCounselorLogin(admin, id, body.email.trim().toLowerCase(), fullName, {
         sendInvite: !silentAdd,

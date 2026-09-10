@@ -114,7 +114,8 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
   const [newCounselorName, setNewCounselorName] = useState("");
   const [newCounselorEmail, setNewCounselorEmail] = useState("");
   const [newCounselorOfficeIds, setNewCounselorOfficeIds] = useState<string[]>([]);
-  const [newCounselorSilentAdd, setNewCounselorSilentAdd] = useState(false);
+  const [newCounselorSilentAdd, setNewCounselorSilentAdd] = useState(true);
+  const [bulkLoginOfficeId, setBulkLoginOfficeId] = useState("");
   const [mergeSourceId, setMergeSourceId] = useState<string | null>(null);
   const [newSupervisorName, setNewSupervisorName] = useState("");
   const [newSupervisorEmail, setNewSupervisorEmail] = useState("");
@@ -243,6 +244,24 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
       };
     });
   }, [b]);
+
+  useEffect(() => {
+    if (!b || bulkLoginOfficeId) return;
+    const valdosta = b.offices.find((o) => o.name.toLowerCase().includes("valdosta"));
+    if (valdosta) setBulkLoginOfficeId(valdosta.id);
+  }, [b, bulkLoginOfficeId]);
+
+  const bulkLoginEligible = useMemo(() => {
+    if (!b || !bulkLoginOfficeId) return [];
+    return b.counselorStaff.filter((c) => {
+      const inOffice =
+        c.office_ids.includes(bulkLoginOfficeId) || c.office_id === bulkLoginOfficeId;
+      if (!inOffice) return false;
+      if (c.has_login && !c.is_active) return true;
+      if (!c.has_login && (c.contact_email ?? "").includes("@")) return true;
+      return false;
+    });
+  }, [b, bulkLoginOfficeId]);
 
   const visibleEsStaff = useMemo(() => {
     if (!b) return [];
@@ -400,7 +419,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                   setNewCounselorName("");
                   setNewCounselorEmail("");
                   setNewCounselorOfficeIds([]);
-                  setNewCounselorSilentAdd(false);
+                  setNewCounselorSilentAdd(true);
                 });
               }}
             >
@@ -451,6 +470,76 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 Add counselor
               </button>
             </form>
+            <div className="space-y-3 rounded-xl border border-brand-green/25 bg-brand-green/5 p-4">
+              <div>
+                <h2 className="text-lg font-semibold text-brand-black">Enable counselor logins</h2>
+                <p className="mt-1 text-sm text-brand-black/70">
+                  Uses each counselor&apos;s referral email (<code className="text-xs">contact_email</code>
+                  ). Creates Wayfinder Pro login access without sending a Supabase welcome email.
+                  Counselors can sign in later with a magic link at the login screen.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-end gap-3">
+                <label className="text-sm">
+                  <span className="font-medium text-brand-black">Office</span>
+                  <select
+                    value={bulkLoginOfficeId}
+                    onChange={(e) => setBulkLoginOfficeId(e.target.value)}
+                    className="mt-1 block min-w-[220px] rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                    disabled={busy}
+                  >
+                    <option value="">Select office…</option>
+                    {b.offices.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  disabled={busy || !bulkLoginOfficeId || bulkLoginEligible.length === 0}
+                  className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  onClick={() =>
+                    void run(async () => {
+                      const officeName =
+                        b.offices.find((o) => o.id === bulkLoginOfficeId)?.name ?? "this office";
+                      if (
+                        !confirm(
+                          `Enable login for ${bulkLoginEligible.length} counselor(s) in ${officeName}? No welcome email will be sent.`
+                        )
+                      ) {
+                        return;
+                      }
+                      const res = await fetch("/api/portal/counselors/activate-login", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ office_id: bulkLoginOfficeId, send_invite: false }),
+                      });
+                      const data = (await res.json()) as {
+                        error?: string;
+                        activated?: number;
+                        reactivated?: number;
+                        skipped?: number;
+                      };
+                      if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                      alert(
+                        `Login enabled: ${data.activated ?? 0} new, ${data.reactivated ?? 0} reactivated, ${data.skipped ?? 0} skipped (missing email or blocked).`
+                      );
+                    })
+                  }
+                >
+                  Enable logins (no email)
+                </button>
+              </div>
+              {bulkLoginOfficeId ? (
+                <p className="text-xs text-brand-black/65">
+                  {bulkLoginEligible.length} counselor(s) in this office can be enabled now (
+                  {bulkLoginEligible.filter((c) => !c.has_login).length} new logins,{" "}
+                  {bulkLoginEligible.filter((c) => c.has_login).length} reactivations).
+                </p>
+              ) : null}
+            </div>
             <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white">
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-neutral-50 text-brand-black/70">
@@ -509,6 +598,28 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                               method: "PATCH",
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify({ id: c.id, ...payload }),
+                            });
+                            const data = (await res.json()) as { error?: string };
+                            if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                          })
+                        }
+                        onEnableLogin={() =>
+                          run(async () => {
+                            const res = await fetch("/api/portal/counselors", {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                id: c.id,
+                                full_name: c.full_name,
+                                activate_from_contact_email: true,
+                                silent_add: true,
+                                office_ids:
+                                  c.office_ids.length > 0
+                                    ? c.office_ids
+                                    : c.office_id
+                                      ? [c.office_id]
+                                      : [],
+                              }),
                             });
                             const data = (await res.json()) as { error?: string };
                             if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
@@ -2741,6 +2852,7 @@ function CounselorStaffListItem({
   onSave,
   onDelete,
   onCombine,
+  onEnableLogin,
 }: {
   counselor: CounselorStaffRow;
   offices: PortalBootstrap["offices"];
@@ -2755,12 +2867,14 @@ function CounselorStaffListItem({
     is_active?: boolean;
     office_ids: string[];
     silent_add?: boolean;
+    activate_from_contact_email?: boolean;
   }) => Promise<void>;
+  onEnableLogin?: () => Promise<void>;
   onDelete: () => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(counselor.full_name);
-  const [email, setEmail] = useState(counselor.email ?? "");
+  const [email, setEmail] = useState(counselor.email ?? counselor.contact_email ?? "");
   const [isActive, setIsActive] = useState(counselor.is_active);
   const [officeIds, setOfficeIds] = useState(
     counselor.office_ids.length > 0
@@ -2769,11 +2883,11 @@ function CounselorStaffListItem({
         ? [counselor.office_id]
         : []
   );
-  const [silentAdd, setSilentAdd] = useState(false);
+  const [silentAdd, setSilentAdd] = useState(true);
 
   useEffect(() => {
     setName(counselor.full_name);
-    setEmail(counselor.email ?? "");
+    setEmail(counselor.email ?? counselor.contact_email ?? "");
     setIsActive(counselor.is_active);
     setOfficeIds(
       counselor.office_ids.length > 0
@@ -2782,7 +2896,7 @@ function CounselorStaffListItem({
           ? [counselor.office_id]
           : []
     );
-    setSilentAdd(false);
+    setSilentAdd(true);
   }, [counselor]);
 
   const officeLabels =
@@ -2811,9 +2925,16 @@ function CounselorStaffListItem({
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full min-w-[140px] rounded border border-neutral-300 px-2 py-1 text-sm"
-            placeholder="Login email (optional)"
+            placeholder={
+              counselor.contact_email ? "Referral email on file" : "Login email (optional)"
+            }
             disabled={busy || counselor.has_login}
           />
+          {!counselor.has_login && counselor.contact_email ? (
+            <p className="mt-1 text-xs text-brand-black/55">
+              Referral email: {counselor.contact_email}
+            </p>
+          ) : null}
         </td>
         <td className="px-3 py-3">
           <OfficeCheckboxGroup
@@ -2838,8 +2959,12 @@ function CounselorStaffListItem({
             </label>
           ) : (
             <div className="space-y-2">
-              <span className="text-xs text-brand-black/60">Roster only — add email for login</span>
-              {email.trim() ? (
+              <span className="text-xs text-brand-black/60">
+                {counselor.contact_email
+                  ? "Roster only — enable login from referral email"
+                  : "Roster only — add email for login"}
+              </span>
+              {email.trim() || counselor.contact_email ? (
                 <label className="flex items-start gap-2 text-xs text-brand-black/70">
                   <input
                     type="checkbox"
@@ -2848,7 +2973,7 @@ function CounselorStaffListItem({
                     disabled={busy}
                     className="mt-0.5"
                   />
-                  <span>Activate without sending welcome email</span>
+                  <span>Enable login without sending welcome email</span>
                 </label>
               ) : null}
             </div>
@@ -2862,10 +2987,24 @@ function CounselorStaffListItem({
             onClick={() =>
               void onSave({
                 full_name: name.trim(),
-                ...(email.trim() && !counselor.has_login
-                  ? { email: email.trim(), silent_add: silentAdd }
-                  : {}),
-                ...(counselor.has_login ? { is_active: isActive } : {}),
+                ...(counselor.has_login
+                  ? { is_active: isActive }
+                  : (() => {
+                      if (!email.trim() && !counselor.contact_email) return {};
+                      const referralEmail = counselor.contact_email?.trim().toLowerCase() ?? "";
+                      const loginEmail = email.trim().toLowerCase();
+                      if (
+                        silentAdd &&
+                        referralEmail &&
+                        (!loginEmail || loginEmail === referralEmail)
+                      ) {
+                        return { activate_from_contact_email: true, silent_add: true };
+                      }
+                      if (loginEmail) {
+                        return { email: email.trim(), silent_add: silentAdd };
+                      }
+                      return {};
+                    })()),
                 office_ids: officeIds,
               }).then(() => setEditing(false))
             }
@@ -2902,9 +3041,9 @@ function CounselorStaffListItem({
         {counselor.email ? (
           <p className="text-xs text-brand-black/60">{counselor.email}</p>
         ) : counselor.contact_email ? (
-          <p className="text-xs text-brand-black/60">{counselor.contact_email}</p>
+          <p className="text-xs text-brand-black/60">Referral: {counselor.contact_email}</p>
         ) : (
-          <p className="text-xs text-amber-700">No login linked</p>
+          <p className="text-xs text-amber-700">No email on file</p>
         )}
       </td>
       <td className="px-3 py-3">{officeLabels}</td>
@@ -2939,6 +3078,16 @@ function CounselorStaffListItem({
         )}
       </td>
       <td className="whitespace-nowrap px-3 py-3">
+        {!counselor.has_login && counselor.contact_email && onEnableLogin ? (
+          <button
+            type="button"
+            disabled={busy}
+            className="mr-3 font-medium text-brand-green hover:underline disabled:opacity-60"
+            onClick={() => void onEnableLogin()}
+          >
+            Enable login
+          </button>
+        ) : null}
         {onCombine ? (
           <button
             type="button"
