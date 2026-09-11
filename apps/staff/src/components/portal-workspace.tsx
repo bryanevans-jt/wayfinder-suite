@@ -11,6 +11,7 @@ import {
   AddClientModal,
   type CounselorOption,
 } from "@/app/dashboard/clients/add-client-modal";
+import { AdminContactLogTimeEditModal } from "@/components/admin-contact-log-time-edit-modal";
 import { AdminMessageAuditPanel } from "@/components/admin-message-audit-panel";
 import { ClientDetailDrawer } from "@/components/client-detail-drawer";
 import { ClientImportPanel } from "@/components/client-import-panel";
@@ -137,6 +138,10 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
   const [drawerClient, setDrawerClient] = useState<PortalBootstrap["clients"][number] | null>(
     null
   );
+  const [contactLogTimeEdit, setContactLogTimeEdit] = useState<{
+    id: string;
+    clientLabel: string;
+  } | null>(null);
 
   const canManageOrg = mode !== "supervisor";
   const canEditClients = true;
@@ -2121,30 +2126,57 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                       <td className="px-3 py-2">{officeName(row.office_id)}</td>
                       <td className="px-3 py-2">{row.summary}</td>
                       <td className="px-3 py-2">
-                        {canDeleteContactLogs && row.kind === "contact" ? (
-                          <button
-                            type="button"
-                            className="text-red-700 hover:underline"
-                            disabled={busy}
-                            onClick={() =>
-                              void run(async () => {
-                                if (
-                                  !confirm(
-                                    "Delete this contact log? Linked service time for this entry will also be removed. This is recorded in the change log."
-                                  )
-                                ) {
-                                  return;
+                        {row.kind === "contact" && (canEditLogs || canDeleteContactLogs) ? (
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                            {canEditLogs ? (
+                              <button
+                                type="button"
+                                className="text-brand-green hover:underline"
+                                disabled={busy}
+                                onClick={() =>
+                                  setContactLogTimeEdit({
+                                    id: row.id,
+                                    clientLabel:
+                                      row.client_name ??
+                                      clientDisplayName({
+                                        contact_email: row.client_email,
+                                        id: row.client_id,
+                                      }),
+                                  })
                                 }
-                                const res = await fetch(`/api/portal/logs?id=${row.id}`, {
-                                  method: "DELETE",
-                                });
-                                const data = (await res.json()) as { error?: string };
-                                if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
-                              })
-                            }
-                          >
-                            Delete
-                          </button>
+                              >
+                                Edit time
+                              </button>
+                            ) : null}
+                            {canDeleteContactLogs ? (
+                              <button
+                                type="button"
+                                className="text-red-700 hover:underline"
+                                disabled={busy}
+                                onClick={() =>
+                                  void run(async () => {
+                                    if (
+                                      !confirm(
+                                        "Delete this contact log? Linked service time for this entry will also be removed. This is recorded in the change log."
+                                      )
+                                    ) {
+                                      return;
+                                    }
+                                    const res = await fetch(`/api/portal/logs?id=${row.id}`, {
+                                      method: "DELETE",
+                                    });
+                                    const data = (await res.json()) as { error?: string };
+                                    if (!res.ok) {
+                                      throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                                    }
+                                    await reloadLogs();
+                                  })
+                                }
+                              >
+                                Delete
+                              </button>
+                            ) : null}
+                          </div>
                         ) : canRestoreStage ? (
                           <button
                             type="button"
@@ -2185,8 +2217,8 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
           </div>
           <p className="text-xs text-brand-black/60">
             Closed or Dismissed stage events can be restored here
-            {mode === "supervisor" ? " when View archived is on" : ""}. Only super admins
-            can delete contact logs.
+            {mode === "supervisor" ? " when View archived is on" : ""}. Super admins can correct
+            linked service time on contact logs. Admins and supervisors can delete contact logs.
           </p>
         </section>
       ) : nav.primary === "reports" && nav.reports === "messages" && canManageOrg ? (
@@ -2461,6 +2493,15 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               label: clientDisplayName(drawerClient),
             });
           }}
+        />
+      ) : null}
+
+      {contactLogTimeEdit ? (
+        <AdminContactLogTimeEditModal
+          contactLogId={contactLogTimeEdit.id}
+          clientLabel={contactLogTimeEdit.clientLabel}
+          onClose={() => setContactLogTimeEdit(null)}
+          onSaved={() => reloadLogs()}
         />
       ) : null}
 

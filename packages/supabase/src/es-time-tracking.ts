@@ -335,6 +335,64 @@ export async function insertEsTimeEntry(
   throw new Error(lastError ?? "Could not save time entry");
 }
 
+export type UpdateEsTimeEntryInput = {
+  activityTypeId: string;
+  serviceDate: string;
+  durationMinutes: number;
+  startTime?: string | null;
+  endTime?: string | null;
+};
+
+export async function updateEsTimeEntry(
+  supabase: SupabaseClient,
+  entryId: string,
+  input: UpdateEsTimeEntryInput
+): Promise<void> {
+  const activity = await loadActivityTypeById(supabase, input.activityTypeId);
+  if (!activity) {
+    throw new Error("Invalid activity type");
+  }
+
+  const startTime = input.startTime?.trim() || null;
+  const endTime = input.endTime?.trim() || null;
+  if (!startTime && !endTime) {
+    throw new Error("Enter a start time, an end time, or both (duration is always required)");
+  }
+
+  const normalized = normalizeTimeEntryClock({
+    serviceDate: input.serviceDate,
+    durationMinutes: input.durationMinutes,
+    startTime,
+    endTime,
+  });
+  validateDurationMinutes(activity, normalized.durationMinutes);
+
+  const { service_start_at, service_end_at } = resolveServiceTimestamps({
+    serviceDate: input.serviceDate,
+    durationMinutes: normalized.durationMinutes,
+    startTime: normalized.startTime,
+    endTime: normalized.endTime,
+  });
+
+  const serviceDate = localDateStringInTz(new Date(service_start_at), STAFF_CLOCK_TIMEZONE);
+  const flags = computeTimeEntryFlags(serviceDate);
+
+  const patch = {
+    activity_type_id: input.activityTypeId,
+    service_date: serviceDate,
+    duration_minutes: normalized.durationMinutes,
+    service_start_at,
+    service_end_at,
+    flags,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase.from("es_time_entries").update(patch).eq("id", entryId);
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 export function groupActivityTypesByCategory(
   types: ServiceActivityType[]
 ): Map<string, ServiceActivityType[]> {
