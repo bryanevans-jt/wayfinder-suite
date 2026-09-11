@@ -1,4 +1,4 @@
-import { assertPortalMutation, jsonPortalError } from "@/lib/portal-auth";
+import { assertPortalMutation, assertPortalSession, jsonPortalError } from "@/lib/portal-auth";
 import {
   loadContactLogTimeEditPayload,
   loadLinkedTimeEntrySnapshot,
@@ -21,7 +21,7 @@ function snapshotForAudit(entry: ContactLogTimeEntrySnapshot) {
 
 export async function GET(request: NextRequest) {
   try {
-    const { admin } = await assertPortalMutation("super_admin");
+    const { admin } = await assertPortalSession("super_admin");
     const contactLogId = request.nextUrl.searchParams.get("contactLogId")?.trim();
     if (!contactLogId) {
       return Response.json({ error: "contactLogId is required" }, { status: 400 });

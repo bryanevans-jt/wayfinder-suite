@@ -130,6 +130,8 @@ export function AdminContactLogTimeEditModal({
 
         {loading ? (
           <p className="mt-6 text-sm text-brand-black/60">Loading…</p>
+        ) : error ? (
+          <p className="mt-6 text-sm text-red-700">{error}</p>
         ) : !timeEntryId ? (
           <p className="mt-6 text-sm text-brand-black/75">
             This contact log has no linked service time entry to edit.
@@ -158,8 +160,6 @@ export function AdminContactLogTimeEditModal({
             </p>
           </div>
         )}
-
-        {error ? <p className="mt-4 text-sm text-red-700">{error}</p> : null}
 
         <div className="mt-6 flex flex-wrap justify-end gap-2">
           <button

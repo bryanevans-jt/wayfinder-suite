@@ -377,20 +377,34 @@ export async function updateEsTimeEntry(
   const serviceDate = localDateStringInTz(new Date(service_start_at), STAFF_CLOCK_TIMEZONE);
   const flags = computeTimeEntryFlags(serviceDate);
 
-  const patch = {
+  const basePatch = {
     activity_type_id: input.activityTypeId,
     service_date: serviceDate,
     duration_minutes: normalized.durationMinutes,
-    service_start_at,
-    service_end_at,
     flags,
     updated_at: new Date().toISOString(),
   };
 
-  const { error } = await supabase.from("es_time_entries").update(patch).eq("id", entryId);
-  if (error) {
+  const patchWithClock = {
+    ...basePatch,
+    service_start_at,
+    service_end_at,
+  };
+
+  let lastError: string | undefined;
+  for (const patch of [patchWithClock, basePatch]) {
+    const { error } = await supabase.from("es_time_entries").update(patch).eq("id", entryId);
+    if (!error) {
+      return;
+    }
+    lastError = error.message;
+    if (isMissingSchemaError(error.message)) {
+      continue;
+    }
     throw new Error(error.message);
   }
+
+  throw new Error(lastError ?? "Could not update time entry");
 }
 
 export function groupActivityTypesByCategory(
