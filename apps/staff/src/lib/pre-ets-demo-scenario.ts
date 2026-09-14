@@ -41,9 +41,11 @@ export type PreEtsDemoRole = "supervisor" | "accounts" | "field";
 
 export function demoPanelHint(role: PreEtsDemoRole, step: number): string {
   if (role === "supervisor") {
-    if (step <= 1) return "Worksheets tab — upload CSV (planning). Auto-commit creates pending rosters.";
-    if (step >= 5) return "Re-upload same month with additional schools; existing Valdosta roster is merged, not duplicated.";
-    return "Authorizations tab — pending Valdosta/Lowndes visible; Schedule and Assignments unchanged.";
+    if (step <= 1)
+      return "Worksheets — upload planning CSV (sample below). Schools & groups shows Valdosta pending authorization.";
+    if (step >= 5)
+      return "Re-upload same month with Lowndes; Valdosta is not duplicated; pipeline adds Lowndes as pending.";
+    return "Schools & groups + Rosters — track Valdosta/Lowndes status for your region.";
   }
   if (role === "accounts") {
     if (step <= 2) return "Notification bell + Rosters & auths → Pending → Enter authorization.";
