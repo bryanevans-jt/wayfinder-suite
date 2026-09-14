@@ -92,7 +92,7 @@ export const ANALYTICS_METRIC_DEFINITIONS = {
 export const SOFT_ACTIVE_CASELOAD_GUIDANCE = 20;
 
 export const CLOSED_STAGE_PATTERN =
-  /^(closed(\s+successfully)?|dismissed|services\s+interrupted)$/i;
+  /^(closed(\s+successfully)?|complete|dismissed|services\s+interrupted)$/i;
 
 export const INTAKE_STAGE_PATTERN = /intake|phase\s*1/i;
 

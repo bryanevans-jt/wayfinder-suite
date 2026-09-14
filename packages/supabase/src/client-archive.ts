@@ -1,6 +1,6 @@
 /** Terminal stages that schedule archive and leave ES active caseload. */
 export const TERMINAL_STAGE_PATTERN =
-  /^(closed(\s+successfully)?|dismissed|services\s+interrupted)$/i;
+  /^(closed(\s+successfully)?|complete|dismissed|services\s+interrupted)$/i;
 
 export function isTerminalStageTitle(title: string | null | undefined): boolean {
   return TERMINAL_STAGE_PATTERN.test((title ?? "").trim());

@@ -1,6 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildClientActivityInsertFkIds } from "./client-activity-fk";
 
+/** Active and terminal milestones for Individual Job Placement (display order). */
+export const IJP_CANONICAL_MILESTONE_TITLES = [
+  "Open",
+  "Hired",
+  "Working",
+  "On Hold",
+  "Dismissed",
+  "Complete",
+] as const;
+
 export function isIndividualJobPlacementServiceName(
   serviceName: string | null | undefined
 ): boolean {
@@ -9,7 +19,9 @@ export function isIndividualJobPlacementServiceName(
 
 function isTerminalIjpStageTitle(title: string | null | undefined): boolean {
   const t = (title ?? "").trim().toLowerCase();
-  return /^(closed(\s+successfully)?|dismissed|services\s+interrupted|on hold)$/.test(t);
+  return /^(closed(\s+successfully)?|complete|dismissed|services\s+interrupted|on hold)$/.test(
+    t
+  );
 }
 
 async function findMilestoneIdByTitle(
