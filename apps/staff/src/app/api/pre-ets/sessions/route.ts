@@ -6,6 +6,10 @@ import {
   resolveCoInstructorForSchool,
   resolvePrimaryInstructorForSchool,
 } from "@wayfinder/supabase/pre-ets-staff-assignments";
+import {
+  filterSessionsForFieldGate,
+  preEtsFieldReleaseGateApplies,
+} from "@/lib/pre-ets-field-gate";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
@@ -23,7 +27,7 @@ export async function GET(request: Request) {
     let query = admin
       .from("pre_ets_sessions")
       .select(
-        "id, session_date, start_time, end_time, status, instructor_name, primary_instructor_user_id, co_instructor_user_id, authorization_id, school_id, signed_roster_drive_file_id, signed_roster_drive_file_name, signed_roster_uploaded_at, documentation_completed_at, pre_ets_schools(name), pre_ets_authorizations(auth_number, service_code, service_label), pre_ets_activity_reports(status)"
+        "id, session_date, start_time, end_time, status, instructor_name, primary_instructor_user_id, co_instructor_user_id, authorization_id, school_id, signed_roster_drive_file_id, signed_roster_drive_file_name, signed_roster_uploaded_at, documentation_completed_at, pre_ets_schools(name), pre_ets_authorizations(auth_number, auth_type, service_code, service_label), pre_ets_activity_reports(status)"
       )
       .order("session_date", { ascending: true })
       .limit(200);
@@ -44,7 +48,10 @@ export async function GET(request: Request) {
       });
     }
 
-    return NextResponse.json({ sessions: data ?? [] });
+    const gate = preEtsFieldReleaseGateApplies(auth.role, auth.settings);
+    const sessions = filterSessionsForFieldGate(data ?? [], gate);
+
+    return NextResponse.json({ sessions });
   } catch (err) {
     return respondWithLoggedError("staff", route, err, {
       userId: auth.userId,

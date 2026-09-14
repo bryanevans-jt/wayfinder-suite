@@ -42,6 +42,8 @@ type SchoolNameWarning = {
 
 export function PreEtsWorksheetPanel() {
   const [imports, setImports] = useState<ImportRow[]>([]);
+  const [panelRole, setPanelRole] = useState<"supervisor" | "accounts">("supervisor");
+  const [isSuperAdminUploader, setIsSuperAdminUploader] = useState(false);
   const [preview, setPreview] = useState<{
     importId: string;
     parsed: ParsedDistrictWorksheet;
@@ -51,11 +53,26 @@ export function PreEtsWorksheetPanel() {
   const [ytdWarnings, setYtdWarnings] = useState<YtdWarning[]>([]);
   const [authMatchStats, setAuthMatchStats] = useState<AuthMatchStats | null>(null);
   const [schoolNameWarnings, setSchoolNameWarnings] = useState<SchoolNameWarning[]>([]);
+  const [schoolGroupLabels, setSchoolGroupLabels] = useState<string[]>([]);
+
+  const isSupervisorMode = panelRole === "supervisor";
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/pre-ets/worksheets");
-    const data = (await res.json()) as { imports?: ImportRow[] };
-    if (res.ok) setImports(data.imports ?? []);
+    const [sheetRes, accessRes] = await Promise.all([
+      fetch("/api/pre-ets/worksheets"),
+      fetch("/api/pre-ets/access"),
+    ]);
+    const data = (await sheetRes.json()) as { imports?: ImportRow[]; role?: "supervisor" | "accounts" };
+    const access = (await accessRes.json()) as {
+      access?: { canManageSettings?: boolean; canUploadPlanningWorksheets?: boolean };
+    };
+    if (sheetRes.ok) {
+      setImports(data.imports ?? []);
+      if (data.role) setPanelRole(data.role);
+    }
+    setIsSuperAdminUploader(
+      Boolean(access.access?.canManageSettings && access.access?.canUploadPlanningWorksheets)
+    );
   }, []);
 
   useEffect(() => {
@@ -65,12 +82,22 @@ export function PreEtsWorksheetPanel() {
   async function onUpload(file: File) {
     setBusy(true);
     setMessage(null);
+    setAuthMatchStats(null);
+    setSchoolGroupLabels([]);
+    setSchoolNameWarnings([]);
     const form = new FormData();
     form.set("file", file);
     const res = await fetch("/api/pre-ets/worksheets", { method: "POST", body: form });
     const data = (await res.json()) as {
       import?: { id: string };
       parsed?: ParsedDistrictWorksheet;
+      committed?: boolean;
+      ytdWarnings?: YtdWarning[];
+      authMatchStats?: AuthMatchStats | null;
+      schoolGroupLabels?: string[];
+      schoolNameWarnings?: SchoolNameWarning[];
+      archivedToDrive?: boolean;
+      archiveError?: string | null;
       error?: string;
     };
     setBusy(false);
@@ -78,6 +105,27 @@ export function PreEtsWorksheetPanel() {
       setMessage(data.error ?? "Upload failed");
       return;
     }
+
+    if (data.committed) {
+      setYtdWarnings(data.ytdWarnings ?? []);
+      setAuthMatchStats(data.authMatchStats ?? null);
+      setSchoolGroupLabels(data.schoolGroupLabels ?? []);
+      setSchoolNameWarnings(data.schoolNameWarnings ?? []);
+      const groups = data.schoolGroupLabels?.length
+        ? ` Authorization requests submitted for ${data.schoolGroupLabels.join(", ")}. Accounts were notified.`
+        : "";
+      setMessage(
+        `Worksheet committed. Pending rosters are ready for authorization numbers.${groups}${
+          (data.ytdWarnings?.length ?? 0) > 0
+            ? ` ${data.ytdWarnings?.length} YTD warning(s) — review below.`
+            : ""
+        }`
+      );
+      setPreview(null);
+      void load();
+      return;
+    }
+
     if (data.import?.id && data.parsed) {
       setPreview({ importId: data.import.id, parsed: data.parsed });
     }
@@ -96,8 +144,6 @@ export function PreEtsWorksheetPanel() {
     });
     const data = (await res.json()) as {
       ok?: boolean;
-      status?: string;
-      districtId?: string;
       ytdWarnings?: YtdWarning[];
       authMatchStats?: AuthMatchStats | null;
       schoolNameWarnings?: SchoolNameWarning[];
@@ -112,7 +158,7 @@ export function PreEtsWorksheetPanel() {
     }
 
     if (action === "approve") {
-      setMessage("Worksheet approved. You can now commit to rosters and authorizations.");
+      setMessage("Worksheet approved. You can commit when ready.");
       setPreview(null);
       void load();
       return;
@@ -147,27 +193,16 @@ export function PreEtsWorksheetPanel() {
     void load();
   }
 
-  async function commitImport(importId: string) {
-    await worksheetAction(importId, "commit");
-  }
-
-  async function approveImport(importId: string) {
-    await worksheetAction(importId, "approve");
-  }
-
-  async function rejectImport(importId: string) {
-    const reason = window.prompt("Rejection reason (required):");
-    if (!reason?.trim()) return;
-    await worksheetAction(importId, "reject", reason.trim());
-  }
-
   return (
     <section className="space-y-6">
       <div>
         <h2 className="text-lg font-semibold text-brand-black">District worksheet import</h2>
         <p className="mt-1 text-sm text-brand-black/65">
-          Upload your monthly district CSV after GVRA authorization numbers are on the worksheet.
-          Rosters and schools carry forward from month to month; the import updates what changed.
+          {isSuperAdminUploader
+            ? "Upload any district planning CSV (no authorization numbers required). Pending rosters commit immediately for the whole district in the file."
+            : isSupervisorMode
+              ? "Upload your monthly district CSV before GVRA authorization numbers are available. Pending rosters are created immediately; you can re-upload the same month to add schools or students."
+              : "Support uploads and review import history. Supervisors normally upload planning worksheets; enter authorization numbers under Rosters & auths when GVRA responds."}
         </p>
       </div>
 
@@ -189,13 +224,18 @@ export function PreEtsWorksheetPanel() {
 
       {message ? <p className="text-sm text-brand-black/70">{message}</p> : null}
 
-      {preview ? (
+      {schoolGroupLabels.length > 0 ? (
+        <p className="text-sm text-brand-black/75">
+          Groups in this upload: {schoolGroupLabels.join(", ")}
+        </p>
+      ) : null}
+
+      {preview && !isSupervisorMode ? (
         <div className="rounded-xl border border-brand-green/30 bg-brand-green/5 p-4">
           <h3 className="font-semibold text-brand-black">Parse preview</h3>
           <p className="mt-1 text-sm text-brand-black/70">
             District {preview.parsed.districtNumber ?? "—"} · {preview.parsed.monthLabel}{" "}
-            {preview.parsed.schoolYear} · {preview.parsed.stats.officeCount} offices ·{" "}
-            {preview.parsed.stats.groupCount} groups · {preview.parsed.stats.studentCount} students
+            {preview.parsed.schoolYear}
           </p>
           {preview.parsed.issues.length > 0 ? (
             <ul className="mt-2 max-h-32 overflow-y-auto text-xs text-amber-900">
@@ -226,17 +266,9 @@ export function PreEtsWorksheetPanel() {
             type="button"
             disabled={busy}
             className="mt-4 rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white"
-            onClick={() => void approveImport(preview.importId)}
+            onClick={() => void worksheetAction(preview.importId, "approve")}
           >
             Approve worksheet
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            className="mt-4 ml-2 rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-800"
-            onClick={() => void rejectImport(preview.importId)}
-          >
-            Reject
           </button>
         </div>
       ) : null}
@@ -273,7 +305,7 @@ export function PreEtsWorksheetPanel() {
               <dd className="font-semibold">{authMatchStats.authorizationsMatched}</dd>
             </div>
             <div>
-              <dt className="text-brand-black/55">New auths created</dt>
+              <dt className="text-brand-black/55">New pending auths</dt>
               <dd className="font-semibold">{authMatchStats.authorizationsCreated}</dd>
             </div>
             <div>
@@ -281,33 +313,20 @@ export function PreEtsWorksheetPanel() {
               <dd className="font-semibold">{authMatchStats.rosterEntriesUpdated}</dd>
             </div>
             <div>
-              <dt className="text-brand-black/55">Pending auths remaining</dt>
+              <dt className="text-brand-black/55">Pending auths remaining (district)</dt>
               <dd className="font-semibold">{authMatchStats.pendingAuthsRemaining}</dd>
             </div>
           </dl>
-          {authMatchStats.unmatchedStudents.length > 0 ? (
-            <ul className="mt-3 max-h-32 overflow-y-auto text-xs text-amber-950">
-              {authMatchStats.unmatchedStudents.map((row) => (
-                <li key={`${row.participantId}-${row.fullName}`}>
-                  {row.fullName} (PID {row.participantId}) — {row.reason}
-                </li>
-              ))}
-            </ul>
-          ) : null}
         </div>
       ) : null}
 
       {ytdWarnings.length > 0 ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">
           <h3 className="font-semibold text-amber-950">YTD unit warnings</h3>
-          <p className="mt-1 text-amber-900/80">
-            These students meet or exceed the configured warning threshold. Import was not blocked.
-          </p>
           <ul className="mt-2 max-h-40 overflow-y-auto text-xs text-amber-950">
             {ytdWarnings.map((w) => (
               <li key={w.participantId}>
-                {w.fullName} (PID {w.participantId}) — current YTD {w.currentYtd}, adding{" "}
-                {w.unitsAdding} (threshold {w.threshold})
+                {w.fullName} (PID {w.participantId})
               </li>
             ))}
           </ul>
@@ -321,15 +340,15 @@ export function PreEtsWorksheetPanel() {
               <th className="px-3 py-2">Uploaded</th>
               <th className="px-3 py-2">File</th>
               <th className="px-3 py-2">Month</th>
+              <th className="px-3 py-2">Phase</th>
               <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">Drive</th>
-              <th className="px-3 py-2">Actions</th>
+              {!isSupervisorMode ? <th className="px-3 py-2">Actions</th> : null}
             </tr>
           </thead>
           <tbody>
             {imports.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-brand-black/55">
+                <td colSpan={isSupervisorMode ? 5 : 6} className="px-3 py-6 text-center text-brand-black/55">
                   No worksheet imports yet.
                 </td>
               </tr>
@@ -339,49 +358,30 @@ export function PreEtsWorksheetPanel() {
                   <td className="px-3 py-2">{new Date(row.created_at).toLocaleString()}</td>
                   <td className="px-3 py-2">{row.file_name ?? "—"}</td>
                   <td className="px-3 py-2">{row.service_month?.slice(0, 7)}</td>
+                  <td className="px-3 py-2">{row.phase}</td>
                   <td className="px-3 py-2">{row.status}</td>
-                  <td className="px-3 py-2 text-xs text-brand-black/60">
-                    {row.drive_file_name ?? (row.archived_at ? "archived" : "—")}
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex flex-wrap gap-2 text-xs">
+                  {!isSupervisorMode ? (
+                    <td className="px-3 py-2 text-xs">
                       {row.status === "parsed" ? (
-                        <>
-                          <button
-                            type="button"
-                            className="text-brand-green hover:underline"
-                            disabled={busy}
-                            onClick={() => void approveImport(row.id)}
-                          >
-                            Approve
-                          </button>
-                          <button
-                            type="button"
-                            className="text-red-700 hover:underline"
-                            disabled={busy}
-                            onClick={() => void rejectImport(row.id)}
-                          >
-                            Reject
-                          </button>
-                        </>
+                        <button
+                          type="button"
+                          className="text-brand-green hover:underline"
+                          onClick={() => void worksheetAction(row.id, "approve")}
+                        >
+                          Approve
+                        </button>
                       ) : null}
                       {row.status === "approved" ? (
                         <button
                           type="button"
                           className="text-brand-green hover:underline"
-                          disabled={busy}
-                          onClick={() => void commitImport(row.id)}
+                          onClick={() => void worksheetAction(row.id, "commit")}
                         >
                           Commit
                         </button>
                       ) : null}
-                      {row.status === "rejected" && row.parse_result?._meta?.rejectionReason ? (
-                        <span className="text-brand-black/55">
-                          {row.parse_result._meta.rejectionReason}
-                        </span>
-                      ) : null}
-                    </div>
-                  </td>
+                    </td>
+                  ) : null}
                 </tr>
               ))
             )}

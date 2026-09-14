@@ -1,5 +1,9 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
+import {
+  filterProgramGroupsForFieldGate,
+  preEtsFieldReleaseGateApplies,
+} from "@/lib/pre-ets-field-gate";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
@@ -34,7 +38,10 @@ export async function GET(request: Request) {
       });
     }
 
-    return NextResponse.json({ groups: data ?? [] });
+    const gate = preEtsFieldReleaseGateApplies(auth.role, auth.settings);
+    const groups = filterProgramGroupsForFieldGate(data ?? [], gate);
+
+    return NextResponse.json({ groups });
   } catch (err) {
     return respondWithLoggedError("staff", route, err, {
       userId: auth.userId,
