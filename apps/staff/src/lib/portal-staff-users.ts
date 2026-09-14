@@ -1,5 +1,9 @@
 import type { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { getSupabaseUrl, resolveAuthUserIdByEmail } from "@wayfinder/supabase";
+import {
+  COUNSELOR_NO_REFERRAL_EMAIL_MESSAGE,
+  evaluateCounselorPortalLoginGate,
+} from "@wayfinder/supabase";
 import { counselorLoginNotRegisteredMessage } from "@wayfinder/supabase/error-log";
 
 type AdminClient = ReturnType<typeof createServiceRoleClient>;
@@ -198,16 +202,32 @@ export async function replaceStaffOfficeAssignments(
 async function findCounselorByContactEmail(admin: AdminClient, normalizedEmail: string) {
   const { data: rows, error } = await admin
     .from("counselors")
-    .select("id, full_name, contact_email, user_id")
+    .select("id, full_name, contact_email, user_id, office_id")
     .ilike("contact_email", normalizedEmail);
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return (rows ?? []).find(
+  const exact = (rows ?? []).filter(
     (row) => (row.contact_email as string | null)?.trim().toLowerCase() === normalizedEmail
   );
+  if (exact.length === 0) {
+    return undefined;
+  }
+  if (exact.length === 1) {
+    return exact[0];
+  }
+
+  exact.sort((a, b) => {
+    const aOffice = (a.office_id as string | null) ? 1 : 0;
+    const bOffice = (b.office_id as string | null) ? 1 : 0;
+    if (aOffice !== bOffice) return bOffice - aOffice;
+    const aLogin = (a.user_id as string | null) ? 1 : 0;
+    const bLogin = (b.user_id as string | null) ? 1 : 0;
+    return bLogin - aLogin;
+  });
+  return exact[0];
 }
 
 async function counselorLoginInactiveMessage(
@@ -249,6 +269,19 @@ export async function syncCounselorPortalLoginForEmail(
 
   if (!counselor) {
     return { userId: null, notRegisteredMessage: counselorLoginNotRegisteredMessage() };
+  }
+
+  const referralEmail = (counselor.contact_email as string | null)?.trim().toLowerCase() ?? "";
+  if (!referralEmail.includes("@")) {
+    return { userId: null, notRegisteredMessage: COUNSELOR_NO_REFERRAL_EMAIL_MESSAGE };
+  }
+
+  const gate = await evaluateCounselorPortalLoginGate(admin, counselor.id as string);
+  if (!gate.allowed) {
+    return {
+      userId: null,
+      notRegisteredMessage: gate.message ?? counselorLoginNotRegisteredMessage(),
+    };
   }
 
   let userId = await resolveAuthUserIdByEmail(admin, normalized);

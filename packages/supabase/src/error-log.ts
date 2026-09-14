@@ -488,9 +488,9 @@ export function accountNotSetUpMessage(productName: string): string {
 /** Counselor-specific copy when referral email is not on file or login cannot be enabled. */
 export function counselorLoginNotRegisteredMessage(): string {
   return (
-    "No Wayfinder Pro login is set up for this email yet. Use the agency work email your Joshua Tree specialist registered for you " +
-    "(often your GVRA or Tennessee VR address—not a personal email). If access still fails, ask your Employment Specialist to confirm your " +
-    "referral email under Offices → Counselors and enable counselor login."
+    "No Wayfinder Pro counselor account matches this email yet. Use the same work email you enter on Joshua Tree referrals " +
+    "(often your GVRA or Tennessee VR address—not a personal email). If referrals were submitted under a different address, ask your " +
+    "Employment Specialist to update your referral email under Offices → Counselors and confirm your office is active."
   );
 }
 

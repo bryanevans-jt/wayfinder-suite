@@ -491,9 +491,10 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               <div>
                 <h2 className="text-lg font-semibold text-brand-black">Enable counselor logins</h2>
                 <p className="mt-1 text-sm text-brand-black/70">
-                  Uses each counselor&apos;s referral email (<code className="text-xs">contact_email</code>
-                  ). Creates Wayfinder Pro login access without sending a Supabase welcome email.
-                  Counselors can sign in later with a magic link at the login screen.
+                  Referral emails become counselor login emails once a counselor is on an{" "}
+                  <strong>active</strong> office (not hidden). First magic-link sign-in on Wayfinder
+                  Pro can create access automatically—use bulk enable below to pre-provision an
+                  office roster without waiting for each counselor to sign in.
                 </p>
               </div>
               <div className="flex flex-wrap items-end gap-3">

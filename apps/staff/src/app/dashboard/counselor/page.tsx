@@ -33,14 +33,17 @@ export default async function CounselorPortalPage({
           </p>
           <h1 className="mt-1 text-2xl font-semibold text-brand-green">Setup Needed</h1>
           <p className="mt-3 text-brand-black/85">
-            Your account hasn&apos;t been set up yet. Contact{" "}
+            Your counselor login is not linked yet, or your agency office is not active in
+            Wayfinder Pro. Use the same email you put on Joshua Tree referrals, and ask your
+            administrator to assign you to an active office under Offices → Counselors. Then
+            request a new magic link from Wayfinder Pro. If you still see this screen, contact{" "}
             <a
               href={STAFF_SUPPORT_MAILTO}
               className="font-medium text-brand-green underline underline-offset-2 hover:text-brand-green/80"
             >
               {STAFF_SUPPORT_EMAIL}
-            </a>{" "}
-            for access.
+            </a>
+            .
           </p>
         </header>
       </main>
