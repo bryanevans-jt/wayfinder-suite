@@ -39,9 +39,17 @@ export function PreEtsSetupPanel() {
   const [schemaReady, setSchemaReady] = useState(true);
   const [schemaMessage, setSchemaMessage] = useState<string | null>(null);
   const [schoolYear, setSchoolYear] = useState<string | null>(null);
+  const [canSeedInitial, setCanSeedInitial] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/pre-ets/setup");
+    const [res, accessRes] = await Promise.all([
+      fetch("/api/pre-ets/setup"),
+      fetch("/api/pre-ets/access"),
+    ]);
+    const accessJson = (await accessRes.json()) as {
+      access?: { canManageSettings?: boolean };
+    };
+    setCanSeedInitial(Boolean(accessJson.access?.canManageSettings));
     const data = (await res.json()) as {
       rows?: SetupRow[];
       error?: string;
@@ -183,6 +191,34 @@ export function PreEtsSetupPanel() {
     );
   }
 
+  async function loadInitialRegionalSetup() {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    const res = await fetch("/api/pre-ets/setup/seed-initial", { method: "POST" });
+    const data = (await res.json()) as {
+      imported?: number;
+      errors?: string[];
+      schoolsLinked?: number;
+      assignmentsApplied?: number;
+      error?: string;
+    };
+    setBusy(false);
+    if (!res.ok) {
+      setError(data.error ?? "Could not load initial regional setup.");
+      return;
+    }
+    setMessage(
+      `Loaded ${data.imported ?? 0} school row(s) from your regional chat setup.` +
+        (data.errors?.length ? ` ${data.errors.length} row(s) skipped.` : "") +
+        (data.schoolsLinked ? ` Linked ${data.schoolsLinked} school(s).` : "") +
+        (data.assignmentsApplied
+          ? ` Synced ${data.assignmentsApplied} staff assignment(s) where Wayfinder profiles matched.`
+          : "")
+    );
+    void load();
+  }
+
   return (
     <section className="space-y-6">
       <div>
@@ -209,8 +245,28 @@ export function PreEtsSetupPanel() {
 
       {schemaReady && rows.length === 0 && !error ? (
         <p className="text-sm text-brand-black/60">
-          No class setup rows yet. Add schools below or paste a CSV bulk import.
+          No class setup rows yet. Add schools below, paste a CSV bulk import, or (Super Admin)
+          load the 78-school regional list Bryan pasted in chat.
         </p>
+      ) : null}
+
+      {canSeedInitial && schemaReady ? (
+        <div className="rounded-xl border border-brand-green/30 bg-brand-green/5 p-4 text-sm">
+          <p className="font-semibold text-brand-black">Initial regional setup (from chat)</p>
+          <p className="mt-1 text-brand-black/65">
+            Loads Ashley Kelley, Rachel Spinn, and Victoria Beil regions with all Transition
+            Specialist school lists (78 rows). Safe to run again — matching schools update in place.
+            District numbers are blank until you add GVRA district IDs in Class setup.
+          </p>
+          <button
+            type="button"
+            disabled={busy}
+            className="mt-3 rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white"
+            onClick={() => void loadInitialRegionalSetup()}
+          >
+            {busy ? "Loading…" : "Load initial regional setup"}
+          </button>
+        </div>
       ) : null}
 
       {error ? (
