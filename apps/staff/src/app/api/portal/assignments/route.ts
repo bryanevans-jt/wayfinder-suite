@@ -45,7 +45,7 @@ async function assertSupervisedEsTarget(
     return "That specialist account was not found.";
   }
   if (!isCaseloadAssigneeRole(profile.role as string)) {
-    return "Caseload can only be assigned to an Employment Specialist or supervisor.";
+    return "Caseload can only be assigned to an Employment Specialist, Transition Specialist, or supervisor.";
   }
   if (profile.is_active === false) {
     return "That specialist account is inactive.";
@@ -69,7 +69,7 @@ async function assertEsClientMutationAllowed(
 
   if (!esUserAllowedForSupervisor(scope, esUserId)) {
     return Response.json(
-      { error: "That Employment Specialist is outside your supervisor scope." },
+      { error: "That team member is outside your supervisor scope." },
       { status: 403 }
     );
   }

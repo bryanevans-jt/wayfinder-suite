@@ -91,10 +91,10 @@ async function resolveEsUserId(
       .eq("id", userId)
       .maybeSingle();
     if (!profile) {
-      return "That Employment Specialist account was not found.";
+      return "That caseload assignee account was not found.";
     }
     if (!isCaseloadAssigneeRole(profile.role as string)) {
-      return "Caseload can only be assigned to an Employment Specialist or supervisor.";
+      return "Caseload can only be assigned to an Employment Specialist, Transition Specialist, or supervisor.";
     }
     return null;
   }
@@ -113,7 +113,7 @@ async function resolveEsUserId(
         ? await esUserAllowedForSupervisorClient(admin, scope, resolved, clientId)
         : esUserAllowedForSupervisor(scope, resolved);
       if (!allowed) {
-        return { error: "That Employment Specialist is outside your supervisor scope." };
+        return { error: "That team member is outside your supervisor scope." };
       }
     }
     return { esUserId: resolved };
@@ -130,7 +130,7 @@ async function resolveEsUserId(
         ? await esUserAllowedForSupervisorClient(admin, scope, id, clientId)
         : esUserAllowedForSupervisor(scope, id);
       if (!allowed) {
-        return { error: "That Employment Specialist is outside your supervisor scope." };
+        return { error: "That team member is outside your supervisor scope." };
       }
     }
     return { esUserId: id };
