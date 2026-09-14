@@ -93,7 +93,7 @@ export function ClientDetailDrawer({
             serviceSelectOptions
           )
         : [],
-    [serviceCatalog, client, selectedOffice?.state]
+    [serviceCatalog, client, selectedOffice?.state, serviceSelectOptions]
   );
 
   const serviceOptions = useMemo(() => flattenServiceGroups(serviceGroups), [serviceGroups]);

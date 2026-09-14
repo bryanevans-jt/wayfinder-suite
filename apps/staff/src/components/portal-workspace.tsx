@@ -61,6 +61,7 @@ import {
   CLIENT_PIPELINE_WHERE_LABELS,
   type ClientPipelineWhere,
 } from "@/lib/client-pipeline-where";
+import { portalServiceSelectOptions } from "@/lib/service-offerings";
 
 type PortalMode = "super_admin" | "admin" | "supervisor";
 
@@ -1147,10 +1148,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               open={addClientOpen}
               onClose={() => setAddClientOpen(false)}
               serviceCatalog={b.serviceCatalog}
-              serviceSelectOptions={{
-                includeCustomizedSupportedEmployment:
-                  b.customizedSupportedEmploymentEnabled,
-              }}
+              serviceSelectOptions={portalServiceSelectOptions(b)}
               offices={b.offices.map((o) => ({
                 id: o.id,
                 name: o.name,
@@ -2438,10 +2436,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
           })()}
           counselors={portalCounselors}
           serviceCatalog={b.serviceCatalog}
-          serviceSelectOptions={{
-            includeCustomizedSupportedEmployment:
-              b.customizedSupportedEmploymentEnabled,
-          }}
+          serviceSelectOptions={portalServiceSelectOptions(b)}
           serviceMilestones={b.serviceMilestones}
           busy={busy}
           allowDelete={canDeleteClients}

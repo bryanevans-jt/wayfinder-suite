@@ -24,7 +24,7 @@ export function filterGaReferralServiceLabels(
   return labels.filter((label) => {
     const n = label.toLowerCase();
     if (n.includes("traditional supported employment") || n === "supported employment") {
-      return toggles.traditionalSupportedEmploymentEnabled;
+      return true;
     }
     if (n.includes("job coaching")) {
       return toggles.jobCoachingEnabled;

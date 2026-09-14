@@ -36,3 +36,17 @@ export function toServiceSelectOptions(
     celebrationAnniversaryTemplate: "",
   });
 }
+
+/** Service picker flags for supervisor/admin portal (add client + client drawer). */
+export function portalServiceSelectOptions(
+  bootstrap: Pick<
+    ServiceOfferings,
+    "customizedSupportedEmploymentEnabled" | "jobCoachingEnabled"
+  >
+): ServiceSelectOptions {
+  return toServiceSelectOptions({
+    customizedSupportedEmploymentEnabled: bootstrap.customizedSupportedEmploymentEnabled,
+    traditionalSupportedEmploymentEnabled: true,
+    jobCoachingEnabled: bootstrap.jobCoachingEnabled,
+  });
+}

@@ -51,7 +51,8 @@ export async function loadServiceOfferings(admin: SupabaseClient) {
 export function toServiceSelectOptions(toggles: FeatureToggles): ServiceSelectOptions {
   return {
     includeCustomizedSupportedEmployment: toggles.customizedSupportedEmploymentEnabled,
-    includeTraditionalSupportedEmployment: toggles.traditionalSupportedEmploymentEnabled,
+    /** Core GA offering — always in staff service pickers (supervisor portal, clients, referrals). */
+    includeTraditionalSupportedEmployment: true,
     includeJobCoaching: toggles.jobCoachingEnabled,
   };
 }

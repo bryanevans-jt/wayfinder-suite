@@ -68,6 +68,7 @@ export type PortalBootstrap = {
   /** Raw service rows (for edit dropdowns — includes legacy ids). */
   serviceCatalog: { id: string; name: string; state?: string | null }[];
   customizedSupportedEmploymentEnabled: boolean;
+  jobCoachingEnabled: boolean;
   serviceMilestones: {
     id: string;
     service_id: string;
@@ -538,6 +539,7 @@ export async function loadPortalBootstrap(
     })),
     customizedSupportedEmploymentEnabled:
       serviceOfferings.customizedSupportedEmploymentEnabled,
+    jobCoachingEnabled: serviceOfferings.jobCoachingEnabled,
     serviceMilestones: milestones
       .filter((m) => servicesRaw.some((s) => s.id === m.service_id))
       .map((m) => ({
