@@ -52,6 +52,22 @@ export function PreEtsProcessDemo() {
           >
             Download sample planning CSV
           </a>
+          {" · "}
+          <Link
+            href="/dashboard/pre-ets/demo/field-delivery"
+            className="font-semibold text-brand-green hover:underline"
+          >
+            TS/TI roster &amp; CAR walkthrough
+          </Link>
+          {" · "}
+          <Link
+            href="/walkthrough/pre-ets/field-delivery"
+            className="font-semibold text-brand-green hover:underline"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Shareable link (no login)
+          </Link>
         </p>
       </header>
 

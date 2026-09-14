@@ -331,7 +331,7 @@ export function PreEtsDemoSessionsPanel({ step }: { step: number }) {
 
   return panelShell(
     "Sessions & reports",
-    "Schedule Pre-ETS sessions and upload signed rosters / CARs after delivery.",
+    "Schedule Pre-ETS sessions and upload signed rosters / CARs after delivery. For the full interactive TS/TI screen, open the roster & CAR walkthrough from the demo header.",
     <>
       <div className="overflow-x-auto rounded-lg border border-neutral-100">
         <table className="min-w-full text-left text-sm">

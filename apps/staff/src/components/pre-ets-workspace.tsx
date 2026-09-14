@@ -135,12 +135,27 @@ export function PreEtsWorkspace() {
           School year <strong>{settings?.school_year ?? "—"}</strong>. Supervisors upload planning
           worksheets; Accounts enter authorization numbers; TS/TI work released rosters only.
         </p>
-        {access.canManageSettings || access.canAccounts || access.canSupervise ? (
+        {access.canManageSettings || access.canAccounts || access.canSupervise || access.canDeliver ? (
           <p className="mt-2 text-sm">
             <Link href="/dashboard/pre-ets/demo" className="font-semibold text-brand-green hover:underline">
               Process demo
             </Link>{" "}
-            — walkthrough for Supervisors, Accounts, and TS/TI.
+            — authorization upload through field release.{" "}
+            <Link
+              href="/dashboard/pre-ets/demo/field-delivery"
+              className="font-semibold text-brand-green hover:underline"
+            >
+              TS/TI roster &amp; CAR walkthrough
+            </Link>{" "}
+            — print roster, Activity Plan, signatures, and submit CAR.{" "}
+            <Link
+              href="/walkthrough/pre-ets/field-delivery"
+              className="font-semibold text-brand-green hover:underline"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Shareable training link
+            </Link>
           </p>
         ) : null}
         {access.canManageSettings ? (
