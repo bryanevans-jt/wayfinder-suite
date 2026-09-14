@@ -21,6 +21,7 @@ export * from "./client-portal-data";
 export * from "./client-success-path";
 export * from "./auth-client-row";
 export * from "./link-client-auth";
+export * from "./ijp-stages";
 export * from "./business-hours";
 export * from "./meeting-ics";
 export * from "./natural-support-invite";

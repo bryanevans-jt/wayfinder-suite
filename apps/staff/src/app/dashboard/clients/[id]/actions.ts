@@ -18,6 +18,7 @@ import { assertStaffClientWriteAccess } from "@/lib/es-client-access";
 import { saveClientContactLog } from "@/lib/save-client-contact-log";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { processEmploymentCelebration } from "@wayfinder/supabase/employment-celebrations";
+import { advanceIjpClientToWorkingAfterHire } from "@wayfinder/supabase";
 import { clientDisplayName } from "@wayfinder/branding";
 import { isTerminalStageTitle } from "@wayfinder/supabase/client-archive";
 
@@ -245,6 +246,14 @@ export async function addClientApplication(
       employer_id: normalizedEmployerId,
     });
 
+    if (normalized.toLowerCase() === "hired") {
+      try {
+        await advanceIjpClientToWorkingAfterHire(admin, clientId);
+      } catch (err) {
+        console.error("IJP Working stage advance failed:", err);
+      }
+    }
+
     revalidateClientPaths(clientId);
     return { ok: true };
   } catch (err) {
@@ -290,6 +299,14 @@ export async function updateClientApplication(
 
   if (error) {
     throw new Error(error.message);
+  }
+
+  if (normalized.toLowerCase() === "hired") {
+    try {
+      await advanceIjpClientToWorkingAfterHire(admin, clientId);
+    } catch (err) {
+      console.error("IJP Working stage advance failed:", err);
+    }
   }
 
   revalidateClientPaths(clientId);
@@ -359,6 +376,12 @@ export async function setClientJobStartDate(
       );
     } catch (err) {
       console.error("hire celebration failed:", err);
+    }
+
+    try {
+      await advanceIjpClientToWorkingAfterHire(admin, clientId);
+    } catch (err) {
+      console.error("IJP Working stage advance failed:", err);
     }
 
     revalidateClientPaths(clientId);
