@@ -19,6 +19,13 @@ export function worksheetUploadBypassesDistrictScope(role: string | null | undef
   return isSuperAdminRole(r) || isAccountantRole(r);
 }
 
+/** May upload district CSV (planning or support import). */
+export function canUploadPreEtsWorksheets(role: string | null | undefined): boolean {
+  const r = normalizeRole(role);
+  if (isSuperAdminRole(r)) return true;
+  return usesPreEtsPlanningWorksheetUpload(r) || isAccountantRole(r);
+}
+
 async function loadDistrictsForSchoolIds(
   admin: SupabaseClient,
   schoolIds: string[]
@@ -158,11 +165,12 @@ export async function assertPlanningWorksheetDistrictAllowed(
   return { ok: true };
 }
 
-/** Planning upload + auto-commit (supervisor or regional admin). */
+/** Planning upload + auto-commit (Super Admin, supervisor, or regional admin). */
 export function usesPreEtsPlanningWorksheetUpload(role: string | null | undefined): boolean {
   const r = normalizeRole(role);
+  if (isSuperAdminRole(r)) return true;
   if (isAccountantRole(r) && !isAdminRole(r) && !isSupervisorRole(r)) {
     return false;
   }
-  return isSupervisorRole(r) || isAdminRole(r) || isSuperAdminRole(r);
+  return isSupervisorRole(r) || isAdminRole(r);
 }

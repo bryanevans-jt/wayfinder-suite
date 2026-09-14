@@ -9,7 +9,10 @@ import {
   canViewPreEtsHr,
   loadPreEtsSettings,
 } from "@wayfinder/supabase/pre-ets-settings";
-import { usesPreEtsPlanningWorksheetUpload } from "@wayfinder/supabase/pre-ets-upload-scope";
+import {
+  canUploadPreEtsWorksheets,
+  usesPreEtsPlanningWorksheetUpload,
+} from "@wayfinder/supabase/pre-ets-upload-scope";
 import { isAdminRole, isSuperAdminRole } from "@wayfinder/supabase/roles";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { NextResponse } from "next/server";
@@ -40,8 +43,7 @@ export async function GET() {
       canSupervise,
       canDeliver: canDeliverPreEtsSessions(role, settings),
       canViewHr: canViewPreEtsHr(role, settings),
-      canUploadPlanningWorksheets:
-        usesPreEtsPlanningWorksheetUpload(role) || canSupervise,
+      canUploadPlanningWorksheets: canUploadPreEtsWorksheets(role),
       canFinalizeAuthorizations: canAccounts,
       canViewPipeline:
         isSuperAdminRole(role) ||

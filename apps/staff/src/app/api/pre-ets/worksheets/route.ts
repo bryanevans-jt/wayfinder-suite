@@ -8,10 +8,11 @@ import {
 } from "@wayfinder/supabase/pre-ets-settings";
 import {
   assertPlanningWorksheetDistrictAllowed,
+  canUploadPreEtsWorksheets,
   usesPreEtsPlanningWorksheetUpload,
   worksheetUploadBypassesDistrictScope,
 } from "@wayfinder/supabase/pre-ets-upload-scope";
-import { isAccountantRole, isAdminRole } from "@wayfinder/supabase/roles";
+import { isAccountantRole, isAdminRole, isSuperAdminRole } from "@wayfinder/supabase/roles";
 import { commitWorksheetImport } from "@wayfinder/supabase/pre-ets-worksheet-import";
 import { parseDistrictWorksheet } from "@wayfinder/supabase/pre-ets-worksheet-parser";
 import { archiveWorksheetImportToDrive } from "@/lib/pre-ets-worksheet-archive";
@@ -23,11 +24,12 @@ export async function POST(request: Request) {
   const auth = await requirePreEtsApi("access");
   if (isPreEtsApiError(auth)) return auth;
 
-  const isSupervisor = canSupervisePreEts(auth.role, auth.settings);
-  const isAccounts = canAccessPreEtsAccounts(auth.role, auth.settings);
-  if (!isSupervisor && !isAccounts) {
+  if (!canUploadPreEtsWorksheets(auth.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  const isSupervisor = canSupervisePreEts(auth.role, auth.settings);
+  const isAccounts = canAccessPreEtsAccounts(auth.role, auth.settings);
 
   try {
     const form = await request.formData();
@@ -54,7 +56,9 @@ export async function POST(request: Request) {
       isAccountantRole(auth.role) &&
       !isAdminRole(auth.role) &&
       !isSupervisor;
-    const usesPlanning = !accountantOnly && usesPreEtsPlanningWorksheetUpload(auth.role);
+    const usesPlanning =
+      isSuperAdminRole(auth.role) ||
+      (!accountantOnly && usesPreEtsPlanningWorksheetUpload(auth.role));
 
     if (usesPlanning && !worksheetUploadBypassesDistrictScope(auth.role)) {
       const allowed = await assertPlanningWorksheetDistrictAllowed(
@@ -142,12 +146,12 @@ export async function GET() {
   const auth = await requirePreEtsApi("access");
   if (isPreEtsApiError(auth)) return auth;
 
-  const isSupervisor = canSupervisePreEts(auth.role, auth.settings);
-  const isAccounts = canAccessPreEtsAccounts(auth.role, auth.settings);
-  if (!isSupervisor && !isAccounts) {
+  if (!canUploadPreEtsWorksheets(auth.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const isSupervisor = canSupervisePreEts(auth.role, auth.settings);
+  const isAccounts = canAccessPreEtsAccounts(auth.role, auth.settings);
   const accountantOnly =
     isAccountantRole(auth.role) && !isAdminRole(auth.role) && !isSupervisor;
 
@@ -174,9 +178,13 @@ export async function GET() {
       });
     }
 
+    const planningUploader =
+      isSuperAdminRole(auth.role) ||
+      (!accountantOnly && usesPreEtsPlanningWorksheetUpload(auth.role));
+
     return NextResponse.json({
       imports: data ?? [],
-      role: accountantOnly ? "accounts" : "supervisor",
+      role: planningUploader ? "supervisor" : "accounts",
     });
   } catch (err) {
     return respondWithLoggedError("staff", route, err, {

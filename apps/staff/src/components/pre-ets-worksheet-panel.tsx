@@ -36,6 +36,7 @@ type AuthMatchStats = {
 export function PreEtsWorksheetPanel() {
   const [imports, setImports] = useState<ImportRow[]>([]);
   const [panelRole, setPanelRole] = useState<"supervisor" | "accounts">("supervisor");
+  const [isSuperAdminUploader, setIsSuperAdminUploader] = useState(false);
   const [preview, setPreview] = useState<{
     importId: string;
     parsed: ParsedDistrictWorksheet;
@@ -49,12 +50,21 @@ export function PreEtsWorksheetPanel() {
   const isSupervisorMode = panelRole === "supervisor";
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/pre-ets/worksheets");
-    const data = (await res.json()) as { imports?: ImportRow[]; role?: "supervisor" | "accounts" };
-    if (res.ok) {
+    const [sheetRes, accessRes] = await Promise.all([
+      fetch("/api/pre-ets/worksheets"),
+      fetch("/api/pre-ets/access"),
+    ]);
+    const data = (await sheetRes.json()) as { imports?: ImportRow[]; role?: "supervisor" | "accounts" };
+    const access = (await accessRes.json()) as {
+      access?: { canManageSettings?: boolean; canUploadPlanningWorksheets?: boolean };
+    };
+    if (sheetRes.ok) {
       setImports(data.imports ?? []);
       if (data.role) setPanelRole(data.role);
     }
+    setIsSuperAdminUploader(
+      Boolean(access.access?.canManageSettings && access.access?.canUploadPlanningWorksheets)
+    );
   }, []);
 
   useEffect(() => {
@@ -160,9 +170,11 @@ export function PreEtsWorksheetPanel() {
       <div>
         <h2 className="text-lg font-semibold text-brand-black">District worksheet import</h2>
         <p className="mt-1 text-sm text-brand-black/65">
-          {isSupervisorMode
-            ? "Upload your monthly district CSV before GVRA authorization numbers are available. Pending rosters are created immediately; you can re-upload the same month to add schools or students."
-            : "Support uploads and review import history. Supervisors normally upload planning worksheets; enter authorization numbers under Rosters & auths when GVRA responds."}
+          {isSuperAdminUploader
+            ? "Upload any district planning CSV (no authorization numbers required). Pending rosters commit immediately for the whole district in the file."
+            : isSupervisorMode
+              ? "Upload your monthly district CSV before GVRA authorization numbers are available. Pending rosters are created immediately; you can re-upload the same month to add schools or students."
+              : "Support uploads and review import history. Supervisors normally upload planning worksheets; enter authorization numbers under Rosters & auths when GVRA responds."}
         </p>
       </div>
 
