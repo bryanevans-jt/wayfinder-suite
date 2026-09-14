@@ -4,6 +4,7 @@ import {
   COUNSELOR_NO_REFERRAL_EMAIL_MESSAGE,
   evaluateCounselorPortalLoginGate,
 } from "@wayfinder/supabase";
+import { findExactNormalizedCounselor } from "@wayfinder/supabase/counselor-dedupe";
 import { counselorLoginNotRegisteredMessage } from "@wayfinder/supabase/error-log";
 
 type AdminClient = ReturnType<typeof createServiceRoleClient>;
@@ -199,35 +200,138 @@ export async function replaceStaffOfficeAssignments(
   if (insertErr) throw new Error(insertErr.message);
 }
 
-async function findCounselorByContactEmail(admin: AdminClient, normalizedEmail: string) {
+type CounselorLoginRow = {
+  id: string;
+  full_name: string;
+  contact_email: string | null;
+  user_id: string | null;
+  office_id: string | null;
+};
+
+const COUNSELOR_LOGIN_SELECT = "id, full_name, contact_email, user_id, office_id";
+
+async function listCounselorsByContactEmail(
+  admin: AdminClient,
+  normalizedEmail: string
+): Promise<CounselorLoginRow[]> {
   const { data: rows, error } = await admin
     .from("counselors")
-    .select("id, full_name, contact_email, user_id, office_id")
+    .select(COUNSELOR_LOGIN_SELECT)
     .ilike("contact_email", normalizedEmail);
 
   if (error) {
     throw new Error(error.message);
   }
 
-  const exact = (rows ?? []).filter(
-    (row) => (row.contact_email as string | null)?.trim().toLowerCase() === normalizedEmail
-  );
-  if (exact.length === 0) {
-    return undefined;
-  }
-  if (exact.length === 1) {
-    return exact[0];
+  return (rows ?? [])
+    .filter(
+      (row) => (row.contact_email as string | null)?.trim().toLowerCase() === normalizedEmail
+    )
+    .map((row) => ({
+      id: row.id as string,
+      full_name: row.full_name as string,
+      contact_email: (row.contact_email as string | null) ?? null,
+      user_id: (row.user_id as string | null) ?? null,
+      office_id: (row.office_id as string | null) ?? null,
+    }));
+}
+
+async function pickCounselorWithActiveOffice(
+  admin: AdminClient,
+  candidates: CounselorLoginRow[]
+): Promise<CounselorLoginRow | undefined> {
+  if (candidates.length === 0) return undefined;
+
+  for (const row of candidates) {
+    const gate = await evaluateCounselorPortalLoginGate(admin, row.id);
+    if (gate.allowed) return row;
   }
 
-  exact.sort((a, b) => {
-    const aOffice = (a.office_id as string | null) ? 1 : 0;
-    const bOffice = (b.office_id as string | null) ? 1 : 0;
+  return [...candidates].sort((a, b) => {
+    const aOffice = a.office_id ? 1 : 0;
+    const bOffice = b.office_id ? 1 : 0;
     if (aOffice !== bOffice) return bOffice - aOffice;
-    const aLogin = (a.user_id as string | null) ? 1 : 0;
-    const bLogin = (b.user_id as string | null) ? 1 : 0;
+    const aLogin = a.user_id ? 1 : 0;
+    const bLogin = b.user_id ? 1 : 0;
     return bLogin - aLogin;
-  });
-  return exact[0];
+  })[0];
+}
+
+/**
+ * Referrals may create one counselor row (email) while Portal assigns another (office).
+ * Prefer the row that can actually sign in (active office, e.g. Valdosta).
+ */
+async function reconcileDuplicateCounselorForLogin(
+  admin: AdminClient,
+  emailRow: CounselorLoginRow,
+  normalizedEmail: string
+): Promise<CounselorLoginRow> {
+  const emailGate = await evaluateCounselorPortalLoginGate(admin, emailRow.id);
+  if (emailGate.allowed) {
+    return emailRow;
+  }
+
+  const dupes = await findExactNormalizedCounselor(admin, emailRow.full_name);
+  for (const other of dupes) {
+    if (other.id === emailRow.id) continue;
+    const gate = await evaluateCounselorPortalLoginGate(admin, other.id);
+    if (!gate.allowed) continue;
+
+    const otherEmail = (other.contact_email ?? "").trim().toLowerCase();
+    if (!otherEmail) {
+      await admin.from("counselors").update({ contact_email: normalizedEmail }).eq("id", other.id);
+    }
+
+    return {
+      id: other.id,
+      full_name: other.full_name,
+      contact_email: otherEmail || normalizedEmail,
+      user_id: other.user_id,
+      office_id: other.office_id,
+    };
+  }
+
+  return emailRow;
+}
+
+async function findCounselorForLoginEmail(
+  admin: AdminClient,
+  normalizedEmail: string
+): Promise<CounselorLoginRow | undefined> {
+  const byEmail = await listCounselorsByContactEmail(admin, normalizedEmail);
+
+  if (byEmail.length > 0) {
+    const reconciled = await Promise.all(
+      byEmail.map((row) => reconcileDuplicateCounselorForLogin(admin, row, normalizedEmail))
+    );
+    const unique = new Map(reconciled.map((row) => [row.id, row]));
+    return pickCounselorWithActiveOffice(admin, [...unique.values()]);
+  }
+
+  const authUserId = await resolveAuthUserIdByEmail(admin, normalizedEmail);
+  if (!authUserId) {
+    return undefined;
+  }
+
+  const { data: byUserId } = await admin
+    .from("counselors")
+    .select(COUNSELOR_LOGIN_SELECT)
+    .eq("user_id", authUserId)
+    .maybeSingle();
+
+  if (!byUserId?.id) {
+    return undefined;
+  }
+
+  const row: CounselorLoginRow = {
+    id: byUserId.id as string,
+    full_name: byUserId.full_name as string,
+    contact_email: (byUserId.contact_email as string | null) ?? null,
+    user_id: (byUserId.user_id as string | null) ?? null,
+    office_id: (byUserId.office_id as string | null) ?? null,
+  };
+
+  return reconcileDuplicateCounselorForLogin(admin, row, normalizedEmail);
 }
 
 async function counselorLoginInactiveMessage(
@@ -261,7 +365,7 @@ export async function syncCounselorPortalLoginForEmail(
 
   let counselor;
   try {
-    counselor = await findCounselorByContactEmail(admin, normalized);
+    counselor = await findCounselorForLoginEmail(admin, normalized);
   } catch (err) {
     console.error("syncCounselorPortalLoginForEmail counselors lookup:", err);
     return { userId: null };
