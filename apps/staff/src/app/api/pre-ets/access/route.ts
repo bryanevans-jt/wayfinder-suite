@@ -3,6 +3,7 @@ import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import {
   canAccessPreEts,
   canAccessPreEtsAccounts,
+  canEditPreEtsAuthorizationServiceCode,
   canDeliverPreEtsSessions,
   canManagePreEtsSettings,
   canManagePreEtsSetup,
@@ -47,6 +48,7 @@ export async function GET() {
       canViewHr: canViewPreEtsHr(role, settings),
       canUploadPlanningWorksheets: canUploadPreEtsWorksheets(role),
       canFinalizeAuthorizations: canAccounts,
+      canEditAuthorizationServiceCode: canEditPreEtsAuthorizationServiceCode(role, settings),
       canViewPipeline:
         isSuperAdminRole(role) ||
         isAdminRole(role) ||

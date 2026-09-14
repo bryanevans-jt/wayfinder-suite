@@ -239,6 +239,14 @@ export function canAccessPreEts(
   return enabled.map(normalizeRole).includes(r);
 }
 
+/** GVRA service code on an authorization roster — Accounts, Admin, Super Admin only. */
+export function canEditPreEtsAuthorizationServiceCode(
+  role: string | null | undefined,
+  settings?: Pick<PreEtsSettingsRow, "module_enabled" | "enabled_roles"> | null
+): boolean {
+  return canAccessPreEtsAccounts(role, settings);
+}
+
 /** Accounts Specialist billing/import functions — also granted to admin and super_admin. */
 export function canAccessPreEtsAccounts(
   role: string | null | undefined,

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { PreEtsStudentRosterSignatures } from "@/components/pre-ets-student-roster-signatures";
+import { PreEtsServiceCodeDisplay } from "@/components/pre-ets-service-code-display";
 import { SignaturePad } from "@/components/signature-pad";
 
 type Session = {
@@ -412,6 +413,14 @@ export function PreEtsSessionsPanel() {
               </h3>
               <p className="mt-1 text-xs text-brand-black/60">
                 Auth {selected.pre_ets_authorizations?.auth_number ?? "—"} · {selected.status}
+              </p>
+              <p className="mt-2 text-sm">
+                <span className="font-medium text-brand-black/70">Service code: </span>
+                <PreEtsServiceCodeDisplay
+                  code={selected.pre_ets_authorizations?.service_code}
+                  label={selected.pre_ets_authorizations?.service_label}
+                  prominent
+                />
               </p>
 
               <div className="mt-4 flex flex-wrap gap-2">

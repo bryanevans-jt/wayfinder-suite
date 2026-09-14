@@ -1,6 +1,7 @@
 "use client";
 
 import { PreEtsAuthorizationFinalizeModal } from "@/components/pre-ets-authorization-finalize-modal";
+import { PreEtsServiceCodeDisplay } from "@/components/pre-ets-service-code-display";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type PipelineStatus =
@@ -65,6 +66,7 @@ export function PreEtsPipelinePanel() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [canFinalize, setCanFinalize] = useState(false);
+  const [canEditServiceCode, setCanEditServiceCode] = useState(false);
   const [editTarget, setEditTarget] = useState<PipelineRow | null>(null);
   const [finalizeTarget, setFinalizeTarget] = useState<PipelineRow | null>(null);
 
@@ -80,8 +82,13 @@ export function PreEtsPipelinePanel() {
   useEffect(() => {
     void (async () => {
       const res = await fetch("/api/pre-ets/access");
-      const data = (await res.json()) as { access?: { canFinalizeAuthorizations?: boolean } };
-      if (res.ok) setCanFinalize(data.access?.canFinalizeAuthorizations ?? false);
+      const data = (await res.json()) as {
+        access?: { canFinalizeAuthorizations?: boolean; canEditAuthorizationServiceCode?: boolean };
+      };
+      if (res.ok) {
+        setCanFinalize(data.access?.canFinalizeAuthorizations ?? false);
+        setCanEditServiceCode(data.access?.canEditAuthorizationServiceCode ?? false);
+      }
     })();
   }, []);
 
@@ -193,6 +200,7 @@ export function PreEtsPipelinePanel() {
               <th className="px-3 py-2">School / group</th>
               <th className="px-3 py-2">Students</th>
               <th className="px-3 py-2">Auth #</th>
+              <th className="px-3 py-2">Service code</th>
               <th className="px-3 py-2">Instructor</th>
               <th className="px-3 py-2">Actions</th>
             </tr>
@@ -200,7 +208,7 @@ export function PreEtsPipelinePanel() {
           <tbody>
             {!loading && rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-3 py-8 text-center text-brand-black/55">
+                <td colSpan={7} className="px-3 py-8 text-center text-brand-black/55">
                   No rows on this page.
                 </td>
               </tr>
@@ -222,6 +230,9 @@ export function PreEtsPipelinePanel() {
                   </td>
                   <td className="px-3 py-2">{row.studentCount}</td>
                   <td className="px-3 py-2 font-mono text-xs">{row.authNumber ?? "—"}</td>
+                  <td className="px-3 py-2">
+                    <PreEtsServiceCodeDisplay code={row.serviceCode} />
+                  </td>
                   <td className="px-3 py-2 text-xs text-brand-black/75">
                     {row.instructorName ?? "—"}
                     {row.classTime ? ` · ${row.classTime}` : ""}
@@ -298,6 +309,7 @@ export function PreEtsPipelinePanel() {
           mode="edit"
           authorizationId={editTarget.authorizationId}
           schoolLabel={`${editTarget.groupName}${editTarget.groupName !== editTarget.schoolName ? ` · ${editTarget.schoolName}` : ""}`}
+          canEditServiceCode={canEditServiceCode}
           onClose={() => setEditTarget(null)}
           onSaved={() => void load()}
         />
@@ -307,6 +319,7 @@ export function PreEtsPipelinePanel() {
         <PreEtsAuthorizationFinalizeModal
           authorizationId={finalizeTarget.authorizationId}
           schoolLabel={`${finalizeTarget.groupName}${finalizeTarget.groupName !== finalizeTarget.schoolName ? ` · ${finalizeTarget.schoolName}` : ""}`}
+          canEditServiceCode={canEditServiceCode}
           onClose={() => setFinalizeTarget(null)}
           onSaved={() => void load()}
         />

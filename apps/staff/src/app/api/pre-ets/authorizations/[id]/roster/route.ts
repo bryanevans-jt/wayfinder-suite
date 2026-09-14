@@ -21,10 +21,25 @@ export async function GET(
 
   try {
     const admin = createServiceRoleClient();
+    const { data: authRow } = await admin
+      .from("pre_ets_authorizations")
+      .select(
+        "auth_number, auth_type, service_code, service_label, service_month, pre_ets_schools(name), pre_ets_program_groups(group_name)"
+      )
+      .eq("id", id)
+      .maybeSingle();
+
+    const school = relationOne(
+      authRow?.pre_ets_schools as { name: string } | { name: string }[] | null
+    );
+    const group = relationOne(
+      authRow?.pre_ets_program_groups as { group_name: string } | { group_name: string }[] | null
+    );
+
     const { data, error } = await admin
       .from("pre_ets_roster_entries")
       .select(
-        "id, units_approved, list_order, class_time, pre_ets_students(participant_id, full_name), pre_ets_authorizations(auth_number, auth_type)"
+        "id, units_approved, list_order, class_time, pre_ets_students(participant_id, full_name)"
       )
       .eq("authorization_id", id)
       .eq("not_approved", false)
@@ -53,7 +68,20 @@ export async function GET(
       };
     });
 
-    return NextResponse.json({ roster });
+    return NextResponse.json({
+      roster,
+      authorization: authRow
+        ? {
+            authNumber: (authRow.auth_number as string | null) ?? null,
+            authType: authRow.auth_type as string,
+            serviceCode: (authRow.service_code as string) ?? "",
+            serviceLabel: (authRow.service_label as string | null) ?? null,
+            serviceMonth: (authRow.service_month as string) ?? null,
+            schoolName: school?.name ?? null,
+            groupName: group?.group_name ?? null,
+          }
+        : null,
+    });
   } catch (err) {
     return respondWithLoggedError("staff", route, err, {
       userId: auth.userId,

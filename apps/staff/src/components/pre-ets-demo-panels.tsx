@@ -191,6 +191,7 @@ export function PreEtsDemoAuthorizationsPanel({
               <th className="px-3 py-2">Auth #</th>
               <th className="px-3 py-2">Type</th>
               <th className="px-3 py-2">School / Group</th>
+              <th className="px-3 py-2">Service code</th>
               <th className="px-3 py-2">Instructor</th>
               <th className="px-3 py-2">Month</th>
               <th className="px-3 py-2">Actions</th>
@@ -199,7 +200,7 @@ export function PreEtsDemoAuthorizationsPanel({
           <tbody>
             {auths.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-brand-black/55">
+                <td colSpan={7} className="px-3 py-6 text-center text-brand-black/55">
                   No released rosters at this training step.
                 </td>
               </tr>
@@ -211,6 +212,15 @@ export function PreEtsDemoAuthorizationsPanel({
                     <td className="px-3 py-2 capitalize">{a.auth_type}</td>
                     <td className="px-3 py-2">
                       {a.school_name} · {a.group_name}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-xs font-semibold">
+                      {a.service_code}
+                      {a.service_label ? (
+                        <span className="font-sans font-normal text-brand-black/60">
+                          {" "}
+                          ({a.service_label})
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-3 py-2 text-xs">{a.instructor_name}</td>
                     <td className="px-3 py-2">{a.service_month.slice(0, 7)}</td>
@@ -241,7 +251,12 @@ export function PreEtsDemoAuthorizationsPanel({
                   </tr>
                   {expandedId === a.id ? (
                     <tr className="bg-neutral-50/80">
-                      <td colSpan={6} className="px-3 py-3">
+                      <td colSpan={7} className="px-3 py-3">
+                        <p className="mb-2 text-xs">
+                          <span className="font-semibold">Service code: </span>
+                          <span className="font-mono font-bold">{a.service_code}</span>
+                          {a.service_label ? ` (${a.service_label})` : ""}
+                        </p>
                         <ul className="space-y-1 text-xs">
                           {(snapshot.rosters[a.id] ?? []).map((r) => (
                             <li key={r.id}>

@@ -17,6 +17,8 @@ export async function POST(
   try {
     const body = (await request.json()) as {
       authNumber?: string;
+      serviceCode?: string;
+      serviceLabel?: string | null;
       roster?: Array<{
         participantId?: string;
         fullName?: string;
@@ -38,6 +40,8 @@ export async function POST(
         listOrder: row.listOrder ?? index + 1,
         classTime: row.classTime ?? null,
       })),
+      serviceCode: body.serviceCode,
+      serviceLabel: body.serviceLabel,
     });
 
     if (!result.ok) {

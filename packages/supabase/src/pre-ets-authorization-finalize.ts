@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   classifyPreEtsAuthorizationType,
   loadPreEtsSettings,
+  resolvePreEtsServiceLabel,
   sanitizePreEtsServiceCodeText,
 } from "./pre-ets-settings";
 import { notifyPreEtsRosterReleased } from "./pre-ets-roster-released-notify";
@@ -35,6 +36,8 @@ export async function finalizePreEtsAuthorization(
     actorUserId: string;
     authNumber: string;
     roster: FinalizeRosterStudentInput[];
+    serviceCode?: string;
+    serviceLabel?: string | null;
   }
 ): Promise<FinalizeAuthorizationResult> {
   const authNumber = input.authNumber.trim();
@@ -73,6 +76,18 @@ export async function finalizePreEtsAuthorization(
   }
 
   const settings = await loadPreEtsSettings(admin);
+  const serviceCode = sanitizePreEtsServiceCodeText(
+    input.serviceCode?.trim() || (authRow.service_code as string) || "UNKNOWN"
+  );
+  const serviceLabel =
+    input.serviceLabel !== undefined && input.serviceLabel !== null
+      ? input.serviceLabel.trim() || null
+      : resolvePreEtsServiceLabel(
+          serviceCode,
+          (authRow.service_label as string | null) ?? null,
+          settings
+        );
+
   const authType = classifyPreEtsAuthorizationType(authNumber, settings.group_auth_digit_count);
   if (authType === "unknown") {
     return { ok: false, error: "Authorization number format is not recognized as group or individual." };
@@ -92,8 +107,6 @@ export async function finalizePreEtsAuthorization(
   const ytdWarnings: PreEtsYtdWarning[] = [];
   const warnedParticipants = new Set<string>();
   const keptStudentIds = new Set<string>();
-
-  const serviceCode = sanitizePreEtsServiceCodeText((authRow.service_code as string) || "UNKNOWN");
 
   for (let i = 0; i < input.roster.length; i++) {
     const row = input.roster[i]!;
@@ -190,6 +203,7 @@ export async function finalizePreEtsAuthorization(
       auth_number: authNumber,
       auth_type: authType,
       service_code: serviceCode,
+      service_label: serviceLabel,
     })
     .eq("id", input.authorizationId);
 

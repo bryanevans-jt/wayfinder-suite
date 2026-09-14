@@ -1,5 +1,7 @@
 "use client";
 
+import { PreEtsServiceCodeDisplay } from "@/components/pre-ets-service-code-display";
+import type { PreEtsServiceCodeRow } from "@wayfinder/supabase/pre-ets-settings";
 import { useEffect, useState } from "react";
 
 type RosterRow = {
@@ -12,6 +14,7 @@ type Props = {
   authorizationId: string;
   schoolLabel: string;
   mode?: "finalize" | "edit";
+  canEditServiceCode?: boolean;
   onClose: () => void;
   onSaved: () => void;
 };
@@ -20,11 +23,15 @@ export function PreEtsAuthorizationFinalizeModal({
   authorizationId,
   schoolLabel,
   mode = "finalize",
+  canEditServiceCode = false,
   onClose,
   onSaved,
 }: Props) {
   const isEdit = mode === "edit";
   const [authNumber, setAuthNumber] = useState("");
+  const [serviceCode, setServiceCode] = useState("");
+  const [serviceLabel, setServiceLabel] = useState<string | null>(null);
+  const [serviceCodeOptions, setServiceCodeOptions] = useState<PreEtsServiceCodeRow[]>([]);
   const [rows, setRows] = useState<RosterRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -35,21 +42,30 @@ export function PreEtsAuthorizationFinalizeModal({
     void (async () => {
       setLoading(true);
       setError(null);
-      const res = await fetch(`/api/pre-ets/authorizations/${authorizationId}/roster`);
-      const data = (await res.json()) as {
+      const [rosterRes, accessRes] = await Promise.all([
+        fetch(`/api/pre-ets/authorizations/${authorizationId}/roster`),
+        canEditServiceCode ? fetch("/api/pre-ets/access") : Promise.resolve(null),
+      ]);
+      const data = (await rosterRes.json()) as {
         roster?: Array<{
           participantId: string | null;
           fullName: string | null;
           unitsApproved: number | null;
         }>;
+        authorization?: {
+          serviceCode: string;
+          serviceLabel: string | null;
+        } | null;
         error?: string;
       };
       if (cancelled) return;
-      if (!res.ok) {
+      if (!rosterRes.ok) {
         setError(data.error ?? "Could not load roster");
         setLoading(false);
         return;
       }
+      setServiceCode(data.authorization?.serviceCode ?? "");
+      setServiceLabel(data.authorization?.serviceLabel ?? null);
       setRows(
         (data.roster ?? []).map((r) => ({
           participantId: r.participantId ?? "",
@@ -57,12 +73,18 @@ export function PreEtsAuthorizationFinalizeModal({
           unitsApproved: r.unitsApproved ?? 0,
         }))
       );
+      if (accessRes?.ok) {
+        const accessData = (await accessRes.json()) as {
+          settings?: { service_codes?: PreEtsServiceCodeRow[] };
+        };
+        setServiceCodeOptions(accessData.settings?.service_codes ?? []);
+      }
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [authorizationId]);
+  }, [authorizationId, canEditServiceCode]);
 
   function updateRow(index: number, patch: Partial<RosterRow>) {
     setRows((current) =>
@@ -84,6 +106,24 @@ export function PreEtsAuthorizationFinalizeModal({
   async function save() {
     setSaving(true);
     setError(null);
+
+    if (canEditServiceCode && serviceCode.trim()) {
+      const codeRes = await fetch(`/api/pre-ets/authorizations/${authorizationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ serviceCode: serviceCode.trim(), serviceLabel }),
+      });
+      const codeData = (await codeRes.json()) as { error?: string; serviceLabel?: string | null };
+      if (!codeRes.ok) {
+        setSaving(false);
+        setError(codeData.error ?? "Could not update service code.");
+        return;
+      }
+      if (codeData.serviceLabel !== undefined) {
+        setServiceLabel(codeData.serviceLabel ?? null);
+      }
+    }
+
     const res = await fetch(
       isEdit
         ? `/api/pre-ets/authorizations/${authorizationId}/roster`
@@ -91,7 +131,17 @@ export function PreEtsAuthorizationFinalizeModal({
       {
         method: isEdit ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(isEdit ? { roster: rows } : { authNumber, roster: rows }),
+        body: JSON.stringify(
+          isEdit
+            ? { roster: rows }
+            : {
+                authNumber,
+                roster: rows,
+                ...(canEditServiceCode && serviceCode.trim()
+                  ? { serviceCode: serviceCode.trim(), serviceLabel }
+                  : {}),
+              }
+        ),
       }
     );
     const data = (await res.json()) as { error?: string; ytdWarnings?: unknown[] };
@@ -116,6 +166,49 @@ export function PreEtsAuthorizationFinalizeModal({
             ? "Update students imported from the spreadsheet. Changes apply to the pending authorization only."
             : "Add or remove students as needed. Saving finalizes this roster and notifies the assigned TS/TI and supervisor that it is ready."}
         </p>
+
+        <div className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm">
+          <span className="font-medium text-brand-black">Service code</span>
+          {canEditServiceCode ? (
+            serviceCodeOptions.length > 0 ? (
+              <select
+                className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2 font-mono text-sm"
+                value={serviceCode}
+                disabled={saving || loading}
+                onChange={(e) => {
+                  const code = e.target.value;
+                  setServiceCode(code);
+                  const match = serviceCodeOptions.find((row) => row.code === code);
+                  setServiceLabel(match?.description ?? match?.service ?? null);
+                }}
+              >
+                <option value="">Select code…</option>
+                {serviceCodeOptions.map((row) => (
+                  <option key={row.code} value={row.code}>
+                    {row.code}
+                    {row.description ? ` — ${row.description}` : row.service ? ` — ${row.service}` : ""}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2 font-mono text-sm"
+                value={serviceCode}
+                disabled={saving || loading}
+                onChange={(e) => setServiceCode(e.target.value)}
+              />
+            )
+          ) : (
+            <p className="mt-1">
+              <PreEtsServiceCodeDisplay code={serviceCode} label={serviceLabel} prominent />
+            </p>
+          )}
+          {!canEditServiceCode ? (
+            <p className="mt-1 text-xs text-brand-black/55">
+              Only Accounts Specialist, Admin, or Super Admin can change the service code.
+            </p>
+          ) : null}
+        </div>
 
         {!isEdit ? (
           <label className="mt-4 block text-sm">

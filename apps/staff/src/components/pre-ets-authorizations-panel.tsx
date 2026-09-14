@@ -1,6 +1,7 @@
 "use client";
 
 import { PreEtsAuthorizationFinalizeModal } from "@/components/pre-ets-authorization-finalize-modal";
+import { PreEtsServiceCodeDisplay } from "@/components/pre-ets-service-code-display";
 import { Fragment, useCallback, useEffect, useState } from "react";
 
 type Authorization = {
@@ -38,6 +39,7 @@ export function PreEtsAuthorizationsPanel() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [roster, setRoster] = useState<RosterRow[]>([]);
   const [canFinalize, setCanFinalize] = useState(false);
+  const [canEditServiceCode, setCanEditServiceCode] = useState(false);
   const [finalizeTarget, setFinalizeTarget] = useState<Authorization | null>(null);
 
   useEffect(() => {
@@ -53,8 +55,13 @@ export function PreEtsAuthorizationsPanel() {
   useEffect(() => {
     void (async () => {
       const res = await fetch("/api/pre-ets/access");
-      const data = (await res.json()) as { access?: { canFinalizeAuthorizations?: boolean } };
-      if (res.ok) setCanFinalize(data.access?.canFinalizeAuthorizations ?? false);
+      const data = (await res.json()) as {
+        access?: { canFinalizeAuthorizations?: boolean; canEditAuthorizationServiceCode?: boolean };
+      };
+      if (res.ok) {
+        setCanFinalize(data.access?.canFinalizeAuthorizations ?? false);
+        setCanEditServiceCode(data.access?.canEditAuthorizationServiceCode ?? false);
+      }
     })();
   }, []);
 
@@ -135,7 +142,7 @@ export function PreEtsAuthorizationsPanel() {
               <th className="px-3 py-2">Auth #</th>
               <th className="px-3 py-2">Type</th>
               <th className="px-3 py-2">School / Group</th>
-              <th className="px-3 py-2">Service</th>
+              <th className="px-3 py-2">Service code</th>
               <th className="px-3 py-2">Month</th>
               <th className="px-3 py-2">Actions</th>
             </tr>
@@ -160,8 +167,7 @@ export function PreEtsAuthorizationsPanel() {
                         : ""}
                     </td>
                     <td className="px-3 py-2">
-                      {a.service_code}
-                      {a.service_label ? ` (${a.service_label})` : ""}
+                      <PreEtsServiceCodeDisplay code={a.service_code} label={a.service_label} />
                     </td>
                     <td className="px-3 py-2">{a.service_month?.slice(0, 7)}</td>
                     <td className="px-3 py-2">
@@ -198,6 +204,14 @@ export function PreEtsAuthorizationsPanel() {
                   {expandedId === a.id ? (
                     <tr className="border-t border-neutral-50 bg-neutral-50/50">
                       <td colSpan={6} className="px-3 py-3">
+                        <p className="mb-2 text-xs text-brand-black/80">
+                          <span className="font-semibold">Service code for this roster: </span>
+                          <PreEtsServiceCodeDisplay
+                            code={a.service_code}
+                            label={a.service_label}
+                            prominent
+                          />
+                        </p>
                         <ul className="space-y-1 text-xs text-brand-black/75">
                           {roster.length === 0 ? (
                             <li>No roster students on file.</li>
@@ -228,6 +242,7 @@ export function PreEtsAuthorizationsPanel() {
               ? ` · ${finalizeTarget.pre_ets_program_groups.group_name}`
               : ""
           }`}
+          canEditServiceCode={canEditServiceCode}
           onClose={() => setFinalizeTarget(null)}
           onSaved={() => void load()}
         />

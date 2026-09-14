@@ -5,6 +5,7 @@ import {
   PreEtsDemoRosterPrintSheet,
 } from "@/components/pre-ets-demo-print-sheets";
 import { SignaturePad } from "@/components/signature-pad";
+import { PreEtsServiceCodeDisplay } from "@/components/pre-ets-service-code-display";
 import {
   FIELD_DEMO_AUTH,
   FIELD_DEMO_CAR_QUESTIONS,
@@ -325,6 +326,14 @@ export function PreEtsFieldDeliveryDemo({ variant = "dashboard" }: Props) {
                 {FIELD_DEMO_AUTH.classTime}
               </p>
               <p className="mt-2 text-brand-black/60">Instructor: {FIELD_DEMO_AUTH.instructorName}</p>
+              <p className="mt-2 text-sm">
+                <span className="font-medium">Service code: </span>
+                <PreEtsServiceCodeDisplay
+                  code={FIELD_DEMO_AUTH.serviceCode}
+                  label={FIELD_DEMO_AUTH.serviceLabel}
+                  prominent
+                />
+              </p>
               <table className="mt-4 w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-neutral-200">
@@ -382,6 +391,14 @@ export function PreEtsFieldDeliveryDemo({ variant = "dashboard" }: Props) {
                 </h3>
                 <p className="mt-1 text-xs text-brand-black/60">
                   Auth {FIELD_DEMO_SESSION.authNumber} · scheduled
+                </p>
+                <p className="mt-2 text-sm">
+                  <span className="font-medium text-brand-black/70">Service code: </span>
+                  <PreEtsServiceCodeDisplay
+                    code={FIELD_DEMO_SESSION.serviceCode}
+                    label={FIELD_DEMO_SESSION.serviceLabel}
+                    prominent
+                  />
                 </p>
 
                 <div className="mt-4 flex flex-wrap gap-2">
