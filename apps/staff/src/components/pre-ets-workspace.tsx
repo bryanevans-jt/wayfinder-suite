@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { PreEtsMyCompliancePanel } from "@/components/pre-ets-my-compliance-panel";
 import { PreEtsAssignmentsPanel } from "@/components/pre-ets-assignments-panel";
 import { PreEtsAuthorizationsPanel } from "@/components/pre-ets-authorizations-panel";
@@ -11,10 +12,12 @@ import { PreEtsInvoicePanel } from "@/components/pre-ets-invoice-panel";
 import { PreEtsSchedulePanel } from "@/components/pre-ets-schedule-panel";
 import { PreEtsSearchPanel } from "@/components/pre-ets-search-panel";
 import { PreEtsSessionsPanel } from "@/components/pre-ets-sessions-panel";
+import { PreEtsPipelinePanel } from "@/components/pre-ets-pipeline-panel";
 import { PreEtsWorksheetPanel } from "@/components/pre-ets-worksheet-panel";
 
 type Tab =
   | "worksheets"
+  | "pipeline"
   | "authorizations"
   | "schedule"
   | "sessions"
@@ -33,6 +36,9 @@ type AccessPayload = {
     canSupervise: boolean;
     canDeliver: boolean;
     canViewHr: boolean;
+    canUploadPlanningWorksheets?: boolean;
+    canFinalizeAuthorizations?: boolean;
+    canViewPipeline?: boolean;
   };
   settings?: {
     school_year: string;
@@ -43,9 +49,23 @@ type AccessPayload = {
 };
 
 export function PreEtsWorkspace() {
+  const searchParams = useSearchParams();
   const [data, setData] = useState<AccessPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("worksheets");
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (
+      tabParam === "worksheets" ||
+      tabParam === "pipeline" ||
+      tabParam === "authorizations" ||
+      tabParam === "schedule" ||
+      tabParam === "sessions"
+    ) {
+      setTab(tabParam);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     void (async () => {
@@ -84,7 +104,12 @@ export function PreEtsWorkspace() {
 
   const tabs: { id: Tab; label: string; show: boolean }[] = [
     { id: "hr", label: "HR overview", show: access.canViewHr },
-    { id: "worksheets", label: "Worksheets", show: access.canAccounts },
+    { id: "worksheets", label: "Worksheets", show: access.canUploadPlanningWorksheets ?? access.canAccounts },
+    {
+      id: "pipeline",
+      label: "Schools & groups",
+      show: (access.canViewPipeline ?? false) && !isHrOnly,
+    },
     { id: "authorizations", label: "Rosters & auths", show: access.canAccess && !isHrOnly },
     { id: "schedule", label: "Schedule", show: access.canSupervise },
     { id: "assignments", label: "Assignments", show: access.canSupervise },
@@ -103,9 +128,17 @@ export function PreEtsWorkspace() {
         </p>
         <h1 className="mt-1 text-2xl font-bold text-brand-black">Pre-ETS</h1>
         <p className="mt-2 max-w-2xl text-sm text-brand-black/70">
-          School year <strong>{settings?.school_year ?? "—"}</strong>. Upload district worksheets,
-          manage rosters and authorizations, schedule sessions, and print sign-in rosters.
+          School year <strong>{settings?.school_year ?? "—"}</strong>. Supervisors upload planning
+          worksheets; Accounts enter authorization numbers; TS/TI work released rosters only.
         </p>
+        {access.canManageSettings || access.canAccounts || access.canSupervise ? (
+          <p className="mt-2 text-sm">
+            <Link href="/dashboard/pre-ets/demo" className="font-semibold text-brand-green hover:underline">
+              Process demo
+            </Link>{" "}
+            — walkthrough for Supervisors, Accounts, and TS/TI.
+          </p>
+        ) : null}
         {access.canManageSettings ? (
           <p className="mt-2 text-sm">
             <Link
@@ -139,7 +172,10 @@ export function PreEtsWorkspace() {
       </nav>
 
       {tab === "hr" && access.canViewHr ? <PreEtsHrPanel /> : null}
-      {tab === "worksheets" && access.canAccounts ? <PreEtsWorksheetPanel /> : null}
+      {tab === "worksheets" && (access.canUploadPlanningWorksheets ?? access.canAccounts) ? (
+        <PreEtsWorksheetPanel />
+      ) : null}
+      {tab === "pipeline" && access.canViewPipeline ? <PreEtsPipelinePanel /> : null}
       {tab === "authorizations" ? <PreEtsAuthorizationsPanel /> : null}
       {tab === "schedule" && access.canSupervise ? <PreEtsSchedulePanel /> : null}
       {tab === "assignments" && access.canSupervise ? <PreEtsAssignmentsPanel /> : null}

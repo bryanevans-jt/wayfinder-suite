@@ -1,5 +1,6 @@
 "use client";
 
+import { PreEtsAuthorizationFinalizeModal } from "@/components/pre-ets-authorization-finalize-modal";
 import { Fragment, useCallback, useEffect, useState } from "react";
 
 type Authorization = {
@@ -36,6 +37,26 @@ export function PreEtsAuthorizationsPanel() {
   const [tab, setTab] = useState<AuthTab>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [roster, setRoster] = useState<RosterRow[]>([]);
+  const [canFinalize, setCanFinalize] = useState(false);
+  const [finalizeTarget, setFinalizeTarget] = useState<Authorization | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const authType = params.get("authType");
+    const monthParam = params.get("month");
+    if (authType === "pending" || authType === "group" || authType === "individual") {
+      setTab(authType);
+    }
+    if (monthParam) setMonth(monthParam);
+  }, []);
+
+  useEffect(() => {
+    void (async () => {
+      const res = await fetch("/api/pre-ets/access");
+      const data = (await res.json()) as { access?: { canFinalizeAuthorizations?: boolean } };
+      if (res.ok) setCanFinalize(data.access?.canFinalizeAuthorizations ?? false);
+    })();
+  }, []);
 
   const load = useCallback(async () => {
     const params = new URLSearchParams();
@@ -75,8 +96,8 @@ export function PreEtsAuthorizationsPanel() {
         <div>
           <h2 className="text-lg font-semibold text-brand-black">Authorizations &amp; rosters</h2>
           <p className="mt-1 text-sm text-brand-black/65">
-            Group and individual authorizations from committed worksheets. Print blank rosters for
-            sign-in collection.
+            Pending rosters appear after supervisors upload district worksheets. Enter authorization
+            numbers to release rosters to TS/TI one school at a time.
           </p>
         </div>
         <label className="text-sm">
@@ -152,14 +173,25 @@ export function PreEtsAuthorizationsPanel() {
                         >
                           {expandedId === a.id ? "Hide roster" : "View roster"}
                         </button>
-                        <a
-                          href={`/api/pre-ets/authorizations/${a.id}/roster-pdf`}
-                          className="text-xs text-brand-green hover:underline"
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Print PDF
-                        </a>
+                        {canFinalize && a.auth_type === "pending" && !a.auth_number ? (
+                          <button
+                            type="button"
+                            className="text-xs font-semibold text-brand-gold hover:underline"
+                            onClick={() => setFinalizeTarget(a)}
+                          >
+                            Enter authorization
+                          </button>
+                        ) : null}
+                        {a.auth_number ? (
+                          <a
+                            href={`/api/pre-ets/authorizations/${a.id}/roster-pdf`}
+                            className="text-xs text-brand-green hover:underline"
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Print PDF
+                          </a>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -187,6 +219,19 @@ export function PreEtsAuthorizationsPanel() {
           </tbody>
         </table>
       </div>
+
+      {finalizeTarget ? (
+        <PreEtsAuthorizationFinalizeModal
+          authorizationId={finalizeTarget.id}
+          schoolLabel={`${schoolName(finalizeTarget)}${
+            finalizeTarget.pre_ets_program_groups?.group_name
+              ? ` · ${finalizeTarget.pre_ets_program_groups.group_name}`
+              : ""
+          }`}
+          onClose={() => setFinalizeTarget(null)}
+          onSaved={() => void load()}
+        />
+      ) : null}
     </section>
   );
 }

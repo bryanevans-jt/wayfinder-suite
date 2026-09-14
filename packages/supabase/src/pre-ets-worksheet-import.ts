@@ -22,8 +22,17 @@ export type CommitWorksheetImportResult =
       districtId: string;
       ytdWarnings: PreEtsYtdWarning[];
       authMatchStats: AuthMatchStats;
+      /** School/group names with roster activity in this commit (for Accounts notifications). */
+      schoolGroupLabels: string[];
+      serviceMonth: string;
+      districtNumber: string;
     }
   | { ok: false; error: string };
+
+export type CommitWorksheetImportOptions = {
+  /** Supervisor planning upload: commit from `parsed` without a separate approve step. */
+  allowDirectCommit?: boolean;
+};
 
 async function upsertProgramGroup(
   admin: SupabaseClient,
@@ -183,7 +192,8 @@ export function worksheetRejectionReason(parseResult: unknown): string | null {
 export async function commitWorksheetImport(
   admin: SupabaseClient,
   importId: string,
-  userId: string
+  userId: string,
+  options?: CommitWorksheetImportOptions
 ): Promise<CommitWorksheetImportResult> {
   const { data: imp, error: impErr } = await admin
     .from("pre_ets_worksheet_imports")
@@ -202,8 +212,12 @@ export async function commitWorksheetImport(
     const reason = worksheetRejectionReason(imp.parse_result) ?? "Worksheet was rejected";
     return { ok: false, error: reason };
   }
-  if (imp.status !== "approved") {
+  const allowDirect = options?.allowDirectCommit === true;
+  if (!allowDirect && imp.status !== "approved") {
     return { ok: false, error: "Worksheet must be approved before commit" };
+  }
+  if (allowDirect && imp.status !== "parsed" && imp.status !== "approved") {
+    return { ok: false, error: "Worksheet cannot be committed in its current state" };
   }
 
   const parsed = imp.parse_result as ParsedDistrictWorksheet;
@@ -223,6 +237,7 @@ export async function commitWorksheetImport(
     unmatchedStudents: [],
     pendingAuthsRemaining: 0,
   };
+  const schoolGroupLabels = new Set<string>();
 
   const { data: district, error: distErr } = await admin
     .from("pre_ets_districts")
@@ -290,6 +305,7 @@ export async function commitWorksheetImport(
       if (!programGroupId) continue;
 
       const groupStudents = group.students.filter((s) => !s.notApproved);
+      if (groupStudents.length === 0) continue;
       const byAuth = new Map<string, typeof groupStudents>();
 
       for (const student of groupStudents) {
@@ -411,6 +427,10 @@ export async function commitWorksheetImport(
 
           authMatchStats.rosterEntriesUpdated++;
         }
+
+        if (!first.authNumber) {
+          schoolGroupLabels.add(schoolName);
+        }
       }
     }
   }
@@ -441,5 +461,8 @@ export async function commitWorksheetImport(
     districtId,
     ytdWarnings,
     authMatchStats,
+    schoolGroupLabels: [...schoolGroupLabels],
+    serviceMonth: parsed.serviceMonth,
+    districtNumber: parsed.districtNumber,
   };
 }

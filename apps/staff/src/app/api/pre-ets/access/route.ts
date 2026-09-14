@@ -9,6 +9,8 @@ import {
   canViewPreEtsHr,
   loadPreEtsSettings,
 } from "@wayfinder/supabase/pre-ets-settings";
+import { usesPreEtsPlanningWorksheetUpload } from "@wayfinder/supabase/pre-ets-upload-scope";
+import { isAdminRole, isSuperAdminRole } from "@wayfinder/supabase/roles";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { NextResponse } from "next/server";
 
@@ -26,15 +28,26 @@ export async function GET() {
     const settings = await loadPreEtsSettings(admin);
     const role = session.effectiveRole;
 
+    const canAccounts = canAccessPreEtsAccounts(role, settings);
+    const canSupervise = canSupervisePreEts(role, settings);
+
     const access = {
       moduleEnabled: settings.module_enabled,
       enabledRoles: settings.enabled_roles,
       canAccess: canAccessPreEts(role, settings),
       canManageSettings: canManagePreEtsSettings(role),
-      canAccounts: canAccessPreEtsAccounts(role, settings),
-      canSupervise: canSupervisePreEts(role, settings),
+      canAccounts,
+      canSupervise,
       canDeliver: canDeliverPreEtsSessions(role, settings),
       canViewHr: canViewPreEtsHr(role, settings),
+      canUploadPlanningWorksheets:
+        usesPreEtsPlanningWorksheetUpload(role) || canSupervise,
+      canFinalizeAuthorizations: canAccounts,
+      canViewPipeline:
+        isSuperAdminRole(role) ||
+        isAdminRole(role) ||
+        canAccounts ||
+        canSupervise,
     };
 
     if (!access.canAccess) {

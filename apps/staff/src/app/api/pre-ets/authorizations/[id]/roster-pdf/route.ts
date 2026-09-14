@@ -1,6 +1,8 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { loadPreEtsSettings } from "@wayfinder/supabase/pre-ets-settings";
+import { isPreEtsAuthorizationReleasedToField } from "@wayfinder/supabase/pre-ets-release";
+import { preEtsFieldReleaseGateApplies } from "@/lib/pre-ets-field-gate";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { buildPreEtsRosterPdf } from "@/lib/pre-ets-roster-export";
 import { NextResponse } from "next/server";
@@ -46,6 +48,15 @@ export async function GET(
     }
 
     const authRow = authorization as AuthRow;
+    if (
+      preEtsFieldReleaseGateApplies(auth.role, auth.settings) &&
+      !isPreEtsAuthorizationReleasedToField(authRow)
+    ) {
+      return NextResponse.json(
+        { error: "This roster is not available until an authorization number is entered." },
+        { status: 403 }
+      );
+    }
     const school = relationOne(authRow.pre_ets_schools);
     const group = relationOne(authRow.pre_ets_program_groups);
 
