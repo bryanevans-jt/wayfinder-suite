@@ -10,6 +10,7 @@ import {
   isTransitionSpecialistRole,
   isWrtAdminRole,
 } from "@wayfinder/supabase/roles";
+import Link from "next/link";
 
 type Section = {
   title: string;
@@ -290,6 +291,7 @@ function sectionsForRole(role: string | null): Section[] {
           "Open Pre-ETS from the sidebar for schools, students, sessions, and worksheets.",
           "Clients, Messages, Time Clock, Timesheet, and Submit Reports work the same as for Employment Specialists on your assigned caseload.",
           "Use Explore Analytics and Download Exports for your own caseload scope.",
+          "Help → Pre-ETS training demos (below) for interactive roster signature and CAR walkthroughs.",
         ],
       });
     }
@@ -442,9 +444,11 @@ function sectionsForRole(role: string | null): Section[] {
 
 type Props = {
   role: string | null;
+  /** Same flag as sidebar Pre-ETS nav — training demo links only when Pre-ETS is visible. */
+  showPreEtsNav?: boolean;
 };
 
-export function WayfinderProHelp({ role }: Props) {
+export function WayfinderProHelp({ role, showPreEtsNav = false }: Props) {
   const sections = sectionsForRole(role);
 
   return (
@@ -471,6 +475,62 @@ export function WayfinderProHelp({ role }: Props) {
           ) : null}
         </section>
       ))}
+
+      {showPreEtsNav ? (
+        <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <h2 className="text-lg font-semibold text-brand-black">Pre-ETS training demos</h2>
+          <p className="mt-2 text-sm text-brand-black/80">
+            Interactive walkthroughs with sample data only — nothing writes to production. Use them to
+            train supervisors, Accounts, Transition Specialists, and Transition Instructors on
+            worksheets, authorization release, in-app student roster signatures, and class activity
+            reports (CAR).
+          </p>
+          <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-brand-black/85">
+            <li>
+              <Link href="/dashboard/pre-ets/demo" className="font-medium text-brand-green hover:underline">
+                Pre-ETS authorization process demo
+              </Link>
+              {" — "}
+              Valdosta/Lowndes sample flow for supervisors, Accounts, and field staff (upload
+              through roster release).
+            </li>
+            <li>
+              <Link
+                href="/dashboard/pre-ets/demo/field-delivery"
+                className="font-medium text-brand-green hover:underline"
+              >
+                TS/TI roster &amp; CAR walkthrough
+              </Link>
+              {" — "}
+              Sessions &amp; reports: collect student signatures on a phone or tablet, save roster to
+              Drive, Activity Plan, and submit CAR (login required).
+            </li>
+            <li>
+              <Link
+                href="/walkthrough/pre-ets/field-delivery"
+                className="font-medium text-brand-green hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Shareable field delivery demo (no login)
+              </Link>
+              {" — "}
+              Same TS/TI roster training for email or conference screens; opens in a new tab.
+            </li>
+            <li>
+              <a
+                href="/demo/pre-ets-sample-planning.csv"
+                className="font-medium text-brand-green hover:underline"
+                download
+              >
+                Download sample planning CSV
+              </a>
+              {" — "}
+              Example district worksheet for supervisor upload training.
+            </li>
+          </ul>
+        </section>
+      ) : null}
 
       {!isSuperAdminRole(role) ? (
         <section className="rounded-xl border border-brand-green/25 bg-brand-green/5 p-5">
