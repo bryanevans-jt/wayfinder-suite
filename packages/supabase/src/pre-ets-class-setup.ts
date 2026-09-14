@@ -1,6 +1,33 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isMissingSchemaError, isMissingTableError } from "./schema-fallback";
 import { loadPreEtsSettings } from "./pre-ets-settings";
 import { expandSchoolAbbreviation, pickBestSchoolNameMatch } from "./pre-ets-school-name-match";
+
+export const PRE_ETS_CLASS_SETUP_MIGRATION = "20260909160000_pre_ets_class_setup.sql";
+
+export const PRE_ETS_CLASS_SETUP_SCHEMA_MESSAGE =
+  "Pre-ETS class setup is not available in the database yet. Apply the Supabase migration " +
+  `${PRE_ETS_CLASS_SETUP_MIGRATION} (or run \`supabase db push\`) and reload this page.`;
+
+let classSetupSchemaAvailable: boolean | null = null;
+
+/** True when pre_ets_class_setup exists. Cached for the process lifetime. */
+export async function isPreEtsClassSetupSchemaAvailable(
+  admin: SupabaseClient
+): Promise<boolean> {
+  if (classSetupSchemaAvailable !== null) {
+    return classSetupSchemaAvailable;
+  }
+
+  const { error } = await admin.from("pre_ets_class_setup").select("id").limit(0);
+  if (error && (isMissingSchemaError(error.message) || isMissingTableError(error.message))) {
+    classSetupSchemaAvailable = false;
+    return false;
+  }
+
+  classSetupSchemaAvailable = !error;
+  return classSetupSchemaAvailable;
+}
 
 export type SchoolNameResolutionWarning = {
   worksheetSchoolName: string;
@@ -103,6 +130,10 @@ export async function listPreEtsClassSetup(
   admin: SupabaseClient,
   schoolYear?: string
 ): Promise<PreEtsClassSetupRow[]> {
+  if (!(await isPreEtsClassSetupSchemaAvailable(admin))) {
+    return [];
+  }
+
   const settings = await loadPreEtsSettings(admin);
   const year = schoolYear?.trim() || settings.school_year;
 
@@ -113,7 +144,7 @@ export async function listPreEtsClassSetup(
     .order("regional_supervisor_name", { ascending: true })
     .order("school_name", { ascending: true });
 
-  if (error) throw error;
+  if (error) throw new Error(error.message);
   return (data ?? []) as PreEtsClassSetupRow[];
 }
 
@@ -122,6 +153,10 @@ export async function upsertPreEtsClassSetupEntry(
   input: ClassSetupInput & { id?: string },
   actorUserId: string
 ): Promise<PreEtsClassSetupRow> {
+  if (!(await isPreEtsClassSetupSchemaAvailable(admin))) {
+    throw new Error(PRE_ETS_CLASS_SETUP_SCHEMA_MESSAGE);
+  }
+
   const settings = await loadPreEtsSettings(admin);
   const schoolName = normalizeSchoolName(input.schoolName);
   if (!schoolName) {
@@ -237,16 +272,20 @@ export async function resolveWorksheetSchoolName(
   const settings = await loadPreEtsSettings(admin);
   const year = input.schoolYear.trim() || settings.school_year;
 
-  let setupQuery = admin
-    .from("pre_ets_class_setup")
-    .select("id, school_name, school_id")
-    .eq("school_year", year);
+  let setupRows: Array<{ id: string; school_name: string; school_id: string | null }> = [];
+  if (await isPreEtsClassSetupSchemaAvailable(admin)) {
+    let setupQuery = admin
+      .from("pre_ets_class_setup")
+      .select("id, school_name, school_id")
+      .eq("school_year", year);
 
-  if (input.districtNumber?.trim()) {
-    setupQuery = setupQuery.eq("district_number", input.districtNumber.trim());
+    if (input.districtNumber?.trim()) {
+      setupQuery = setupQuery.eq("district_number", input.districtNumber.trim());
+    }
+
+    const { data, error } = await setupQuery;
+    if (!error) setupRows = (data ?? []) as typeof setupRows;
   }
-
-  const { data: setupRows } = await setupQuery;
 
   const candidates: Array<{ name: string; source: "setup" | "existing"; id?: string }> = [];
   for (const row of setupRows ?? []) {

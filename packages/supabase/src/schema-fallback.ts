@@ -20,8 +20,9 @@ export function isMissingTableError(message: string): boolean {
   return (
     /relation "public\.service_episodes" does not exist/i.test(message) ||
     /relation "public\.participants" does not exist/i.test(message) ||
+    /relation "public\.pre_ets_class_setup" does not exist/i.test(message) ||
     (/Could not find the table/i.test(message) &&
-      /service_episodes|participants|participant_link_flags/i.test(message))
+      /service_episodes|participants|participant_link_flags|pre_ets_class_setup/i.test(message))
   );
 }
 

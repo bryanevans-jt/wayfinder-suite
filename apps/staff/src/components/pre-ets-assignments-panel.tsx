@@ -39,19 +39,26 @@ export function PreEtsAssignmentsPanel() {
     "primary"
   );
   const [message, setMessage] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    setLoadError(null);
     const [schoolRes, staffRes, assignRes] = await Promise.all([
       fetch("/api/pre-ets/schools"),
       fetch("/api/pre-ets/instructors"),
       fetch("/api/pre-ets/staff-assignments"),
     ]);
-    const schoolData = (await schoolRes.json()) as { schools?: School[] };
-    const staffData = (await staffRes.json()) as { staff?: Staff[] };
-    const assignData = (await assignRes.json()) as { assignments?: Assignment[] };
+    const schoolData = (await schoolRes.json()) as { schools?: School[]; error?: string };
+    const staffData = (await staffRes.json()) as { staff?: Staff[]; error?: string };
+    const assignData = (await assignRes.json()) as { assignments?: Assignment[]; error?: string };
+    const errors: string[] = [];
     if (schoolRes.ok) setSchools(schoolData.schools ?? []);
+    else errors.push(schoolData.error ?? "Could not load Pre-ETS schools.");
     if (staffRes.ok) setStaff(staffData.staff ?? []);
+    else errors.push(staffData.error ?? "Could not load staff list.");
     if (assignRes.ok) setAssignments(assignData.assignments ?? []);
+    else errors.push(assignData.error ?? "Could not load assignments.");
+    if (errors.length) setLoadError(errors.join(" "));
   }, []);
 
   useEffect(() => {
@@ -84,9 +91,23 @@ export function PreEtsAssignmentsPanel() {
         <h2 className="text-lg font-semibold text-brand-black">Staff school assignments</h2>
         <p className="mt-1 text-sm text-brand-black/65">
           Assign Transition Specialists and supervisors to schools. Use Class setup for bulk
-          planning; linked rows sync here when Accounts commits district worksheets.
+          planning; linked rows sync here when Accounts commits district worksheets. Schools appear
+          here after a district worksheet is committed (or when setup rows are linked to schools).
         </p>
       </div>
+
+      {loadError ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+          {loadError}
+        </div>
+      ) : null}
+
+      {!loadError && schools.length === 0 ? (
+        <p className="text-sm text-brand-black/60">
+          No Pre-ETS schools in the database yet. Import class setup and commit a planning worksheet,
+          or wait for Accounts to commit a district CSV.
+        </p>
+      ) : null}
 
       <div className="grid gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm md:grid-cols-4">
         <label className="block">

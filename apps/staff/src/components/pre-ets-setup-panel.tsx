@@ -36,12 +36,26 @@ export function PreEtsSetupPanel() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [schemaReady, setSchemaReady] = useState(true);
+  const [schemaMessage, setSchemaMessage] = useState<string | null>(null);
+  const [schoolYear, setSchoolYear] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/pre-ets/setup");
-    const data = (await res.json()) as { rows?: SetupRow[]; error?: string };
-    if (res.ok) setRows(data.rows ?? []);
-    else setError(data.error ?? "Could not load class setup.");
+    const data = (await res.json()) as {
+      rows?: SetupRow[];
+      error?: string;
+      schemaReady?: boolean;
+      schemaMessage?: string | null;
+      schoolYear?: string;
+    };
+    if (res.ok) {
+      setRows(data.rows ?? []);
+      setSchemaReady(data.schemaReady !== false);
+      setSchemaMessage(data.schemaMessage ?? null);
+      setSchoolYear(data.schoolYear ?? null);
+      setError(null);
+    } else setError(data.error ?? "Could not load class setup.");
   }, []);
 
   useEffect(() => {
@@ -169,8 +183,33 @@ export function PreEtsSetupPanel() {
           Plan schools, Transition Specialists, and requested class days/times before Accounts
           uploads district worksheets. When a worksheet is committed, matching schools link
           automatically and TS/supervisor assignments can sync to staff assignments.
+          {schoolYear ? (
+            <>
+              {" "}
+              Showing school year <strong>{schoolYear}</strong>.
+            </>
+          ) : null}
         </p>
       </div>
+
+      {!schemaReady && schemaMessage ? (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+          <p className="font-semibold">Database setup required</p>
+          <p className="mt-1">{schemaMessage}</p>
+        </div>
+      ) : null}
+
+      {schemaReady && rows.length === 0 && !error ? (
+        <p className="text-sm text-brand-black/60">
+          No class setup rows yet. Add schools below or paste a CSV bulk import.
+        </p>
+      ) : null}
+
+      {error ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+          {error}
+        </div>
+      ) : null}
 
       <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm">
         <p className="font-medium text-brand-black">Bulk import CSV</p>

@@ -2,7 +2,9 @@ import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import {
   deletePreEtsClassSetupEntry,
+  isPreEtsClassSetupSchemaAvailable,
   listPreEtsClassSetup,
+  PRE_ETS_CLASS_SETUP_SCHEMA_MESSAGE,
   upsertPreEtsClassSetupEntry,
 } from "@wayfinder/supabase/pre-ets-class-setup";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
@@ -15,8 +17,16 @@ export async function GET() {
 
   try {
     const admin = createServiceRoleClient();
-    const rows = await listPreEtsClassSetup(admin, auth.settings.school_year);
-    return NextResponse.json({ rows });
+    const schemaReady = await isPreEtsClassSetupSchemaAvailable(admin);
+    const rows = schemaReady
+      ? await listPreEtsClassSetup(admin, auth.settings.school_year)
+      : [];
+    return NextResponse.json({
+      rows,
+      schemaReady,
+      schemaMessage: schemaReady ? null : PRE_ETS_CLASS_SETUP_SCHEMA_MESSAGE,
+      schoolYear: auth.settings.school_year,
+    });
   } catch (err) {
     return respondWithLoggedError("staff", route, err, {
       userId: auth.userId,
@@ -74,10 +84,14 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ row });
   } catch (err) {
+    const hint =
+      err instanceof Error && err.message.includes("class setup is not available")
+        ? err.message
+        : undefined;
     return respondWithLoggedError("staff", route, err, {
       userId: auth.userId,
       userRole: auth.role,
-    });
+    }, 500, hint);
   }
 }
 
