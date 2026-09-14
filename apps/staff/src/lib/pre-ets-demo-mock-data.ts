@@ -253,7 +253,3 @@ export function getDemoSnapshot(step: number): DemoSnapshot {
         : "Valdosta roster is released — schedule sessions and print sign-in sheets below.",
   };
 }
-
-export function demoRoleCanFinalize(role: PreEtsDemoRole): boolean {
-  return role === "accounts";
-}
