@@ -45,6 +45,7 @@ const GVRA_PARTNER_BLOCKED_PREFIXES = [
   "/dashboard/timesheet",
   "/dashboard/intake-billing",
   "/dashboard/time-clock",
+  "/dashboard/billable-hours",
   "/dashboard/audit",
   "/dashboard/share-moments",
   "/dashboard/core-four",
