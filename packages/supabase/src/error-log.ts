@@ -485,6 +485,15 @@ export function accountNotSetUpMessage(productName: string): string {
   return `No ${productName} account is set up for this email yet. Ask your Employment Specialist or administrator to finish your setup, then try again.`;
 }
 
+/** Counselor-specific copy when referral email is not on file or login cannot be enabled. */
+export function counselorLoginNotRegisteredMessage(): string {
+  return (
+    "No Wayfinder Pro login is set up for this email yet. Use the agency work email your Joshua Tree specialist registered for you " +
+    "(often your GVRA or Tennessee VR address—not a personal email). If access still fails, ask your Employment Specialist to confirm your " +
+    "referral email under Offices → Counselors and enable counselor login."
+  );
+}
+
 /** Maps Supabase auth errors to safe copy; keeps actionable hints where helpful. */
 export function friendlyAuthError(
   message: string,

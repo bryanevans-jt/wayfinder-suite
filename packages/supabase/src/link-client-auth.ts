@@ -45,7 +45,7 @@ export async function linkClientAuthUserByEmail(
   return clientId;
 }
 
-/** Resolve auth.users.id from a login email (admin API). */
+/** Resolve auth.users.id from a login email (admin API, paginated). */
 export async function resolveAuthUserIdByEmail(
   admin: SupabaseClient,
   email: string
@@ -55,15 +55,22 @@ export async function resolveAuthUserIdByEmail(
     return null;
   }
 
-  const { data, error } = await admin.auth.admin.listUsers({ perPage: 1000 });
-  if (error) {
-    return null;
+  for (let page = 1; page <= 100; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) {
+      return null;
+    }
+    const users = data.users ?? [];
+    const match = users.find((user) => (user.email ?? "").trim().toLowerCase() === normalized);
+    if (match?.id) {
+      return match.id;
+    }
+    if (users.length < 1000) {
+      break;
+    }
   }
 
-  const match = (data.users ?? []).find(
-    (user) => (user.email ?? "").trim().toLowerCase() === normalized
-  );
-  return match?.id ?? null;
+  return null;
 }
 
 export async function ensureClientAuthProfile(

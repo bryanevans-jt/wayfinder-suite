@@ -1,5 +1,6 @@
 import type { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
-import { getSupabaseUrl } from "@wayfinder/supabase";
+import { getSupabaseUrl, resolveAuthUserIdByEmail } from "@wayfinder/supabase";
+import { counselorLoginNotRegisteredMessage } from "@wayfinder/supabase/error-log";
 
 type AdminClient = ReturnType<typeof createServiceRoleClient>;
 
@@ -23,13 +24,7 @@ export async function findAuthUserIdByEmail(
   admin: AdminClient,
   email: string
 ): Promise<string | null> {
-  const normalized = email.trim().toLowerCase();
-  if (!normalized) return null;
-  const { data, error } = await admin.auth.admin.listUsers({ perPage: 1000 });
-  if (error) return null;
-  return (
-    data.users?.find((u) => (u.email ?? "").trim().toLowerCase() === normalized)?.id ?? null
-  );
+  return resolveAuthUserIdByEmail(admin, email);
 }
 
 export function staffInviteRedirectUrl(): string {
@@ -198,6 +193,90 @@ export async function replaceStaffOfficeAssignments(
     }))
   );
   if (insertErr) throw new Error(insertErr.message);
+}
+
+/**
+ * When a counselor is on file with this referral email but login was never enabled,
+ * create the auth user silently so magic-link OTP can be sent.
+ */
+export async function provisionCounselorLoginForMagicLink(
+  admin: AdminClient,
+  email: string
+): Promise<{ userId: string | null; notRegisteredMessage?: string }> {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized.includes("@")) {
+    return { userId: null };
+  }
+
+  const { data: rows, error } = await admin
+    .from("counselors")
+    .select("id, full_name, contact_email, user_id")
+    .ilike("contact_email", normalized);
+
+  if (error) {
+    console.error("provisionCounselorLoginForMagicLink counselors lookup:", error.message);
+    return { userId: null };
+  }
+
+  const counselor = (rows ?? []).find(
+    (row) => (row.contact_email as string | null)?.trim().toLowerCase() === normalized
+  );
+
+  if (!counselor) {
+    return { userId: null, notRegisteredMessage: counselorLoginNotRegisteredMessage() };
+  }
+
+  const existingUserId = (counselor.user_id as string | null) ?? null;
+  if (existingUserId) {
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("is_active")
+      .eq("id", existingUserId)
+      .maybeSingle();
+    if (profile?.is_active === false) {
+      return {
+        userId: null,
+        notRegisteredMessage:
+          "This counselor login is inactive. Ask your Employment Specialist or Joshua Tree administrator to reactivate your access.",
+      };
+    }
+
+    const { data: authUser, error: authErr } = await admin.auth.admin.getUserById(existingUserId);
+    if (authErr) {
+      console.error("provisionCounselorLoginForMagicLink getUserById:", authErr.message);
+    }
+    const authEmail = authUser?.user?.email?.trim().toLowerCase() ?? "";
+    if (authEmail === normalized) {
+      return { userId: existingUserId };
+    }
+    if (authEmail) {
+      return {
+        userId: null,
+        notRegisteredMessage: `Your login is registered under a different email (${authEmail}). Try that address, or ask your administrator to update your counselor referral email.`,
+      };
+    }
+  }
+
+  const result = await activateCounselorLoginFromContactEmail(
+    admin,
+    {
+      id: counselor.id as string,
+      full_name: counselor.full_name as string,
+      contact_email: counselor.contact_email as string | null,
+      user_id: existingUserId,
+    },
+    { sendInvite: false }
+  );
+
+  if (result.outcome === "skipped") {
+    return {
+      userId: null,
+      notRegisteredMessage: result.reason ?? counselorLoginNotRegisteredMessage(),
+    };
+  }
+
+  const userId = await resolveAuthUserIdByEmail(admin, normalized);
+  return userId ? { userId } : { userId: null, notRegisteredMessage: counselorLoginNotRegisteredMessage() };
 }
 
 export async function linkCounselorLogin(

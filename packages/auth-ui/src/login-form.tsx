@@ -115,7 +115,16 @@ export function LoginForm({
         });
         if (checkRes.status === 404) {
           setBusy(null);
-          setNotice(accountNotSetUpMessage(productName));
+          let message = accountNotSetUpMessage(productName);
+          try {
+            const payload = (await checkRes.json()) as { message?: string };
+            if (payload.message?.trim()) {
+              message = payload.message.trim();
+            }
+          } catch {
+            // use default message
+          }
+          setNotice(message);
           return;
         }
         if (!checkRes.ok) {
