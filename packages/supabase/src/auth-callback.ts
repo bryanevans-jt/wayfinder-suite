@@ -6,10 +6,42 @@ import { wayfinderServerAuthOptions } from "./auth-client-options";
 import type { SupabaseCookieToSet } from "./cookie-types";
 import { getSupabaseAnonKey, getSupabaseUrl } from "./env";
 
-function redirectToLogin(origin: string, error = "auth") {
+function redirectToLogin(origin: string, error = "auth", reason?: string) {
   const login = new URL("/login", origin);
   login.searchParams.set("error", error);
+  const detail = reason?.trim();
+  if (detail) {
+    login.searchParams.set("reason", detail.slice(0, 240));
+  }
   return NextResponse.redirect(login);
+}
+
+function authFailureReason(message: string): string | undefined {
+  if (/pkce|code verifier|validation/i.test(message)) {
+    return "pkce_verifier";
+  }
+  if (/expired|invalid.*code|flow state/i.test(message)) {
+    return "link_expired";
+  }
+  if (/redirect/i.test(message)) {
+    return "redirect_mismatch";
+  }
+  return undefined;
+}
+
+/** True when the handler redirected to /login with an auth error (for cross-app relay). */
+export function isFailedAuthLoginRedirect(
+  response: NextResponse,
+  requestOrigin: string
+): boolean {
+  const location = response.headers.get("location");
+  if (!location) return false;
+  try {
+    const url = new URL(location, requestOrigin);
+    return url.pathname === "/login" && url.searchParams.get("error") === "auth";
+  } catch {
+    return false;
+  }
 }
 
 function isInviteOnlyAuthError(message: string): boolean {
@@ -130,7 +162,8 @@ export async function handleWayfinderAuthCallback(
   if (error) {
     return redirectToLogin(
       url.origin,
-      isInviteOnlyAuthError(error.message) ? "not_set_up" : "auth"
+      isInviteOnlyAuthError(error.message) ? "not_set_up" : "auth",
+      authFailureReason(error.message)
     );
   }
 

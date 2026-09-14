@@ -74,10 +74,30 @@ export default async function StaffLoginPage({
         </div>
       ) : null}
       {error === "auth" ? (
-        <p className="mb-6 max-w-md rounded-lg border border-brand-gold/40 bg-brand-white px-4 py-3 text-center text-sm text-brand-black">
-          Sign-in could not be completed. Request a new magic link, try Google sign-in, or use your
-          passkey again.
-        </p>
+        <div className="mb-6 max-w-md space-y-2 rounded-lg border border-brand-gold/40 bg-brand-white px-4 py-3 text-center text-sm text-brand-black">
+          <p>
+            Sign-in could not be completed. Request a new magic link from{" "}
+            <strong>Wayfinder Pro</strong> (not the participant Wayfinder app), open the link in the
+            same browser where you requested it, or try Google sign-in / passkey.
+          </p>
+          {reason === "pkce_verifier" ? (
+            <p className="text-xs text-brand-black/70">
+              This usually means the link was opened in a different browser or app than the one that
+              requested the email.
+            </p>
+          ) : null}
+          {reason === "redirect_mismatch" ? (
+            <p className="text-xs text-brand-black/70">
+              Ask your administrator to confirm Supabase redirect URLs include{" "}
+              <span className="font-mono text-[11px]">…/auth/callback</span> for Wayfinder Pro.
+            </p>
+          ) : null}
+          {reason === "link_expired" ? (
+            <p className="text-xs text-brand-black/70">
+              Magic links expire quickly — request a fresh one and use it within a few minutes.
+            </p>
+          ) : null}
+        </div>
       ) : null}
       <LoginFormShell
         productName={STAFF_APP_PRODUCT_NAME}

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isStaffRole } from "./roles";
 
 /** Links a clients row to the signed-in auth user when matched by contact email. */
 export async function linkClientAuthUserByEmail(
@@ -87,6 +88,11 @@ export async function ensureClientAuthProfile(
     .maybeSingle();
 
   if (profile?.role === "client") {
+    return;
+  }
+
+  // Counselors and other staff must sign in on Wayfinder Pro — never downgrade here.
+  if (isStaffRole(profile?.role)) {
     return;
   }
 
