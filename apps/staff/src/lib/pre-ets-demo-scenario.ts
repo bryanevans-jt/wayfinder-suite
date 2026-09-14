@@ -39,6 +39,42 @@ export const PRE_ETS_DEMO_STEPS: PreEtsDemoStep[] = [
 
 export type PreEtsDemoRole = "supervisor" | "accounts" | "field";
 
+export type PreEtsDemoWorkspaceTabId = "worksheets" | "pipeline" | "authorizations" | "sessions";
+
+export function demoWorkspaceTabsForRole(
+  role: PreEtsDemoRole
+): { id: PreEtsDemoWorkspaceTabId; label: string }[] {
+  if (role === "supervisor") {
+    return [
+      { id: "worksheets", label: "Worksheets" },
+      { id: "pipeline", label: "Schools & groups" },
+      { id: "authorizations", label: "Rosters & auths" },
+    ];
+  }
+  if (role === "accounts") {
+    return [
+      { id: "pipeline", label: "Schools & groups" },
+      { id: "authorizations", label: "Rosters & auths" },
+    ];
+  }
+  return [
+    { id: "authorizations", label: "Rosters & auths" },
+    { id: "sessions", label: "Sessions & reports" },
+  ];
+}
+
+export function demoSuggestedWorkspaceTab(role: PreEtsDemoRole, step: number): PreEtsDemoWorkspaceTabId {
+  if (role === "supervisor") {
+    if (step === 1 || step >= 5) return "worksheets";
+    return "pipeline";
+  }
+  if (role === "accounts") {
+    if (step <= 2) return "authorizations";
+    return step === 3 ? "authorizations" : "pipeline";
+  }
+  return step >= 4 ? "sessions" : "authorizations";
+}
+
 export function demoPanelHint(role: PreEtsDemoRole, step: number): string {
   if (role === "supervisor") {
     if (step <= 1)

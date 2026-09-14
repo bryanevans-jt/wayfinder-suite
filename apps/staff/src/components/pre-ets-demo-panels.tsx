@@ -1,48 +1,203 @@
 "use client";
 
+import { PreEtsServiceCodeDisplay } from "@/components/pre-ets-service-code-display";
 import {
   DEMO_DISTRICT,
   DEMO_SERVICE_MONTH,
   type DemoAuthorization,
   type DemoRosterStudent,
+  type DemoSnapshot,
   getDemoSnapshot,
 } from "@/lib/pre-ets-demo-mock-data";
 import type { PreEtsDemoRole } from "@/lib/pre-ets-demo-scenario";
-import { Fragment, useMemo, useState, type ReactNode } from "react";
+import Link from "next/link";
+import { Fragment, useMemo, useState } from "react";
 
-function DemoBadge() {
-  return (
-    <span className="rounded-full bg-brand-gold/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-gold">
-      Training sample data
-    </span>
-  );
+type PipelineStatus = "awaiting_spreadsheet" | "pending_authorization" | "roster_submitted";
+
+function statusBadgeClass(status: PipelineStatus): string {
+  switch (status) {
+    case "awaiting_spreadsheet":
+      return "bg-neutral-100 text-brand-black/75";
+    case "pending_authorization":
+      return "bg-amber-100 text-amber-950";
+    case "roster_submitted":
+      return "bg-brand-green/15 text-brand-green";
+  }
 }
 
-function panelShell(title: string, description: string, children: ReactNode) {
+function statusLabel(status: PipelineStatus): string {
+  switch (status) {
+    case "awaiting_spreadsheet":
+      return "Awaiting spreadsheet";
+    case "pending_authorization":
+      return "Pending authorization";
+    case "roster_submitted":
+      return "Roster submitted";
+  }
+}
+
+type AuthTab = "all" | "group" | "individual" | "pending";
+
+type DemoDataOverride = Pick<
+  DemoSnapshot,
+  "authorizations" | "rosters" | "pipeline" | "worksheetImports" | "sessions"
+>;
+
+function DemoFinalizeModal({
+  auth,
+  roster,
+  canEditServiceCode,
+  onClose,
+  onSaved,
+}: {
+  auth: DemoAuthorization;
+  roster: DemoRosterStudent[];
+  canEditServiceCode?: boolean;
+  onClose: () => void;
+  onSaved: (authNumber: string) => void;
+}) {
+  const [authNumber, setAuthNumber] = useState("87654321");
+  const [serviceCode, setServiceCode] = useState(auth.service_code);
+  const [serviceLabel, setServiceLabel] = useState(auth.service_label);
+  const [rows, setRows] = useState(
+    roster.map((r) => ({
+      participantId: r.participantId,
+      fullName: r.fullName,
+      unitsApproved: r.unitsApproved,
+    }))
+  );
+
+  function updateRow(index: number, patch: Partial<(typeof rows)[number]>) {
+    setRows((current) => current.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  }
+
+  function addRow() {
+    setRows((current) => [...current, { participantId: "", fullName: "", unitsApproved: 0 }]);
+  }
+
+  function removeRow(index: number) {
+    setRows((current) => current.filter((_, i) => i !== index));
+  }
+
   return (
-    <section className="space-y-4 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-semibold text-brand-black">{title}</h2>
-            <DemoBadge />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-5 shadow-xl">
+        <h2 className="text-lg font-semibold text-brand-black">Enter authorization</h2>
+        <p className="mt-1 text-sm text-brand-black/70">
+          {auth.school_name}
+          {auth.group_name ? ` · ${auth.group_name}` : ""}
+        </p>
+        <p className="mt-2 text-xs text-brand-black/60">
+          Add or remove students as needed. In production, saving finalizes this roster and notifies
+          the assigned TS/TI and supervisor. This demo does not save.
+        </p>
+
+        <div className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm">
+          <span className="font-medium text-brand-black">Service code</span>
+          {canEditServiceCode ? (
+            <input
+              className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2 font-mono text-sm"
+              value={serviceCode}
+              onChange={(e) => setServiceCode(e.target.value)}
+            />
+          ) : (
+            <p className="mt-1">
+              <PreEtsServiceCodeDisplay code={serviceCode} label={serviceLabel} prominent />
+            </p>
+          )}
+          {!canEditServiceCode ? (
+            <p className="mt-1 text-xs text-brand-black/55">
+              Only Accounts Specialist, Admin, or Super Admin can change the service code.
+            </p>
+          ) : null}
+        </div>
+
+        <label className="mt-4 block text-sm">
+          <span className="font-medium">GVRA authorization number</span>
+          <input
+            className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 font-mono text-sm"
+            value={authNumber}
+            onChange={(e) => setAuthNumber(e.target.value)}
+          />
+        </label>
+
+        <div className="mt-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">Roster students</p>
+            <button type="button" className="text-sm text-brand-green hover:underline" onClick={addRow}>
+              Add student
+            </button>
           </div>
-          <p className="mt-1 text-sm text-brand-black/65">{description}</p>
+          {rows.map((row, index) => (
+            <div
+              key={index}
+              className="grid gap-2 rounded-lg border border-neutral-200 p-3 sm:grid-cols-[1fr_1fr_80px_auto]"
+            >
+              <input
+                placeholder="Participant ID"
+                className="rounded border border-neutral-300 px-2 py-1 text-sm"
+                value={row.participantId}
+                onChange={(e) => updateRow(index, { participantId: e.target.value })}
+              />
+              <input
+                placeholder="Student name"
+                className="rounded border border-neutral-300 px-2 py-1 text-sm"
+                value={row.fullName}
+                onChange={(e) => updateRow(index, { fullName: e.target.value })}
+              />
+              <input
+                type="number"
+                min={0}
+                className="rounded border border-neutral-300 px-2 py-1 text-sm"
+                value={row.unitsApproved}
+                onChange={(e) => updateRow(index, { unitsApproved: Number(e.target.value) || 0 })}
+              />
+              <button
+                type="button"
+                className="text-sm text-red-700 hover:underline"
+                onClick={() => removeRow(index)}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button type="button" className="rounded-lg border border-neutral-300 px-4 py-2 text-sm" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            disabled={rows.length === 0 || !authNumber.trim()}
+            onClick={() => {
+              onSaved(authNumber.trim());
+              onClose();
+            }}
+          >
+            Finalize roster
+          </button>
         </div>
       </div>
-      {children}
-    </section>
+    </div>
   );
 }
 
 export function PreEtsDemoWorksheetPanel({ step }: { step: number }) {
   const snapshot = useMemo(() => getDemoSnapshot(step), [step]);
+  const supervisorDescription =
+    "Upload your monthly district CSV before GVRA authorization numbers are available. Pending rosters are created immediately; you can re-upload the same month to add schools or students.";
 
-  return panelShell(
-    "District worksheet import",
-    "Supervisors upload planning CSVs (no GVRA auth numbers). Imports auto-commit to pending rosters.",
-    <>
-      <div className="flex flex-wrap gap-3">
+  return (
+    <section className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold text-brand-black">District worksheet import</h2>
+        <p className="mt-1 text-sm text-brand-black/65">{supervisorDescription}</p>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-4">
         <span className="cursor-not-allowed rounded-lg bg-brand-gold/40 px-4 py-2 text-sm font-semibold text-white/90">
           Upload CSV (disabled in demo)
         </span>
@@ -54,99 +209,45 @@ export function PreEtsDemoWorksheetPanel({ step }: { step: number }) {
           Download sample planning CSV
         </a>
       </div>
-      <p className="text-xs text-brand-black/55">
-        Sample file: District {DEMO_DISTRICT}, {DEMO_SERVICE_MONTH}, Valdosta
+
+      <p className="text-sm text-brand-black/70">
+        Sample: District {DEMO_DISTRICT}, {DEMO_SERVICE_MONTH.slice(0, 7)}, Valdosta
         {step >= 5 ? " + Lowndes on re-upload" : ""}.
       </p>
-      <div className="overflow-x-auto rounded-lg border border-neutral-100">
+
+      <div className="overflow-x-auto rounded-xl border border-neutral-200">
         <table className="min-w-full text-left text-sm">
           <thead className="bg-neutral-50 text-brand-black/70">
             <tr>
-              <th className="px-3 py-2">Committed</th>
+              <th className="px-3 py-2">Uploaded</th>
               <th className="px-3 py-2">File</th>
               <th className="px-3 py-2">Month</th>
-              <th className="px-3 py-2">Groups</th>
+              <th className="px-3 py-2">Phase</th>
+              <th className="px-3 py-2">Status</th>
             </tr>
           </thead>
           <tbody>
-            {snapshot.worksheetImports.map((row) => (
-              <tr key={row.id} className="border-t border-neutral-100">
-                <td className="px-3 py-2">{new Date(row.committed_at).toLocaleString()}</td>
-                <td className="px-3 py-2">{row.file_name}</td>
-                <td className="px-3 py-2">{row.service_month.slice(0, 7)}</td>
-                <td className="px-3 py-2 text-xs">{row.school_groups.join("; ")}</td>
+            {snapshot.worksheetImports.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-3 py-6 text-center text-brand-black/55">
+                  No worksheet imports yet.
+                </td>
               </tr>
-            ))}
+            ) : (
+              snapshot.worksheetImports.map((row) => (
+                <tr key={row.id} className="border-t border-neutral-100">
+                  <td className="px-3 py-2">{new Date(row.committed_at).toLocaleString()}</td>
+                  <td className="px-3 py-2">{row.file_name ?? "—"}</td>
+                  <td className="px-3 py-2">{row.service_month.slice(0, 7)}</td>
+                  <td className="px-3 py-2">{row.phase}</td>
+                  <td className="px-3 py-2">{row.status}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
-    </>
-  );
-}
-
-function DemoFinalizeModal({
-  auth,
-  roster,
-  onClose,
-  onSaved,
-}: {
-  auth: DemoAuthorization;
-  roster: DemoRosterStudent[];
-  onClose: () => void;
-  onSaved: (authNumber: string) => void;
-}) {
-  const [authNumber, setAuthNumber] = useState("87654321");
-  const [rows, setRows] = useState(roster);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
-        <h3 className="text-lg font-semibold text-brand-black">Enter authorization (demo)</h3>
-        <p className="mt-1 text-sm text-brand-black/65">
-          {auth.school_name} · {auth.group_name}. Changes here are not saved — for training only.
-        </p>
-        <label className="mt-4 block text-sm">
-          <span className="font-medium">GVRA authorization number</span>
-          <input
-            className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 font-mono text-sm"
-            value={authNumber}
-            onChange={(e) => setAuthNumber(e.target.value)}
-          />
-        </label>
-        <ul className="mt-4 space-y-2 text-sm">
-          {rows.map((row, i) => (
-            <li key={row.id} className="flex flex-wrap gap-2 rounded-lg bg-neutral-50 p-2">
-              <input
-                className="min-w-[8rem] flex-1 rounded border border-neutral-200 px-2 py-1 text-xs"
-                value={row.fullName}
-                onChange={(e) => {
-                  const next = [...rows];
-                  next[i] = { ...row, fullName: e.target.value };
-                  setRows(next);
-                }}
-              />
-              <span className="text-xs text-brand-black/55">PID {row.participantId}</span>
-              <span className="text-xs">{row.unitsApproved} units</span>
-            </li>
-          ))}
-        </ul>
-        <div className="mt-6 flex justify-end gap-2">
-          <button type="button" className="rounded-lg px-4 py-2 text-sm" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white"
-            onClick={() => {
-              onSaved(authNumber.trim());
-              onClose();
-            }}
-          >
-            Release roster (demo)
-          </button>
-        </div>
-      </div>
-    </div>
+    </section>
   );
 }
 
@@ -154,37 +255,92 @@ export function PreEtsDemoAuthorizationsPanel({
   step,
   role,
   onAdvanceStep,
+  dataOverride,
+  defaultAuthTab,
 }: {
   step: number;
   role: PreEtsDemoRole;
   onAdvanceStep?: (next: number) => void;
+  dataOverride?: DemoDataOverride;
+  defaultAuthTab?: AuthTab;
 }) {
   const [localStep, setLocalStep] = useState<number | null>(null);
   const effectiveStep = localStep ?? step;
-  const snapshot = useMemo(() => getDemoSnapshot(effectiveStep), [effectiveStep]);
+  const snapshot = useMemo(() => {
+    if (dataOverride) {
+      return { ...getDemoSnapshot(effectiveStep), ...dataOverride };
+    }
+    return getDemoSnapshot(effectiveStep);
+  }, [dataOverride, effectiveStep]);
+  const [month] = useState(DEMO_SERVICE_MONTH.slice(0, 7));
+  const [tab, setTab] = useState<AuthTab>(defaultAuthTab ?? "all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [finalizeTarget, setFinalizeTarget] = useState<DemoAuthorization | null>(null);
   const canFinalize = role === "accounts";
+  const canEditServiceCode = role === "accounts";
 
   const auths = snapshot.authorizations.filter((a) => {
     if (role === "field") {
       return a.released;
     }
+    if (tab === "pending") return !a.auth_number;
+    if (tab === "group") return a.auth_type === "group" || (a.auth_type === "pending" && !a.auth_number);
+    if (tab === "individual") return a.auth_type === "individual";
     return true;
   });
+
+  const authTabs: { id: AuthTab; label: string }[] = [
+    { id: "all", label: "All" },
+    { id: "group", label: "Group" },
+    { id: "individual", label: "Individual" },
+    { id: "pending", label: "Pending" },
+  ];
 
   function handleFinalizeSaved() {
     setLocalStep(3);
     onAdvanceStep?.(3);
   }
 
-  return panelShell(
-    "Authorizations & rosters",
-    role === "field"
-      ? "TS/TI only see schools after Accounts enters the GVRA authorization number."
-      : "Pending rosters appear after worksheet upload. Accounts releases one school/group at a time.",
-    <>
-      <div className="overflow-x-auto rounded-lg border border-neutral-100">
+  return (
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold text-brand-black">Authorizations &amp; rosters</h2>
+          <p className="mt-1 text-sm text-brand-black/65">
+            {role === "field"
+              ? "Released rosters only — schedule sessions from Sessions & reports."
+              : "Pending rosters appear after supervisors upload district worksheets. Enter authorization numbers to release rosters to TS/TI one school at a time."}
+          </p>
+        </div>
+        <label className="text-sm">
+          <span className="font-medium">Filter month</span>
+          <input
+            type="month"
+            readOnly
+            className="mt-1 block rounded-lg border border-neutral-300 px-3 py-2"
+            value={month}
+          />
+        </label>
+      </div>
+
+      <nav className="flex flex-wrap gap-2">
+        {authTabs.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
+              tab === t.id
+                ? "bg-brand-green/10 text-brand-green"
+                : "text-brand-black/70 hover:bg-neutral-100"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </nav>
+
+      <div className="overflow-x-auto rounded-xl border border-neutral-200">
         <table className="min-w-full text-left text-sm">
           <thead className="bg-neutral-50 text-brand-black/70">
             <tr>
@@ -192,7 +348,6 @@ export function PreEtsDemoAuthorizationsPanel({
               <th className="px-3 py-2">Type</th>
               <th className="px-3 py-2">School / Group</th>
               <th className="px-3 py-2">Service code</th>
-              <th className="px-3 py-2">Instructor</th>
               <th className="px-3 py-2">Month</th>
               <th className="px-3 py-2">Actions</th>
             </tr>
@@ -200,8 +355,10 @@ export function PreEtsDemoAuthorizationsPanel({
           <tbody>
             {auths.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-brand-black/55">
-                  No released rosters at this training step.
+                <td colSpan={6} className="px-3 py-6 text-center text-brand-black/55">
+                  {role === "field"
+                    ? "No released rosters at this training step."
+                    : "No authorizations in this view. Commit a district worksheet import first."}
                 </td>
               </tr>
             ) : (
@@ -211,30 +368,23 @@ export function PreEtsDemoAuthorizationsPanel({
                     <td className="px-3 py-2 font-mono text-xs">{a.auth_number ?? "pending"}</td>
                     <td className="px-3 py-2 capitalize">{a.auth_type}</td>
                     <td className="px-3 py-2">
-                      {a.school_name} · {a.group_name}
+                      {a.school_name}
+                      {a.group_name ? ` · ${a.group_name}` : ""}
                     </td>
-                    <td className="px-3 py-2 font-mono text-xs font-semibold">
-                      {a.service_code}
-                      {a.service_label ? (
-                        <span className="font-sans font-normal text-brand-black/60">
-                          {" "}
-                          ({a.service_label})
-                        </span>
-                      ) : null}
+                    <td className="px-3 py-2">
+                      <PreEtsServiceCodeDisplay code={a.service_code} label={a.service_label} />
                     </td>
-                    <td className="px-3 py-2 text-xs">{a.instructor_name}</td>
                     <td className="px-3 py-2">{a.service_month.slice(0, 7)}</td>
                     <td className="px-3 py-2">
-                      <button
-                        type="button"
-                        className="text-xs text-brand-green hover:underline"
-                        onClick={() => setExpandedId(expandedId === a.id ? null : a.id)}
-                      >
-                        {expandedId === a.id ? "Hide roster" : "View roster"}
-                      </button>
-                      {canFinalize && !a.auth_number ? (
-                        <>
-                          {" · "}
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="text-xs text-brand-green hover:underline"
+                          onClick={() => setExpandedId(expandedId === a.id ? null : a.id)}
+                        >
+                          {expandedId === a.id ? "Hide roster" : "View roster"}
+                        </button>
+                        {canFinalize && a.auth_type === "pending" && !a.auth_number ? (
                           <button
                             type="button"
                             className="text-xs font-semibold text-brand-gold hover:underline"
@@ -242,25 +392,28 @@ export function PreEtsDemoAuthorizationsPanel({
                           >
                             Enter authorization
                           </button>
-                        </>
-                      ) : null}
-                      {a.auth_number ? (
-                        <span className="ml-1 text-xs text-brand-black/50">· PDF (demo)</span>
-                      ) : null}
+                        ) : null}
+                        {a.auth_number ? (
+                          <span className="text-xs text-brand-green">Print PDF</span>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                   {expandedId === a.id ? (
-                    <tr className="bg-neutral-50/80">
-                      <td colSpan={7} className="px-3 py-3">
-                        <p className="mb-2 text-xs">
-                          <span className="font-semibold">Service code: </span>
-                          <span className="font-mono font-bold">{a.service_code}</span>
-                          {a.service_label ? ` (${a.service_label})` : ""}
+                    <tr className="border-t border-neutral-50 bg-neutral-50/50">
+                      <td colSpan={6} className="px-3 py-3">
+                        <p className="mb-2 text-xs text-brand-black/80">
+                          <span className="font-semibold">Service code for this roster: </span>
+                          <PreEtsServiceCodeDisplay
+                            code={a.service_code}
+                            label={a.service_label}
+                            prominent
+                          />
                         </p>
-                        <ul className="space-y-1 text-xs">
+                        <ul className="space-y-1 text-xs text-brand-black/75">
                           {(snapshot.rosters[a.id] ?? []).map((r) => (
                             <li key={r.id}>
-                              {r.fullName} · PID {r.participantId} · {r.unitsApproved} units
+                              {r.fullName} · PID {r.participantId} · {r.unitsApproved} units approved
                             </li>
                           ))}
                         </ul>
@@ -273,109 +426,241 @@ export function PreEtsDemoAuthorizationsPanel({
           </tbody>
         </table>
       </div>
+
       {finalizeTarget ? (
         <DemoFinalizeModal
           auth={finalizeTarget}
           roster={snapshot.rosters[finalizeTarget.id] ?? []}
+          canEditServiceCode={canEditServiceCode}
           onClose={() => setFinalizeTarget(null)}
           onSaved={() => handleFinalizeSaved()}
         />
       ) : null}
-    </>
+    </section>
   );
 }
 
-export function PreEtsDemoPipelinePanel({ step }: { step: number }) {
-  const snapshot = useMemo(() => getDemoSnapshot(step), [step]);
+export function PreEtsDemoPipelinePanel({ step, dataOverride }: { step: number; dataOverride?: DemoDataOverride }) {
+  const snapshot = useMemo(() => {
+    if (dataOverride?.pipeline) {
+      return { ...getDemoSnapshot(step), pipeline: dataOverride.pipeline };
+    }
+    return getDemoSnapshot(step);
+  }, [dataOverride, step]);
+  const [month] = useState(DEMO_SERVICE_MONTH.slice(0, 7));
+  const rows = snapshot.pipeline;
 
-  return panelShell(
-    "Schools & groups",
-    "Pipeline status for the service month: awaiting spreadsheet → pending authorization → roster submitted.",
-    <>
-      <p className="text-xs text-brand-black/55">
-        District {DEMO_DISTRICT} · Month {DEMO_SERVICE_MONTH.slice(0, 7)}
+  return (
+    <section className="space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold text-brand-black">Schools &amp; groups</h2>
+        <p className="mt-1 text-sm text-brand-black/65">
+          Track each school or group through Awaiting spreadsheet → Pending authorization → Roster
+          submitted. Search and filter to find a site quickly.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-4 rounded-xl border border-neutral-200 bg-neutral-50/80 p-4">
+        <label className="text-sm">
+          <span className="font-medium">Service month</span>
+          <input
+            type="month"
+            readOnly
+            className="mt-1 block rounded-lg border border-neutral-300 px-3 py-2"
+            value={month}
+          />
+        </label>
+        <label className="min-w-[12rem] flex-1 text-sm">
+          <span className="font-medium">Search</span>
+          <input
+            type="search"
+            readOnly
+            placeholder="School, group, auth #, instructor…"
+            className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2"
+          />
+        </label>
+        <label className="text-sm">
+          <span className="font-medium">Status</span>
+          <select className="mt-1 block rounded-lg border border-neutral-300 px-3 py-2" defaultValue="all">
+            <option value="all">All statuses</option>
+            <option value="awaiting_spreadsheet">Awaiting spreadsheet</option>
+            <option value="pending_authorization">Pending authorization</option>
+            <option value="roster_submitted">Roster submitted</option>
+          </select>
+        </label>
+        <label className="text-sm">
+          <span className="font-medium">Per page</span>
+          <select className="mt-1 block rounded-lg border border-neutral-300 px-3 py-2" defaultValue="25">
+            <option value="25">25</option>
+          </select>
+        </label>
+      </div>
+
+      <p className="text-sm text-brand-black/60">
+        Showing 1–{rows.length} of {rows.length}
       </p>
-      <div className="overflow-x-auto rounded-lg border border-neutral-100">
+
+      <div className="overflow-x-auto rounded-xl border border-neutral-200">
         <table className="min-w-full text-left text-sm">
           <thead className="bg-neutral-50 text-brand-black/70">
             <tr>
-              <th className="px-3 py-2">School</th>
-              <th className="px-3 py-2">Group</th>
               <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2">School / group</th>
               <th className="px-3 py-2">Students</th>
               <th className="px-3 py-2">Auth #</th>
-              <th className="px-3 py-2">TS</th>
+              <th className="px-3 py-2">Service code</th>
+              <th className="px-3 py-2">Instructor</th>
+              <th className="px-3 py-2">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {snapshot.pipeline.map((row) => (
-              <tr key={`${row.schoolName}-${row.groupName}`} className="border-t border-neutral-100">
-                <td className="px-3 py-2">{row.schoolName}</td>
-                <td className="px-3 py-2">{row.groupName}</td>
+            {rows.map((row) => (
+              <tr
+                key={`${row.schoolName}-${row.groupName}`}
+                className="border-t border-neutral-100"
+              >
                 <td className="px-3 py-2">
                   <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                      row.status === "roster_submitted"
-                        ? "bg-brand-green/15 text-brand-green"
-                        : row.status === "pending_authorization"
-                          ? "bg-amber-100 text-amber-950"
-                          : "bg-neutral-100 text-brand-black/70"
-                    }`}
+                    className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(row.status)}`}
                   >
-                    {row.status.replace(/_/g, " ")}
+                    {statusLabel(row.status)}
                   </span>
+                </td>
+                <td className="px-3 py-2">
+                  <p className="font-medium text-brand-black">{row.groupName}</p>
+                  {row.groupName !== row.schoolName ? (
+                    <p className="text-xs text-brand-black/55">{row.schoolName}</p>
+                  ) : null}
                 </td>
                 <td className="px-3 py-2">{row.studentCount || "—"}</td>
                 <td className="px-3 py-2 font-mono text-xs">{row.authNumber ?? "—"}</td>
-                <td className="px-3 py-2 text-xs">{row.instructorName}</td>
+                <td className="px-3 py-2">
+                  <PreEtsServiceCodeDisplay code={row.serviceCode} />
+                </td>
+                <td className="px-3 py-2 text-xs text-brand-black/75">{row.instructorName ?? "—"}</td>
+                <td className="px-3 py-2 text-xs text-brand-black/45">—</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-    </>
+    </section>
   );
 }
 
-export function PreEtsDemoSessionsPanel({ step }: { step: number }) {
-  const snapshot = useMemo(() => getDemoSnapshot(step), [step]);
+export function PreEtsDemoSessionsPanel({ step, dataOverride }: { step: number; dataOverride?: DemoDataOverride }) {
+  const snapshot = useMemo(() => {
+    if (dataOverride?.sessions) {
+      return { ...getDemoSnapshot(step), sessions: dataOverride.sessions };
+    }
+    return getDemoSnapshot(step);
+  }, [dataOverride, step]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  if (snapshot.sessions.length === 0) {
-    return null;
+  const sessions = snapshot.sessions;
+  const selected = sessions.find((s) => s.id === selectedId) ?? sessions[0] ?? null;
+
+  if (sessions.length === 0) {
+    return (
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold text-brand-black">Sessions</h2>
+          <p className="mt-1 text-sm text-brand-black/65">
+            Schedule sessions, collect student signatures on the roster in-app (recommended) or print
+            a paper roster, upload signed rosters to Drive, and submit Lesson Activity Reports.
+          </p>
+        </div>
+        <p className="text-sm text-brand-black/55">No sessions scheduled yet.</p>
+      </section>
+    );
   }
 
-  return panelShell(
-    "Sessions & reports",
-    "Schedule Pre-ETS sessions and upload signed rosters / CARs after delivery. For the full interactive TS/TI screen, open the roster & CAR walkthrough from the demo header.",
-    <>
-      <div className="overflow-x-auto rounded-lg border border-neutral-100">
-        <table className="min-w-full text-left text-sm">
-          <thead className="bg-neutral-50 text-brand-black/70">
-            <tr>
-              <th className="px-3 py-2">Date</th>
-              <th className="px-3 py-2">School</th>
-              <th className="px-3 py-2">Auth #</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">Documentation</th>
-            </tr>
-          </thead>
-          <tbody>
-            {snapshot.sessions.map((s) => (
-              <tr key={s.id} className="border-t border-neutral-100">
-                <td className="px-3 py-2">{s.session_date}</td>
-                <td className="px-3 py-2">{s.school_name}</td>
-                <td className="px-3 py-2 font-mono text-xs">{s.auth_number}</td>
-                <td className="px-3 py-2 capitalize">{s.status}</td>
-                <td className="px-3 py-2 text-xs text-brand-black/60">
-                  Roster {s.has_signed_roster ? "uploaded" : "needed"} · CAR{" "}
-                  {s.has_car ? "submitted" : "pending"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+  return (
+    <section className="grid gap-6 lg:grid-cols-2">
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold text-brand-black">Sessions</h2>
+          <p className="mt-1 text-sm text-brand-black/65">
+            Schedule sessions, collect student signatures on the roster in-app (recommended) or print
+            a paper roster, upload signed rosters to Drive, and submit Lesson Activity Reports.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-sm">
+          <select className="rounded-lg border border-neutral-300 px-2 py-1.5" disabled defaultValue="">
+            <option value="">Authorization…</option>
+          </select>
+          <input type="date" className="rounded-lg border border-neutral-300 px-2 py-1.5" disabled />
+          <span className="cursor-not-allowed rounded-lg bg-brand-gold/40 px-3 py-1.5 text-sm font-semibold text-white/90">
+            Add session
+          </span>
+        </div>
+        <ul className="max-h-[28rem] space-y-2 overflow-y-auto">
+          {sessions.map((s) => (
+            <li key={s.id}>
+              <button
+                type="button"
+                onClick={() => setSelectedId(s.id)}
+                className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${
+                  selected?.id === s.id
+                    ? "border-brand-green bg-brand-green/5"
+                    : "border-neutral-200 hover:bg-neutral-50"
+                }`}
+              >
+                <p className="font-medium">{s.school_name}</p>
+                <p className="text-brand-black/60">
+                  {s.session_date} · {s.status}
+                  {s.has_signed_roster ? " · roster uploaded" : ""}
+                  {s.has_car ? " · CAR submitted" : ""}
+                </p>
+              </button>
+            </li>
+          ))}
+        </ul>
       </div>
-    </>
+
+      <div className="space-y-4">
+        {!selected ? (
+          <div className="rounded-xl border border-neutral-200 bg-white p-6 text-sm text-brand-black/55">
+            Select a session to manage roster upload, attendance, and CAR.
+          </div>
+        ) : (
+          <div className="rounded-xl border border-neutral-200 bg-white p-4">
+            <h3 className="font-semibold text-brand-black">
+              {selected.school_name} · {selected.session_date}
+            </h3>
+            <p className="mt-1 text-xs text-brand-black/60">
+              Auth {selected.auth_number} · {selected.status}
+            </p>
+            <p className="mt-2 text-sm">
+              <span className="font-medium text-brand-black/70">Service code: </span>
+              <PreEtsServiceCodeDisplay
+                code={selected.service_code}
+                label={selected.service_label}
+                prominent
+              />
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="rounded-lg border border-brand-gold px-3 py-1.5 text-sm font-semibold text-brand-gold">
+                Print roster PDF
+              </span>
+              <span className="rounded-lg border border-brand-gold px-3 py-1.5 text-sm font-semibold text-brand-gold">
+                Print Activity Plan
+              </span>
+            </div>
+            <p className="mt-2 text-xs text-brand-black/60">
+              For hands-on training (signatures, upload, CAR), open the{" "}
+              <Link
+                href="/dashboard/pre-ets/demo/field-delivery"
+                className="font-semibold text-brand-green hover:underline"
+              >
+                TS/TI roster &amp; CAR walkthrough
+              </Link>
+              .
+            </p>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -387,18 +672,10 @@ export function PreEtsDemoNotificationsPanel({ step }: { step: number }) {
     <div className="space-y-3">
       <p className="text-xs font-semibold uppercase text-brand-black/55">Sample notifications</p>
       {snapshot.notifications.map((n) => (
-        <div
-          key={n.id}
-          className="rounded-xl border border-neutral-200 bg-white p-4 text-sm shadow-sm"
-        >
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="font-medium text-brand-black">{n.title}</p>
-            <DemoBadge />
-          </div>
+        <div key={n.id} className="rounded-xl border border-neutral-200 bg-white p-4 text-sm shadow-sm">
+          <p className="font-medium text-brand-black">{n.title}</p>
           <p className="mt-1 text-brand-black/75">{n.body}</p>
-          <p className="mt-2 text-xs text-brand-black/45">
-            {new Date(n.created_at).toLocaleString()}
-          </p>
+          <p className="mt-2 text-xs text-brand-black/45">{new Date(n.created_at).toLocaleString()}</p>
         </div>
       ))}
     </div>

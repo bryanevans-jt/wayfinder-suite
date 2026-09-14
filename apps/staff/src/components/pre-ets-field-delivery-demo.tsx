@@ -1,9 +1,11 @@
 "use client";
 
+import { PreEtsDemoAuthorizationsPanel } from "@/components/pre-ets-demo-panels";
 import {
   PreEtsDemoActivityPlanPrintSheet,
   PreEtsDemoRosterPrintSheet,
 } from "@/components/pre-ets-demo-print-sheets";
+import { PreEtsDemoWorkspaceChrome } from "@/components/pre-ets-demo-workspace-chrome";
 import { SignaturePad } from "@/components/signature-pad";
 import { PreEtsServiceCodeDisplay } from "@/components/pre-ets-service-code-display";
 import {
@@ -87,6 +89,38 @@ export function PreEtsFieldDeliveryDemo({ variant = "dashboard" }: Props) {
   );
 
   const presentCount = attendance.filter((a) => a.present).length;
+
+  const fieldDemoDataOverride = useMemo(
+    () => ({
+      authorizations: [
+        {
+          id: FIELD_DEMO_AUTH.id,
+          auth_number: FIELD_DEMO_AUTH.authNumber,
+          auth_type: FIELD_DEMO_AUTH.authType,
+          service_code: FIELD_DEMO_AUTH.serviceCode,
+          service_label: FIELD_DEMO_AUTH.serviceLabel,
+          service_month: FIELD_DEMO_AUTH.serviceMonth,
+          school_name: FIELD_DEMO_AUTH.schoolName,
+          group_name: FIELD_DEMO_AUTH.groupName,
+          instructor_name: FIELD_DEMO_AUTH.instructorName,
+          class_time: FIELD_DEMO_AUTH.classTime,
+          released: true,
+        },
+      ],
+      rosters: {
+        [FIELD_DEMO_AUTH.id]: FIELD_DEMO_STUDENTS.map((s) => ({
+          id: s.id,
+          participantId: s.participantId,
+          fullName: s.fullName,
+          unitsApproved: 4,
+        })),
+      },
+      pipeline: [],
+      worksheetImports: [],
+      sessions: [],
+    }),
+    []
+  );
 
   const syncParticipantCount = useMemo(() => {
     if (report.participant_count === null && presentCount > 0) {
@@ -289,82 +323,44 @@ export function PreEtsFieldDeliveryDemo({ variant = "dashboard" }: Props) {
         </p>
       </div>
 
-      <div className="rounded-xl border border-neutral-200 bg-neutral-50/80 p-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-black/50">Pre-ETS · sample</p>
-        <nav className="mt-2 flex flex-wrap gap-2 border-b border-neutral-200 pb-3">
-          {(
-            [
-              { id: "authorizations" as const, label: "Rosters & auths" },
-              { id: "sessions" as const, label: "Sessions & reports" },
-            ] as const
-          ).map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setWorkspaceTab(t.id)}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
-                workspaceTab === t.id
-                  ? "bg-brand-green/10 text-brand-green"
-                  : "text-brand-black/70 hover:bg-neutral-100"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </nav>
-
+      <PreEtsDemoWorkspaceChrome
+        tabs={[
+          { id: "authorizations", label: "Rosters & auths" },
+          { id: "sessions", label: "Sessions & reports" },
+        ]}
+        activeTab={workspaceTab}
+        onTabChange={(id) => setWorkspaceTab(id as "authorizations" | "sessions")}
+      >
         {workspaceTab === "authorizations" ? (
-          <section className={`mt-4 space-y-3 ${highlight("authorizations")}`}>
-            <h2 className="text-lg font-semibold text-brand-black">Released authorization</h2>
-            <p className="text-sm text-brand-black/65">
-              View-only in training — in production you can open roster PDF per authorization.
-            </p>
-            <div className="rounded-lg border border-neutral-200 bg-white p-4 text-sm">
-              <p className="font-medium">{FIELD_DEMO_AUTH.schoolName}</p>
-              <p className="text-brand-black/60">
-                Auth {FIELD_DEMO_AUTH.authNumber} · {FIELD_DEMO_AUTH.groupName} ·{" "}
-                {FIELD_DEMO_AUTH.classTime}
-              </p>
-              <p className="mt-2 text-brand-black/60">Instructor: {FIELD_DEMO_AUTH.instructorName}</p>
-              <p className="mt-2 text-sm">
-                <span className="font-medium">Service code: </span>
-                <PreEtsServiceCodeDisplay
-                  code={FIELD_DEMO_AUTH.serviceCode}
-                  label={FIELD_DEMO_AUTH.serviceLabel}
-                  prominent
-                />
-              </p>
-              <table className="mt-4 w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-neutral-200">
-                    <th className="py-2 pr-2">Participant ID</th>
-                    <th className="py-2">Student</th>
-                    <th className="py-2">Units</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {FIELD_DEMO_STUDENTS.map((r) => (
-                    <tr key={r.id} className="border-b border-neutral-100">
-                      <td className="py-2 pr-2">{r.participantId}</td>
-                      <td className="py-2">{r.fullName}</td>
-                      <td className="py-2">4</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
+          <div className={highlight("authorizations")}>
+            <PreEtsDemoAuthorizationsPanel
+              step={4}
+              role="field"
+              dataOverride={fieldDemoDataOverride}
+            />
+          </div>
         ) : (
-          <section className="mt-4 grid gap-6 lg:grid-cols-2">
+          <section className="grid gap-6 lg:grid-cols-2">
             <div className={`space-y-4 ${highlight("sessions")}`}>
               <div>
                 <h2 className="text-lg font-semibold text-brand-black">Sessions</h2>
                 <p className="mt-1 text-sm text-brand-black/65">
-                  Schedule sessions, print rosters and Activity Plans for paper use, upload signed
-                  rosters to Drive, mark attendance, and submit Lesson Activity Reports in the app.
+                  Schedule sessions, collect student signatures on the roster in-app (recommended) or
+                  print a paper roster, upload signed rosters to Drive, and submit Lesson Activity
+                  Reports.
                 </p>
               </div>
-              <ul className="space-y-2">
+              <div className="flex flex-wrap gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-sm">
+                <select className="rounded-lg border border-neutral-300 px-2 py-1.5" disabled defaultValue="">
+                  <option value="">Authorization…</option>
+                  <option value="demo">{FIELD_DEMO_AUTH.authNumber}</option>
+                </select>
+                <input type="date" className="rounded-lg border border-neutral-300 px-2 py-1.5" disabled />
+                <span className="cursor-not-allowed rounded-lg bg-brand-gold/40 px-3 py-1.5 text-sm font-semibold text-white/90">
+                  Add session
+                </span>
+              </div>
+              <ul className="max-h-[28rem] space-y-2 overflow-y-auto">
                 <li>
                   <button
                     type="button"
@@ -660,7 +656,7 @@ export function PreEtsFieldDeliveryDemo({ variant = "dashboard" }: Props) {
             </div>
           </section>
         )}
-      </div>
+      </PreEtsDemoWorkspaceChrome>
 
       {message ? <p className="text-sm text-brand-green">{message}</p> : null}
       {error ? <p className="text-sm text-red-700">{error}</p> : null}

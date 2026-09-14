@@ -7,14 +7,18 @@ import {
   PreEtsDemoSessionsPanel,
   PreEtsDemoWorksheetPanel,
 } from "@/components/pre-ets-demo-panels";
+import { PreEtsDemoWorkspaceChrome } from "@/components/pre-ets-demo-workspace-chrome";
 import { getDemoSnapshot } from "@/lib/pre-ets-demo-mock-data";
 import {
   PRE_ETS_DEMO_STEPS,
   demoPanelHint,
+  demoSuggestedWorkspaceTab,
+  demoWorkspaceTabsForRole,
   type PreEtsDemoRole,
+  type PreEtsDemoWorkspaceTabId,
 } from "@/lib/pre-ets-demo-scenario";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const ROLE_TABS: { id: PreEtsDemoRole; label: string }[] = [
   { id: "supervisor", label: "Supervisor" },
@@ -25,9 +29,38 @@ const ROLE_TABS: { id: PreEtsDemoRole; label: string }[] = [
 export function PreEtsProcessDemo() {
   const [role, setRole] = useState<PreEtsDemoRole>("supervisor");
   const [step, setStep] = useState(1);
+  const [workspaceTab, setWorkspaceTab] = useState<PreEtsDemoWorkspaceTabId>("worksheets");
 
   const currentStep = PRE_ETS_DEMO_STEPS.find((s) => s.id === step) ?? PRE_ETS_DEMO_STEPS[0]!;
   const snapshot = useMemo(() => getDemoSnapshot(step), [step]);
+  const workspaceTabs = useMemo(() => demoWorkspaceTabsForRole(role), [role]);
+
+  useEffect(() => {
+    setWorkspaceTab(demoSuggestedWorkspaceTab(role, step));
+  }, [role, step]);
+
+  function renderWorkspacePanel() {
+    if (workspaceTab === "worksheets" && role === "supervisor") {
+      return <PreEtsDemoWorksheetPanel step={step} />;
+    }
+    if (workspaceTab === "pipeline") {
+      return <PreEtsDemoPipelinePanel step={step} />;
+    }
+    if (workspaceTab === "authorizations") {
+      return (
+        <PreEtsDemoAuthorizationsPanel
+          step={step}
+          role={role}
+          onAdvanceStep={setStep}
+          defaultAuthTab={role === "accounts" && step <= 2 ? "pending" : "all"}
+        />
+      );
+    }
+    if (workspaceTab === "sessions") {
+      return <PreEtsDemoSessionsPanel step={step} />;
+    }
+    return null;
+  }
 
   return (
     <div className="space-y-6">
@@ -117,39 +150,27 @@ export function PreEtsProcessDemo() {
         </p>
       </div>
 
-      {role === "supervisor" ? (
-        <div className="space-y-6">
-          {(step === 1 || step >= 5) && <PreEtsDemoWorksheetPanel step={step} />}
-          <PreEtsDemoPipelinePanel step={step} />
-          <PreEtsDemoAuthorizationsPanel step={step} role={role} onAdvanceStep={setStep} />
-        </div>
+      {role === "accounts" ? <PreEtsDemoNotificationsPanel step={step} /> : null}
+
+      {role === "field" && snapshot.fieldMessage ? (
+        <p
+          className={`rounded-xl border p-4 text-sm ${
+            snapshot.fieldBlocked
+              ? "border-amber-200 bg-amber-50 text-amber-950"
+              : "border-brand-green/30 bg-brand-green/5 text-brand-black/80"
+          }`}
+        >
+          {snapshot.fieldMessage}
+        </p>
       ) : null}
 
-      {role === "accounts" ? (
-        <div className="space-y-6">
-          <PreEtsDemoNotificationsPanel step={step} />
-          <PreEtsDemoPipelinePanel step={step} />
-          <PreEtsDemoAuthorizationsPanel step={step} role={role} onAdvanceStep={setStep} />
-        </div>
-      ) : null}
-
-      {role === "field" ? (
-        <div className="space-y-4">
-          {snapshot.fieldMessage ? (
-            <p
-              className={`rounded-xl border p-4 text-sm ${
-                snapshot.fieldBlocked
-                  ? "border-amber-200 bg-amber-50 text-amber-950"
-                  : "border-brand-green/30 bg-brand-green/5 text-brand-black/80"
-              }`}
-            >
-              {snapshot.fieldMessage}
-            </p>
-          ) : null}
-          <PreEtsDemoSessionsPanel step={step} />
-          <PreEtsDemoAuthorizationsPanel step={step} role={role} onAdvanceStep={setStep} />
-        </div>
-      ) : null}
+      <PreEtsDemoWorkspaceChrome
+        tabs={workspaceTabs}
+        activeTab={workspaceTab}
+        onTabChange={(id) => setWorkspaceTab(id as PreEtsDemoWorkspaceTabId)}
+      >
+        {renderWorkspacePanel()}
+      </PreEtsDemoWorkspaceChrome>
     </div>
   );
 }

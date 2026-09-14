@@ -40,6 +40,7 @@ export type DemoPipelineRow = {
   studentCount: number;
   authNumber: string | null;
   instructorName: string;
+  serviceCode: string | null;
 };
 
 export type DemoSession = {
@@ -47,6 +48,8 @@ export type DemoSession = {
   session_date: string;
   school_name: string;
   auth_number: string;
+  service_code: string;
+  service_label: string | null;
   status: string;
   has_signed_roster: boolean;
   has_car: boolean;
@@ -164,6 +167,7 @@ export function getDemoSnapshot(step: number): DemoSnapshot {
       studentCount: VALDOSTA_ROSTER.length,
       authNumber: valdostaReleased ? "87654321" : null,
       instructorName: "Madison Hewett",
+      serviceCode: "PTS-001",
     },
     {
       schoolName: "Lowndes High School",
@@ -172,6 +176,7 @@ export function getDemoSnapshot(step: number): DemoSnapshot {
       studentCount: hasLowndes ? LOWNDES_ROSTER.length : 0,
       authNumber: null,
       instructorName: "Madison Hewett",
+      serviceCode: hasLowndes ? "PTS-001" : null,
     },
     {
       schoolName: "Berrien County High School",
@@ -180,6 +185,7 @@ export function getDemoSnapshot(step: number): DemoSnapshot {
       studentCount: 0,
       authNumber: null,
       instructorName: "Madison Hewett",
+      serviceCode: null,
     },
   ];
 
@@ -191,6 +197,8 @@ export function getDemoSnapshot(step: number): DemoSnapshot {
             session_date: "2025-10-15",
             school_name: "Valdosta High School",
             auth_number: "87654321",
+            service_code: "PTS-001",
+            service_label: "Job Exploration Counseling",
             status: "scheduled",
             has_signed_roster: false,
             has_car: false,
@@ -200,6 +208,8 @@ export function getDemoSnapshot(step: number): DemoSnapshot {
             session_date: "2025-10-22",
             school_name: "Valdosta High School",
             auth_number: "87654321",
+            service_code: "PTS-001",
+            service_label: "Job Exploration Counseling",
             status: "scheduled",
             has_signed_roster: false,
             has_car: false,
