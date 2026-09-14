@@ -58,7 +58,10 @@ export default async function TimesheetPage({ searchParams }: PageProps) {
     role === "accountant" ||
     role === "hr";
 
-  const useOrgPayrollClock = canPickEs && !isFieldSpecialistRole(role);
+  const useOrgPayrollClock =
+    (role === "accountant" || role === "hr" || isAdminTierRole(role)) &&
+    canPickEs &&
+    !isFieldSpecialistRole(role);
 
   const esPickerOptions =
     canPickEs && !isFieldSpecialistRole(role)

@@ -97,7 +97,7 @@ export type WayfinderAuthCallbackOptions = {
   onAuthenticated?: (ctx: {
     userId: string;
     email: string | null;
-  }) => Promise<void>;
+  }) => Promise<string | void>;
   serverAuthOptions?: typeof wayfinderServerAuthOptions;
   /** Sign out when no profiles row exists (invite-only). */
   requireProvisionedProfile?: boolean;
@@ -200,10 +200,14 @@ export async function handleWayfinderAuthCallback(
   }
 
   if (options?.onAuthenticated) {
-    await options.onAuthenticated({
+    const nextOverride = await options.onAuthenticated({
       userId: user.id,
       email: user.email ?? null,
     });
+    if (nextOverride?.startsWith("/")) {
+      const overrideTarget = new URL(nextOverride, url.origin);
+      redirectTo(overrideTarget);
+    }
   }
 
   return response;

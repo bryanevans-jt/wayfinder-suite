@@ -1,9 +1,15 @@
 import {
   minutesToDecimalHours,
+  sumBillableMinutes,
   weekEndSaturday,
+  weekStartSunday,
   displayServiceTimes,
   type ServiceActivityType,
 } from "@wayfinder/supabase/es-time-tracking";
+import {
+  localDateStringInTz,
+  STAFF_CLOCK_TIMEZONE,
+} from "@wayfinder/supabase/staff-time-clock-shared";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { isAdminTierRole, isSupervisorRole } from "@wayfinder/supabase/roles";
 import { shiftDurationMinutes } from "@wayfinder/supabase/staff-time-clock-shared";
@@ -102,6 +108,96 @@ export async function loadEsTimeEntriesForWeek(
       flags: (row.flags as Record<string, boolean>) ?? {},
     };
   });
+}
+
+export async function loadBillableMinutesForDateRange(
+  admin: ReturnType<typeof createServiceRoleClient>,
+  esUserId: string,
+  rangeStart: string,
+  rangeEnd: string
+): Promise<number> {
+  const { data, error } = await admin
+    .from("es_time_entries")
+    .select("duration_minutes")
+    .eq("es_user_id", esUserId)
+    .gte("service_date", rangeStart)
+    .lte("service_date", rangeEnd);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return sumBillableMinutes(
+    (data ?? []).map((row) => ({ duration_minutes: row.duration_minutes as number }))
+  );
+}
+
+export type MyBillableHoursSummary = {
+  today: string;
+  thisWeekStart: string;
+  thisWeekEnd: string;
+  thisWeekMinutes: number;
+  lastWeekStart: string;
+  lastWeekEnd: string;
+  lastWeekMinutes: number;
+  monthStart: string;
+  monthEnd: string;
+  monthLabel: string;
+  monthMinutes: number;
+};
+
+function monthStartYmd(todayYmd: string): string {
+  const [y, m] = todayYmd.split("-");
+  return `${y}-${m}-01`;
+}
+
+function monthLabelFromYmd(monthStart: string): string {
+  const [y, m, d] = monthStart.split("-").map(Number);
+  if (!y || !m || !d) return monthStart;
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(y, m - 1, d, 12)));
+}
+
+function addCalendarDaysYmd(ymd: string, deltaDays: number): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + deltaDays, 12, 0, 0));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`;
+}
+
+export async function loadMyBillableHoursSummary(
+  admin: ReturnType<typeof createServiceRoleClient>,
+  esUserId: string,
+  now: Date = new Date()
+): Promise<MyBillableHoursSummary> {
+  const today = localDateStringInTz(now, STAFF_CLOCK_TIMEZONE);
+  const thisWeekStart = weekStartSunday(today);
+  const thisWeekEnd = weekEndSaturday(thisWeekStart);
+  const lastWeekStart = addCalendarDaysYmd(thisWeekStart, -7);
+  const lastWeekEnd = weekEndSaturday(lastWeekStart);
+  const monthStart = monthStartYmd(today);
+
+  const [thisWeekMinutes, lastWeekMinutes, monthMinutes] = await Promise.all([
+    loadBillableMinutesForDateRange(admin, esUserId, thisWeekStart, thisWeekEnd),
+    loadBillableMinutesForDateRange(admin, esUserId, lastWeekStart, lastWeekEnd),
+    loadBillableMinutesForDateRange(admin, esUserId, monthStart, today),
+  ]);
+
+  return {
+    today,
+    thisWeekStart,
+    thisWeekEnd,
+    thisWeekMinutes,
+    lastWeekStart,
+    lastWeekEnd,
+    lastWeekMinutes,
+    monthStart,
+    monthEnd: today,
+    monthLabel: monthLabelFromYmd(monthStart),
+    monthMinutes,
+  };
 }
 
 export async function loadWeekSubmission(

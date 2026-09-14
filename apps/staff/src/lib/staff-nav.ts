@@ -95,6 +95,12 @@ const timeClockNav: StaffNavItem = {
   match: (p) => p.startsWith("/dashboard/time-clock"),
 };
 
+const myBillableHoursNav: StaffNavItem = {
+  href: "/dashboard/billable-hours",
+  label: "My Billable Hours",
+  match: (p) => p.startsWith("/dashboard/billable-hours"),
+};
+
 const reportingNav: StaffNavItem = {
   href: buildReportsAppUrl("/reports"),
   label: "Submit Reports",
@@ -393,7 +399,7 @@ export function staffNavSectionsForRole(
               label: "Messages",
               match: (p) => p === "/dashboard/messages",
             },
-            timeClockNav,
+            myBillableHoursNav,
             {
               href: "/dashboard/timesheet",
               label: "Weekly Timesheet",
@@ -577,7 +583,7 @@ export function staffNavSectionsForRole(
                 label: "Messages",
                 match: (p) => p === "/dashboard/messages",
               },
-              timeClockNav,
+              myBillableHoursNav,
               {
                 href: "/dashboard/timesheet",
                 label: "My Time (Timesheet)",
@@ -616,7 +622,7 @@ export function staffNavSectionsForRole(
               label: "Messages",
               match: (p) => p === "/dashboard/messages",
             },
-            timeClockNav,
+            myBillableHoursNav,
             {
               href: "/dashboard/timesheet",
               label: "My Time (Timesheet)",

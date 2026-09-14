@@ -1,7 +1,9 @@
 import {
   isCounselorRole,
+  isFieldSpecialistRole,
   isInstructorRole,
   isStaffRole,
+  isSupervisorRole,
 } from "./roles";
 
 export const STAFF_CLOCK_TIMEZONE = "America/New_York";
@@ -45,9 +47,18 @@ type ZonedParts = {
   second: number;
 };
 
-/** Joshua Tree salaried team (not counselors, clients, natural supports, or Pre-ETS instructors). */
+/**
+ * Joshua Tree payroll clock-in/out (not counselors, clients, Pre-ETS instructors, or field roles).
+ * ES, Transition Specialists, and Supervisors track service time on billable timesheets instead.
+ */
 export function canUseStaffClock(role: string | null | undefined): boolean {
-  return isStaffRole(role) && !isCounselorRole(role) && !isInstructorRole(role);
+  if (!isStaffRole(role) || isCounselorRole(role) || isInstructorRole(role)) {
+    return false;
+  }
+  if (isFieldSpecialistRole(role) || isSupervisorRole(role)) {
+    return false;
+  }
+  return true;
 }
 
 export function zonedDateTimeParts(

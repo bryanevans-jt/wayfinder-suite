@@ -79,6 +79,10 @@ export function TimesheetWorkspace({
   }, [caseloadClients, entries]);
 
   const summary = summarizeTimeEntries(visibleEntries);
+  const showPayrollHours =
+    !isFieldSpecialistRole(role) &&
+    !isSupervisorRole(role) &&
+    typeof payrollClockMinutes === "number";
   const payrollMinutes =
     typeof payrollClockMinutes === "number" ? payrollClockMinutes : summary.workedMinutes;
   const payrollFromClock = typeof payrollClockMinutes === "number";
@@ -214,11 +218,15 @@ export function TimesheetWorkspace({
           </div>
         </div>
 
-        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat
-            label="Hours worked (payroll)"
-            value={minutesToDecimalHours(payrollMinutes)}
-          />
+        <div
+          className={`mt-5 grid gap-4 sm:grid-cols-2 ${showPayrollHours ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}
+        >
+          {showPayrollHours ? (
+            <Stat
+              label="Hours worked (payroll)"
+              value={minutesToDecimalHours(payrollMinutes)}
+            />
+          ) : null}
           <Stat
             label="Billable hours (by client)"
             value={minutesToDecimalHours(summary.billableMinutes)}
@@ -230,9 +238,11 @@ export function TimesheetWorkspace({
           />
         </div>
         <p className="mt-2 text-xs text-brand-black/55">
-          {payrollFromClock
+          {showPayrollHours && payrollFromClock
             ? "Hours worked come from staff Time Clock shifts (America/New_York) for this week. Billable hours sum each client line from the timesheet and may differ."
-            : "Hours worked merges overlapping clock times so the same canvass billed to multiple clients counts once for payroll. Billable hours sum each client line (may be higher)."}
+            : showPayrollHours
+              ? "Hours worked merges overlapping clock times so the same canvass billed to multiple clients counts once for payroll. Billable hours sum each client line (may be higher)."
+              : "Billable hours sum each client service line for this week (Sun–Sat, Eastern). See My Billable Hours for this week, last week, and month-to-date totals."}
         </p>
 
         {summary.byClient.length > 0 ? (
