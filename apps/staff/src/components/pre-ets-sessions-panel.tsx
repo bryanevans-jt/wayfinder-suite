@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { PreEtsStudentRosterSignatures } from "@/components/pre-ets-student-roster-signatures";
 import { SignaturePad } from "@/components/signature-pad";
 
 type Session = {
@@ -50,6 +51,8 @@ type AttendanceRow = {
   id: string;
   present: boolean;
   signed_on_roster: boolean;
+  roster_signature_data?: string | null;
+  roster_signed_date?: string | null;
   pre_ets_students: { participant_id: string | null; full_name: string } | null;
 };
 
@@ -223,28 +226,6 @@ export function PreEtsSessionsPanel() {
     if (selectedId) void loadSessionDetails(selectedId);
   }
 
-  async function saveAttendance() {
-    if (!selectedId) return;
-    setError(null);
-    const res = await fetch(`/api/pre-ets/sessions/${selectedId}/attendance`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        rows: attendance.map((row) => ({
-          id: row.id,
-          present: row.present,
-          signedOnRoster: row.present,
-        })),
-      }),
-    });
-    if (!res.ok) {
-      setError("Could not save attendance.");
-      return;
-    }
-    setMessage("Attendance saved. Present = signed on paper roster.");
-    void load();
-  }
-
   async function uploadSignedRoster(file: File) {
     if (!selectedId) return;
     setUploading(true);
@@ -355,8 +336,8 @@ export function PreEtsSessionsPanel() {
         <div>
           <h2 className="text-lg font-semibold text-brand-black">Sessions</h2>
           <p className="mt-1 text-sm text-brand-black/65">
-            Schedule sessions, print rosters and Activity Plans for paper use, upload signed rosters
-            to Drive, mark attendance, and submit Lesson Activity Reports in the app.
+            Schedule sessions, collect student signatures on the roster in-app (recommended) or print
+            a paper roster, upload signed rosters to Drive, and submit Lesson Activity Reports.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-sm">
@@ -460,9 +441,10 @@ export function PreEtsSessionsPanel() {
                 ) : null}
               </div>
               <p className="mt-2 text-xs text-brand-black/60">
-                Bring a printed Activity Plan to each session (fill out on paper). You may also
-                complete checkboxes and sign in the app below — when documentation is complete, the
-                signed roster and Activity Plan are emailed to Accounts and your Supervisor.
+                Collect student signatures in-app below (preferred) or print the roster for paper
+                signatures and upload a scan. Bring a printed Activity Plan to class if needed; you
+                may also complete the CAR in the app — when documentation is complete, Accounts and
+                your supervisor are notified.
               </p>
 
               {canSupervise ? (
@@ -492,11 +474,26 @@ export function PreEtsSessionsPanel() {
                 </div>
               ) : null}
 
+              <div className="mt-4">
+                <PreEtsStudentRosterSignatures
+                  sessionId={selected.id}
+                  sessionDate={sessionDate || selected.session_date || ""}
+                  rows={attendance}
+                  disabled={!isEditable}
+                  onUpdated={() => {
+                    void load();
+                    if (selectedId) void loadSessionDetails(selectedId);
+                  }}
+                  onMessage={setMessage}
+                  onError={setError}
+                />
+              </div>
+
               <div className="mt-4 space-y-2 text-sm">
-                <p className="font-medium">Signed roster PDF (Google Drive)</p>
+                <p className="font-medium">Or upload scanned paper roster (PDF)</p>
                 {selected.signed_roster_drive_file_name || selected.signed_roster_drive_file_id ? (
                   <p className="text-brand-black/60">
-                    Uploaded
+                    On file
                     {selected.signed_roster_drive_file_name
                       ? `: ${selected.signed_roster_drive_file_name}`
                       : ""}
@@ -514,51 +511,6 @@ export function PreEtsSessionsPanel() {
                     if (file) void uploadSignedRoster(file);
                   }}
                 />
-              </div>
-
-              <div className="mt-4 space-y-2 text-sm">
-                <p className="font-medium">Attendance (present = signed on paper roster)</p>
-                <div className="max-h-40 overflow-y-auto rounded-lg border border-neutral-200 divide-y">
-                  {attendance.length === 0 ? (
-                    <p className="p-3 text-brand-black/55">No students on roster for this authorization.</p>
-                  ) : (
-                    attendance.map((row, idx) => (
-                      <label
-                        key={row.id}
-                        className="flex cursor-pointer items-center gap-2 p-2 hover:bg-neutral-50"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={row.present}
-                          disabled={!isEditable}
-                          onChange={(e) => {
-                            const present = e.target.checked;
-                            setAttendance((rows) => {
-                              const next = [...rows];
-                              next[idx] = { ...row, present, signed_on_roster: present };
-                              return next;
-                            });
-                          }}
-                        />
-                        <span className="flex-1">{row.pre_ets_students?.full_name ?? "Student"}</span>
-                        {row.pre_ets_students?.participant_id ? (
-                          <span className="text-xs text-brand-black/50">
-                            {row.pre_ets_students.participant_id}
-                          </span>
-                        ) : null}
-                      </label>
-                    ))
-                  )}
-                </div>
-                {isEditable && attendance.length > 0 ? (
-                  <button
-                    type="button"
-                    className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium"
-                    onClick={() => void saveAttendance()}
-                  >
-                    Save attendance
-                  </button>
-                ) : null}
               </div>
             </div>
 

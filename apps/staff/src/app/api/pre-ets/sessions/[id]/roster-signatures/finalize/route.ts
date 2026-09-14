@@ -1,14 +1,16 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
+import { buildSessionRosterPdfBytes } from "@/lib/pre-ets-session-roster-pdf";
 import { uploadSessionSignedRosterPdf } from "@/lib/pre-ets-upload-session-signed-roster";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
+/** Build a PDF from in-app student signatures and upload to the signed-roster Drive folder. */
 export async function POST(
-  request: Request,
+  _request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  const route = "api/pre-ets/sessions/[id]/signed-roster";
+  const route = "api/pre-ets/sessions/[id]/roster-signatures/finalize";
   const auth = await requirePreEtsApi("deliver");
   if (isPreEtsApiError(auth)) return auth;
 
@@ -16,20 +18,32 @@ export async function POST(
 
   try {
     const admin = createServiceRoleClient();
-    const form = await request.formData();
-    const file = form.get("file");
-    if (!(file instanceof File)) {
-      return NextResponse.json({ error: "PDF file is required" }, { status: 400 });
+    const { count } = await admin
+      .from("pre_ets_session_attendance")
+      .select("id", { count: "exact", head: true })
+      .eq("session_id", sessionId)
+      .not("roster_signature_data", "is", null);
+
+    if ((count ?? 0) < 1) {
+      return NextResponse.json(
+        { error: "Collect at least one student signature before saving the roster to Drive." },
+        { status: 400 }
+      );
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const baseName = file.name || `signed-roster-${sessionId.slice(0, 8)}.pdf`;
+    const pdfBytes = await buildSessionRosterPdfBytes(admin, sessionId, auth.settings, {
+      includeCapturedSignatures: true,
+    });
+    if (!pdfBytes) {
+      return NextResponse.json({ error: "Session not found." }, { status: 404 });
+    }
+
     const uploaded = await uploadSessionSignedRosterPdf(
       admin,
       sessionId,
       auth.settings,
-      buffer,
-      baseName
+      Buffer.from(pdfBytes),
+      `signed-roster-in-app-${sessionId.slice(0, 8)}.pdf`
     );
 
     const { finalizePreEtsSessionDocumentation } = await import("@/lib/pre-ets-finalize-session");
@@ -41,10 +55,6 @@ export async function POST(
       driveUrl: uploaded.webViewLink,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Upload failed";
-    if (message.includes("Drive folder")) {
-      return NextResponse.json({ error: message }, { status: 400 });
-    }
     return respondWithLoggedError("staff", route, err, {
       userId: auth.userId,
       userRole: auth.role,

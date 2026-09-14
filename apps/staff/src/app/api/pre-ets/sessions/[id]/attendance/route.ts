@@ -31,7 +31,7 @@ export async function GET(
     const { data, error } = await admin
       .from("pre_ets_session_attendance")
       .select(
-        "id, present, signed_on_roster, student_id, pre_ets_students(participant_id, full_name)"
+        "id, present, signed_on_roster, roster_signature_data, roster_signed_date, student_id, pre_ets_students(participant_id, full_name)"
       )
       .eq("session_id", sessionId)
       .order("student_id");

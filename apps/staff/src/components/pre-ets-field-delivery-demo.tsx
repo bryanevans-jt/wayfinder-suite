@@ -43,8 +43,14 @@ export function PreEtsFieldDeliveryDemo({ variant = "dashboard" }: Props) {
   const [trainingStep, setTrainingStep] = useState(1);
   const [workspaceTab, setWorkspaceTab] = useState<"authorizations" | "sessions">("sessions");
   const [attendance, setAttendance] = useState(() =>
-    FIELD_DEMO_STUDENTS.map((s) => ({ ...s, present: false }))
+    FIELD_DEMO_STUDENTS.map((s) => ({
+      ...s,
+      present: false,
+      roster_signature_data: null as string | null,
+    }))
   );
+  const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
+  const [pendingStudentSig, setPendingStudentSig] = useState<string | null>(null);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [printModal, setPrintModal] = useState<PrintModal>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -115,9 +121,35 @@ export function PreEtsFieldDeliveryDemo({ variant = "dashboard" }: Props) {
     setError(null);
   }
 
-  function saveAttendance() {
-    setReport((r) => ({ ...r, participant_count: presentCount || r.participant_count }));
-    setMessage("Attendance saved. Present = signed on paper roster.");
+  function saveStudentSignature(studentId: string, signatureData: string | null) {
+    setAttendance((rows) =>
+      rows.map((row) =>
+        row.id === studentId
+          ? {
+              ...row,
+              roster_signature_data: signatureData,
+              present: Boolean(signatureData),
+            }
+          : row
+      )
+    );
+    setActiveStudentId(null);
+    setPendingStudentSig(null);
+    setMessage(
+      signatureData ? "Student signature saved (training simulation)." : "Signature removed."
+    );
+    setTrainingStep(5);
+    setError(null);
+  }
+
+  function finalizeDemoRosterToDrive() {
+    const signed = attendance.filter((a) => a.roster_signature_data).length;
+    if (signed < 1) {
+      setError("Collect at least one student signature first.");
+      return;
+    }
+    setUploadedFileName(`signed-roster-in-app-peach-demo.pdf (${signed} signatures)`);
+    setMessage("Roster PDF saved to Google Drive (training simulation).");
     setTrainingStep(9);
     setError(null);
   }
@@ -388,10 +420,56 @@ export function PreEtsFieldDeliveryDemo({ variant = "dashboard" }: Props) {
                   are emailed to Accounts and your supervisor.
                 </p>
 
+                <div className={`mt-4 space-y-3 text-sm ${highlight("attendance")}`}>
+                  <p className="font-medium">Collect student signatures (recommended)</p>
+                  <p className="text-xs text-brand-black/60">
+                    Tap a student → hand them the device → Save signature. Then save the roster to
+                    Drive.
+                  </p>
+                  <ul className="divide-y rounded-lg border border-neutral-200">
+                    {attendance.map((row) => {
+                      const signed = Boolean(row.roster_signature_data);
+                      return (
+                        <li key={row.id} className="flex flex-wrap items-center gap-2 p-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium">{row.fullName}</p>
+                            <p className="text-xs text-brand-black/50">{row.participantId}</p>
+                          </div>
+                          <span
+                            className={`text-xs font-semibold ${signed ? "text-brand-green" : "text-brand-black/45"}`}
+                          >
+                            {signed ? "Signed" : "Not signed"}
+                          </span>
+                          <button
+                            type="button"
+                            className="rounded-lg border border-brand-gold px-3 py-1.5 text-xs font-semibold text-brand-gold"
+                            onClick={() => {
+                              setActiveStudentId(row.id);
+                              setPendingStudentSig(row.roster_signature_data);
+                              setTrainingStep(4);
+                            }}
+                          >
+                            {signed ? "View / re-sign" : "Collect signature"}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  {attendance.some((a) => a.roster_signature_data) ? (
+                    <button
+                      type="button"
+                      className={`rounded-lg bg-brand-gold px-3 py-1.5 text-sm font-semibold text-white ${highlight("upload")}`}
+                      onClick={() => finalizeDemoRosterToDrive()}
+                    >
+                      Save roster to Google Drive
+                    </button>
+                  ) : null}
+                </div>
+
                 <div className={`mt-4 space-y-2 text-sm ${highlight("upload")}`}>
-                  <p className="font-medium">Signed roster PDF (Google Drive)</p>
+                  <p className="font-medium">Or upload scanned paper roster (PDF)</p>
                   {uploadedFileName ? (
-                    <p className="text-brand-black/60">Uploaded: {uploadedFileName}</p>
+                    <p className="text-brand-black/60">On file: {uploadedFileName}</p>
                   ) : (
                     <p className="text-brand-black/55">No signed roster on file yet.</p>
                   )}
@@ -401,40 +479,6 @@ export function PreEtsFieldDeliveryDemo({ variant = "dashboard" }: Props) {
                     className="block w-full text-sm"
                     onChange={(e) => simulateUpload(e.target.files?.[0])}
                   />
-                </div>
-
-                <div className={`mt-4 space-y-2 text-sm ${highlight("attendance")}`}>
-                  <p className="font-medium">Attendance (present = signed on paper roster)</p>
-                  <div className="max-h-40 overflow-y-auto rounded-lg border border-neutral-200 divide-y">
-                    {attendance.map((row, idx) => (
-                      <label
-                        key={row.id}
-                        className="flex cursor-pointer items-center gap-2 p-2 hover:bg-neutral-50"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={row.present}
-                          onChange={(e) => {
-                            const present = e.target.checked;
-                            setAttendance((rows) => {
-                              const next = [...rows];
-                              next[idx] = { ...row, present };
-                              return next;
-                            });
-                          }}
-                        />
-                        <span className="flex-1">{row.fullName}</span>
-                        <span className="text-xs text-brand-black/50">{row.participantId}</span>
-                      </label>
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium"
-                    onClick={() => saveAttendance()}
-                  >
-                    Save attendance
-                  </button>
                 </div>
               </div>
 
@@ -603,6 +647,41 @@ export function PreEtsFieldDeliveryDemo({ variant = "dashboard" }: Props) {
 
       {message ? <p className="text-sm text-brand-green">{message}</p> : null}
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
+
+      {activeStudentId ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-4 sm:items-center"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-4 shadow-xl">
+            <h4 className="text-base font-semibold text-brand-black">
+              {attendance.find((a) => a.id === activeStudentId)?.fullName ?? "Student"}
+            </h4>
+            <div className="mt-4">
+              <SignaturePad
+                commitMode="manual"
+                label="Student signature"
+                value={pendingStudentSig}
+                height={160}
+                onChange={(dataUrl) => {
+                  saveStudentSignature(activeStudentId, dataUrl || null);
+                }}
+              />
+            </div>
+            <button
+              type="button"
+              className="mt-4 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium"
+              onClick={() => {
+                setActiveStudentId(null);
+                setPendingStudentSig(null);
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {printModal ? (
         <div

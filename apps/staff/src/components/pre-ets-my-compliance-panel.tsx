@@ -46,8 +46,8 @@ export function PreEtsMyCompliancePanel() {
           <h2 className="text-lg font-semibold text-brand-black">My documentation</h2>
           <p className="mt-1 text-sm text-brand-black/65">
             Sessions at your assigned schools past the {deadlineHours}-hour deadline without a signed
-            roster upload and/or submitted class activity report. Upload rosters and submit CARs from
-            the Sessions &amp; reports tab.
+            roster on file (in-app signatures saved to Drive or a scanned PDF) and/or submitted class
+            activity report. Complete rosters and CARs from the Sessions &amp; reports tab.
           </p>
         </div>
         <label className="flex items-center gap-2 text-sm">

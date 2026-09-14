@@ -3,7 +3,17 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 export type RosterPdfStudent = {
   participantId: string;
   fullName: string;
+  /** PNG data URL from in-app student signature capture. */
+  signatureDataUrl?: string | null;
+  /** Date string (YYYY-MM-DD) for the roster Date column. */
+  signedDate?: string | null;
 };
+
+function pngBytesFromDataUrl(dataUrl: string): Uint8Array | null {
+  const match = /^data:image\/png;base64,(.+)$/i.exec(dataUrl.trim());
+  if (!match?.[1]) return null;
+  return Uint8Array.from(Buffer.from(match[1], "base64"));
+}
 
 export type RosterPdfInput = {
   authorizationNumber: string;
@@ -92,18 +102,49 @@ export async function generatePreEtsRosterPdf(input: RosterPdfInput): Promise<Ui
     }
     page.drawText(student.participantId, { x: colX.pid, y, size: 9, font });
     page.drawText(student.fullName.slice(0, 32), { x: colX.name, y, size: 9, font });
-    page.drawLine({
-      start: { x: colX.signature, y: y - 2 },
-      end: { x: colX.signature + 130, y: y - 2 },
-      thickness: 0.5,
-      color: rgb(0.4, 0.4, 0.4),
-    });
-    page.drawLine({
-      start: { x: colX.date, y: y - 2 },
-      end: { x: colX.date + 80, y: y - 2 },
-      thickness: 0.5,
-      color: rgb(0.4, 0.4, 0.4),
-    });
+
+    const pngBytes = student.signatureDataUrl
+      ? pngBytesFromDataUrl(student.signatureDataUrl)
+      : null;
+    if (pngBytes) {
+      try {
+        const png = await doc.embedPng(pngBytes);
+        const sigW = 120;
+        const sigH = 18;
+        page.drawImage(png, {
+          x: colX.signature,
+          y: y - sigH + 4,
+          width: sigW,
+          height: sigH,
+        });
+      } catch {
+        page.drawLine({
+          start: { x: colX.signature, y: y - 2 },
+          end: { x: colX.signature + 130, y: y - 2 },
+          thickness: 0.5,
+          color: rgb(0.4, 0.4, 0.4),
+        });
+      }
+    } else {
+      page.drawLine({
+        start: { x: colX.signature, y: y - 2 },
+        end: { x: colX.signature + 130, y: y - 2 },
+        thickness: 0.5,
+        color: rgb(0.4, 0.4, 0.4),
+      });
+    }
+
+    const dateLabel = student.signedDate?.trim() || "";
+    if (dateLabel) {
+      page.drawText(dateLabel.slice(0, 12), { x: colX.date, y, size: 9, font });
+    } else {
+      page.drawLine({
+        start: { x: colX.date, y: y - 2 },
+        end: { x: colX.date + 80, y: y - 2 },
+        thickness: 0.5,
+        color: rgb(0.4, 0.4, 0.4),
+      });
+    }
     y -= ROW_HEIGHT;
   }
 

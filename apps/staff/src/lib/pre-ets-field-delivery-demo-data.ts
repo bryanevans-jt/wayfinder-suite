@@ -92,38 +92,38 @@ export const FIELD_DEMO_TRAINING_STEPS: FieldDemoTrainingStep[] = [
   },
   {
     id: 4,
-    title: "Print roster PDF",
+    title: "Collect signatures in the app",
     summary:
-      "Use Print roster PDF before class. Each student signs on paper next to their name (Participant ID + signature + date).",
-    focus: "print-roster",
+      "Tap each student, hand them your phone or tablet, have them sign, then tap Save signature. Clear redo before saving. This is the preferred method.",
+    focus: "attendance",
   },
   {
     id: 5,
+    title: "Save roster to Google Drive",
+    summary:
+      "When students have signed, tap Save roster to Google Drive. Wayfinder Pro builds a PDF with their signatures for Accounts (same folder as scanned paper rosters).",
+    focus: "upload",
+  },
+  {
+    id: 6,
+    title: "Optional: print paper roster",
+    summary:
+      "Print roster PDF if you need a paper backup or a school requires wet ink. Upload a scanned PDF instead of—or after—in-app signatures.",
+    focus: "print-roster",
+  },
+  {
+    id: 7,
     title: "Print Activity Plan",
     summary:
       "Use Print Activity Plan (Class Activity Report on paper). Bring it to class; you may also complete the same fields in the app after class.",
     focus: "print-plan",
   },
   {
-    id: 6,
-    title: "Collect signatures at school",
-    summary:
-      "Students sign the printed roster. You sign the instructor attestation at the bottom of the roster sheet.",
-    focus: "paper-sign",
-  },
-  {
-    id: 7,
-    title: "Upload signed roster",
-    summary:
-      "Scan or photograph the signed roster as a PDF and upload it here. It is stored in the Pre-ETS Google Drive folder for Accounts.",
-    focus: "upload",
-  },
-  {
     id: 8,
-    title: "Mark attendance",
+    title: "Attendance",
     summary:
-      "Check Present for each student who signed the paper roster. Present = signed on roster in Wayfinder Pro.",
-    focus: "attendance",
+      "Students who signed in-app are marked present automatically. Absent students stay unsigned.",
+    focus: "paper-sign",
   },
   {
     id: 9,
