@@ -8,6 +8,7 @@ import type { MyBillableHoursSummary } from "@/lib/es-time-data";
 type Props = {
   summary: MyBillableHoursSummary;
   timesheetHref: string;
+  showTimesheetLink?: boolean;
   showTeamTimesheetLink?: boolean;
   teamTimesheetHref?: string;
 };
@@ -46,6 +47,7 @@ function SummaryCard({
 export function MyBillableHoursWorkspace({
   summary,
   timesheetHref,
+  showTimesheetLink = true,
   showTeamTimesheetLink = false,
   teamTimesheetHref,
 }: Props) {
@@ -64,12 +66,14 @@ export function MyBillableHoursWorkspace({
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link
-              href={timesheetHref}
-              className="rounded-lg border border-brand-green bg-brand-green px-4 py-2 text-sm font-semibold text-white hover:bg-brand-green/90"
-            >
-              Open weekly timesheet
-            </Link>
+            {showTimesheetLink ? (
+              <Link
+                href={timesheetHref}
+                className="rounded-lg border border-brand-green bg-brand-green px-4 py-2 text-sm font-semibold text-white hover:bg-brand-green/90"
+              >
+                Open weekly timesheet
+              </Link>
+            ) : null}
             {showTeamTimesheetLink && teamTimesheetHref ? (
               <Link
                 href={teamTimesheetHref}

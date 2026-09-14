@@ -1,13 +1,28 @@
 import { weekStartSunday } from "@wayfinder/supabase/es-time-tracking";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
+  isAdminTierRole,
   isFieldSpecialistRole,
+  isHrRole,
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
+import { canAccessBillableHoursPage } from "@wayfinder/supabase/staff-time-clock-shared";
+import { canUseStaffPto } from "@wayfinder/supabase/staff-pto-shared";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { redirect } from "next/navigation";
 import { MyBillableHoursWorkspace } from "@/components/my-billable-hours-workspace";
+import { StaffPtoPanel } from "@/components/staff-pto-panel";
 import { loadMyBillableHoursSummary } from "@/lib/es-time-data";
+
+function canOpenWeeklyTimesheet(role: string | null | undefined): boolean {
+  return (
+    isFieldSpecialistRole(role) ||
+    isSupervisorRole(role) ||
+    role === "accountant" ||
+    isHrRole(role) ||
+    isAdminTierRole(role)
+  );
+}
 
 export default async function MyBillableHoursPage() {
   const session = await getAppSession();
@@ -16,8 +31,7 @@ export default async function MyBillableHoursPage() {
   }
 
   const role = session.effectiveRole;
-  const canAccess = isFieldSpecialistRole(role) || isSupervisorRole(role);
-  if (!canAccess) {
+  if (!canAccessBillableHoursPage(role)) {
     redirect("/dashboard");
   }
 
@@ -33,20 +47,25 @@ export default async function MyBillableHoursPage() {
   const weekStart = weekStartSunday(summary.today);
   const timesheetHref = `/dashboard/timesheet?week=${encodeURIComponent(weekStart)}`;
   const teamTimesheetHref = `/dashboard/timesheet?week=${encodeURIComponent(weekStart)}`;
+  const showTimesheet = canOpenWeeklyTimesheet(role);
+  const showPto = canUseStaffPto(role);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <h1 className="text-2xl font-bold text-brand-green">My Billable Hours</h1>
+      <h1 className="text-2xl font-bold text-brand-green">Billable Hours</h1>
       <p className="mt-2 max-w-2xl text-sm text-brand-black/75">
-        Quick totals for state-billable client service time. This is separate from payroll Time
-        Clock (not used for Employment Specialists, Transition Specialists, or Supervisors).
+        Client service time totals for this week, last week, and month-to-date (America/New_York).
+        Time is captured when you log contacts, applications, meetings, and related work on client
+        profiles. Payroll clock-in/out has been replaced by billable timesheets for all staff.
       </p>
       <MyBillableHoursWorkspace
         summary={summary}
         timesheetHref={timesheetHref}
-        showTeamTimesheetLink={isSupervisorRole(role)}
+        showTimesheetLink={showTimesheet}
+        showTeamTimesheetLink={isSupervisorRole(role) && showTimesheet}
         teamTimesheetHref={teamTimesheetHref}
       />
+      {showPto ? <StaffPtoPanel /> : null}
     </main>
   );
 }

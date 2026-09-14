@@ -4,7 +4,7 @@ import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { isAdminTierRole, isHrRole } from "@wayfinder/supabase/roles";
 import {
   applyMidnightSplitIfNeeded,
-  canUseStaffClock,
+  isStaffPayrollClockRole,
   listOpenShiftsForUsers,
   localDateStringInTz,
   minutesToClockLabel,
@@ -59,7 +59,7 @@ export async function GET(request: Request) {
   }
 
   const staffIds = (profiles ?? [])
-    .filter((p) => canUseStaffClock((p.role as string | null) ?? null))
+    .filter((p) => isStaffPayrollClockRole((p.role as string | null) ?? null))
     .map((p) => p.id as string);
 
   for (const id of staffIds) {

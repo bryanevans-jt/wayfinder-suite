@@ -1,10 +1,4 @@
-import {
-  isCounselorRole,
-  isFieldSpecialistRole,
-  isInstructorRole,
-  isStaffRole,
-  isSupervisorRole,
-} from "./roles";
+import { isCounselorRole, isInstructorRole, isStaffRole } from "./roles";
 
 export const STAFF_CLOCK_TIMEZONE = "America/New_York";
 export const STAFF_CLOCK_MIN_MINUTES = 1;
@@ -47,18 +41,25 @@ type ZonedParts = {
   second: number;
 };
 
-/**
- * Joshua Tree payroll clock-in/out (not counselors, clients, Pre-ETS instructors, or field roles).
- * ES, Transition Specialists, and Supervisors track service time on billable timesheets instead.
- */
-export function canUseStaffClock(role: string | null | undefined): boolean {
+/** Roles that historically used payroll clock / PTO (HR reports, exports). */
+export function isStaffPayrollClockRole(role: string | null | undefined): boolean {
   if (!isStaffRole(role) || isCounselorRole(role) || isInstructorRole(role)) {
     return false;
   }
-  if (isFieldSpecialistRole(role) || isSupervisorRole(role)) {
-    return false;
-  }
   return true;
+}
+
+/**
+ * Clock-in/out UI is retired; staff use Billable Hours + timesheets instead.
+ * HR APIs still read `staff_time_clock_shifts` for legacy rows via {@link isStaffPayrollClockRole}.
+ */
+export function canUseStaffClock(_role: string | null | undefined): boolean {
+  return false;
+}
+
+/** Staff who see the Billable Hours nav (replaces Time Clock). */
+export function canAccessBillableHoursPage(role: string | null | undefined): boolean {
+  return isStaffPayrollClockRole(role);
 }
 
 export function zonedDateTimeParts(

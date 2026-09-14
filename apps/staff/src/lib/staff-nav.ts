@@ -89,15 +89,9 @@ export type StaffNavOptions = {
   showCommunityPartners?: boolean;
 };
 
-const timeClockNav: StaffNavItem = {
-  href: "/dashboard/time-clock",
-  label: "Time Clock",
-  match: (p) => p.startsWith("/dashboard/time-clock"),
-};
-
-const myBillableHoursNav: StaffNavItem = {
+const billableHoursNav: StaffNavItem = {
   href: "/dashboard/billable-hours",
-  label: "My Billable Hours",
+  label: "Billable Hours",
   match: (p) => p.startsWith("/dashboard/billable-hours"),
 };
 
@@ -317,7 +311,7 @@ export function staffNavSectionsForRole(
           items: withTraining(
             maybePartners(
               [
-                timeClockNav,
+                billableHoursNav,
                 {
                   href: "/dashboard/wrt",
                   label: "WRT Preview",
@@ -361,7 +355,7 @@ export function staffNavSectionsForRole(
           items: withTraining(
             maybePartners(
               [
-                timeClockNav,
+                billableHoursNav,
                 {
                   href: "/dashboard/wrt",
                   label: "WRT Preview",
@@ -399,7 +393,7 @@ export function staffNavSectionsForRole(
               label: "Messages",
               match: (p) => p === "/dashboard/messages",
             },
-            myBillableHoursNav,
+            billableHoursNav,
             {
               href: "/dashboard/timesheet",
               label: "Weekly Timesheet",
@@ -438,7 +432,7 @@ export function staffNavSectionsForRole(
                 label: "Weekly Timesheet",
                 match: (p) => p.startsWith("/dashboard/timesheet"),
               },
-              timeClockNav,
+              billableHoursNav,
               dataExportsNav,
             ],
             showPreEtsNav
@@ -473,7 +467,7 @@ export function staffNavSectionsForRole(
                 label: "Weekly Timesheet",
                 match: (p) => p.startsWith("/dashboard/timesheet"),
               },
-              timeClockNav,
+              billableHoursNav,
               analyticsNav,
               dataExportsNav,
             ],
@@ -514,7 +508,7 @@ export function staffNavSectionsForRole(
                     communityPartnersNav,
                   ]
                 : []),
-              timeClockNav,
+              billableHoursNav,
             ],
             showCp
           ),
@@ -553,7 +547,7 @@ export function staffNavSectionsForRole(
               label: "WRT Curriculum",
               match: (p) => p.startsWith("/dashboard/wrt/curriculum"),
             },
-            timeClockNav,
+            billableHoursNav,
           ],
         },
         {
@@ -583,7 +577,7 @@ export function staffNavSectionsForRole(
                 label: "Messages",
                 match: (p) => p === "/dashboard/messages",
               },
-              myBillableHoursNav,
+              billableHoursNav,
               {
                 href: "/dashboard/timesheet",
                 label: "My Time (Timesheet)",
@@ -622,7 +616,7 @@ export function staffNavSectionsForRole(
               label: "Messages",
               match: (p) => p === "/dashboard/messages",
             },
-            myBillableHoursNav,
+            billableHoursNav,
             {
               href: "/dashboard/timesheet",
               label: "My Time (Timesheet)",

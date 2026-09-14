@@ -1,4 +1,8 @@
-import { localDateStringInTz, STAFF_CLOCK_TIMEZONE, canUseStaffClock } from "./staff-time-clock-shared";
+import {
+  localDateStringInTz,
+  STAFF_CLOCK_TIMEZONE,
+  isStaffPayrollClockRole,
+} from "./staff-time-clock-shared";
 import {
   isAdminTierRole,
   isEsRole,
@@ -70,9 +74,9 @@ export type StaffPtoRequestRow = {
   updated_at: string;
 };
 
-/** PTO for Time Clock users (ES, supervisor, HR, accountant, hospitality, admin). Not counselors/clients/supports. */
+/** PTO for salaried staff (same roster as legacy payroll clock). Not counselors/clients/supports. */
 export function canUseStaffPto(role: string | null | undefined): boolean {
-  return canUseStaffClock(role);
+  return isStaffPayrollClockRole(role);
 }
 
 /** @deprecated Use canUseStaffPto — kept so older imports keep working during rollout. */

@@ -30,6 +30,8 @@ export {
   STAFF_CLOCK_TIMEZONE,
   STAFF_CLOCK_MIN_MINUTES,
   canUseStaffClock,
+  canAccessBillableHoursPage,
+  isStaffPayrollClockRole,
   zonedDateTimeParts,
   localDateStringInTz,
   nyLocalToUtc,
