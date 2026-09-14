@@ -63,6 +63,30 @@ export function isDeprecatedTnTraditionalService(row: ServiceRowInput): boolean 
   return baseName.toLowerCase() === "traditional supported employment" && state === "TN";
 }
 
+/** Legacy GA row superseded by "Workplace Readiness Training (GA)". */
+export function isLegacyGaWorkplaceReadinessService(row: ServiceRowInput): boolean {
+  const { baseName, state } = parseServiceParts(row.name, row.state);
+  if (state && state !== "GA") return false;
+  return baseName.toLowerCase() === "workplace readiness";
+}
+
+function findWorkplaceReadinessTrainingGaServiceId(rows: ServiceRowInput[]): string | null {
+  for (const row of rows) {
+    const { baseName, state } = parseServiceParts(row.name, row.state);
+    if (baseName.toLowerCase() === "workplace readiness training" && (!state || state === "GA")) {
+      return row.id;
+    }
+  }
+  return null;
+}
+
+function canonicalServiceBaseName(baseName: string): string {
+  if (baseName.toLowerCase() === "workplace readiness") {
+    return "Workplace Readiness Training";
+  }
+  return baseName;
+}
+
 /** GA Customized Supported Employment (optionally hidden from pickers). */
 export function isCustomizedSupportedEmploymentService(row: ServiceRowInput): boolean {
   const { baseName } = parseServiceParts(row.name, row.state);
@@ -89,6 +113,9 @@ export function resolveClientServiceIdForEdit(
   if (current && isDeprecatedTnTraditionalService(current)) {
     return findSupportedTnServiceId(rows);
   }
+  if (current && isLegacyGaWorkplaceReadinessService(current)) {
+    return findWorkplaceReadinessTrainingGaServiceId(rows);
+  }
   return currentServiceId;
 }
 
@@ -110,6 +137,7 @@ function activeServicesForSelect(
   const excludeTn = options?.excludeTennessee !== false;
   return rows.filter((r) => {
     if (isDeprecatedTnTraditionalService(r)) return false;
+    if (isLegacyGaWorkplaceReadinessService(r)) return false;
     const { state } = parseServiceParts(r.name, r.state);
     if (excludeTn && state === "TN") return false;
     if (
@@ -172,7 +200,7 @@ export function dedupeServicesForSelect(
 
   for (const row of activeServicesForSelect(rows, options)) {
     const parts = parseServiceParts(row.name, row.state);
-    const key = parts.baseName.toLowerCase();
+    const key = canonicalServiceBaseName(parts.baseName).toLowerCase();
     const list = byBase.get(key) ?? [];
     list.push({ row, parts });
     byBase.set(key, list);
