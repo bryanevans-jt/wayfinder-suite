@@ -13,6 +13,15 @@ type Assignment = {
   profiles: { full_name: string | null; role: string } | { full_name: string | null; role: string }[] | null;
 };
 
+type ClassSetupRow = {
+  id: string;
+  school_name: string;
+  district_number: string | null;
+  regional_supervisor_name: string | null;
+  transition_specialist_name: string | null;
+  school_id: string | null;
+};
+
 function relationName(
   raw: { name: string } | { name: string }[] | null | undefined
 ): string {
@@ -40,17 +49,26 @@ export function PreEtsAssignmentsPanel() {
   );
   const [message, setMessage] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [classSetupRows, setClassSetupRows] = useState<ClassSetupRow[]>([]);
+  const [syncBusy, setSyncBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoadError(null);
-    const [schoolRes, staffRes, assignRes] = await Promise.all([
+    const [schoolRes, staffRes, assignRes, setupRes] = await Promise.all([
       fetch("/api/pre-ets/schools"),
       fetch("/api/pre-ets/instructors"),
       fetch("/api/pre-ets/staff-assignments"),
+      fetch("/api/pre-ets/setup"),
     ]);
     const schoolData = (await schoolRes.json()) as { schools?: School[]; error?: string };
     const staffData = (await staffRes.json()) as { staff?: Staff[]; error?: string };
     const assignData = (await assignRes.json()) as { assignments?: Assignment[]; error?: string };
+    const setupData = (await setupRes.json()) as {
+      rows?: ClassSetupRow[];
+      schemaReady?: boolean;
+      schemaMessage?: string | null;
+      error?: string;
+    };
     const errors: string[] = [];
     if (schoolRes.ok) setSchools(schoolData.schools ?? []);
     else errors.push(schoolData.error ?? "Could not load Pre-ETS schools.");
@@ -58,6 +76,14 @@ export function PreEtsAssignmentsPanel() {
     else errors.push(staffData.error ?? "Could not load staff list.");
     if (assignRes.ok) setAssignments(assignData.assignments ?? []);
     else errors.push(assignData.error ?? "Could not load assignments.");
+    if (setupRes.ok) {
+      setClassSetupRows(setupData.rows ?? []);
+      if (setupData.schemaReady === false && setupData.schemaMessage) {
+        errors.push(setupData.schemaMessage);
+      }
+    } else if (setupRes.status !== 403) {
+      errors.push(setupData.error ?? "Could not load class setup rows.");
+    }
     if (errors.length) setLoadError(errors.join(" "));
   }, []);
 
@@ -85,16 +111,74 @@ export function PreEtsAssignmentsPanel() {
     void load();
   }
 
+  async function syncFromClassSetup() {
+    setSyncBusy(true);
+    setMessage(null);
+    const res = await fetch("/api/pre-ets/setup/apply-assignments", { method: "POST" });
+    const data = (await res.json()) as {
+      applied?: number;
+      schoolsLinked?: number;
+      error?: string;
+    };
+    setSyncBusy(false);
+    setMessage(
+      res.ok
+        ? `Linked ${data.schoolsLinked ?? 0} school(s) and synced ${data.applied ?? 0} staff assignment(s) from class setup.`
+        : data.error ?? "Sync failed."
+    );
+    void load();
+  }
+
   return (
     <section className="space-y-4">
       <div>
         <h2 className="text-lg font-semibold text-brand-black">Staff school assignments</h2>
         <p className="mt-1 text-sm text-brand-black/65">
-          Assign Transition Specialists and supervisors to schools. Use Class setup for bulk
-          planning; linked rows sync here when Accounts commits district worksheets. Schools appear
-          here after a district worksheet is committed (or when setup rows are linked to schools).
+          Assign Transition Specialists and supervisors to schools. Import rows on{" "}
+          <strong>Class setup</strong> (include district numbers), then use{" "}
+          <strong>Sync from class setup</strong> below to create schools and staff assignments.
         </p>
       </div>
+
+      {classSetupRows.length > 0 ? (
+        <div className="space-y-3 rounded-xl border border-neutral-200 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-semibold text-brand-black">Class setup ({classSetupRows.length} rows)</h3>
+            <button
+              type="button"
+              disabled={syncBusy}
+              className="rounded-lg bg-brand-green px-3 py-1.5 text-sm font-semibold text-white"
+              onClick={() => void syncFromClassSetup()}
+            >
+              {syncBusy ? "Syncing…" : "Sync from class setup"}
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-xs">
+              <thead className="text-brand-black/60">
+                <tr>
+                  <th className="px-2 py-1">School</th>
+                  <th className="px-2 py-1">District</th>
+                  <th className="px-2 py-1">Supervisor</th>
+                  <th className="px-2 py-1">Transition Specialist</th>
+                  <th className="px-2 py-1">Linked</th>
+                </tr>
+              </thead>
+              <tbody>
+                {classSetupRows.map((row) => (
+                  <tr key={row.id} className="border-t border-neutral-100">
+                    <td className="px-2 py-1">{row.school_name}</td>
+                    <td className="px-2 py-1">{row.district_number ?? "—"}</td>
+                    <td className="px-2 py-1">{row.regional_supervisor_name ?? "—"}</td>
+                    <td className="px-2 py-1">{row.transition_specialist_name ?? "—"}</td>
+                    <td className="px-2 py-1">{row.school_id ? "Yes" : "No"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
 
       {loadError ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">

@@ -144,6 +144,7 @@ export function PreEtsSetupPanel() {
       imported?: number;
       errors?: string[];
       assignmentsApplied?: number;
+      schoolsLinked?: number;
       error?: string;
     };
     setBusy(false);
@@ -155,7 +156,8 @@ export function PreEtsSetupPanel() {
       data.errors?.length ? ` ${data.errors.length} row(s) skipped.` : "";
     setMessage(
       `Imported ${data.imported ?? 0} row(s).` +
-        (applyAssignments ? ` Applied ${data.assignmentsApplied ?? 0} assignment(s).` : "") +
+        (data.schoolsLinked ? ` Linked ${data.schoolsLinked} school(s).` : "") +
+        (applyAssignments ? ` Synced ${data.assignmentsApplied ?? 0} staff assignment(s).` : "") +
         errNote
     );
     setCsvText("");
@@ -166,13 +168,19 @@ export function PreEtsSetupPanel() {
     setBusy(true);
     setError(null);
     const res = await fetch("/api/pre-ets/setup/apply-assignments", { method: "POST" });
-    const data = (await res.json()) as { applied?: number; error?: string };
+    const data = (await res.json()) as {
+      applied?: number;
+      schoolsLinked?: number;
+      error?: string;
+    };
     setBusy(false);
     if (!res.ok) {
       setError(data.error ?? "Could not apply assignments.");
       return;
     }
-    setMessage(`Applied ${data.applied ?? 0} school assignment(s) from linked setup rows.`);
+    setMessage(
+      `Linked ${data.schoolsLinked ?? 0} school(s) from class setup and synced ${data.applied ?? 0} staff assignment(s).`
+    );
   }
 
   return (

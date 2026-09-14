@@ -165,12 +165,14 @@ export async function upsertPreEtsClassSetupEntry(
 
   const supervisor = await resolveStaffUserId(admin, input.regionalSupervisorName ?? null, [
     "supervisor",
+    "gvra_supervisor",
     "admin",
     "super_admin",
   ]);
   const ts = await resolveStaffUserId(admin, input.transitionSpecialistName ?? null, [
     "transition_specialist",
     "instructor",
+    "es",
   ]);
 
   const patch = {
@@ -193,24 +195,53 @@ export async function upsertPreEtsClassSetupEntry(
     updated_by: actorUserId,
   };
 
-  if (input.id) {
+  let targetId = input.id;
+  if (!targetId) {
+    let existingQuery = admin
+      .from("pre_ets_class_setup")
+      .select("id")
+      .eq("school_year", settings.school_year)
+      .eq("school_name", schoolName);
+    if (patch.district_number) {
+      existingQuery = existingQuery.eq("district_number", patch.district_number);
+    } else {
+      existingQuery = existingQuery.is("district_number", null);
+    }
+    const { data: existing } = await existingQuery.maybeSingle();
+    targetId = existing?.id as string | undefined;
+  }
+
+  let saved: PreEtsClassSetupRow;
+  if (targetId) {
     const { data, error } = await admin
       .from("pre_ets_class_setup")
       .update(patch)
-      .eq("id", input.id)
+      .eq("id", targetId)
       .select("*")
       .single();
     if (error || !data) throw error ?? new Error("Update failed");
-    return data as PreEtsClassSetupRow;
+    saved = data as PreEtsClassSetupRow;
+  } else {
+    const { data, error } = await admin
+      .from("pre_ets_class_setup")
+      .insert(patch)
+      .select("*")
+      .single();
+    if (error || !data) throw error ?? new Error("Insert failed");
+    saved = data as PreEtsClassSetupRow;
   }
 
-  const { data, error } = await admin
-    .from("pre_ets_class_setup")
-    .insert(patch)
-    .select("*")
-    .single();
-  if (error || !data) throw error ?? new Error("Insert failed");
-  return data as PreEtsClassSetupRow;
+  if (saved.district_number?.trim() && !saved.school_id) {
+    await ensurePreEtsSchoolForClassSetupRow(admin, saved.id, settings.school_year);
+    const { data: refreshed } = await admin
+      .from("pre_ets_class_setup")
+      .select("*")
+      .eq("id", saved.id)
+      .maybeSingle();
+    if (refreshed) saved = refreshed as PreEtsClassSetupRow;
+  }
+
+  return saved;
 }
 
 export async function deletePreEtsClassSetupEntry(
@@ -396,6 +427,98 @@ export async function linkPreEtsClassSetupToSchool(
   }
 }
 
+/** Create district/school records for a class setup row when district # is known. */
+export async function ensurePreEtsSchoolForClassSetupRow(
+  admin: SupabaseClient,
+  setupRowId: string,
+  schoolYear: string
+): Promise<string | null> {
+  const { data: row, error } = await admin
+    .from("pre_ets_class_setup")
+    .select("id, school_id, school_name, district_number")
+    .eq("id", setupRowId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!row) return null;
+  if (row.school_id) return row.school_id as string;
+
+  const districtNumber = String(row.district_number ?? "").trim();
+  const schoolName = normalizeSchoolName(String(row.school_name ?? ""));
+  if (!districtNumber || !schoolName) return null;
+
+  const year = schoolYear.trim() || (await loadPreEtsSettings(admin)).school_year;
+
+  const { data: district, error: distErr } = await admin
+    .from("pre_ets_districts")
+    .upsert(
+      {
+        gvra_district_number: districtNumber,
+        school_year: year,
+        label: `District ${districtNumber}`,
+      },
+      { onConflict: "gvra_district_number,school_year" }
+    )
+    .select("id")
+    .single();
+
+  if (distErr || !district) return null;
+
+  const { data: school, error: schoolErr } = await admin
+    .from("pre_ets_schools")
+    .upsert(
+      {
+        district_id: district.id as string,
+        name: schoolName,
+      },
+      { onConflict: "district_id,name" }
+    )
+    .select("id")
+    .single();
+
+  if (schoolErr || !school) return null;
+
+  const schoolId = school.id as string;
+  await admin
+    .from("pre_ets_class_setup")
+    .update({
+      school_id: schoolId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", setupRowId);
+
+  return schoolId;
+}
+
+/** Link all setup rows that have district numbers but no school_id yet. */
+export async function linkClassSetupRowsToSchools(
+  admin: SupabaseClient,
+  schoolYear?: string
+): Promise<{ linked: number }> {
+  if (!(await isPreEtsClassSetupSchemaAvailable(admin))) {
+    return { linked: 0 };
+  }
+
+  const settings = await loadPreEtsSettings(admin);
+  const year = schoolYear?.trim() || settings.school_year;
+
+  const { data: rows, error } = await admin
+    .from("pre_ets_class_setup")
+    .select("id")
+    .eq("school_year", year)
+    .is("school_id", null)
+    .not("district_number", "is", null);
+
+  if (error) throw new Error(error.message);
+
+  let linked = 0;
+  for (const row of rows ?? []) {
+    const schoolId = await ensurePreEtsSchoolForClassSetupRow(admin, row.id as string, year);
+    if (schoolId) linked++;
+  }
+  return { linked };
+}
+
 async function applyPreEtsClassSetupAssignmentsForRow(
   admin: SupabaseClient,
   input: {
@@ -444,9 +567,11 @@ async function applyPreEtsClassSetupAssignmentsForRow(
 export async function applyPreEtsClassSetupAssignments(
   admin: SupabaseClient,
   schoolYear?: string
-): Promise<{ applied: number }> {
+): Promise<{ applied: number; schoolsLinked: number }> {
   const settings = await loadPreEtsSettings(admin);
   const year = schoolYear?.trim() || settings.school_year;
+
+  const { linked: schoolsLinked } = await linkClassSetupRowsToSchools(admin, year);
 
   const { data: rows } = await admin
     .from("pre_ets_class_setup")
@@ -464,7 +589,34 @@ export async function applyPreEtsClassSetupAssignments(
     });
     applied++;
   }
-  return { applied };
+  return { applied, schoolsLinked };
+}
+
+function parseClassSetupCsvLine(line: string): string[] {
+  const cells: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+        continue;
+      }
+      inQuotes = !inQuotes;
+      continue;
+    }
+    if (ch === "," && !inQuotes) {
+      cells.push(current.trim());
+      current = "";
+      continue;
+    }
+    current += ch;
+  }
+  cells.push(current.trim());
+  return cells;
 }
 
 export function parseClassSetupCsv(text: string): BulkClassSetupRow[] {
@@ -474,7 +626,7 @@ export function parseClassSetupCsv(text: string): BulkClassSetupRow[] {
     .filter(Boolean);
   if (lines.length < 2) return [];
 
-  const header = lines[0].split(",").map((h) => h.trim().toLowerCase());
+  const header = parseClassSetupCsvLine(lines[0]).map((h) => h.trim().toLowerCase());
   const col = (names: string[]): number => {
     for (const name of names) {
       const idx = header.findIndex((h) => h.includes(name));
@@ -500,7 +652,7 @@ export function parseClassSetupCsv(text: string): BulkClassSetupRow[] {
 
   const rows: BulkClassSetupRow[] = [];
   for (let li = 1; li < lines.length; li++) {
-    const cells = lines[li].split(",").map((c) => c.trim());
+    const cells = parseClassSetupCsvLine(lines[li]);
     const schoolName = pick(cells, iSchool >= 0 ? iSchool : 1);
     if (!schoolName) continue;
     rows.push({

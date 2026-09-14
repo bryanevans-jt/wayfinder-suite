@@ -44,9 +44,13 @@ export async function POST(request: Request) {
     const result = await bulkImportPreEtsClassSetup(admin, parsedRows, auth.userId);
     const applied = body.applyAssignments
       ? await applyPreEtsClassSetupAssignments(admin, auth.settings.school_year)
-      : { applied: 0 };
+      : { applied: 0, schoolsLinked: 0 };
 
-    return NextResponse.json({ ...result, assignmentsApplied: applied.applied });
+    return NextResponse.json({
+      ...result,
+      assignmentsApplied: applied.applied,
+      schoolsLinked: applied.schoolsLinked,
+    });
   } catch (err) {
     return respondWithLoggedError("staff", route, err, {
       userId: auth.userId,
