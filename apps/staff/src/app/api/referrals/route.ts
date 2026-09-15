@@ -34,8 +34,7 @@ export async function GET(request: Request) {
 
   const admin = createServiceRoleClient();
   const directReferralAssignEnabled = await loadDirectReferralAssignEnabled(admin);
-  const canAssignFieldSpecialist =
-    directReferralAssignEnabled && canAssignReferralFieldSpecialist(session.effectiveRole);
+  const canAssignFieldSpecialist = canAssignReferralFieldSpecialist(session.effectiveRole);
 
   let query = admin
     .from("clients")
@@ -223,8 +222,7 @@ export async function PATCH(request: Request) {
   const actor = session.effectiveUserId;
 
   if (body.action === "assign_field_specialist") {
-    const directAssign = await loadDirectReferralAssignEnabled(admin);
-    if (!directAssign || !canAssignReferralFieldSpecialist(session.effectiveRole)) {
+    if (!canAssignReferralFieldSpecialist(session.effectiveRole)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     const specialistId = (body.fieldSpecialistUserId ?? "").trim();

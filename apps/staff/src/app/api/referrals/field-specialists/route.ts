@@ -14,15 +14,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const admin = createServiceRoleClient();
-  const directAssign = await loadDirectReferralAssignEnabled(admin);
-  if (!directAssign) {
-    return NextResponse.json({ options: [], directReferralAssignEnabled: false });
-  }
-
   if (!canAssignReferralFieldSpecialist(session.effectiveRole)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  const admin = createServiceRoleClient();
+  const directAssign = await loadDirectReferralAssignEnabled(admin);
 
   const { searchParams } = new URL(request.url);
   const officeId = searchParams.get("officeId");
@@ -30,7 +27,7 @@ export async function GET(request: Request) {
   const options = await loadReferralFieldSpecialistOptions(admin, officeId);
 
   return NextResponse.json({
-    directReferralAssignEnabled: true,
+    directReferralAssignEnabled: directAssign,
     options,
   });
 }

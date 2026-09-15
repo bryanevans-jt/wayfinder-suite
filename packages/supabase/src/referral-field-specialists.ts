@@ -93,11 +93,14 @@ export async function loadReferralFieldSpecialistOptions(
 }
 
 export async function loadDirectReferralAssignEnabled(admin: SupabaseClient): Promise<boolean> {
-  const { data } = await admin
+  const { data, error } = await admin
     .from("admin_config")
     .select("direct_referral_assign_enabled")
     .limit(1)
     .maybeSingle();
+  if (error?.message.includes("direct_referral_assign")) {
+    return false;
+  }
   return data?.direct_referral_assign_enabled === true;
 }
 

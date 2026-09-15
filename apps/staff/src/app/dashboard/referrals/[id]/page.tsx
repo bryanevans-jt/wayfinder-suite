@@ -33,9 +33,7 @@ export default async function ReferralDetailPage({ params }: PageProps) {
     .eq("client_id", id)
     .maybeSingle();
 
-  const directReferralAssignEnabled = await loadDirectReferralAssignEnabled(admin);
-  const showAssignPanel =
-    directReferralAssignEnabled && canAssignReferralFieldSpecialist(session.effectiveRole);
+  const showAssignPanel = canAssignReferralFieldSpecialist(session.effectiveRole);
 
   return (
     <main className="px-6 py-10">

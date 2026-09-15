@@ -487,6 +487,15 @@ export function ReferralQueueWorkspace() {
         </p>
       </div>
 
+      {canAssignFieldSpecialist && !directReferralAssignEnabled ? (
+        <p className="rounded-lg border border-brand-gold/40 bg-amber-50/80 px-4 py-3 text-sm text-brand-black">
+          Assign ES/TS below anytime. To require assignment before activation, skip Intake Calls, and
+          hide hospitality intake, turn on{" "}
+          <strong>Direct referral assign</strong> in Super Admin → Feature Toggles (after the DB
+          migration is applied).
+        </p>
+      ) : null}
+
       {error ? (
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
           {error}
@@ -606,7 +615,7 @@ export function ReferralQueueWorkspace() {
                 </label>
               </div>
 
-              {directReferralAssignEnabled && canAssignFieldSpecialist ? (
+              {canAssignFieldSpecialist ? (
                 <div className="mt-3 max-w-md">
                   <ReferralFieldSpecialistSelect
                     officeId={c.office_id}

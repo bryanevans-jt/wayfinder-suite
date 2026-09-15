@@ -22,7 +22,19 @@ const TOGGLE_SELECT =
   "community_partners_enabled, traditional_supported_employment_enabled, job_coaching_enabled, customized_supported_employment_enabled, groupme_celebrations_enabled, celebration_birthday_template, celebration_anniversary_template, direct_referral_assign_enabled";
 
 export async function loadFeatureToggles(admin: SupabaseClient): Promise<FeatureToggles> {
-  const { data } = await admin.from("admin_config").select(TOGGLE_SELECT).limit(1).maybeSingle();
+  let { data, error } = await admin.from("admin_config").select(TOGGLE_SELECT).limit(1).maybeSingle();
+
+  if (error?.message.includes("direct_referral_assign")) {
+    const fallback = await admin
+      .from("admin_config")
+      .select(
+        "community_partners_enabled, traditional_supported_employment_enabled, job_coaching_enabled, customized_supported_employment_enabled, groupme_celebrations_enabled, celebration_birthday_template, celebration_anniversary_template"
+      )
+      .limit(1)
+      .maybeSingle();
+    data = fallback.data as typeof data;
+    error = fallback.error;
+  }
 
   return {
     communityPartnersEnabled: data?.community_partners_enabled === true,
