@@ -113,6 +113,16 @@ export type PortalBootstrap = {
     office_ids: string[];
     client_count: number;
   }[];
+  /** Transition Instructors — Pre-ETS only; no client caseload. */
+  instructorStaff: {
+    id: string;
+    email: string;
+    full_name: string | null;
+    display_name: string;
+    is_active: boolean;
+    is_removed: boolean;
+    office_ids: string[];
+  }[];
   counselorStaff: {
     id: string;
     full_name: string;
@@ -725,6 +735,24 @@ export async function loadPortalBootstrap(
           is_removed: Boolean(profile?.staff_removed_at),
           office_ids: staffOfficeByUser.get(id) ?? [],
           client_count: esClientCountByUser.get(id) ?? 0,
+        };
+      })
+      .sort((a, b) =>
+        a.display_name.localeCompare(b.display_name, undefined, { sensitivity: "base" })
+      ),
+    instructorStaff: (profiles ?? [])
+      .filter((p) => p.role === "instructor")
+      .map((p) => {
+        const id = p.id as string;
+        const profile = profileById.get(id);
+        return {
+          id,
+          email: emailById.get(id) ?? "",
+          full_name: profile?.full_name ?? null,
+          display_name: staffNameFor(id),
+          is_active: profile?.is_active !== false,
+          is_removed: Boolean(profile?.staff_removed_at),
+          office_ids: staffOfficeByUser.get(id) ?? [],
         };
       })
       .sort((a, b) =>

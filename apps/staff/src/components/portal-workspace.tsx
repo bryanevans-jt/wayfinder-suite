@@ -1929,7 +1929,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               />
               <AssignmentCard
                 title="Regional supervisor to Transition Specialist"
-                description="Transition Specialists stay under regional supervisors (not the org-wide ES supervisor)."
+                description="Transition Specialists (caseload + Pre-ETS) report to regional supervisors or org leads (e.g. Ryan). ES org-wide links use the card above."
                 busy={busy}
                 onAdd={(supervisorId, tsId) =>
                   run(async () => {
@@ -1950,12 +1950,10 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                   const specialist = b.esStaff.find((e) => e.id === l.es_user_id);
                   return specialist?.role === "transition_specialist";
                 })}
-                leftOptions={b.supervisorStaff
-                  .filter((s) => s.is_active)
-                  .map((s) => ({
-                    id: s.id,
-                    label: s.display_name,
-                  }))}
+                leftOptions={b.supervisors.map((s) => ({
+                  id: s.id,
+                  label: s.display_name,
+                }))}
                 rightOptions={b.esStaff
                   .filter(
                     (e) =>
@@ -1964,6 +1962,53 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                   .map((e) => ({
                     id: e.id,
                     label: e.display_name,
+                  }))}
+                onRemove={(id) =>
+                  run(async () => {
+                    const res = await fetch(`/api/portal/assignments?type=supervisor_es&id=${id}`, {
+                      method: "DELETE",
+                    });
+                    const data = (await res.json()) as { error?: string };
+                    if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                  })
+                }
+                labelLink={(l) => {
+                  return `${staffLabel(l.supervisor_user_id)} → ${staffLabel(l.es_user_id)}`;
+                }}
+              />
+              <AssignmentCard
+                title="Regional supervisor to Transition Instructor"
+                description="Transition Instructors (Pre-ETS teaching only, no client caseload) report to regional supervisors. Shared offices also apply for oversight."
+                busy={busy}
+                onAdd={(supervisorId, instructorId) =>
+                  run(async () => {
+                    const res = await fetch("/api/portal/assignments", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        type: "supervisor_es",
+                        supervisor_user_id: supervisorId,
+                        es_user_id: instructorId,
+                      }),
+                    });
+                    const data = (await res.json()) as { error?: string };
+                    if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                  })
+                }
+                links={b.supervisorEsLinks.filter((l) =>
+                  b.instructorStaff.some((i) => i.id === l.es_user_id)
+                )}
+                leftOptions={b.supervisorStaff
+                  .filter((s) => s.is_active)
+                  .map((s) => ({
+                    id: s.id,
+                    label: s.display_name,
+                  }))}
+                rightOptions={b.instructorStaff
+                  .filter((i) => i.is_active && !i.is_removed)
+                  .map((i) => ({
+                    id: i.id,
+                    label: i.display_name,
                   }))}
                 onRemove={(id) =>
                   run(async () => {

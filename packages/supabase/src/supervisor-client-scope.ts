@@ -7,10 +7,11 @@ export type SupervisorScope = {
 };
 
 /**
- * Regional supervisors inherit Transition Specialists in shared offices only.
- * Employment Specialists are linked explicitly (org-wide ES supervisor + any regional links).
+ * Regional supervisors inherit Pre-ETS / field staff in shared offices only:
+ * Transition Specialists (caseload + Pre-ETS) and Transition Instructors (Pre-ETS only).
+ * Employment Specialists are linked only via supervisor_es_assignments (org-wide ES lead + regional links).
  */
-const OFFICE_SHARED_CASELOAD_ROLES = ["transition_specialist"] as const;
+const OFFICE_SHARED_CASELOAD_ROLES = ["transition_specialist", "instructor"] as const;
 
 export async function loadSupervisorScope(
   admin: SupabaseClient,
