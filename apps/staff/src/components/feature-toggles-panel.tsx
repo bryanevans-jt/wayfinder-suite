@@ -8,6 +8,7 @@ type ToggleState = {
   job_coaching_enabled: boolean;
   customized_supported_employment_enabled: boolean;
   groupme_celebrations_enabled: boolean;
+  direct_referral_assign_enabled: boolean;
   celebration_birthday_template: string;
   celebration_anniversary_template: string;
 };
@@ -18,6 +19,7 @@ const EMPTY: ToggleState = {
   job_coaching_enabled: false,
   customized_supported_employment_enabled: false,
   groupme_celebrations_enabled: true,
+  direct_referral_assign_enabled: false,
   celebration_birthday_template: "Happy Birthday, {first_name}! Hope you have a fantastic day!",
   celebration_anniversary_template:
     "Today {name} celebrates {years} years at Joshua Tree! Happy work anniversary, {first_name}!",
@@ -43,6 +45,7 @@ export function FeatureTogglesPanel() {
             customized_supported_employment_enabled:
               data.customized_supported_employment_enabled === true,
             groupme_celebrations_enabled: data.groupme_celebrations_enabled !== false,
+            direct_referral_assign_enabled: data.direct_referral_assign_enabled === true,
             celebration_birthday_template:
               data.celebration_birthday_template?.trim() || EMPTY.celebration_birthday_template,
             celebration_anniversary_template:
@@ -94,6 +97,22 @@ export function FeatureTogglesPanel() {
       </div>
 
       <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-brand-black">Referrals &amp; intake</h3>
+        <label className="flex items-start gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={form.direct_referral_assign_enabled}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, direct_referral_assign_enabled: e.target.checked }))
+            }
+          />
+          <span>
+            Direct referral assign (admin assigns ES/TS on Referral Queue; hide Intake Calls; skip
+            hospitality intake tasks on activation)
+          </span>
+        </label>
+
         <h3 className="text-sm font-semibold text-brand-black">Services &amp; Network</h3>
         {(
           [

@@ -38,6 +38,7 @@ export type StaffSidebarPanelProps = {
   showAuditLink?: boolean;
   showPreEtsNav?: boolean;
   showCommunityPartners?: boolean;
+  hideIntakeCallsNav?: boolean;
   onNavigate?: () => void;
   className?: string;
 };
@@ -47,12 +48,14 @@ export function StaffSidebarPanel({
   showAuditLink = false,
   showPreEtsNav = false,
   showCommunityPartners = false,
+  hideIntakeCallsNav = false,
   onNavigate,
   className = "",
 }: StaffSidebarPanelProps) {
   const pathname = usePathname() ?? "";
   const sections = staffNavSectionsForRole(staffRole, showAuditLink, showPreEtsNav, {
     showCommunityPartners,
+    hideIntakeCallsNav,
   });
 
   return (

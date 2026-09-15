@@ -103,6 +103,12 @@ export default async function StaffLoginPage({
               Magic links expire quickly — request a fresh one and use it within a few minutes.
             </p>
           ) : null}
+          {reason &&
+          reason !== "pkce_verifier" &&
+          reason !== "redirect_mismatch" &&
+          reason !== "link_expired" ? (
+            <p className="text-left text-xs text-brand-black/60">Detail: {reason}</p>
+          ) : null}
         </div>
       ) : null}
       <LoginFormShell

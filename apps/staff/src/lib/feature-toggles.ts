@@ -10,6 +10,7 @@ export type FeatureToggles = {
   groupmeCelebrationsEnabled: boolean;
   celebrationBirthdayTemplate: string;
   celebrationAnniversaryTemplate: string;
+  directReferralAssignEnabled: boolean;
 };
 
 export const DEFAULT_BIRTHDAY_TEMPLATE =
@@ -18,7 +19,7 @@ export const DEFAULT_ANNIVERSARY_TEMPLATE =
   "Today {name} celebrates {years} years at Joshua Tree! Happy work anniversary, {first_name}!";
 
 const TOGGLE_SELECT =
-  "community_partners_enabled, traditional_supported_employment_enabled, job_coaching_enabled, customized_supported_employment_enabled, groupme_celebrations_enabled, celebration_birthday_template, celebration_anniversary_template";
+  "community_partners_enabled, traditional_supported_employment_enabled, job_coaching_enabled, customized_supported_employment_enabled, groupme_celebrations_enabled, celebration_birthday_template, celebration_anniversary_template, direct_referral_assign_enabled";
 
 export async function loadFeatureToggles(admin: SupabaseClient): Promise<FeatureToggles> {
   const { data } = await admin.from("admin_config").select(TOGGLE_SELECT).limit(1).maybeSingle();
@@ -37,6 +38,7 @@ export async function loadFeatureToggles(admin: SupabaseClient): Promise<Feature
     celebrationAnniversaryTemplate:
       (data?.celebration_anniversary_template as string | null)?.trim() ||
       DEFAULT_ANNIVERSARY_TEMPLATE,
+    directReferralAssignEnabled: data?.direct_referral_assign_enabled === true,
   };
 }
 

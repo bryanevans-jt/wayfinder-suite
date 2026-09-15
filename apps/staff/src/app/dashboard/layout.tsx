@@ -20,12 +20,15 @@ export default async function DashboardLayout({
   const showPreEtsNav = await preEtsAccessAllowedForRole(navRole);
 
   let showCommunityPartners = false;
+  let hideIntakeCallsNav = false;
   try {
     const admin = createServiceRoleClient();
     const toggles = await loadFeatureToggles(admin);
     showCommunityPartners = toggles.communityPartnersEnabled;
+    hideIntakeCallsNav = toggles.directReferralAssignEnabled;
   } catch {
     showCommunityPartners = false;
+    hideIntakeCallsNav = false;
   }
 
   return (
@@ -42,6 +45,7 @@ export default async function DashboardLayout({
         showAuditLink={showAuditLink}
         showPreEtsNav={showPreEtsNav}
         showCommunityPartners={showCommunityPartners}
+        hideIntakeCallsNav={hideIntakeCallsNav}
       >
         {children}
       </StaffDashboardShell>

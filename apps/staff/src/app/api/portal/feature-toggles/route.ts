@@ -23,6 +23,7 @@ export async function GET() {
     groupme_celebrations_enabled: toggles.groupmeCelebrationsEnabled,
     celebration_birthday_template: toggles.celebrationBirthdayTemplate,
     celebration_anniversary_template: toggles.celebrationAnniversaryTemplate,
+    direct_referral_assign_enabled: toggles.directReferralAssignEnabled,
   });
 }
 
@@ -45,6 +46,7 @@ export async function PATCH(request: Request) {
     "job_coaching_enabled",
     "customized_supported_employment_enabled",
     "groupme_celebrations_enabled",
+    "direct_referral_assign_enabled",
   ] as const;
 
   for (const key of boolKeys) {

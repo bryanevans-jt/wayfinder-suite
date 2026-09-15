@@ -19,10 +19,18 @@ import {
   isSuperAdminRole,
 } from "./roles";
 import {
+  assignReferralFieldSpecialist,
+  fieldSpecialistRoleLabel,
+  loadDirectReferralAssignEnabled,
+  resolveSupervisorUserIdForFieldSpecialist,
+} from "./referral-field-specialists";
+import {
   filterGaReferralServiceLabels,
   GA_REFERRAL_SERVICE_LABELS,
   GA_WEBSITE_REFERRAL_SERVICES,
 } from "./referral-services";
+
+export { loadDirectReferralAssignEnabled } from "./referral-field-specialists";
 
 export type ReferralState = "GA" | "TN";
 export type IntakeStatus = "new_referral" | "pending_authorization" | "active" | "discarded";
@@ -156,6 +164,11 @@ export async function loadHospitalityIntakeRecipientUserIds(
 
 export function canManageReferrals(role: string | null | undefined): boolean {
   return isHrRole(role) || isAdminRole(role) || isSuperAdminRole(role) || isAdminTierRole(role);
+}
+
+/** Admin / Super Admin assign ES or TS on Referral Queue when direct assign is enabled. */
+export function canAssignReferralFieldSpecialist(role: string | null | undefined): boolean {
+  return isAdminRole(role) || isSuperAdminRole(role) || isAdminTierRole(role);
 }
 
 export function canAccessHospitalityIntake(role: string | null | undefined): boolean {
@@ -731,6 +744,45 @@ export async function activateReferralToFirstStage(
   }
   if (!stageId) return { error: "No first stage found for this service" };
 
+  const directAssign = await loadDirectReferralAssignEnabled(admin);
+  let assigneeUserId: string | null = null;
+  let assigneeRole: string | null = null;
+  let assigneeName = "";
+
+  if (directAssign) {
+    const { data: assigneeLink } = await admin
+      .from("es_client_assignments")
+      .select("es_user_id")
+      .eq("client_id", opts.clientId)
+      .maybeSingle();
+    assigneeUserId = (assigneeLink?.es_user_id as string | null) ?? null;
+    if (!assigneeUserId) {
+      return {
+        error: "Assign an Employment or Transition Specialist before activating.",
+      };
+    }
+
+    const { data: assigneeProfile } = await admin
+      .from("profiles")
+      .select("full_name, role")
+      .eq("id", assigneeUserId)
+      .maybeSingle();
+    assigneeRole = (assigneeProfile?.role as string | null) ?? null;
+    assigneeName = (assigneeProfile?.full_name as string | null)?.trim() || assigneeUserId;
+
+    const supervisorId = await resolveSupervisorUserIdForFieldSpecialist(
+      admin,
+      assigneeUserId,
+      client.office_id as string | null
+    );
+    if (supervisorId) {
+      await admin
+        .from("clients")
+        .update({ supervisor_user_id: supervisorId })
+        .eq("id", opts.clientId);
+    }
+  }
+
   const nowIso = new Date().toISOString();
   const { error: updErr } = await admin
     .from("clients")
@@ -790,6 +842,11 @@ export async function activateReferralToFirstStage(
     (client.contact_email as string)?.trim() ||
     opts.clientId;
 
+  const assigneeLabel =
+    directAssign && assigneeUserId
+      ? `${fieldSpecialistRoleLabel(assigneeRole)}: ${assigneeName}`
+      : null;
+
   const officeId = client.office_id as string | null;
   if (officeId) {
     const { data: staffLinks } = await admin
@@ -809,10 +866,14 @@ export async function activateReferralToFirstStage(
           userId: s.id as string,
           app: "staff",
           kind: "referral_new_client",
-          title: `New client: ${clientLabel}`,
-          body: "A referral was activated to the first service stage.",
-          link_path: `/dashboard/clients/${opts.clientId}`,
-          metadata: { clientId: opts.clientId },
+          title: assigneeLabel
+            ? `New client assigned to ${assigneeLabel}`
+            : `New client: ${clientLabel}`,
+          body: assigneeLabel
+            ? "A referral was activated and assigned to a field specialist. Review referral details and casework."
+            : "A referral was activated to the first service stage.",
+          link_path: `/dashboard/referrals/${opts.clientId}`,
+          metadata: { clientId: opts.clientId, assigneeUserId },
         });
       }
     }
@@ -828,33 +889,37 @@ export async function activateReferralToFirstStage(
       app: "staff",
       kind: "referral_new_client",
       title: `New client: ${clientLabel}`,
-      body: "A referral was activated and assigned to your caseload.",
+      body: directAssign
+        ? `You were assigned this referral. Review referral details, then open the client record for casework. Referral: /dashboard/referrals/${opts.clientId}`
+        : "A referral was activated and assigned to your caseload.",
       link_path: `/dashboard/clients/${opts.clientId}`,
-      metadata: { clientId: opts.clientId },
+      metadata: { clientId: opts.clientId, referralPath: `/dashboard/referrals/${opts.clientId}` },
     });
   }
 
-  await admin.from("hospitality_intake_tasks").upsert(
-    {
-      client_id: opts.clientId,
-      status: "open",
-      created_at: nowIso,
-      completed_at: null,
-      completed_by: null,
-    },
-    { onConflict: "client_id" }
-  );
-  const intakeRecipients = await loadHospitalityIntakeRecipientUserIds(admin);
-  for (const userId of intakeRecipients) {
-    await notifyUser(admin, {
-      userId,
-      app: "staff",
-      kind: "referral_needs_intake",
-      title: `New client ready to start: ${clientLabel}`,
-      body: "New client ready to start — review referral and assign supervisor.",
-      link_path: `/dashboard/hospitality/intakes/${opts.clientId}`,
-      metadata: { clientId: opts.clientId },
-    });
+  if (!directAssign) {
+    await admin.from("hospitality_intake_tasks").upsert(
+      {
+        client_id: opts.clientId,
+        status: "open",
+        created_at: nowIso,
+        completed_at: null,
+        completed_by: null,
+      },
+      { onConflict: "client_id" }
+    );
+    const intakeRecipients = await loadHospitalityIntakeRecipientUserIds(admin);
+    for (const userId of intakeRecipients) {
+      await notifyUser(admin, {
+        userId,
+        app: "staff",
+        kind: "referral_needs_intake",
+        title: `New client ready to start: ${clientLabel}`,
+        body: "New client ready to start — review referral and assign supervisor.",
+        link_path: `/dashboard/hospitality/intakes/${opts.clientId}`,
+        metadata: { clientId: opts.clientId },
+      });
+    }
   }
 
   return { ok: true };
@@ -1158,39 +1223,52 @@ export async function updateReferralClientInfo(
 
   if (p.esUserId !== undefined) {
     const esUserId = (p.esUserId ?? "").trim() || null;
-    if (esUserId) {
-      const { data: esProfile } = await admin
-        .from("profiles")
-        .select("id, role, is_active")
-        .eq("id", esUserId)
-        .maybeSingle();
-      if (!esProfile?.is_active) {
-        return { error: "Employment Specialist not found" };
-      }
-      const esRole = String(esProfile.role ?? "").toLowerCase();
-      if (esRole !== "es" && esRole !== "supervisor") {
-        return { error: "Caseload can only be assigned to an Employment Specialist or supervisor." };
-      }
-    }
+    const directAssign = await loadDirectReferralAssignEnabled(admin);
 
-    const { error: clearErr } = await admin
-      .from("es_client_assignments")
-      .delete()
-      .eq("client_id", opts.clientId);
-    if (clearErr) return { error: clearErr.message };
-
-    if (esUserId) {
-      const { error: assignErr } = await admin.from("es_client_assignments").insert({
-        es_user_id: esUserId,
-        client_id: opts.clientId,
+    if (esUserId && directAssign) {
+      const assigned = await assignReferralFieldSpecialist(admin, {
+        clientId: opts.clientId,
+        fieldSpecialistUserId: esUserId,
+        actorUserId: opts.actorUserId,
       });
-      if (assignErr) return { error: assignErr.message };
-    }
+      if ("error" in assigned) return assigned;
+    } else {
+      if (esUserId) {
+        const { data: esProfile } = await admin
+          .from("profiles")
+          .select("id, role, is_active")
+          .eq("id", esUserId)
+          .maybeSingle();
+        if (!esProfile?.is_active) {
+          return { error: "Employment Specialist not found" };
+        }
+        const esRole = String(esProfile.role ?? "").toLowerCase();
+        if (esRole !== "es" && esRole !== "transition_specialist" && esRole !== "supervisor") {
+          return {
+            error: "Caseload can only be assigned to an ES, Transition Specialist, or supervisor.",
+          };
+        }
+      }
 
-    await admin
-      .from("client_message_threads")
-      .update({ current_es_user_id: esUserId })
-      .eq("client_id", opts.clientId);
+      const { error: clearErr } = await admin
+        .from("es_client_assignments")
+        .delete()
+        .eq("client_id", opts.clientId);
+      if (clearErr) return { error: clearErr.message };
+
+      if (esUserId) {
+        const { error: assignErr } = await admin.from("es_client_assignments").insert({
+          es_user_id: esUserId,
+          client_id: opts.clientId,
+        });
+        if (assignErr) return { error: assignErr.message };
+      }
+
+      await admin
+        .from("client_message_threads")
+        .update({ current_es_user_id: esUserId })
+        .eq("client_id", opts.clientId);
+    }
   }
 
   await admin.from("client_intake_events").insert({

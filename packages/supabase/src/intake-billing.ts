@@ -136,25 +136,39 @@ async function clientLabel(admin: SupabaseClient, clientId: string): Promise<str
   return (data?.contact_email as string | null)?.trim() || "Client";
 }
 
-async function notifyAccountsReady(admin: SupabaseClient, clientId: string): Promise<void> {
+async function notifyIntakeReadyRecipients(admin: SupabaseClient, clientId: string): Promise<void> {
   const label = await clientLabel(admin, clientId);
-  const { data: accountants } = await admin
+  const link_path = `/dashboard/intake-billing?client=${encodeURIComponent(clientId)}`;
+  const payload = {
+    app: "staff" as const,
+    kind: "referral_intake_billing" as const,
+    title: `Bill intake: ${label}`,
+    body: "First casework contact was logged. Bill the state for intake, then mark payment received.",
+    link_path,
+    metadata: { clientId },
+  };
+
+  const { data: recipients } = await admin
     .from("profiles")
     .select("id")
-    .eq("role", "accountant")
+    .in("role", ["accountant", "admin", "super_admin"])
     .eq("is_active", true);
+
+  const seen = new Set<string>();
   await Promise.all(
-    (accountants ?? []).map((row) =>
-      notifyUser(admin, {
-        userId: row.id as string,
-        app: "staff",
-        kind: "referral_intake_billing",
-        title: `Bill intake: ${label}`,
-        body: "First casework contact was logged. Bill the state for intake, then mark payment received.",
-        link_path: `/dashboard/intake-billing?client=${encodeURIComponent(clientId)}`,
-        metadata: { clientId },
+    (recipients ?? [])
+      .filter((row) => {
+        const id = row.id as string;
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
       })
-    )
+      .map((row) =>
+        notifyUser(admin, {
+          userId: row.id as string,
+          ...payload,
+        })
+      )
   );
 }
 
@@ -227,7 +241,7 @@ export async function markIntakeReadyToBill(
     .eq("status", "scheduled");
   if (error) return { ready: false, error: error.message };
 
-  await notifyAccountsReady(admin, opts.clientId);
+  await notifyIntakeReadyRecipients(admin, opts.clientId);
   return { ready: true };
 }
 

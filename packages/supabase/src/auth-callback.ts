@@ -173,10 +173,14 @@ export async function handleWayfinderAuthCallback(
     : await verifyOtpWithFallback(supabase, tokenHash!, type!);
 
   if (error) {
+    const mapped = authFailureReason(error.message);
+    const reason =
+      mapped ??
+      (isInviteOnlyAuthError(error.message) ? undefined : error.message.slice(0, 240));
     return redirectToLogin(
       url.origin,
       isInviteOnlyAuthError(error.message) ? "not_set_up" : "auth",
-      authFailureReason(error.message)
+      reason
     );
   }
 

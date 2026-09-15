@@ -3,7 +3,9 @@ import { getAppSession } from "@wayfinder/supabase/preview-server";
 import {
   activateReferralToFirstStage,
   canAccessHospitalityIntake,
+  canAssignReferralFieldSpecialist,
   canManageReferrals,
+  loadDirectReferralAssignEnabled,
   createPublicReferral,
   findPossibleDuplicateClients,
   linkReferralPriorEnrollment,
@@ -12,6 +14,7 @@ import {
   type PublicReferralPayload,
   type ReferralState,
 } from "@wayfinder/supabase/referral-intake";
+import { assignReferralFieldSpecialist } from "@wayfinder/supabase/referral-field-specialists";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -30,6 +33,10 @@ export async function GET(request: Request) {
   const status = searchParams.get("status");
 
   const admin = createServiceRoleClient();
+  const directReferralAssignEnabled = await loadDirectReferralAssignEnabled(admin);
+  const canAssignFieldSpecialist =
+    directReferralAssignEnabled && canAssignReferralFieldSpecialist(session.effectiveRole);
+
   let query = admin
     .from("clients")
     .select(
@@ -76,7 +83,10 @@ export async function GET(request: Request) {
     ? await admin.from("es_client_assignments").select("client_id, es_user_id").in("client_id", clientIds)
     : { data: [] as { client_id: string; es_user_id: string }[] };
 
-  const assigned = new Set((esLinks ?? []).map((l) => l.client_id as string));
+  const assigneeByClient = Object.fromEntries(
+    (esLinks ?? []).map((l) => [l.client_id as string, l.es_user_id as string])
+  );
+  const assigned = new Set(Object.keys(assigneeByClient));
 
   const counselorIds = [...new Set(list.map((r) => r.counselor_id).filter(Boolean))] as string[];
   const serviceIds = [...new Set(list.map((r) => r.current_service_id).filter(Boolean))] as string[];
@@ -123,11 +133,16 @@ export async function GET(request: Request) {
         ? stageNames[row.current_stage_id as string] ?? null
         : null,
       hasEsAssignment: assigned.has(row.id as string),
+      fieldAssigneeUserId: assigneeByClient[row.id as string] ?? null,
       possibleDuplicates: duplicates.filter((d) => d.id !== row.id),
     });
   }
 
-  return NextResponse.json({ clients: enriched });
+  return NextResponse.json({
+    clients: enriched,
+    directReferralAssignEnabled,
+    canAssignFieldSpecialist,
+  });
 }
 
 /** Manual staff referral — same workflow as website, no counselor/HR emails. */
@@ -178,11 +193,18 @@ export async function PATCH(request: Request) {
 
   const body = (await request.json()) as {
     clientId?: string;
-    action?: "pending_authorization" | "activate" | "discard" | "update_info" | "link_prior";
+    action?:
+      | "pending_authorization"
+      | "activate"
+      | "discard"
+      | "update_info"
+      | "link_prior"
+      | "assign_field_specialist";
     authorizationNumber?: string;
     overrideReason?: string;
     stageId?: string;
     priorClientId?: string | null;
+    fieldSpecialistUserId?: string | null;
     info?: Parameters<typeof updateReferralClientInfo>[1]["patch"];
   };
 
@@ -199,6 +221,26 @@ export async function PATCH(request: Request) {
 
   const admin = createServiceRoleClient();
   const actor = session.effectiveUserId;
+
+  if (body.action === "assign_field_specialist") {
+    const directAssign = await loadDirectReferralAssignEnabled(admin);
+    if (!directAssign || !canAssignReferralFieldSpecialist(session.effectiveRole)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const specialistId = (body.fieldSpecialistUserId ?? "").trim();
+    if (!specialistId) {
+      return NextResponse.json({ error: "Select a field specialist." }, { status: 400 });
+    }
+    const result = await assignReferralFieldSpecialist(admin, {
+      clientId: body.clientId,
+      fieldSpecialistUserId: specialistId,
+      actorUserId: actor,
+    });
+    if ("error" in result) {
+      return NextResponse.json({ error: result.error }, { status: 400 });
+    }
+    return NextResponse.json({ ok: true });
+  }
 
   if (body.action === "link_prior") {
     if (!canQueue) {

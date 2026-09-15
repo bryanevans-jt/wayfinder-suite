@@ -88,6 +88,8 @@ export type StaffNavSection = {
 
 export type StaffNavOptions = {
   showCommunityPartners?: boolean;
+  /** When true, hide Intake Calls / hospitality intake nav (direct ES/TS assign flow). */
+  hideIntakeCallsNav?: boolean;
 };
 
 const billableHoursNav: StaffNavItem = {
@@ -256,6 +258,7 @@ export function staffNavSectionsForRole(
   options: StaffNavOptions = {}
 ): StaffNavSection[] {
   const showCp = options.showCommunityPartners === true;
+  const hideIntake = options.hideIntakeCallsNav === true;
 
   if (isCounselorRole(staffRole)) {
     return withHelpSections([
@@ -320,7 +323,7 @@ export function staffNavSectionsForRole(
                 },
                 reportingNav,
                 referralQueueNav,
-                intakeCallsNav,
+                ...(hideIntake ? [] : [intakeCallsNav]),
                 intakeBillingNav,
                 ...(showPreEtsNav ? [preEtsNav] : []),
                 communityPartnersNav,
@@ -364,7 +367,7 @@ export function staffNavSectionsForRole(
                 },
                 reportingNav,
                 referralQueueNav,
-                intakeCallsNav,
+                ...(hideIntake ? [] : [intakeCallsNav]),
                 intakeBillingNav,
                 ...(showPreEtsNav ? [preEtsNav] : []),
                 communityPartnersNav,
@@ -461,7 +464,7 @@ export function staffNavSectionsForRole(
                 match: (p) => p.startsWith("/dashboard/hr"),
               },
               referralQueueNav,
-              intakeCallsNav,
+              ...(hideIntake ? [] : [intakeCallsNav]),
               intakeBillingNav,
               {
                 href: "/dashboard/timesheet",
@@ -492,7 +495,7 @@ export function staffNavSectionsForRole(
                 label: "Hospitality Dashboard",
                 match: (p) => p === "/dashboard/hospitality",
               },
-              intakeCallsNav,
+              ...(hideIntake ? [] : [intakeCallsNav]),
               {
                 href: "/dashboard/hospitality/check-ins",
                 label: "Weekly Check-ins",

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { intakeStatusLabel, referralStageLabel } from "@wayfinder/supabase/referral-labels";
 import { ManualReferralModal } from "@/components/manual-referral-modal";
+import { ReferralFieldSpecialistSelect } from "@/components/referral-field-specialist-select";
 
 type ReferralRow = {
   id: string;
@@ -17,7 +18,9 @@ type ReferralRow = {
   serviceName: string | null;
   stageName: string | null;
   authorization_number: string | null;
+  office_id: string | null;
   hasEsAssignment: boolean;
+  fieldAssigneeUserId: string | null;
   prior_client_id?: string | null;
   possibleDuplicates: Array<{ id: string; full_name: string | null; archived_at?: string | null }>;
 };
@@ -165,6 +168,9 @@ export function ReferralQueueWorkspace() {
   const [stageFilter, setStageFilter] = useState("");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [createOpen, setCreateOpen] = useState(false);
+  const [directReferralAssignEnabled, setDirectReferralAssignEnabled] = useState(false);
+  const [canAssignFieldSpecialist, setCanAssignFieldSpecialist] = useState(false);
+  const [assigneeById, setAssigneeById] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -172,9 +178,26 @@ export function ReferralQueueWorkspace() {
     try {
       const qs = includeActive ? "?includeActive=1" : "";
       const res = await fetch(`/api/referrals${qs}`);
-      const data = (await res.json()) as { clients?: ReferralRow[]; error?: string };
+      const data = (await res.json()) as {
+        clients?: ReferralRow[];
+        error?: string;
+        directReferralAssignEnabled?: boolean;
+        canAssignFieldSpecialist?: boolean;
+      };
       if (!res.ok) throw new Error(data.error || "Failed to load");
-      setClients(data.clients ?? []);
+      const list = data.clients ?? [];
+      setClients(list);
+      setDirectReferralAssignEnabled(data.directReferralAssignEnabled === true);
+      setCanAssignFieldSpecialist(data.canAssignFieldSpecialist === true);
+      setAssigneeById((prev) => {
+        const next = { ...prev };
+        for (const c of list) {
+          if (c.fieldAssigneeUserId) {
+            next[c.id] = c.fieldAssigneeUserId;
+          }
+        }
+        return next;
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load");
     } finally {
@@ -247,6 +270,41 @@ export function ReferralQueueWorkspace() {
   const hasFilters =
     Boolean(clientQuery.trim() || counselorId || stateFilter || serviceFilter || stageFilter) ||
     timeFilter !== "all";
+
+  function authReady(clientId: string, row: ReferralRow): boolean {
+    const auth = (authById[clientId] ?? row.authorization_number ?? "").trim();
+    const override = (overrideById[clientId] ?? "").trim();
+    return Boolean(auth || override);
+  }
+
+  function assigneeReady(clientId: string, row: ReferralRow): boolean {
+    if (!directReferralAssignEnabled) return true;
+    return Boolean((assigneeById[clientId] ?? row.fieldAssigneeUserId ?? "").trim());
+  }
+
+  async function saveFieldSpecialist(clientId: string, userId: string) {
+    setAssigneeById((prev) => ({ ...prev, [clientId]: userId }));
+    setBusyId(clientId);
+    setError(null);
+    try {
+      const res = await fetch("/api/referrals", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId,
+          action: "assign_field_specialist",
+          fieldSpecialistUserId: userId,
+        }),
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(data.error || "Could not save assignment");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save assignment");
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   async function runAction(
     clientId: string,
@@ -548,6 +606,22 @@ export function ReferralQueueWorkspace() {
                 </label>
               </div>
 
+              {directReferralAssignEnabled && canAssignFieldSpecialist ? (
+                <div className="mt-3 max-w-md">
+                  <ReferralFieldSpecialistSelect
+                    officeId={c.office_id}
+                    value={assigneeById[c.id] ?? c.fieldAssigneeUserId ?? ""}
+                    disabled={busyId === c.id}
+                    onChange={(userId) => {
+                      if (userId) void saveFieldSpecialist(c.id, userId);
+                    }}
+                  />
+                  <p className="mt-1 text-xs text-brand-black/55">
+                    Supervisor is set automatically from the specialist you choose.
+                  </p>
+                </div>
+              ) : null}
+
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
@@ -559,7 +633,18 @@ export function ReferralQueueWorkspace() {
                 </button>
                 <button
                   type="button"
-                  disabled={busyId === c.id}
+                  disabled={
+                    busyId === c.id ||
+                    (directReferralAssignEnabled &&
+                      (!authReady(c.id, c) || !assigneeReady(c.id, c)))
+                  }
+                  title={
+                    directReferralAssignEnabled && !authReady(c.id, c)
+                      ? "Enter authorization # or an override reason"
+                      : directReferralAssignEnabled && !assigneeReady(c.id, c)
+                        ? "Assign an ES or TS first"
+                        : undefined
+                  }
                   onClick={() => void runAction(c.id, "activate")}
                   className="rounded-lg bg-brand-green px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-green/90 disabled:opacity-50"
                 >

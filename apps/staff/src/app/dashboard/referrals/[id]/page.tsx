@@ -1,11 +1,16 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
-import { canManageReferrals } from "@wayfinder/supabase/referral-intake";
+import {
+  canAssignReferralFieldSpecialist,
+  canManageReferrals,
+  loadDirectReferralAssignEnabled,
+} from "@wayfinder/supabase/referral-intake";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { staffHomePath } from "@wayfinder/supabase/roles";
 import { loadReferralExportRows } from "@/lib/referral-export-data";
 import { ReferralDetailActions } from "@/components/referral-detail-actions";
+import { ReferralDetailAssignPanel } from "@/components/referral-detail-assign-panel";
 import { ReferralInfoEditForm } from "@/components/referral-info-edit-form";
 
 type PageProps = { params: Promise<{ id: string }> };
@@ -21,6 +26,16 @@ export default async function ReferralDetailPage({ params }: PageProps) {
   const rows = await loadReferralExportRows(admin, [id]);
   const row = rows[0];
   if (!row) notFound();
+
+  const { data: assigneeLink } = await admin
+    .from("es_client_assignments")
+    .select("es_user_id")
+    .eq("client_id", id)
+    .maybeSingle();
+
+  const directReferralAssignEnabled = await loadDirectReferralAssignEnabled(admin);
+  const showAssignPanel =
+    directReferralAssignEnabled && canAssignReferralFieldSpecialist(session.effectiveRole);
 
   return (
     <main className="px-6 py-10">
@@ -41,6 +56,14 @@ export default async function ReferralDetailPage({ params }: PageProps) {
       <div className="mt-4">
         <ReferralDetailActions clientId={row.id} />
       </div>
+
+      {showAssignPanel ? (
+        <ReferralDetailAssignPanel
+          clientId={row.id}
+          officeId={row.office_id}
+          initialAssigneeUserId={(assigneeLink?.es_user_id as string | null) ?? null}
+        />
+      ) : null}
 
       <section className="mt-8 max-w-3xl">
         <h2 className="text-lg font-semibold text-brand-black">Edit Client Info</h2>

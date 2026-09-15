@@ -19,5 +19,6 @@ export async function GET() {
     traditional_supported_employment_enabled: toggles.traditionalSupportedEmploymentEnabled,
     job_coaching_enabled: toggles.jobCoachingEnabled,
     customized_supported_employment_enabled: toggles.customizedSupportedEmploymentEnabled,
+    direct_referral_assign_enabled: toggles.directReferralAssignEnabled,
   });
 }
