@@ -33,15 +33,25 @@ export async function GET(request: NextRequest) {
   });
 
   const staffOrigin = staffAppOrigin();
-  if (
-    staffOrigin &&
-    staffOrigin !== url.origin &&
-    hasExchangeParams &&
-    isFailedAuthLoginRedirect(response, url.origin)
-  ) {
-    const relay = new URL("/auth/callback", staffOrigin);
-    relay.search = url.search;
-    return NextResponse.redirect(relay);
+  if (staffOrigin && staffOrigin !== url.origin && hasExchangeParams) {
+    const location = response.headers.get("location");
+    let shouldRelay = isFailedAuthLoginRedirect(response, url.origin);
+    if (!shouldRelay && location) {
+      try {
+        const loginUrl = new URL(location, url.origin);
+        shouldRelay =
+          loginUrl.pathname === "/login" &&
+          (loginUrl.searchParams.get("error") === "not_set_up" ||
+            loginUrl.searchParams.get("error") === "no_profile");
+      } catch {
+        shouldRelay = false;
+      }
+    }
+    if (shouldRelay) {
+      const relay = new URL("/auth/callback", staffOrigin);
+      relay.search = url.search;
+      return NextResponse.redirect(relay);
+    }
   }
 
   return response;

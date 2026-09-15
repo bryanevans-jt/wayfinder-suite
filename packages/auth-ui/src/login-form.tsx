@@ -30,6 +30,11 @@ type LoginFormProps = {
   demoMode?: boolean;
   /** Message shown when demoMode blocks sign-in. */
   demoBlockedNotice?: string;
+  /**
+   * When set (e.g. Wayfinder Pro `/api/auth/magic-link`), send magic links from the server so
+   * sign-in works when the email is opened outside the browser that requested the link.
+   */
+  magicLinkEndpoint?: string;
 };
 
 function GoogleMark() {
@@ -67,6 +72,7 @@ export function LoginForm({
   createSupabaseClient = createClient,
   demoMode = false,
   demoBlockedNotice = "Demo only — sign-in is disabled here.",
+  magicLinkEndpoint,
 }: LoginFormProps) {
   const supabase = useMemo(() => createSupabaseClient(), [createSupabaseClient]);
   const [email, setEmail] = useState("");
@@ -119,6 +125,42 @@ export function LoginForm({
       } catch {
         setBusy(null);
         setNotice("We could not verify this email. Please try again in a moment.");
+        return;
+      }
+    }
+
+    if (magicLinkEndpoint) {
+      try {
+        const sendRes = await fetch(magicLinkEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email.trim() }),
+        });
+        setBusy(null);
+        if (sendRes.status === 404) {
+          let message = accountNotSetUpMessage(productName);
+          try {
+            const payload = (await sendRes.json()) as { message?: string };
+            if (payload.message?.trim()) {
+              message = payload.message.trim();
+            }
+          } catch {
+            // use default
+          }
+          setNotice(message);
+          return;
+        }
+        if (!sendRes.ok) {
+          setNotice("We could not send the sign-in email. Please try again in a moment.");
+          return;
+        }
+        setNotice(
+          `Check your email for the ${productName} sign-in link. If nothing arrives within a minute, check your spam folder.`
+        );
+        return;
+      } catch {
+        setBusy(null);
+        setNotice("We could not send the sign-in email. Please try again in a moment.");
         return;
       }
     }

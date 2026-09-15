@@ -9,12 +9,14 @@
       Supabase Auth: Magic link / Confirm signup template
       Paste into Dashboard → Authentication → Email Templates → Magic Link (or Confirm signup).
 
-      Variables: {{ .ConfirmationURL }}, {{ .SiteURL }}, {{ .Email }}, {{ .Token }}, etc.
+      Variables: {{ .RedirectTo }}, {{ .TokenHash }}, {{ .SiteURL }}, {{ .Email }}, etc.
+
+      Magic links use token_hash on Wayfinder Pro /auth/callback (no PKCE cookie required),
+      so counselors can open the email in a mail app or different browser.
 
       Logo: {{ .SiteURL }}/wayfinder-logo.png
-      Supabase → Authentication → URL Configuration → Site URL must be your deployed
-      staff app origin (HTTPS). Email clients cannot load localhost. Re-paste this file
-      after edits. Optional: replace src with a fixed CDN URL.
+      Supabase → Authentication → URL Configuration → Site URL = Wayfinder Pro origin (HTTPS).
+      Add Redirect URLs for …/auth/callback on Pro and client hosts. Re-paste after edits.
     -->
   </head>
   <body
@@ -104,7 +106,7 @@
                       style="border-radius: 8px; background-color: #3c6c25"
                     >
                       <a
-                        href="{{ .ConfirmationURL }}"
+                        href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&amp;type=magiclink"
                         target="_blank"
                         rel="noopener noreferrer"
                         style="
@@ -161,9 +163,9 @@
                 >
                   Button not working? Copy and paste this link into your browser:<br />
                   <a
-                    href="{{ .ConfirmationURL }}"
+                    href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&amp;type=magiclink"
                     style="color: #3c6c25; text-decoration: underline"
-                    >{{ .ConfirmationURL }}</a
+                    >{{ .SiteURL }}/auth/callback?token_hash=…&amp;type=magiclink</a
                   >
                 </p>
               </td>

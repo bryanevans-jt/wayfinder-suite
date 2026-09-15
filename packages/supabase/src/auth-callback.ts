@@ -107,6 +107,14 @@ export type WayfinderAuthCallbackOptions = {
     userId: string;
     email: string | null;
   }) => Promise<string | void>;
+  /**
+   * Runs after Auth succeeds and before {@link requireProvisionedProfile} — use to link
+   * counselor profiles on first magic-link sign-in.
+   */
+  prepareAuthenticatedUser?: (ctx: {
+    userId: string;
+    email: string | null;
+  }) => Promise<{ error?: string; reason?: string } | void>;
   serverAuthOptions?: typeof wayfinderServerAuthOptions;
   /** Sign out when no profiles row exists (invite-only). */
   requireProvisionedProfile?: boolean;
@@ -187,6 +195,28 @@ export async function handleWayfinderAuthCallback(
     if (!email?.endsWith(`@${domain}`)) {
       await supabase.auth.signOut();
       return redirectToLogin(url.origin, "org_only", undefined, sessionCookies);
+    }
+  }
+
+  if (options?.prepareAuthenticatedUser) {
+    try {
+      const prepResult = await options.prepareAuthenticatedUser({
+        userId: user.id,
+        email: user.email ?? null,
+      });
+      if (prepResult?.error) {
+        await supabase.auth.signOut();
+        return redirectToLogin(
+          url.origin,
+          prepResult.error,
+          prepResult.reason,
+          sessionCookies
+        );
+      }
+    } catch (err) {
+      console.error("auth callback prepareAuthenticatedUser:", err);
+      await supabase.auth.signOut();
+      return redirectToLogin(url.origin, "auth", undefined, sessionCookies);
     }
   }
 

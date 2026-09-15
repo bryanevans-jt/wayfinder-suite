@@ -58,9 +58,9 @@ export default async function StaffLoginPage({
         </div>
       ) : null}
       {error === "not_set_up" ? (
-        <p className="mb-6 max-w-md rounded-lg border border-brand-black/15 bg-brand-white px-4 py-3 text-center text-sm text-brand-black">
-          {accountNotSetUpMessage(STAFF_APP_PRODUCT_NAME)}
-        </p>
+        <div className="mb-6 max-w-md space-y-2 rounded-lg border border-brand-black/15 bg-brand-white px-4 py-3 text-center text-sm text-brand-black">
+          <p>{reason?.trim() || accountNotSetUpMessage(STAFF_APP_PRODUCT_NAME)}</p>
+        </div>
       ) : null}
       {error === "no_profile" ? (
         <div className="mb-6 max-w-md space-y-2 rounded-lg border border-brand-black/15 bg-brand-white px-4 py-3 text-center text-sm text-brand-black">
@@ -108,6 +108,8 @@ export default async function StaffLoginPage({
       <LoginFormShell
         productName={STAFF_APP_PRODUCT_NAME}
         shouldCreateUser={false}
+        requireExistingAccount
+        magicLinkEndpoint="/api/auth/magic-link"
         googleHostedDomain={JOSHUA_TREE_ORG_EMAIL_DOMAIN}
         termsHref="/terms"
         privacyHref="/privacy"

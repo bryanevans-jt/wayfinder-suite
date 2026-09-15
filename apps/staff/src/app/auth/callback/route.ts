@@ -8,17 +8,20 @@ import type { NextRequest } from "next/server";
 export async function GET(request: NextRequest) {
   return handleWayfinderAuthCallback(request, {
     requireProvisionedProfile: true,
-    onAuthenticated: async ({ userId, email }) => {
+    prepareAuthenticatedUser: async ({ email }) => {
       const normalized = email?.trim().toLowerCase() ?? "";
-      if (normalized.includes("@") && !isJoshuaTreeEmail(normalized)) {
-        try {
-          const admin = createServiceRoleClient();
-          await syncCounselorPortalLoginForEmail(admin, normalized, { sendInvite: false });
-        } catch (err) {
-          console.error("staff auth callback counselor sync:", err);
-        }
+      if (!normalized.includes("@") || isJoshuaTreeEmail(normalized)) {
+        return;
       }
-
+      const admin = createServiceRoleClient();
+      const result = await syncCounselorPortalLoginForEmail(admin, normalized, {
+        sendInvite: false,
+      });
+      if (result.notRegisteredMessage) {
+        return { error: "not_set_up", reason: result.notRegisteredMessage };
+      }
+    },
+    onAuthenticated: async ({ userId, email }) => {
       const admin = createServiceRoleClient();
       const { data: profile } = await admin
         .from("profiles")

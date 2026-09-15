@@ -15,6 +15,7 @@ type Props = {
   createSupabaseClient?: () => SupabaseClient;
   demoMode?: boolean;
   demoBlockedNotice?: string;
+  magicLinkEndpoint?: string;
 };
 
 /** Client-only login shell (reports + staff share this component). */
@@ -30,6 +31,7 @@ export function LoginFormShell({
   createSupabaseClient,
   demoMode,
   demoBlockedNotice,
+  magicLinkEndpoint,
 }: Props) {
   return (
     <LoginForm
@@ -44,6 +46,7 @@ export function LoginFormShell({
       createSupabaseClient={createSupabaseClient}
       demoMode={demoMode}
       demoBlockedNotice={demoBlockedNotice}
+      magicLinkEndpoint={magicLinkEndpoint}
     />
   );
 }
