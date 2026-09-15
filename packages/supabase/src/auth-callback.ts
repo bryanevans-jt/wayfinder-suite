@@ -1,19 +1,30 @@
 import { createServerClient } from "@supabase/ssr";
 import type { EmailOtpType, SupabaseClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
 import { type NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "./admin-server";
 import { wayfinderServerAuthOptions } from "./auth-client-options";
 import type { SupabaseCookieToSet } from "./cookie-types";
 import { getSupabaseAnonKey, getSupabaseUrl } from "./env";
 
-function redirectToLogin(origin: string, error = "auth", reason?: string) {
+function buildLoginUrl(origin: string, error = "auth", reason?: string) {
   const login = new URL("/login", origin);
   login.searchParams.set("error", error);
   const detail = reason?.trim();
   if (detail) {
     login.searchParams.set("reason", detail.slice(0, 240));
   }
-  return NextResponse.redirect(login);
+  return login;
+}
+
+function redirectToLogin(
+  origin: string,
+  error = "auth",
+  reason?: string,
+  sessionCookies: SupabaseCookieToSet[] = []
+) {
+  const response = NextResponse.redirect(buildLoginUrl(origin, error, reason));
+  return applyCookiesToResponse(response, sessionCookies);
 }
 
 function authFailureReason(message: string): string | undefined {
@@ -81,16 +92,14 @@ async function verifyOtpWithFallback(
   return { error: lastError };
 }
 
-async function rejectAuthenticatedSession(
-  supabase: ReturnType<typeof createServerClient>,
-  origin: string,
-  error: string,
-  setRedirect: (url: URL) => void
-): Promise<void> {
-  const login = new URL("/login", origin);
-  login.searchParams.set("error", error);
-  setRedirect(login);
-  await supabase.auth.signOut();
+function applyCookiesToResponse(
+  response: NextResponse,
+  cookiesToSet: SupabaseCookieToSet[]
+): NextResponse {
+  cookiesToSet.forEach(({ name, value, options }) => {
+    response.cookies.set(name, value, options);
+  });
+  return response;
 }
 
 export type WayfinderAuthCallbackOptions = {
@@ -107,8 +116,7 @@ export type WayfinderAuthCallbackOptions = {
 
 /**
  * Completes magic-link / OAuth sign-in for Next.js route handlers.
- * Supports PKCE (`code`) and direct OTP verify (`token_hash` + `type`) — the latter
- * is required for admin `generate_link` links pasted without a browser OTP flow.
+ * Uses the Next.js cookie store so session cookies keep HttpOnly/path/domain options.
  */
 export async function handleWayfinderAuthCallback(
   request: NextRequest,
@@ -130,35 +138,24 @@ export async function handleWayfinderAuthCallback(
     return redirectToLogin(url.origin);
   }
 
-  const redirectTarget = new URL(next, url.origin);
-  let response = NextResponse.redirect(redirectTarget);
-  let activeRedirect = redirectTarget;
-
-  const redirectTo = (target: URL) => {
-    activeRedirect = target;
-    const next = NextResponse.redirect(activeRedirect);
-    response.cookies.getAll().forEach((cookie) => {
-      next.cookies.set(cookie.name, cookie.value);
-    });
-    response = next;
-  };
+  const cookieStore = await cookies();
+  let sessionCookies: SupabaseCookieToSet[] = [];
 
   const supabase = createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
     ...(options?.serverAuthOptions ?? wayfinderServerAuthOptions),
     cookies: {
       getAll() {
-        return request.cookies.getAll();
+        return cookieStore.getAll();
       },
       setAll(cookiesToSet: SupabaseCookieToSet[]) {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        const next = NextResponse.redirect(activeRedirect);
-        response.cookies.getAll().forEach((cookie) => {
-          next.cookies.set(cookie.name, cookie.value);
-        });
-        cookiesToSet.forEach(({ name, value, options: cookieOptions }) =>
-          next.cookies.set(name, value, cookieOptions)
-        );
-        response = next;
+        sessionCookies = cookiesToSet;
+        try {
+          cookiesToSet.forEach(({ name, value, options: cookieOptions }) =>
+            cookieStore.set(name, value, cookieOptions)
+          );
+        } catch {
+          // Route handlers should allow set; ignore in edge read-only contexts.
+        }
       },
     },
   });
@@ -188,8 +185,8 @@ export async function handleWayfinderAuthCallback(
   if (options?.allowedEmailDomain) {
     const domain = options.allowedEmailDomain.toLowerCase().replace(/^@/, "");
     if (!email?.endsWith(`@${domain}`)) {
-      await rejectAuthenticatedSession(supabase, url.origin, "org_only", redirectTo);
-      return response;
+      await supabase.auth.signOut();
+      return redirectToLogin(url.origin, "org_only", undefined, sessionCookies);
     }
   }
 
@@ -202,10 +199,12 @@ export async function handleWayfinderAuthCallback(
       .maybeSingle();
 
     if (!profile) {
-      await rejectAuthenticatedSession(supabase, url.origin, "not_set_up", redirectTo);
-      return response;
+      await supabase.auth.signOut();
+      return redirectToLogin(url.origin, "not_set_up", undefined, sessionCookies);
     }
   }
+
+  let destination = new URL(next, url.origin);
 
   if (options?.onAuthenticated) {
     const nextOverride = await options.onAuthenticated({
@@ -213,10 +212,10 @@ export async function handleWayfinderAuthCallback(
       email: user.email ?? null,
     });
     if (nextOverride?.startsWith("/")) {
-      const overrideTarget = new URL(nextOverride, url.origin);
-      redirectTo(overrideTarget);
+      destination = new URL(nextOverride, url.origin);
     }
   }
 
-  return response;
+  const response = NextResponse.redirect(destination);
+  return applyCookiesToResponse(response, sessionCookies);
 }

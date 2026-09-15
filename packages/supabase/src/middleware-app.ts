@@ -22,14 +22,14 @@ function clientAppOrigin(): string {
 }
 
 function redirectPreservingCookies(
-  from: NextResponse,
+  cookiesToSet: SupabaseCookieToSet[],
   redirectUrl: URL | string
 ): NextResponse {
   const target =
     typeof redirectUrl === "string" ? new URL(redirectUrl) : redirectUrl;
   const out = NextResponse.redirect(target);
-  from.cookies.getAll().forEach((cookie) => {
-    out.cookies.set(cookie.name, cookie.value);
+  cookiesToSet.forEach(({ name, value, options }) => {
+    out.cookies.set(name, value, options);
   });
   return out;
 }
@@ -43,6 +43,7 @@ export async function wayfinderAuthMiddleware(
   context: { app: WayfinderAppKind }
 ): Promise<NextResponse> {
   let response = NextResponse.next({ request });
+  let sessionCookies: SupabaseCookieToSet[] = [];
 
   let supabaseUrl: string;
   let supabaseAnonKey: string;
@@ -65,6 +66,7 @@ export async function wayfinderAuthMiddleware(
         return request.cookies.getAll();
       },
       setAll(cookiesToSet: SupabaseCookieToSet[]) {
+        sessionCookies = cookiesToSet;
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
         response = NextResponse.next({ request });
         cookiesToSet.forEach(({ name, value, options }) =>
@@ -110,11 +112,7 @@ export async function wayfinderAuthMiddleware(
     } else {
       url.searchParams.set("reason", `Unrecognized role: ${profile.role ?? "(empty)"}`);
     }
-    const signedOut = NextResponse.redirect(url);
-    response.cookies.getAll().forEach((cookie) => {
-      signedOut.cookies.set(cookie.name, cookie.value);
-    });
-    return signedOut;
+    return redirectPreservingCookies(sessionCookies, url);
   }
 
   if (!profile.is_active) {
@@ -122,7 +120,7 @@ export async function wayfinderAuthMiddleware(
     const url = request.nextUrl.clone();
     url.pathname = "/account-inactive";
     url.searchParams.set("reason", "inactive");
-    return redirectPreservingCookies(response, url);
+    return redirectPreservingCookies(sessionCookies, url);
   }
 
   const previewSession = resolvePreviewSession(
@@ -155,14 +153,14 @@ export async function wayfinderAuthMiddleware(
     if (pathname === "/login") {
       return response;
     }
-    return redirectPreservingCookies(response, new URL("/dashboard", clientOrigin));
+    return redirectPreservingCookies(sessionCookies, new URL("/dashboard", clientOrigin));
   }
 
   if (wantsStaff && context.app === "client") {
     if (pathname === "/login") {
       return response;
     }
-    return redirectPreservingCookies(response, new URL("/dashboard", staffOrigin));
+    return redirectPreservingCookies(sessionCookies, new URL("/dashboard", staffOrigin));
   }
 
   const roleMatchesApp =
@@ -171,10 +169,10 @@ export async function wayfinderAuthMiddleware(
 
   if (roleMatchesApp) {
     if (pathname === "/login" || pathname === "/") {
-      return redirectPreservingCookies(response, new URL("/dashboard", requestOrigin));
+      return redirectPreservingCookies(sessionCookies, new URL("/dashboard", requestOrigin));
     }
     if (pathname === "/account-inactive") {
-      return redirectPreservingCookies(response, new URL("/dashboard", requestOrigin));
+      return redirectPreservingCookies(sessionCookies, new URL("/dashboard", requestOrigin));
     }
   }
 
