@@ -8,6 +8,7 @@ import {
   softRemoveEmploymentSpecialist,
   upsertStaffProfile,
 } from "@/lib/portal-staff-users";
+import { ensureOrgEsSupervisorAssignment } from "@/lib/org-es-supervisor";
 import { isFieldSpecialistRole } from "@wayfinder/supabase/roles";
 import { NextRequest } from "next/server";
 
@@ -88,6 +89,10 @@ export async function POST(request: NextRequest) {
 
     if (officeIds.length > 0) {
       await replaceStaffOfficeAssignments(admin, userId, officeIds);
+    }
+
+    if (createRole === "es") {
+      await ensureOrgEsSupervisorAssignment(admin, userId);
     }
 
     return Response.json({ ok: true, userId });
@@ -178,6 +183,10 @@ export async function PATCH(request: NextRequest) {
         userId,
         body.office_ids.map((id) => id.trim()).filter(Boolean)
       );
+    }
+
+    if (specialistRole === "es" && body.is_active === true) {
+      await ensureOrgEsSupervisorAssignment(admin, userId);
     }
 
     return Response.json({ ok: true });

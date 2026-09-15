@@ -6,8 +6,11 @@ export type SupervisorScope = {
   esUserIds: string[];
 };
 
-/** Field roles a supervisor may assign caseload to via shared offices (matches portal caseload picker). */
-const OFFICE_SHARED_CASELOAD_ROLES = ["es", "transition_specialist"] as const;
+/**
+ * Regional supervisors inherit Transition Specialists in shared offices only.
+ * Employment Specialists are linked explicitly (org-wide ES supervisor + any regional links).
+ */
+const OFFICE_SHARED_CASELOAD_ROLES = ["transition_specialist"] as const;
 
 export async function loadSupervisorScope(
   admin: SupabaseClient,

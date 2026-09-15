@@ -776,14 +776,23 @@ export async function loadPortalBootstrap(
         a.display_name.localeCompare(b.display_name, undefined, { sensitivity: "base" })
       ),
     supervisors: activeProfiles
-      .filter((p) => p.role === "supervisor")
+      .filter((p) =>
+        ["supervisor", "admin", "super_admin"].includes(String(p.role ?? ""))
+      )
       .map((p) => {
         const id = p.id as string;
+        const role = String(p.role ?? "");
+        const suffix =
+          role === "supervisor"
+            ? ""
+            : role === "super_admin"
+              ? " (Super Admin)"
+              : " (Admin)";
         return {
           id,
           email: emailById.get(id) ?? "",
           full_name: profileById.get(id)?.full_name ?? null,
-          display_name: staffNameFor(id),
+          display_name: `${staffNameFor(id)}${suffix}`,
         };
       })
       .sort((a, b) =>

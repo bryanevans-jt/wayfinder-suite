@@ -1880,7 +1880,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               />
               <AssignmentCard
                 title="Supervisor to Employment Specialist Link"
-                description="Which Employment Specialists each supervisor oversees."
+                description="Employment Specialists (ES only). Ryan Herrington is linked to all ES org-wide; regional supervisors do not inherit ES by office."
                 busy={busy}
                 onAdd={(supervisorId, esId) =>
                   run(async () => {
@@ -1897,15 +1897,71 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                     if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
                   })
                 }
-                links={b.supervisorEsLinks}
+                links={b.supervisorEsLinks.filter((l) => {
+                  const specialist = b.esStaff.find((e) => e.id === l.es_user_id);
+                  return specialist?.role === "es";
+                })}
                 leftOptions={b.supervisors.map((s) => ({
                   id: s.id,
                   label: s.display_name,
                 }))}
-                rightOptions={b.esUsers.map((e) => ({
-                  id: e.id,
-                  label: e.display_name,
-                }))}
+                rightOptions={b.esStaff
+                  .filter((e) => e.role === "es" && e.is_active && !e.is_removed)
+                  .map((e) => ({
+                    id: e.id,
+                    label: e.display_name,
+                  }))}
+                onRemove={(id) =>
+                  run(async () => {
+                    const res = await fetch(`/api/portal/assignments?type=supervisor_es&id=${id}`, {
+                      method: "DELETE",
+                    });
+                    const data = (await res.json()) as { error?: string };
+                    if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                  })
+                }
+                labelLink={(l) => {
+                  return `${staffLabel(l.supervisor_user_id)} → ${staffLabel(l.es_user_id)}`;
+                }}
+              />
+              <AssignmentCard
+                title="Regional supervisor to Transition Specialist"
+                description="Transition Specialists stay under regional supervisors (not the org-wide ES supervisor)."
+                busy={busy}
+                onAdd={(supervisorId, tsId) =>
+                  run(async () => {
+                    const res = await fetch("/api/portal/assignments", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        type: "supervisor_es",
+                        supervisor_user_id: supervisorId,
+                        es_user_id: tsId,
+                      }),
+                    });
+                    const data = (await res.json()) as { error?: string };
+                    if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                  })
+                }
+                links={b.supervisorEsLinks.filter((l) => {
+                  const specialist = b.esStaff.find((e) => e.id === l.es_user_id);
+                  return specialist?.role === "transition_specialist";
+                })}
+                leftOptions={b.supervisorStaff
+                  .filter((s) => s.is_active)
+                  .map((s) => ({
+                    id: s.id,
+                    label: s.display_name,
+                  }))}
+                rightOptions={b.esStaff
+                  .filter(
+                    (e) =>
+                      e.role === "transition_specialist" && e.is_active && !e.is_removed
+                  )
+                  .map((e) => ({
+                    id: e.id,
+                    label: e.display_name,
+                  }))}
                 onRemove={(id) =>
                   run(async () => {
                     const res = await fetch(`/api/portal/assignments?type=supervisor_es&id=${id}`, {
