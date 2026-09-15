@@ -34,6 +34,7 @@ export function toServiceSelectOptions(
     groupmeCelebrationsEnabled: true,
     celebrationBirthdayTemplate: "",
     celebrationAnniversaryTemplate: "",
+    directReferralAssignEnabled: false,
   });
 }
 
