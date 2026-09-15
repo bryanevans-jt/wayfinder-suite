@@ -1,6 +1,7 @@
 "use client";
 
 import { PreEtsDemoAuthorizationsPanel } from "@/components/pre-ets-demo-panels";
+import { PRE_ETS_DEMO_SESSIONS_BLURB } from "@/components/pre-ets-demo-sessions-detail";
 import {
   PreEtsDemoActivityPlanPrintSheet,
   PreEtsDemoRosterPrintSheet,
@@ -344,11 +345,7 @@ export function PreEtsFieldDeliveryDemo({ variant = "dashboard" }: Props) {
             <div className={`space-y-4 ${highlight("sessions")}`}>
               <div>
                 <h2 className="text-lg font-semibold text-brand-black">Sessions</h2>
-                <p className="mt-1 text-sm text-brand-black/65">
-                  Schedule sessions, collect student signatures on the roster in-app (recommended) or
-                  print a paper roster, upload signed rosters to Drive, and submit Lesson Activity
-                  Reports.
-                </p>
+                <p className="mt-1 text-sm text-brand-black/65">{PRE_ETS_DEMO_SESSIONS_BLURB}</p>
               </div>
               <div className="flex flex-wrap gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-sm">
                 <select className="rounded-lg border border-neutral-300 px-2 py-1.5" disabled defaultValue="">

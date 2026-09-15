@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  PRE_ETS_DEMO_SESSIONS_BLURB,
+  PreEtsDemoSessionsDetail,
+} from "@/components/pre-ets-demo-sessions-detail";
 import { PreEtsServiceCodeDisplay } from "@/components/pre-ets-service-code-display";
 import {
   DEMO_DISTRICT,
@@ -560,15 +564,21 @@ export function PreEtsDemoSessionsPanel({ step, dataOverride }: { step: number; 
   const sessions = snapshot.sessions;
   const selected = sessions.find((s) => s.id === selectedId) ?? sessions[0] ?? null;
 
+  const releasedAuths = snapshot.authorizations.filter(
+    (a) => a.released && a.auth_number
+  );
+
+  const rosterStudents =
+    selected && snapshot.rosters["demo-auth-valdosta"]
+      ? snapshot.rosters["demo-auth-valdosta"]
+      : [];
+
   if (sessions.length === 0) {
     return (
       <section className="space-y-4">
         <div>
           <h2 className="text-lg font-semibold text-brand-black">Sessions</h2>
-          <p className="mt-1 text-sm text-brand-black/65">
-            Schedule sessions, collect student signatures on the roster in-app (recommended) or print
-            a paper roster, upload signed rosters to Drive, and submit Lesson Activity Reports.
-          </p>
+          <p className="mt-1 text-sm text-brand-black/65">{PRE_ETS_DEMO_SESSIONS_BLURB}</p>
         </div>
         <p className="text-sm text-brand-black/55">No sessions scheduled yet.</p>
       </section>
@@ -580,14 +590,20 @@ export function PreEtsDemoSessionsPanel({ step, dataOverride }: { step: number; 
       <div className="space-y-4">
         <div>
           <h2 className="text-lg font-semibold text-brand-black">Sessions</h2>
-          <p className="mt-1 text-sm text-brand-black/65">
-            Schedule sessions, collect student signatures on the roster in-app (recommended) or print
-            a paper roster, upload signed rosters to Drive, and submit Lesson Activity Reports.
-          </p>
+          <p className="mt-1 text-sm text-brand-black/65">{PRE_ETS_DEMO_SESSIONS_BLURB}</p>
         </div>
         <div className="flex flex-wrap gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-sm">
-          <select className="rounded-lg border border-neutral-300 px-2 py-1.5" disabled defaultValue="">
+          <select
+            className="rounded-lg border border-neutral-300 px-2 py-1.5"
+            disabled
+            defaultValue={releasedAuths[0]?.id ?? ""}
+          >
             <option value="">Authorization…</option>
+            {releasedAuths.map((a) => (
+              <option key={a.id} value={a.id}>
+                [{a.auth_type}] {a.auth_number}
+              </option>
+            ))}
           </select>
           <input type="date" className="rounded-lg border border-neutral-300 px-2 py-1.5" disabled />
           <span className="cursor-not-allowed rounded-lg bg-brand-gold/40 px-3 py-1.5 text-sm font-semibold text-white/90">
@@ -624,40 +640,11 @@ export function PreEtsDemoSessionsPanel({ step, dataOverride }: { step: number; 
             Select a session to manage roster upload, attendance, and CAR.
           </div>
         ) : (
-          <div className="rounded-xl border border-neutral-200 bg-white p-4">
-            <h3 className="font-semibold text-brand-black">
-              {selected.school_name} · {selected.session_date}
-            </h3>
-            <p className="mt-1 text-xs text-brand-black/60">
-              Auth {selected.auth_number} · {selected.status}
-            </p>
-            <p className="mt-2 text-sm">
-              <span className="font-medium text-brand-black/70">Service code: </span>
-              <PreEtsServiceCodeDisplay
-                code={selected.service_code}
-                label={selected.service_label}
-                prominent
-              />
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <span className="rounded-lg border border-brand-gold px-3 py-1.5 text-sm font-semibold text-brand-gold">
-                Print roster PDF
-              </span>
-              <span className="rounded-lg border border-brand-gold px-3 py-1.5 text-sm font-semibold text-brand-gold">
-                Print Activity Plan
-              </span>
-            </div>
-            <p className="mt-2 text-xs text-brand-black/60">
-              For hands-on training (signatures, upload, CAR), open the{" "}
-              <Link
-                href="/dashboard/pre-ets/demo/field-delivery"
-                className="font-semibold text-brand-green hover:underline"
-              >
-                TS/TI roster &amp; CAR walkthrough
-              </Link>
-              .
-            </p>
-          </div>
+          <PreEtsDemoSessionsDetail
+            mode="preview"
+            session={selected}
+            rosterStudents={rosterStudents}
+          />
         )}
       </div>
     </section>
