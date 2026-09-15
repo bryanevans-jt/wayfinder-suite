@@ -509,6 +509,13 @@ export async function loadPortalBootstrap(
   const visibleOfficeIds = new Set(officesRows.map((o) => o.id));
   counselorOfficeLinksOut = counselorOfficeLinksOut.filter((l) => visibleOfficeIds.has(l.office_id));
   staffOfficeLinksOut = staffOfficeLinksOut.filter((l) => visibleOfficeIds.has(l.office_id));
+  staffOfficeByUser.clear();
+  for (const link of staffOfficeLinksOut) {
+    const uid = link.user_id as string;
+    const list = staffOfficeByUser.get(uid) ?? [];
+    list.push(link.office_id as string);
+    staffOfficeByUser.set(uid, list);
+  }
   servicesRaw = filterSunsetServices(servicesRaw, sunset.keepServiceIds);
   counselors = filterSunsetCounselors(
     counselors.map((c) => ({

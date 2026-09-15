@@ -207,13 +207,16 @@ export async function replaceStaffOfficeAssignments(
   userId: string,
   officeIds: string[]
 ): Promise<void> {
+  const { loadAssignableOfficeIds } = await import("@/lib/staff-office-cleanup");
+  const assignable = await loadAssignableOfficeIds(admin);
+
   const { error: clearErr } = await admin
     .from("staff_office_assignments")
     .delete()
     .eq("user_id", userId);
   if (clearErr) throw new Error(clearErr.message);
 
-  const unique = [...new Set(officeIds.filter(Boolean))];
+  const unique = [...new Set(officeIds.filter(Boolean))].filter((id) => assignable.has(id));
   if (unique.length === 0) return;
 
   const { error: insertErr } = await admin.from("staff_office_assignments").insert(

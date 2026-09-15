@@ -205,7 +205,10 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
 
   const officeName = useMemo(() => {
     const map = new Map((b?.offices ?? []).map((o) => [o.id, o.name]));
-    return (id: string | null) => (id ? (map.get(id) ?? id) : "—");
+    return (id: string | null) => {
+      if (!id) return "—";
+      return map.get(id) ?? "Removed office";
+    };
   }, [b?.offices]);
 
   const esLabel = useMemo(() => {
