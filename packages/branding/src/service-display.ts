@@ -28,10 +28,9 @@ export type ServiceSelectOptions = {
 
 const STATE_GROUP_LABELS: Record<string, string> = {
   GA: "Georgia",
-  TN: "Tennessee",
 };
 
-const STATE_GROUP_ORDER = ["GA", "TN"];
+const STATE_GROUP_ORDER = ["GA"];
 
 const STATE_SUFFIX_RE = /\s+\(([A-Z]{2})\)\s*$/;
 

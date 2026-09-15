@@ -8,9 +8,16 @@ type Props = {
   value: string;
   onChange: (episodeId: string) => void;
   required?: boolean;
+  disabled?: boolean;
 };
 
-export function ServiceEpisodePicker({ episodes, value, onChange, required = false }: Props) {
+export function ServiceEpisodePicker({
+  episodes,
+  value,
+  onChange,
+  required = false,
+  disabled = false,
+}: Props) {
   if (episodes.length <= 1) {
     if (episodes.length === 1 && !value) {
       onChange(episodes[0]!.id);
@@ -35,6 +42,7 @@ export function ServiceEpisodePicker({ episodes, value, onChange, required = fal
               value={ep.id}
               checked={value === ep.id}
               onChange={() => onChange(ep.id)}
+              disabled={disabled}
               className="mt-1 text-brand-green focus:ring-brand-green"
             />
             <span>{formatEpisodeHeading(ep)}</span>

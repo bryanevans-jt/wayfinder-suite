@@ -87,10 +87,13 @@
     "./pre-ets-list-format": "./src/pre-ets-list-format.ts",
     "./participants": "./src/participants.ts",
     "./service-episodes": "./src/service-episodes.ts",
-    "./schema-fallback": "./src/schema-fallback.ts"
+    "./schema-fallback": "./src/schema-fallback.ts",
+    "./retired-market": "./src/retired-market.ts",
+    "./supervisor-client-scope": "./src/supervisor-client-scope.ts"
   },
   "scripts": {
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "node --import tsx --test src/**/*.test.ts"
   },
   "dependencies": {
     "@wayfinder/branding": "*",
@@ -101,6 +104,7 @@
   "devDependencies": {
     "@types/web-push": "^3.6.4",
     "next": "^15.3.2",
+    "tsx": "^4.19.4",
     "typescript": "^5.8.3"
   },
   "peerDependencies": {

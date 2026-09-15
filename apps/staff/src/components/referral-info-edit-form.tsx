@@ -65,7 +65,7 @@ export function ReferralInfoEditForm({ initial }: Props) {
     secondaryPhone: initial.secondary_phone ?? "",
     homeAddressLine1: initial.home_address_line1 ?? "",
     homeCity: initial.home_city ?? "",
-    homeState: initial.home_state === "TN" || initial.home_state === "GA" ? initial.home_state : "GA",
+    homeState: initial.home_state === "GA" ? initial.home_state : "GA",
     homeZip: initial.home_zip ?? "",
     gender: initial.gender ?? "",
     ethnicity: initial.ethnicity ?? "",
@@ -323,7 +323,6 @@ export function ReferralInfoEditForm({ initial }: Props) {
               onChange={(e) => update("homeState", e.target.value)}
             >
               <option value="GA">GA</option>
-              <option value="TN">TN</option>
             </select>
           </label>
           <label className="text-sm">

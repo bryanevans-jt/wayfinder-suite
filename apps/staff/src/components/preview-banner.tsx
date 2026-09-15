@@ -39,7 +39,9 @@ export function PreviewBanner({ targetName, targetRole, staffAppUrl }: Props) {
         <p>
           <span className="font-semibold">Previewing:</span> {label}{" "}
           <span className="text-brand-black/70">({roleDisplayName(targetRole)})</span>
-          <span className="ml-2 text-brand-black/60">· Read-only</span>
+          <span className="ml-2 text-brand-black/60">
+            · Audit view (full dashboard; saves disabled)
+          </span>
         </p>
         <button
           type="button"

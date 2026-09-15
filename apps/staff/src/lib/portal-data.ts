@@ -17,8 +17,10 @@ import {
   type OfficeRecord,
 } from "@/lib/office-visibility";
 import {
+  filterSunsetClients,
   filterSunsetCounselors,
   filterSunsetServices,
+  retiredMarketContextFromOffices,
   sunsetKeepIdsFromLoadedData,
 } from "@/lib/sunset-tn";
 import { loadServiceOfferings, toServiceSelectOptions } from "@/lib/service-offerings";
@@ -41,13 +43,14 @@ export async function requirePortalPage(minTier: PortalTier) {
     redirect("/account-inactive");
   }
 
-  const role = session.isPreviewing ? session.effectiveRole : profile.role;
+  const actorRole = profile.role as string;
+  const role = session.isPreviewing ? session.effectiveRole : actorRole;
   const allowed =
     minTier === "super_admin"
-      ? isSuperAdminRole(role)
+      ? isSuperAdminRole(actorRole)
       : minTier === "admin"
-        ? isAdminTierRole(role)
-        : role === "supervisor" || isAdminTierRole(role);
+        ? isAdminTierRole(actorRole)
+        : actorRole === "supervisor" || isAdminTierRole(actorRole);
 
   if (!allowed) {
     redirect("/dashboard");
@@ -370,6 +373,19 @@ export async function loadPortalBootstrap(
   );
   const allSupervisorProfiles = (profiles ?? []).filter((p) => p.role === "supervisor");
   let clientRows = clientsQuery.data ?? [];
+  const retiredMarket = retiredMarketContextFromOffices(officesRows);
+  const servicesByIdForRetired = new Map(
+    servicesRaw.map((s) => [s.id, { state: s.state ?? null, name: s.name }])
+  );
+  clientRows = filterSunsetClients(
+    clientRows as Array<{
+      office_id?: string | null;
+      referral_state?: string | null;
+      current_service_id?: string | null;
+    }>,
+    retiredMarket,
+    servicesByIdForRetired
+  ) as typeof clientRows;
 
   if (scope?.supervisorUserId) {
     const officeSet = new Set(scope.officeIds ?? []);

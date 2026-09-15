@@ -94,9 +94,9 @@ export function AuditPreviewWorkspace() {
     <section className="mt-8 max-w-xl space-y-6">
       <div className="rounded-xl border border-brand-green/25 bg-brand-green/5 p-5 text-sm text-brand-black/80">
         <p>
-          Open a <strong>read-only</strong> view of another user&apos;s dashboard to troubleshoot
-          or verify their experience. The target user is not notified. Enter and exit events are
-          logged internally for super admins only.
+          Open another user&apos;s dashboard as they see it — navigation, casework forms, and
+          timelines — without saving changes. The target user is not notified. Enter and exit
+          events are logged internally for super admins only.
         </p>
       </div>
 

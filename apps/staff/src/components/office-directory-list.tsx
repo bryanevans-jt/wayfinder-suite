@@ -43,49 +43,11 @@ export function OfficeDirectoryList({ offices, renderOffice }: Props) {
     }
   }, [groupFilter, groupOptions]);
 
-  const groupLabel = stateFilter === "GA" ? "District" : "Region";
-  const stateCounts = useMemo(() => {
-    const counts: Record<OfficeDirectoryState, number> = { GA: 0, TN: 0 };
-    for (const office of offices) {
-      const state = office.state?.trim().toUpperCase();
-      if (state === "GA" || state === "TN") counts[state] += 1;
-    }
-    return counts;
-  }, [offices]);
-
-  const visibleStates = (["GA", "TN"] as const).filter((state) => state === "GA" || stateCounts[state] > 0);
-
-  useEffect(() => {
-    if (stateFilter === "TN" && stateCounts.TN === 0) {
-      setStateFilter("GA");
-    }
-  }, [stateFilter, stateCounts.TN]);
+  const groupLabel = "District";
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <div
-          className="inline-flex rounded-lg border border-neutral-200 bg-neutral-50 p-1"
-          role="group"
-          aria-label="Office state"
-        >
-          {visibleStates.map((state) => (
-            <button
-              key={state}
-              type="button"
-              onClick={() => setStateFilter(state)}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-                stateFilter === state
-                  ? "bg-white text-brand-green shadow-sm"
-                  : "text-brand-black/70 hover:text-brand-black"
-              }`}
-            >
-              {state === "GA" ? "Georgia" : "Tennessee"}
-              <span className="ml-1.5 text-xs text-brand-black/50">({stateCounts[state]})</span>
-            </button>
-          ))}
-        </div>
-
         <select
           value={groupFilter}
           onChange={(e) => setGroupFilter(e.target.value)}
@@ -108,7 +70,7 @@ export function OfficeDirectoryList({ offices, renderOffice }: Props) {
 
       {groupedOffices.length === 0 ? (
         <p className="rounded-xl border border-neutral-200 bg-white px-4 py-6 text-sm text-brand-black/60">
-          No {stateFilter === "GA" ? "Georgia" : "Tennessee"} offices
+          No Georgia offices
           {groupFilter ? ` in this ${groupLabel.toLowerCase()}` : ""} yet.
         </p>
       ) : (

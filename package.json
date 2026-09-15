@@ -6,6 +6,7 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",
+    "test": "npm run test -w @wayfinder/supabase",
     "dev:staff": "npm run dev -w @wayfinder/staff",
     "dev:client": "npm run dev -w @wayfinder/client",
     "dev:reports": "npm run dev -w @wayfinder/reports",

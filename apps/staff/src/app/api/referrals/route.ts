@@ -145,8 +145,8 @@ export async function POST(request: Request) {
   }
 
   const state = body.state;
-  if (state !== "GA" && state !== "TN") {
-    return NextResponse.json({ error: "State must be GA or TN" }, { status: 400 });
+  if (state !== "GA") {
+    return NextResponse.json({ error: "State must be GA" }, { status: 400 });
   }
 
   const { state: _state, ...payload } = body;

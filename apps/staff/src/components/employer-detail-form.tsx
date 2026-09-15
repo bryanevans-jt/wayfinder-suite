@@ -207,7 +207,6 @@ export function EmployerDetailForm({
             className="rounded-lg border border-neutral-300 px-3 py-2"
           >
             <option value="GA">GA</option>
-            <option value="TN">TN</option>
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm">

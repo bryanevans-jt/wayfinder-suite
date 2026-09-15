@@ -572,7 +572,7 @@ async function autoOutStillWorkingTimeout(
     kind: "staff_clock_auto_out",
     title: "You were clocked out at 5:30 PM",
     body: "No response to the still-working prompt. Please review and edit this Time Clock entry if needed.",
-    link_path: "/dashboard/time-clock",
+    link_path: "/dashboard/billable-hours",
     metadata: { shiftId: row.id },
   });
 
@@ -581,7 +581,7 @@ async function autoOutStillWorkingTimeout(
     kind: "staff_clock_auto_out_supervisor",
     title: "Team member auto clock-out at 5:30 PM",
     body: "A team member did not respond to the still-working prompt and was clocked out at 5:30 PM (flagged for review).",
-    link_path: "/dashboard/time-clock",
+    link_path: "/dashboard/billable-hours",
     metadata: { shiftId: row.id, staffUserId: row.staff_user_id },
   });
 
@@ -650,7 +650,7 @@ export async function processStaffClockCron(
         kind: "staff_clock_still_working",
         title: "Still working?",
         body: "It is 5:30 PM. Tap to confirm you are still clocked in, or clock out on Time Clock. If we do not hear from you by 6:00 PM, you will be clocked out at 5:30 PM.",
-        link_path: "/dashboard/time-clock",
+        link_path: "/dashboard/billable-hours",
         metadata: { shiftId: open.id },
       });
       prompted += 1;

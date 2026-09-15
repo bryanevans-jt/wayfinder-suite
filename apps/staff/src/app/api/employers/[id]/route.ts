@@ -109,8 +109,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const locationKeys = ["address_line1", "address_line2", "city", "state", "zip"] as const;
   if (locationKeys.some((k) => k in body)) {
     const state = (body.state as string | undefined)?.trim().toUpperCase();
-    if (state && state !== "GA" && state !== "TN") {
-      return NextResponse.json({ error: "State must be GA or TN" }, { status: 400 });
+    if (state && state !== "GA") {
+      return NextResponse.json({ error: "State must be GA" }, { status: 400 });
     }
     Object.assign(
       patch,

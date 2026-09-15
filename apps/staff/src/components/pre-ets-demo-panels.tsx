@@ -14,7 +14,6 @@ import {
   getDemoSnapshot,
 } from "@/lib/pre-ets-demo-mock-data";
 import type { PreEtsDemoRole } from "@/lib/pre-ets-demo-scenario";
-import Link from "next/link";
 import { Fragment, useMemo, useState } from "react";
 
 type PipelineStatus = "awaiting_spreadsheet" | "pending_authorization" | "roster_submitted";

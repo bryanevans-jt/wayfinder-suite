@@ -94,6 +94,11 @@ export async function assertNotPreviewMutation() {
   }
 }
 
+/** Super Admin audit preview: show the target user's UI; writes stay blocked. */
+export function isAuditPreviewSession(session: AppSession | null | undefined): boolean {
+  return Boolean(session?.isPreviewing && isSuperAdminRole(session.actorRole));
+}
+
 export function staffAppOrigin(): string {
   const raw = process.env.NEXT_PUBLIC_STAFF_APP_URL ?? "http://localhost:3000";
   return raw.replace(/\/$/, "");

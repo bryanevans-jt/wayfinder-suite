@@ -42,8 +42,8 @@ export async function POST(request: NextRequest) {
   }
 
   const state = (body.state as string | undefined)?.trim().toUpperCase();
-  if (!state || (state !== "GA" && state !== "TN")) {
-    return NextResponse.json({ error: "State must be GA or TN" }, { status: 400 });
+  if (!state || state !== "GA") {
+    return NextResponse.json({ error: "State must be GA" }, { status: 400 });
   }
 
   let positionPatch;

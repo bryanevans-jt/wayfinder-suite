@@ -120,7 +120,10 @@ export default async function EsClientDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const canWriteCasework = hasWriteAccess && !session.isPreviewing;
+  const auditPreview = session.isPreviewing;
+  const canWriteCasework = hasWriteAccess && !auditPreview;
+  const showCaseworkUi = hasViewAccess && (hasWriteAccess || auditPreview);
+  const formReadOnly = auditPreview || !hasWriteAccess;
   const readOnly = !canWriteCasework;
 
   const supabase = await createServerClient();
@@ -483,9 +486,10 @@ export default async function EsClientDetailPage({ params }: PageProps) {
         </p>
       ) : null}
 
-      {session.isPreviewing ? (
+      {auditPreview ? (
         <p className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          Read-only preview — exit preview to update this client.
+          Audit preview — you see the same casework tools this user has; saves are disabled until
+          you exit preview.
         </p>
       ) : null}
 
@@ -498,7 +502,7 @@ export default async function EsClientDetailPage({ params }: PageProps) {
       ) : null}
 
       <section className="mt-8 max-w-2xl space-y-6">
-        {canAssignClientEs(role) ? (
+        {canAssignClientEs(role) || auditPreview ? (
           <ClientEsAssignmentPanel
             clientId={client.id}
             initialEsUserId={assignedEsUserId}
@@ -507,7 +511,7 @@ export default async function EsClientDetailPage({ params }: PageProps) {
           />
         ) : null}
 
-        {intakeAppointment && canEditClientIntakeAppointment(role) ? (
+        {intakeAppointment && (canEditClientIntakeAppointment(role) || auditPreview) ? (
           <ClientIntakeAppointmentPanel
             clientId={client.id}
             appointment={intakeAppointment}
@@ -534,27 +538,30 @@ export default async function EsClientDetailPage({ params }: PageProps) {
           />
         ) : null}
 
-        {!readOnly && client.current_service_id && milestoneOptions.length > 0 ? (
-          <ClientStageForm
-            clientId={client.id}
-            milestones={milestoneOptions}
-            currentStageId={client.current_stage_id}
-          />
-        ) : !readOnly ? (
+        {showCaseworkUi && client.current_service_id && milestoneOptions.length > 0 ? (
+          <fieldset disabled={formReadOnly} className={formReadOnly ? "opacity-95" : undefined}>
+            <ClientStageForm
+              clientId={client.id}
+              milestones={milestoneOptions}
+              currentStageId={client.current_stage_id}
+            />
+          </fieldset>
+        ) : showCaseworkUi ? (
           <p className="text-sm text-brand-black/75">
             Assign a service with milestones to this client before you can change their stage.
           </p>
         ) : null}
 
-        {!readOnly ? (
+        {showCaseworkUi ? (
           <ClientContactLogForm
             clientId={client.id}
             activities={filterClientContactActivityTypes(activities)}
             clientName={displayName}
             currentStageTitle={stage?.title ?? null}
             esName={esDisplayName}
-            canSubmitVpr={!session.isPreviewing}
+            canSubmitVpr={!auditPreview}
             activeEpisodes={episodeContext.activeEpisodes}
+            readOnly={formReadOnly}
           />
         ) : null}
         {canWriteCasework && exportEpisode ? (
@@ -567,13 +574,16 @@ export default async function EsClientDetailPage({ params }: PageProps) {
             clientName={displayName}
           />
         ) : null}
-        {!readOnly ? (
-          <ClientJobStartDateForm
-            clientId={client.id}
-            initialJobStartDate={client.job_start_date}
-          />
+        {showCaseworkUi ? (
+          <fieldset disabled={formReadOnly} className={formReadOnly ? "opacity-95" : undefined}>
+            <ClientJobStartDateForm
+              clientId={client.id}
+              initialJobStartDate={client.job_start_date}
+            />
+          </fieldset>
         ) : null}
-        {!readOnly ? (
+        {showCaseworkUi ? (
+          <fieldset disabled={formReadOnly} className={formReadOnly ? "opacity-95" : undefined}>
           <ClientApplicationForm
             clientId={client.id}
             employers={employerOptions}
@@ -589,15 +599,18 @@ export default async function EsClientDetailPage({ params }: PageProps) {
               notes: a.notes as string | null,
             }))}
           />
+          </fieldset>
         ) : null}
-        {!readOnly ? (
-          <ClientMeetingForm
-            clientId={client.id}
-            serviceId={client.current_service_id}
-            serviceName={service?.name ?? null}
-          />
+        {showCaseworkUi ? (
+          <fieldset disabled={formReadOnly} className={formReadOnly ? "opacity-95" : undefined}>
+            <ClientMeetingForm
+              clientId={client.id}
+              serviceId={client.current_service_id}
+              serviceName={service?.name ?? null}
+            />
+          </fieldset>
         ) : null}
-        {!readOnly ? (
+        {showCaseworkUi ? (
           <ClientActivityReportPanel
             clientId={client.id}
             clientName={displayName}
@@ -609,7 +622,7 @@ export default async function EsClientDetailPage({ params }: PageProps) {
         {showSubmittedFormalReports ? (
           <SubmittedFormalReportsPanel clientId={client.id} />
         ) : null}
-        {!readOnly ? <NaturalSupportPanel clientId={client.id} /> : null}
+        {showCaseworkUi ? <NaturalSupportPanel clientId={client.id} /> : null}
       </section>
 
       <section className="mt-10 max-w-2xl">

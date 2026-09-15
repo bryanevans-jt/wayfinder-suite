@@ -47,9 +47,10 @@ export async function assertPortalSession(minTier: PortalTier) {
     throw new PortalAuthError("Account inactive", 403);
   }
 
-  const role = session.isPreviewing ? session.effectiveRole : profile.role;
+  const actorRole = profile.role as string;
+  const role = session.isPreviewing ? session.effectiveRole : actorRole;
 
-  if (!tierAllowed(role, minTier)) {
+  if (!tierAllowed(actorRole, minTier)) {
     throw new PortalAuthError("Forbidden", 403);
   }
 

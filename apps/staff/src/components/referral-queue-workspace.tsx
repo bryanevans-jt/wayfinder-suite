@@ -375,7 +375,6 @@ export function ReferralQueueWorkspace() {
             >
               <option value="">All States</option>
               <option value="GA">GA</option>
-              <option value="TN">TN</option>
             </select>
           </label>
           <label className="min-w-[12rem] flex-1 text-xs font-medium text-brand-black/70">

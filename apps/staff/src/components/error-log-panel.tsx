@@ -34,6 +34,8 @@ export function ErrorLogPanel() {
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [testCode, setTestCode] = useState<string | null>(null);
+  const [testBusy, setTestBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -140,7 +142,39 @@ export function ErrorLogPanel() {
         >
           Refresh
         </button>
+        <button
+          type="button"
+          disabled={testBusy}
+          onClick={() => {
+            setTestBusy(true);
+            setTestCode(null);
+            void (async () => {
+              try {
+                const res = await fetch("/api/portal/error-logs", { method: "POST" });
+                const data = (await res.json()) as { errorCode?: string; error?: string };
+                if (!res.ok) {
+                  throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                }
+                setTestCode(data.errorCode ?? null);
+                await load();
+              } catch (e) {
+                setError(friendlyClientError(e));
+              } finally {
+                setTestBusy(false);
+              }
+            })();
+          }}
+          className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium hover:bg-neutral-50 disabled:opacity-50"
+        >
+          {testBusy ? "Testing…" : "Test logging"}
+        </button>
       </div>
+
+      {testCode ? (
+        <p className="text-sm text-brand-black/80">
+          Test entry logged with code <strong>{testCode}</strong>.
+        </p>
+      ) : null}
 
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
 

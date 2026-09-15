@@ -1,5 +1,9 @@
-import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { isRemovedFromEsCaseload } from "@wayfinder/supabase/client-archive";
+import {
+  filterRetiredMarketClients,
+  retiredMarketContextFromOffices,
+} from "@wayfinder/supabase/retired-market";
+import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 
 export type EsCaseloadClientRow = {
   id: string;
@@ -42,6 +46,38 @@ export async function esIsAssignedToClient(esUserId: string, clientId: string): 
   return Boolean(data);
 }
 
+async function dropRetiredMarketClients(
+  admin: NonNullable<ReturnType<typeof getEsCaseloadAdmin>>,
+  rows: Array<
+    EsCaseloadClientRow & {
+      office_id?: string | null;
+      referral_state?: string | null;
+    }
+  >
+): Promise<EsCaseloadClientRow[]> {
+  if (rows.length === 0) {
+    return rows;
+  }
+  const [{ data: offices }, { data: services }] = await Promise.all([
+    admin.from("offices").select("id, state, name"),
+    admin.from("services").select("id, name, state"),
+  ]);
+  const ctx = retiredMarketContextFromOffices(
+    (offices ?? []).map((o) => ({
+      id: o.id as string,
+      state: o.state as string | null,
+      name: o.name as string | null,
+    }))
+  );
+  const servicesById = new Map(
+    (services ?? []).map((s) => [
+      s.id as string,
+      { state: s.state as string | null, name: s.name as string | null },
+    ])
+  );
+  return filterRetiredMarketClients(rows, ctx, servicesById) as EsCaseloadClientRow[];
+}
+
 export async function fetchEsCaseloadClients(
   esUserId: string,
   options: FetchEsCaseloadOptions = {}
@@ -69,7 +105,7 @@ export async function fetchEsCaseloadClients(
   const { data: clientRows, error: clientsErr } = await admin
     .from("clients")
     .select(
-      "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, archived_at, intake_status, job_start_date"
+      "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, archived_at, intake_status, job_start_date, office_id, referral_state"
     )
     .in("id", clientIds);
 
@@ -92,7 +128,7 @@ export async function fetchEsCaseloadClients(
       archived_at: null,
       job_start_date: null,
     })) as EsCaseloadClientRow[];
-    const clients = includeArchived
+    let clients = includeArchived
       ? rows
       : rows.filter(
           (c) =>
@@ -100,6 +136,7 @@ export async function fetchEsCaseloadClients(
             ((c as EsCaseloadClientRow).intake_status == null ||
               (c as EsCaseloadClientRow).intake_status === "active")
         );
+    clients = await dropRetiredMarketClients(admin, clients);
     return { clients, error: null };
   }
 
@@ -108,13 +145,15 @@ export async function fetchEsCaseloadClients(
   }
 
   const rows = (clientRows ?? []) as EsCaseloadClientRow[];
-  const clients = includeArchived
+  let clients = includeArchived
     ? rows
     : rows.filter(
         (c) =>
           !isRemovedFromEsCaseload(c.archived_at) &&
           (c.intake_status == null || c.intake_status === "active")
       );
+
+  clients = await dropRetiredMarketClients(admin, clients);
 
   return { clients, error: null };
 }

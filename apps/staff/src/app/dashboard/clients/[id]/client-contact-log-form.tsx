@@ -24,6 +24,7 @@ type Props = {
   esName?: string | null;
   canSubmitVpr?: boolean;
   activeEpisodes?: ServiceEpisodeRow[];
+  readOnly?: boolean;
 };
 
 export function ClientContactLogForm({
@@ -34,6 +35,7 @@ export function ClientContactLogForm({
   esName = "",
   canSubmitVpr = true,
   activeEpisodes = [],
+  readOnly = false,
 }: Props) {
   const router = useRouter();
   const defaults = useTimeActivityDefaults(activities, DEFAULT_ACTIVITY_CODES.contact);
@@ -150,6 +152,9 @@ export function ClientContactLogForm({
       <h2 className="text-sm font-semibold uppercase tracking-wide text-brand-black/60">
         Log contact
       </h2>
+      {readOnly ? (
+        <p className="mt-1 text-xs text-amber-900/80">Preview only — saving is disabled.</p>
+      ) : null}
       <p className="mt-1 text-xs text-brand-black/60">
         Choose an activity type and describe what happened in {CONTACT_LOG_NOTES_LABEL.toLowerCase()}.
         Counselors see those notes on the timeline. Service time is optional — clear the activity
@@ -165,7 +170,7 @@ export function ClientContactLogForm({
             rows={3}
             placeholder="What happened? Include follow-up plans, who you spoke with, and next steps."
             className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-brand-black outline-none ring-brand-green focus:ring-2"
-            disabled={pending}
+            disabled={pending || readOnly}
           />
         </label>
         <label className="block text-sm font-medium text-brand-black">
@@ -176,7 +181,7 @@ export function ClientContactLogForm({
             rows={2}
             placeholder="Team-member-only context (not shown to counselors or clients)"
             className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-brand-black outline-none ring-brand-green focus:ring-2"
-            disabled={pending}
+            disabled={pending || readOnly}
           />
         </label>
         <ServiceEpisodePicker
@@ -184,6 +189,7 @@ export function ClientContactLogForm({
           value={serviceEpisodeId}
           onChange={setServiceEpisodeId}
           required={activeEpisodes.length > 1}
+          disabled={readOnly}
         />
         <div className="flex flex-wrap gap-4">
           <label className="flex items-center gap-2 text-sm text-brand-black">
@@ -191,7 +197,7 @@ export function ClientContactLogForm({
               type="checkbox"
               checked={clientPresent}
               onChange={(e) => setClientPresent(e.target.checked)}
-              disabled={pending}
+              disabled={pending || readOnly}
               className="h-4 w-4 rounded border-neutral-300 text-brand-green focus:ring-brand-green"
             />
             Client was present
@@ -203,7 +209,7 @@ export function ClientContactLogForm({
               onChange={(e) =>
                 setDeliveryMode(e.target.value as "in_person" | "virtual" | "phone")
               }
-              disabled={pending}
+              disabled={pending || readOnly}
               className="rounded-lg border border-neutral-300 px-2 py-1 text-sm"
             >
               <option value="in_person">In person</option>
@@ -224,7 +230,7 @@ export function ClientContactLogForm({
           onStartTimeChange={setStartTime}
           onEndTimeChange={setEndTime}
           activityTypeLabel="Activity type"
-          disabled={pending}
+          disabled={pending || readOnly}
         />
         {suggestions.length > 0 ? (
           <div className="flex flex-wrap gap-2" aria-label="Suggestions">
@@ -239,14 +245,16 @@ export function ClientContactLogForm({
             ))}
           </div>
         ) : null}
-        <button
-          type="button"
-          onClick={save}
-          disabled={pending}
-          className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white hover:bg-brand-green/90 disabled:opacity-60"
-        >
-          {pending ? "Saving…" : "Save contact log"}
-        </button>
+        {!readOnly ? (
+          <button
+            type="button"
+            onClick={save}
+            disabled={pending}
+            className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white hover:bg-brand-green/90 disabled:opacity-60"
+          >
+            {pending ? "Saving…" : "Save contact log"}
+          </button>
+        ) : null}
       </div>
       {error ? <p className="mt-2 text-sm text-red-700">{error}</p> : null}
       {notice ? <p className="mt-2 text-sm text-amber-800">{notice}</p> : null}

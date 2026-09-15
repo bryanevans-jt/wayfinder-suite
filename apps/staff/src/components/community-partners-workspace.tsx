@@ -271,7 +271,6 @@ export function CommunityPartnersWorkspace({
               >
                 <option value="">All</option>
                 <option value="GA">GA</option>
-                <option value="TN">TN</option>
               </select>
             </label>
             <label className="flex min-w-[140px] flex-col gap-1 text-sm">
@@ -364,7 +363,6 @@ export function CommunityPartnersWorkspace({
                 className="rounded-lg border border-neutral-300 px-3 py-2"
               >
                 <option value="GA">GA</option>
-                <option value="TN">TN</option>
               </select>
             </label>
             <label className="flex flex-col gap-1 text-sm">

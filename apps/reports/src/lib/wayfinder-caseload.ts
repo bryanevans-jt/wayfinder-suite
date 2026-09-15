@@ -1,13 +1,19 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { clientDisplayName, employmentCategoryLabel } from "@wayfinder/branding";
 import {
+  filterRetiredMarketClients,
+  retiredMarketContextFromOffices,
+} from "@wayfinder/supabase/retired-market";
+import {
   isAdminTierRole,
   isFieldSpecialistRole,
   isSuperAdminRole,
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
+import { loadSupervisorScope } from "@wayfinder/supabase/supervisor-client-scope";
 
-export type ReportingState = "GA" | "TN";
+/** Georgia-only reporting (retired markets stay in DB but are not surfaced). */
+export type ReportingState = "GA";
 
 export type CaseloadClientRow = {
   id: string;
@@ -17,11 +23,6 @@ export type CaseloadClientRow = {
   serviceName: string | null;
   counselorName: string | null;
   employmentGoal: string | null;
-};
-
-type SupervisorScope = {
-  officeIds: string[];
-  esUserIds: string[];
 };
 
 async function loadProfileRole(admin: SupabaseClient, userId: string): Promise<string | null> {
@@ -36,47 +37,54 @@ async function loadCatalogReportingStates(_admin: SupabaseClient): Promise<Repor
   return ["GA"];
 }
 
-async function loadSupervisorScope(admin: SupabaseClient, supervisorUserId: string): Promise<SupervisorScope> {
-  const [{ data: offices }, { data: esLinks }] = await Promise.all([
-    admin.from("staff_office_assignments").select("office_id").eq("user_id", supervisorUserId),
-    admin
-      .from("supervisor_es_assignments")
-      .select("es_user_id")
-      .eq("supervisor_user_id", supervisorUserId),
-  ]);
+async function loadRetiredMarketContext(admin: SupabaseClient) {
+  const { data: offices } = await admin.from("offices").select("id, state, name");
+  return retiredMarketContextFromOffices(
+    (offices ?? []).map((o) => ({
+      id: o.id as string,
+      state: o.state as string | null,
+      name: o.name as string | null,
+    }))
+  );
+}
 
-  const officeIds = (offices ?? []).map((o) => o.office_id as string);
-  const officeSet = new Set(officeIds);
-  const esUserIds = new Set((esLinks ?? []).map((e) => e.es_user_id as string));
-
-  if (officeIds.length > 0) {
-    const { data: staffOfficeLinks } = await admin
-      .from("staff_office_assignments")
-      .select("user_id, office_id")
-      .in("office_id", officeIds);
-
-    const candidateUserIds = new Set<string>();
-    for (const link of staffOfficeLinks ?? []) {
-      const userId = link.user_id as string;
-      const officeId = link.office_id as string;
-      if (userId !== supervisorUserId && officeSet.has(officeId)) {
-        candidateUserIds.add(userId);
-      }
-    }
-
-    if (candidateUserIds.size > 0) {
-      const { data: esProfiles } = await admin
-        .from("profiles")
-        .select("id")
-        .in("id", [...candidateUserIds])
-        .in("role", ["es", "transition_specialist"]);
-      for (const profile of esProfiles ?? []) {
-        esUserIds.add(profile.id as string);
-      }
-    }
+async function filterActiveMarketClientIds(
+  admin: SupabaseClient,
+  clientIds: Iterable<string>
+): Promise<Set<string>> {
+  const ids = [...clientIds];
+  if (ids.length === 0) {
+    return new Set();
   }
 
-  return { officeIds, esUserIds: [...esUserIds] };
+  const [ctx, clientsResult, servicesResult] = await Promise.all([
+    loadRetiredMarketContext(admin),
+    admin
+      .from("clients")
+      .select("id, office_id, referral_state, current_service_id")
+      .in("id", ids),
+    admin.from("services").select("id, name, state"),
+  ]);
+
+  const servicesById = new Map(
+    (servicesResult.data ?? []).map((s) => [
+      s.id as string,
+      { state: s.state as string | null, name: s.name as string | null },
+    ])
+  );
+
+  const active = filterRetiredMarketClients(
+    (clientsResult.data ?? []).map((row) => ({
+      id: row.id as string,
+      office_id: row.office_id as string | null,
+      referral_state: row.referral_state as string | null,
+      current_service_id: row.current_service_id as string | null,
+    })),
+    ctx,
+    servicesById
+  );
+
+  return new Set(active.map((row) => row.id as string));
 }
 
 async function loadScopedClientIds(
@@ -93,18 +101,23 @@ async function loadScopedClientIds(
       .from("es_client_assignments")
       .select("client_id")
       .eq("es_user_id", userId);
-    return new Set((links ?? []).map((l) => l.client_id as string));
+    return filterActiveMarketClientIds(
+      admin,
+      (links ?? []).map((l) => l.client_id as string)
+    );
   }
 
   if (isSupervisorRole(role)) {
     const scope = await loadSupervisorScope(admin, userId);
     const clientIds = new Set<string>();
+    const retired = await loadRetiredMarketContext(admin);
+    const activeOfficeIds = scope.officeIds.filter((id) => !retired.retiredOfficeIds.has(id));
 
-    if (scope.officeIds.length > 0) {
+    if (activeOfficeIds.length > 0) {
       const { data: officeClients } = await admin
         .from("clients")
         .select("id")
-        .in("office_id", scope.officeIds);
+        .in("office_id", activeOfficeIds);
       for (const row of officeClients ?? []) {
         clientIds.add(row.id as string);
       }
@@ -120,7 +133,7 @@ async function loadScopedClientIds(
       }
     }
 
-    return clientIds;
+    return filterActiveMarketClientIds(admin, clientIds);
   }
 
   return new Set();
@@ -199,7 +212,7 @@ async function hydrateClients(
         contact_email: c.contact_email as string | null,
         id: c.id as string,
       }),
-      officeState: state === "GA" || state === "TN" ? state : null,
+      officeState: state === "GA" ? state : null,
       officeName: office?.name ?? null,
       serviceName: c.current_service_id ? (serviceById.get(c.current_service_id as string) ?? null) : null,
       counselorName: c.counselor_id ? (counselorById.get(c.counselor_id as string) ?? null) : null,
@@ -250,7 +263,7 @@ export async function getAvailableReportingStates(
       states.add(state);
     }
   }
-  return [...states].filter((s) => s !== "TN").sort();
+  return [...states].sort();
 }
 
 export async function searchCaseloadClients(
@@ -258,6 +271,9 @@ export async function searchCaseloadClients(
   userId: string,
   opts: { state: ReportingState; query?: string; limit?: number }
 ): Promise<CaseloadClientRow[]> {
+  if (opts.state !== "GA") {
+    return [];
+  }
   const role = await loadProfileRole(admin, userId);
   const scope = await loadScopedClientIds(admin, userId, role);
   if (scope !== "all" && scope.size === 0) {

@@ -1,4 +1,5 @@
-import { assertPortalSession, jsonPortalError } from "@/lib/portal-auth";
+import { assertPortalMutation, assertPortalSession, jsonPortalError } from "@/lib/portal-auth";
+import { logSystemError } from "@wayfinder/supabase/error-log";
 import { roleDisplayName } from "@wayfinder/supabase/roles";
 import { NextRequest } from "next/server";
 
@@ -93,6 +94,27 @@ export async function GET(request: NextRequest) {
         reports7d: reportsCount ?? 0,
       },
     });
+  } catch (error) {
+    return await jsonPortalError(error, "api/portal/error-logs");
+  }
+}
+
+/** Super Admin: verify error logging pipeline (creates one test row). */
+export async function POST() {
+  try {
+    const { admin, user } = await assertPortalMutation("super_admin");
+    const errorCode = await logSystemError(
+      admin,
+      {
+        app: "staff",
+        route: "api/portal/error-logs",
+        statusCode: 200,
+        userId: user.id,
+        metadata: { kind: "super_admin_error_log_test" },
+      },
+      new Error("Super Admin connectivity test (safe to ignore).")
+    );
+    return Response.json({ ok: true, errorCode });
   } catch (error) {
     return await jsonPortalError(error, "api/portal/error-logs");
   }

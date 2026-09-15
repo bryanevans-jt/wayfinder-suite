@@ -104,8 +104,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       typeof body.home_state === "string" && body.home_state.trim()
         ? body.home_state.trim().toUpperCase()
         : null;
-    if (homeState && homeState !== "GA" && homeState !== "TN") {
-      return NextResponse.json({ error: "Home state must be GA or TN" }, { status: 400 });
+    if (homeState && homeState !== "GA") {
+      return NextResponse.json({ error: "Home state must be GA" }, { status: 400 });
     }
 
     const addressLine1 =
