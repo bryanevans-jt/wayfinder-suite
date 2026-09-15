@@ -44,14 +44,10 @@ function pinSet(ids?: Iterable<string | null | undefined>): Set<string> {
 
 export function filterSunsetOffices<T extends { id: string; state?: string | null; name?: string | null }>(
   offices: T[],
-  keepOfficeIds: Set<string>,
-  alwaysIncludeIds?: Iterable<string | null | undefined>
+  _keepOfficeIds: Set<string>,
+  _alwaysIncludeIds?: Iterable<string | null | undefined>
 ): T[] {
-  const pinned = pinSet(alwaysIncludeIds);
-  return offices.filter((office) => {
-    if (!isSunsetOffice(office)) return true;
-    return keepOfficeIds.has(office.id) || pinned.has(office.id);
-  });
+  return offices.filter((office) => !isSunsetOffice(office));
 }
 
 export function filterSunsetServices<T extends { id: string; state?: string | null; name?: string | null }>(

@@ -3,22 +3,20 @@ import {
   filterOfficesForPicker,
   queryAllOffices,
 } from "@/lib/office-visibility";
-import { loadSunsetKeepIds } from "@/lib/sunset-tn";
 
 type AdminClient = ReturnType<typeof createServiceRoleClient>;
 
-/** Office ids that may appear on staff assignment pickers (excludes sunset TN without active clients). */
+/** Office ids that may appear on staff assignment pickers (Tennessee offices excluded entirely). */
 export async function loadAssignableOfficeIds(admin: AdminClient): Promise<Set<string>> {
   const offices = await queryAllOffices(admin);
-  const sunset = await loadSunsetKeepIds(admin);
   return new Set(
     filterOfficesForPicker(offices, {
-      sunsetKeepOfficeIds: sunset.keepOfficeIds,
+      sunsetKeepOfficeIds: new Set(),
     }).map((o) => o.id)
   );
 }
 
-/** Removes staff→office links that no longer belong in the app (sunset TN, hidden, etc.). */
+/** Removes staff→office links that no longer belong in the app (TN, hidden, missing office row, etc.). */
 export async function pruneStaleStaffOfficeAssignments(
   admin: AdminClient
 ): Promise<{ removed: number }> {
