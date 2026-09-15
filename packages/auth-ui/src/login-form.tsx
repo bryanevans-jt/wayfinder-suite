@@ -150,14 +150,6 @@ export function LoginForm({
     }
     setBusy("google");
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (session) {
-      window.location.assign(redirectAfterSignIn);
-      return;
-    }
-
     clearSupabasePkceVerifierCookies();
     const origin = window.location.origin;
     const redirectTo = `${origin}/auth/callback`;

@@ -73,6 +73,12 @@ export default async function StaffLoginPage({
           ) : null}
         </div>
       ) : null}
+      {error === "org_only" ? (
+        <p className="mb-6 max-w-md rounded-lg border border-brand-black/15 bg-brand-white px-4 py-3 text-center text-sm text-brand-black">
+          Use your <strong>@{JOSHUA_TREE_ORG_EMAIL_DOMAIN}</strong> Google account for{" "}
+          {STAFF_APP_PRODUCT_NAME}.
+        </p>
+      ) : null}
       {error === "auth" ? (
         <div className="mb-6 max-w-md space-y-2 rounded-lg border border-brand-gold/40 bg-brand-white px-4 py-3 text-center text-sm text-brand-black">
           <p>

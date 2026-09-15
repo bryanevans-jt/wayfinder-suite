@@ -136,7 +136,11 @@ export async function handleWayfinderAuthCallback(
 
   const redirectTo = (target: URL) => {
     activeRedirect = target;
-    response = NextResponse.redirect(activeRedirect);
+    const next = NextResponse.redirect(activeRedirect);
+    response.cookies.getAll().forEach((cookie) => {
+      next.cookies.set(cookie.name, cookie.value);
+    });
+    response = next;
   };
 
   const supabase = createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
@@ -147,10 +151,14 @@ export async function handleWayfinderAuthCallback(
       },
       setAll(cookiesToSet: SupabaseCookieToSet[]) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.redirect(activeRedirect);
+        const next = NextResponse.redirect(activeRedirect);
+        response.cookies.getAll().forEach((cookie) => {
+          next.cookies.set(cookie.name, cookie.value);
+        });
         cookiesToSet.forEach(({ name, value, options: cookieOptions }) =>
-          response.cookies.set(name, value, cookieOptions)
+          next.cookies.set(name, value, cookieOptions)
         );
+        response = next;
       },
     },
   });
