@@ -32,6 +32,30 @@ export async function findAuthUserIdByEmail(
   return resolveAuthUserIdByEmail(admin, email);
 }
 
+/**
+ * Auth users created via dashboard invite (or legacy flows) may sit unconfirmed with no
+ * invite email clicked. Wayfinder sends magic links instead — confirm the email server-side
+ * so OTP / token_hash sign-in is not rejected.
+ */
+export async function ensureAuthUserConfirmedForLogin(
+  admin: AdminClient,
+  userId: string
+): Promise<void> {
+  const { data, error } = await admin.auth.admin.getUserById(userId);
+  if (error || !data.user?.id) {
+    return;
+  }
+  if (data.user.email_confirmed_at) {
+    return;
+  }
+  const { error: updateErr } = await admin.auth.admin.updateUserById(userId, {
+    email_confirm: true,
+  });
+  if (updateErr) {
+    console.error("ensureAuthUserConfirmedForLogin:", updateErr.message);
+  }
+}
+
 export function staffInviteRedirectUrl(): string {
   const raw = process.env.NEXT_PUBLIC_STAFF_APP_URL ?? "http://localhost:3000";
   return `${raw.replace(/\/$/, "")}/auth/callback`;
@@ -96,6 +120,13 @@ export async function sendStaffLoginEmail(admin: AdminClient, email: string): Pr
     throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
   }
 
+  const userId = await findAuthUserIdByEmail(admin, normalized);
+  if (!userId) {
+    throw new Error("No Wayfinder login exists for that email yet");
+  }
+
+  await ensureAuthUserConfirmedForLogin(admin, userId);
+
   const res = await fetch(`${getSupabaseUrl()}/auth/v1/otp`, {
     method: "POST",
     headers: {
@@ -115,12 +146,6 @@ export async function sendStaffLoginEmail(admin: AdminClient, email: string): Pr
   if (!res.ok) {
     const body = await res.text();
     throw new Error(body || "Could not send login email");
-  }
-
-  // Ensure the auth user exists (silent provisioning should have created them already).
-  const userId = await findAuthUserIdByEmail(admin, normalized);
-  if (!userId) {
-    throw new Error("No Wayfinder login exists for that email yet");
   }
 }
 
@@ -434,6 +459,8 @@ export async function syncCounselorPortalLoginForEmail(
   if (inactiveMessage) {
     return { userId: null, notRegisteredMessage: inactiveMessage };
   }
+
+  await ensureAuthUserConfirmedForLogin(admin, userId);
 
   return { userId };
 }

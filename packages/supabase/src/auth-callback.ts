@@ -56,7 +56,7 @@ export function isFailedAuthLoginRedirect(
 }
 
 function isInviteOnlyAuthError(message: string): boolean {
-  return /signups not allowed|user not found|invalid login credentials|email not confirmed/i.test(
+  return /signups not allowed|user not found|invalid login credentials|email not confirmed|not confirmed|confirm your email/i.test(
     message
   );
 }
