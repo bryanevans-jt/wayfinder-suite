@@ -1883,7 +1883,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               />
               <AssignmentCard
                 title="Supervisor to Employment Specialist Link"
-                description="Employment Specialists (ES only). Ryan Herrington is linked to all ES org-wide; regional supervisors do not inherit ES by office."
+                description="Employment Specialists (ES only). Ryan Herrington (Admin) is linked to all ES org-wide; regional supervisors do not inherit ES by office."
                 busy={busy}
                 onAdd={(supervisorId, esId) =>
                   run(async () => {
@@ -1929,7 +1929,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               />
               <AssignmentCard
                 title="Regional supervisor to Transition Specialist"
-                description="Transition Specialists (caseload + Pre-ETS) report to regional supervisors or org leads (e.g. Ryan). ES org-wide links use the card above."
+                description="Transition Specialists (caseload + Pre-ETS) report to regional supervisors or admins (e.g. Ryan Herrington). ES org-wide links use the card above."
                 busy={busy}
                 onAdd={(supervisorId, tsId) =>
                   run(async () => {
