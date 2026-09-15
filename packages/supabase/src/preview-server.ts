@@ -7,6 +7,7 @@ import {
   PREVIEW_TARGET_COOKIE,
   readPreviewCookies,
 } from "./preview-cookies";
+import { loadAuthUserProfile } from "./auth-profile";
 import { isKnownRole, isSuperAdminRole, staffHomePath } from "./roles";
 
 export type PreviewSession = {
@@ -39,11 +40,7 @@ export async function getAppSession(): Promise<AppSession | null> {
     return null;
   }
 
-  const { data: actorProfile } = await supabase
-    .from("profiles")
-    .select("role, is_active, full_name")
-    .eq("id", user.id)
-    .maybeSingle();
+  const { profile: actorProfile } = await loadAuthUserProfile(supabase);
 
   if (!actorProfile?.is_active || !isKnownRole(actorProfile.role)) {
     return null;
@@ -55,7 +52,8 @@ export async function getAppSession(): Promise<AppSession | null> {
   if (
     previewCookies &&
     isSuperAdminRole(actorProfile.role) &&
-    previewCookies.actorUserId === user.id
+    previewCookies.actorUserId === user.id &&
+    isKnownRole(previewCookies.targetRole)
   ) {
     const preview: PreviewSession = {
       isPreviewing: true,

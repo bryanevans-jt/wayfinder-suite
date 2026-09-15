@@ -5,7 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { friendlyAuthError, accountNotSetUpMessage } from "@wayfinder/supabase/error-log";
 import { clearSupabasePkceVerifierCookies } from "@wayfinder/supabase/auth-pkce-cookies";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 type LoginFormProps = {
   /** Public product name (e.g. Wayfinder, Wayfinder Pro). */
@@ -72,22 +72,6 @@ export function LoginForm({
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState<null | "magic" | "passkey" | "google">(null);
   const [notice, setNotice] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (demoMode) return;
-    let cancelled = false;
-    void (async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!cancelled && session) {
-        window.location.assign(redirectAfterSignIn);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [supabase, redirectAfterSignIn, demoMode]);
 
   async function sendMagicLink(e: React.FormEvent) {
     e.preventDefault();

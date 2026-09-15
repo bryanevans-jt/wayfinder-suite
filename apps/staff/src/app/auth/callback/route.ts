@@ -2,6 +2,7 @@ import { syncCounselorPortalLoginForEmail } from "@/lib/portal-staff-users";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { handleWayfinderAuthCallback } from "@wayfinder/supabase/auth-callback";
 import { staffHomePath } from "@wayfinder/supabase/roles";
+import { isJoshuaTreeEmail } from "@wayfinder/supabase/referral-intake";
 import type { NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -9,7 +10,7 @@ export async function GET(request: NextRequest) {
     requireProvisionedProfile: true,
     onAuthenticated: async ({ userId, email }) => {
       const normalized = email?.trim().toLowerCase() ?? "";
-      if (normalized.includes("@")) {
+      if (normalized.includes("@") && !isJoshuaTreeEmail(normalized)) {
         try {
           const admin = createServiceRoleClient();
           await syncCounselorPortalLoginForEmail(admin, normalized, { sendInvite: false });

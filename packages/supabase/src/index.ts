@@ -46,4 +46,5 @@ export type {
 } from "./staff-time-clock-shared";
 export * from "./client-archive";
 export * from "./auth-check-email";
+export * from "./auth-profile";
 export * from "./counselor-portal-access";
