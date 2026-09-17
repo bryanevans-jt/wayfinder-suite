@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isTerminalStageTitle } from "./client-archive";
 import { insertRosterClientRecord } from "./client-roster-insert";
 import {
   findExactNormalizedCounselor,
@@ -940,8 +941,9 @@ export async function linkReferralPriorEnrollment(
       .maybeSingle();
     if (priorErr) return { error: priorErr.message };
     if (!prior) return { error: "Previous enrollment not found." };
-    if (!(prior as { archived_at?: string | null }).archived_at) {
-      return { error: "Previous enrollment must be a closed case." };
+    const closure = await isPriorEnrollmentClosed(admin, opts.priorClientId);
+    if (!closure.closed) {
+      return { error: closure.error };
     }
   }
 
@@ -965,6 +967,311 @@ export async function linkReferralPriorEnrollment(
     event_type: "prior_enrollment_linked",
     to_value: opts.priorClientId,
   });
+  return { ok: true };
+}
+
+const PRIOR_ENROLLMENT_CLIENT_SELECT =
+  "id, full_name, contact_email, counselor_id, office_id, current_service_id, referral_state, archived_at, current_stage_id, date_of_birth, primary_phone, secondary_phone, gender, ethnicity, disability_history, employment_goal_primary, employment_goal_secondary, employment_goal_primary_other, employment_goal_secondary_other, home_address_line1, home_address_line2, home_city, home_state, home_zip, meeting_preference, counselor_availability, intake_status";
+
+export function priorEnrollmentOutcomeLabel(
+  stageTitle: string | null | undefined
+): string | null {
+  const t = (stageTitle ?? "").trim();
+  if (!t) return null;
+  if (isTerminalStageTitle(t)) return t;
+  return null;
+}
+
+async function loadMilestoneTitle(
+  admin: SupabaseClient,
+  stageId: string | null | undefined
+): Promise<string | null> {
+  if (!stageId) return null;
+  const { data } = await admin
+    .from("service_milestones")
+    .select("title, name")
+    .eq("id", stageId)
+    .maybeSingle();
+  return ((data?.title as string | null) || (data?.name as string | null) || "").trim() || null;
+}
+
+/** Prior enrollment ended (Complete, Dismissed, Closed, etc.) — eligible to start a new service episode. */
+export async function isPriorEnrollmentClosed(
+  admin: SupabaseClient,
+  priorClientId: string
+): Promise<{ closed: true; outcomeLabel: string | null } | { closed: false; error: string }> {
+  const { data: prior, error } = await admin
+    .from("clients")
+    .select(PRIOR_ENROLLMENT_CLIENT_SELECT)
+    .eq("id", priorClientId)
+    .maybeSingle();
+  if (error) return { closed: false, error: error.message };
+  if (!prior) return { closed: false, error: "Previous enrollment not found." };
+
+  const archivedAt = (prior as { archived_at?: string | null }).archived_at;
+  if (archivedAt) {
+    const stageTitle = await loadMilestoneTitle(
+      admin,
+      (prior as { current_stage_id?: string | null }).current_stage_id ?? null
+    );
+    return { closed: true, outcomeLabel: priorEnrollmentOutcomeLabel(stageTitle) };
+  }
+
+  const stageTitle = await loadMilestoneTitle(
+    admin,
+    (prior as { current_stage_id?: string | null }).current_stage_id ?? null
+  );
+  if (isTerminalStageTitle(stageTitle)) {
+    return { closed: true, outcomeLabel: priorEnrollmentOutcomeLabel(stageTitle) };
+  }
+
+  return {
+    closed: false,
+    error: "Previous enrollment must be Complete, Dismissed, or Closed before starting a new service.",
+  };
+}
+
+export async function searchPriorEnrollmentsForNewService(
+  admin: SupabaseClient,
+  query: string
+): Promise<
+  Array<{
+    id: string;
+    full_name: string | null;
+    archived_at: string | null;
+    outcomeLabel: string | null;
+  }>
+> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+
+  const { data: rows, error } = await admin
+    .from("clients")
+    .select("id, full_name, archived_at, current_stage_id")
+    .ilike("full_name", `%${q.replace(/%/g, "")}%`)
+    .not("archived_at", "is", null)
+    .neq("intake_status", "discarded")
+    .order("archived_at", { ascending: false })
+    .limit(15);
+
+  if (error?.message.includes("archived_at")) {
+    return [];
+  }
+
+  const out: Array<{
+    id: string;
+    full_name: string | null;
+    archived_at: string | null;
+    outcomeLabel: string | null;
+  }> = [];
+
+  for (const row of rows ?? []) {
+    const stageTitle = await loadMilestoneTitle(
+      admin,
+      (row as { current_stage_id?: string | null }).current_stage_id ?? null
+    );
+    out.push({
+      id: row.id as string,
+      full_name: (row as { full_name?: string | null }).full_name ?? null,
+      archived_at: (row as { archived_at?: string | null }).archived_at ?? null,
+      outcomeLabel: priorEnrollmentOutcomeLabel(stageTitle),
+    });
+  }
+  return out;
+}
+
+/** Staff entry when a counselor did not submit a new referral but a new authorization is available. */
+export async function createReferralFromPriorEnrollment(
+  admin: SupabaseClient,
+  opts: {
+    priorClientId: string;
+    actorUserId: string;
+    authorizationNumber?: string | null;
+    overrideReason?: string | null;
+  }
+): Promise<{ ok: true; clientId: string } | { error: string }> {
+  const closure = await isPriorEnrollmentClosed(admin, opts.priorClientId);
+  if (!closure.closed) return { error: closure.error };
+
+  const authNumber = (opts.authorizationNumber ?? "").trim();
+  const override = (opts.overrideReason ?? "").trim();
+  if (!authNumber && !override) {
+    return {
+      error: "Enter an authorization number, or provide an override reason to start without one.",
+    };
+  }
+
+  const { data: prior, error: priorErr } = await admin
+    .from("clients")
+    .select(PRIOR_ENROLLMENT_CLIENT_SELECT)
+    .eq("id", opts.priorClientId)
+    .maybeSingle();
+  if (priorErr) return { error: priorErr.message };
+  if (!prior) return { error: "Previous enrollment not found." };
+
+  const serviceId = (prior as { current_service_id?: string | null }).current_service_id;
+  if (!serviceId) {
+    return { error: "Previous enrollment has no service; update the prior record or create a manual referral." };
+  }
+
+  const created = await insertRosterClientRecord(admin, {
+    fullName: ((prior as { full_name?: string }).full_name ?? "").trim() || "Client",
+    counselorId: (prior as { counselor_id?: string | null }).counselor_id ?? null,
+    officeId: (prior as { office_id?: string | null }).office_id ?? null,
+    serviceId: serviceId as string,
+    stageId: null,
+    contactEmail: (prior as { contact_email?: string | null }).contact_email ?? null,
+    employmentGoalPrimary:
+      (prior as { employment_goal_primary?: string | null }).employment_goal_primary ?? null,
+  });
+  if ("error" in created) return { error: created.error };
+
+  const nowIso = new Date().toISOString();
+  const referralState =
+    ((prior as { referral_state?: string | null }).referral_state as ReferralState | null) ?? "GA";
+
+  const patch: Record<string, unknown> = {
+    intake_status: "new_referral",
+    intake_status_changed_at: nowIso,
+    referral_state: referralState,
+    referred_at: nowIso,
+    last_activity_at: nowIso,
+    prior_client_id: opts.priorClientId,
+    authorization_number: authNumber || null,
+    authorization_override_reason: authNumber ? null : override,
+    date_of_birth: (prior as { date_of_birth?: string | null }).date_of_birth ?? null,
+    primary_phone: (prior as { primary_phone?: string | null }).primary_phone ?? null,
+    secondary_phone: (prior as { secondary_phone?: string | null }).secondary_phone ?? null,
+    gender: (prior as { gender?: string | null }).gender ?? null,
+    ethnicity: (prior as { ethnicity?: string | null }).ethnicity ?? null,
+    disability_history: (prior as { disability_history?: string | null }).disability_history ?? null,
+    employment_goal_secondary:
+      (prior as { employment_goal_secondary?: string | null }).employment_goal_secondary ?? null,
+    employment_goal_primary_other:
+      (prior as { employment_goal_primary_other?: string | null }).employment_goal_primary_other ??
+      null,
+    employment_goal_secondary_other:
+      (prior as { employment_goal_secondary_other?: string | null }).employment_goal_secondary_other ??
+      null,
+    home_address_line1: (prior as { home_address_line1?: string | null }).home_address_line1 ?? null,
+    home_address_line2: (prior as { home_address_line2?: string | null }).home_address_line2 ?? null,
+    home_city: (prior as { home_city?: string | null }).home_city ?? null,
+    home_state: (prior as { home_state?: string | null }).home_state ?? null,
+    home_zip: (prior as { home_zip?: string | null }).home_zip ?? null,
+    meeting_preference: (prior as { meeting_preference?: string | null }).meeting_preference ?? null,
+    counselor_availability:
+      (prior as { counselor_availability?: string | null }).counselor_availability ?? null,
+  };
+
+  let { error: patchErr } = await admin.from("clients").update(patch).eq("id", created.id);
+  if (patchErr?.message.includes("prior_client_id")) {
+    delete patch.prior_client_id;
+    const retry = await admin.from("clients").update(patch).eq("id", created.id);
+    patchErr = retry.error;
+  }
+  if (patchErr) return { error: patchErr.message };
+
+  const { resolveParticipantForClient } = await import("./participants");
+  await resolveParticipantForClient(admin, {
+    clientId: created.id,
+    fullName: (prior as { full_name?: string }).full_name ?? "",
+    dateOfBirth: (prior as { date_of_birth?: string | null }).date_of_birth ?? null,
+    contactEmail: (prior as { contact_email?: string | null }).contact_email ?? null,
+  }).catch(() => undefined);
+
+  await admin.from("client_intake_events").insert({
+    client_id: created.id,
+    actor_user_id: opts.actorUserId,
+    event_type: "returning_client_referral_created",
+    to_value: opts.priorClientId,
+    metadata: { priorClientId: opts.priorClientId, source: "begin_new_service" },
+  });
+
+  return { ok: true, clientId: created.id };
+}
+
+/** Link prior closed enrollment (if needed) and activate the referral to the first service stage. */
+export async function beginNewServiceFromReferral(
+  admin: SupabaseClient,
+  opts: {
+    clientId: string;
+    actorUserId: string;
+    authorizationNumber?: string | null;
+    overrideReason?: string | null;
+    priorClientId?: string | null;
+    stageId?: string | null;
+  }
+): Promise<{ ok: true } | { error: string }> {
+  const { data: client, error } = await admin
+    .from("clients")
+    .select(
+      "id, full_name, contact_email, date_of_birth, intake_status, prior_client_id, authorization_number"
+    )
+    .eq("id", opts.clientId)
+    .maybeSingle();
+  if (error || !client) return { error: error?.message ?? "Client not found" };
+
+  const intake = (client.intake_status as string) ?? "";
+  if (intake !== "new_referral" && intake !== "pending_authorization") {
+    return {
+      error: "Begin New Service is only available for referrals that have not been activated yet.",
+    };
+  }
+
+  let priorId = (opts.priorClientId ?? (client.prior_client_id as string | null) ?? "").trim();
+  if (!priorId) {
+    const duplicates = await findPossibleDuplicateClients(admin, {
+      fullName: (client.full_name as string) || "",
+      dateOfBirth: client.date_of_birth as string | null,
+      contactEmail: client.contact_email as string | null,
+    });
+    const closed = duplicates.filter(
+      (d) => d.id !== opts.clientId && d.archived_at
+    );
+    if (closed.length === 1) {
+      priorId = closed[0]!.id;
+    } else if (closed.length > 1) {
+      return {
+        error:
+          "Multiple previous enrollments match this client. Use Link previous enrollment, then Begin New Service.",
+      };
+    } else {
+      return {
+        error:
+          "No previous Complete, Dismissed, or Closed enrollment found. Link a prior enrollment or use Create Referral.",
+      };
+    }
+  }
+
+  const closure = await isPriorEnrollmentClosed(admin, priorId);
+  if (!closure.closed) return { error: closure.error };
+
+  if ((client.prior_client_id as string | null) !== priorId) {
+    const linked = await linkReferralPriorEnrollment(admin, {
+      clientId: opts.clientId,
+      priorClientId: priorId,
+      actorUserId: opts.actorUserId,
+    });
+    if ("error" in linked) return linked;
+  }
+
+  const activated = await activateReferralToFirstStage(admin, {
+    clientId: opts.clientId,
+    actorUserId: opts.actorUserId,
+    authorizationNumber: opts.authorizationNumber,
+    overrideReason: opts.overrideReason,
+    stageId: opts.stageId,
+  });
+  if ("error" in activated) return activated;
+
+  await admin.from("client_intake_events").insert({
+    client_id: opts.clientId,
+    actor_user_id: opts.actorUserId,
+    event_type: "begin_new_service",
+    to_value: priorId,
+    metadata: { priorClientId: priorId, outcome: closure.outcomeLabel },
+  });
+
   return { ok: true };
 }
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { intakeStatusLabel, referralStageLabel } from "@wayfinder/supabase/referral-labels";
 import { ManualReferralModal } from "@/components/manual-referral-modal";
 import { ReferralFieldSpecialistSelect } from "@/components/referral-field-specialist-select";
+import { ReferralReturningClientPanel } from "@/components/referral-returning-client-panel";
 
 type ReferralRow = {
   id: string;
@@ -22,7 +23,12 @@ type ReferralRow = {
   hasEsAssignment: boolean;
   fieldAssigneeUserId: string | null;
   prior_client_id?: string | null;
-  possibleDuplicates: Array<{ id: string; full_name: string | null; archived_at?: string | null }>;
+  possibleDuplicates: Array<{
+    id: string;
+    full_name: string | null;
+    archived_at?: string | null;
+    priorOutcomeLabel?: string | null;
+  }>;
 };
 
 type TimeFilter = "all" | "48h" | "7d" | "30d" | "90d" | "ytd";
@@ -271,7 +277,19 @@ export function ReferralQueueWorkspace() {
     Boolean(clientQuery.trim() || counselorId || stateFilter || serviceFilter || stageFilter) ||
     timeFilter !== "all";
 
-  function authReady(clientId: string, row: ReferralRow): boolean {
+  function closedPriorEnrollments(row: ReferralRow) {
+  return row.possibleDuplicates.filter((d) => Boolean(d.archived_at));
+}
+
+function canBeginNewService(row: ReferralRow): boolean {
+  if (row.intake_status !== "new_referral" && row.intake_status !== "pending_authorization") {
+    return false;
+  }
+  if (row.prior_client_id) return true;
+  return closedPriorEnrollments(row).length > 0;
+}
+
+function authReady(clientId: string, row: ReferralRow): boolean {
     const auth = (authById[clientId] ?? row.authorization_number ?? "").trim();
     const override = (overrideById[clientId] ?? "").trim();
     return Boolean(auth || override);
@@ -308,7 +326,7 @@ export function ReferralQueueWorkspace() {
 
   async function runAction(
     clientId: string,
-    action: "pending_authorization" | "activate" | "discard" | "link_prior",
+    action: "pending_authorization" | "activate" | "begin_new_service" | "discard" | "link_prior",
     extra?: { priorClientId?: string | null }
   ) {
     setBusyId(clientId);
@@ -393,6 +411,8 @@ export function ReferralQueueWorkspace() {
           void load();
         }}
       />
+
+      <ReferralReturningClientPanel onCreated={() => void load()} />
 
       <div className="rounded-xl border border-neutral-200 bg-white p-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -563,11 +583,16 @@ export function ReferralQueueWorkspace() {
                     {c.possibleDuplicates.map((d) => {
                       const linked = c.prior_client_id === d.id;
                       const closed = Boolean(d.archived_at);
+                      const priorLabel = d.priorOutcomeLabel?.trim();
                       return (
                         <li key={d.id} className="flex flex-wrap items-center gap-2">
                           <span>
                             {d.full_name || d.id}
-                            {closed ? " (closed)" : ""}
+                            {closed
+                              ? priorLabel
+                                ? ` (${priorLabel})`
+                                : " (prior enrollment closed)"
+                              : ""}
                             {linked ? " — linked as previous enrollment" : ""}
                           </span>
                           {closed ? (
@@ -631,6 +656,14 @@ export function ReferralQueueWorkspace() {
                 </div>
               ) : null}
 
+              {canBeginNewService(c) ? (
+                <p className="mt-3 text-xs text-brand-black/60">
+                  Returning client: enter the new authorization number, assign ES/TS if required,
+                  then use <strong className="font-medium">Begin New Service</strong> to link the
+                  prior enrollment and start the new service episode.
+                </p>
+              ) : null}
+
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
@@ -640,25 +673,53 @@ export function ReferralQueueWorkspace() {
                 >
                   Pending Authorization
                 </button>
-                <button
-                  type="button"
-                  disabled={
-                    busyId === c.id ||
-                    (directReferralAssignEnabled &&
-                      (!authReady(c.id, c) || !assigneeReady(c.id, c)))
-                  }
-                  title={
-                    directReferralAssignEnabled && !authReady(c.id, c)
-                      ? "Enter authorization # or an override reason"
-                      : directReferralAssignEnabled && !assigneeReady(c.id, c)
-                        ? "Assign an ES or TS first"
-                        : undefined
-                  }
-                  onClick={() => void runAction(c.id, "activate")}
-                  className="rounded-lg bg-brand-green px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-green/90 disabled:opacity-50"
-                >
-                  Activate First Stage
-                </button>
+                {canBeginNewService(c) ? (
+                  <button
+                    type="button"
+                    disabled={
+                      busyId === c.id ||
+                      !authReady(c.id, c) ||
+                      (directReferralAssignEnabled && !assigneeReady(c.id, c))
+                    }
+                    title={
+                      !authReady(c.id, c)
+                        ? "Enter the new authorization # or an override reason"
+                        : directReferralAssignEnabled && !assigneeReady(c.id, c)
+                          ? "Assign an ES or TS first"
+                          : closedPriorEnrollments(c).length > 1 && !c.prior_client_id
+                            ? "Link previous enrollment when more than one closed match"
+                            : undefined
+                    }
+                    onClick={() =>
+                      void runAction(c.id, "begin_new_service", {
+                        priorClientId: c.prior_client_id ?? undefined,
+                      })
+                    }
+                    className="rounded-lg bg-brand-green px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-green/90 disabled:opacity-50"
+                  >
+                    Begin New Service
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={
+                      busyId === c.id ||
+                      (directReferralAssignEnabled &&
+                        (!authReady(c.id, c) || !assigneeReady(c.id, c)))
+                    }
+                    title={
+                      directReferralAssignEnabled && !authReady(c.id, c)
+                        ? "Enter authorization # or an override reason"
+                        : directReferralAssignEnabled && !assigneeReady(c.id, c)
+                          ? "Assign an ES or TS first"
+                          : undefined
+                    }
+                    onClick={() => void runAction(c.id, "activate")}
+                    className="rounded-lg bg-brand-green px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-green/90 disabled:opacity-50"
+                  >
+                    Activate First Stage
+                  </button>
+                )}
                 <button
                   type="button"
                   disabled={busyId === c.id}

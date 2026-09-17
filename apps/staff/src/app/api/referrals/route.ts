@@ -2,13 +2,16 @@ import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import {
   activateReferralToFirstStage,
+  beginNewServiceFromReferral,
   canAccessHospitalityIntake,
   canAssignReferralFieldSpecialist,
   canManageReferrals,
   loadDirectReferralAssignEnabled,
   createPublicReferral,
+  createReferralFromPriorEnrollment,
   findPossibleDuplicateClients,
   linkReferralPriorEnrollment,
+  priorEnrollmentOutcomeLabel,
   setReferralPendingAuthorization,
   updateReferralClientInfo,
   type PublicReferralPayload,
@@ -116,12 +119,55 @@ export async function GET(request: Request) {
   );
 
   const enriched = [];
+  const duplicateLists: Array<
+    Awaited<ReturnType<typeof findPossibleDuplicateClients>>
+  > = [];
   for (const row of list) {
     const duplicates = await findPossibleDuplicateClients(admin, {
       fullName: (row.full_name as string) || "",
       dateOfBirth: row.date_of_birth as string | null,
       contactEmail: row.contact_email as string | null,
     });
+    duplicateLists.push(duplicates);
+  }
+
+  const duplicatePriorIds = [
+    ...new Set(
+      duplicateLists.flatMap((dupes) =>
+        dupes.filter((d) => d.archived_at).map((d) => d.id)
+      )
+    ),
+  ];
+  const priorStageByClient: Record<string, string | null> = {};
+  const duplicateStageIds = new Set<string>();
+  if (duplicatePriorIds.length) {
+    const { data: priorRows } = await admin
+      .from("clients")
+      .select("id, current_stage_id")
+      .in("id", duplicatePriorIds);
+    for (const p of priorRows ?? []) {
+      if (p.current_stage_id) {
+        duplicateStageIds.add(p.current_stage_id as string);
+        priorStageByClient[p.id as string] = p.current_stage_id as string;
+      }
+    }
+  }
+
+  const duplicateStageNames: Record<string, string | null> = {};
+  if (duplicateStageIds.size) {
+    const { data: dupStages } = await admin
+      .from("service_milestones")
+      .select("id, name, title")
+      .in("id", [...duplicateStageIds]);
+    for (const s of dupStages ?? []) {
+      duplicateStageNames[s.id as string] =
+        ((s.title as string | null) || (s.name as string | null) || "").trim() || null;
+    }
+  }
+
+  for (let i = 0; i < list.length; i++) {
+    const row = list[i]!;
+    const duplicates = duplicateLists[i] ?? [];
     enriched.push({
       ...row,
       counselorName: row.counselor_id ? counselorName[row.counselor_id as string] ?? null : null,
@@ -133,7 +179,16 @@ export async function GET(request: Request) {
         : null,
       hasEsAssignment: assigned.has(row.id as string),
       fieldAssigneeUserId: assigneeByClient[row.id as string] ?? null,
-      possibleDuplicates: duplicates.filter((d) => d.id !== row.id),
+      possibleDuplicates: duplicates
+        .filter((d) => d.id !== row.id)
+        .map((d) => {
+          const stageId = priorStageByClient[d.id] ?? null;
+          const stageTitle = stageId ? duplicateStageNames[stageId] ?? null : null;
+          return {
+            ...d,
+            priorOutcomeLabel: priorEnrollmentOutcomeLabel(stageTitle),
+          };
+        }),
     });
   }
 
@@ -167,6 +222,25 @@ export async function POST(request: Request) {
   void _state;
 
   const admin = createServiceRoleClient();
+
+  const fromPrior = (body as { fromPriorClientId?: string }).fromPriorClientId?.trim();
+  if (fromPrior) {
+    const createdFromPrior = await createReferralFromPriorEnrollment(admin, {
+      priorClientId: fromPrior,
+      actorUserId: session.effectiveUserId,
+      authorizationNumber: (body as { authorizationNumber?: string }).authorizationNumber,
+      overrideReason: (body as { overrideReason?: string }).overrideReason,
+    });
+    if ("error" in createdFromPrior) {
+      return NextResponse.json({ error: createdFromPrior.error }, { status: 400 });
+    }
+    return NextResponse.json({
+      ok: true,
+      clientId: createdFromPrior.clientId,
+      fromPrior: true,
+    });
+  }
+
   const created = await createPublicReferral(admin, state, payload, {
     source: "manual",
     actorUserId: session.effectiveUserId,
@@ -195,6 +269,7 @@ export async function PATCH(request: Request) {
     action?:
       | "pending_authorization"
       | "activate"
+      | "begin_new_service"
       | "discard"
       | "update_info"
       | "link_prior"
@@ -284,6 +359,24 @@ export async function PATCH(request: Request) {
       actorUserId: actor,
       authorizationNumber: body.authorizationNumber,
       overrideReason: body.overrideReason,
+      stageId: body.stageId,
+    });
+    if ("error" in result) {
+      return NextResponse.json({ error: result.error }, { status: 400 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  if (body.action === "begin_new_service") {
+    if (!canQueue) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const result = await beginNewServiceFromReferral(admin, {
+      clientId: body.clientId,
+      actorUserId: actor,
+      authorizationNumber: body.authorizationNumber,
+      overrideReason: body.overrideReason,
+      priorClientId: body.priorClientId,
       stageId: body.stageId,
     });
     if ("error" in result) {
