@@ -5,6 +5,7 @@ import Link from "next/link";
 import { intakeStatusLabel, referralStageLabel } from "@wayfinder/supabase/referral-labels";
 import { ManualReferralModal } from "@/components/manual-referral-modal";
 import { ReferralFieldSpecialistSelect } from "@/components/referral-field-specialist-select";
+import { BeginNewServiceModal } from "@/components/begin-new-service-modal";
 import { ReferralReturningClientPanel } from "@/components/referral-returning-client-panel";
 
 type ReferralRow = {
@@ -177,6 +178,7 @@ export function ReferralQueueWorkspace() {
   const [directReferralAssignEnabled, setDirectReferralAssignEnabled] = useState(false);
   const [canAssignFieldSpecialist, setCanAssignFieldSpecialist] = useState(false);
   const [assigneeById, setAssigneeById] = useState<Record<string, string>>({});
+  const [beginNewServicePriorId, setBeginNewServicePriorId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -277,19 +279,7 @@ export function ReferralQueueWorkspace() {
     Boolean(clientQuery.trim() || counselorId || stateFilter || serviceFilter || stageFilter) ||
     timeFilter !== "all";
 
-  function closedPriorEnrollments(row: ReferralRow) {
-  return row.possibleDuplicates.filter((d) => Boolean(d.archived_at));
-}
-
-function canBeginNewService(row: ReferralRow): boolean {
-  if (row.intake_status !== "new_referral" && row.intake_status !== "pending_authorization") {
-    return false;
-  }
-  if (row.prior_client_id) return true;
-  return closedPriorEnrollments(row).length > 0;
-}
-
-function authReady(clientId: string, row: ReferralRow): boolean {
+  function authReady(clientId: string, row: ReferralRow): boolean {
     const auth = (authById[clientId] ?? row.authorization_number ?? "").trim();
     const override = (overrideById[clientId] ?? "").trim();
     return Boolean(auth || override);
@@ -326,7 +316,7 @@ function authReady(clientId: string, row: ReferralRow): boolean {
 
   async function runAction(
     clientId: string,
-    action: "pending_authorization" | "activate" | "begin_new_service" | "discard" | "link_prior",
+    action: "pending_authorization" | "activate" | "discard" | "link_prior",
     extra?: { priorClientId?: string | null }
   ) {
     setBusyId(clientId);
@@ -412,7 +402,15 @@ function authReady(clientId: string, row: ReferralRow): boolean {
         }}
       />
 
-      <ReferralReturningClientPanel onCreated={() => void load()} />
+      <ReferralReturningClientPanel
+        onOpenBeginNewService={(priorClientId) => setBeginNewServicePriorId(priorClientId)}
+      />
+
+      <BeginNewServiceModal
+        priorClientId={beginNewServicePriorId}
+        onClose={() => setBeginNewServicePriorId(null)}
+        onCreated={() => void load()}
+      />
 
       <div className="rounded-xl border border-neutral-200 bg-white p-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -596,18 +594,27 @@ function authReady(clientId: string, row: ReferralRow): boolean {
                             {linked ? " — linked as previous enrollment" : ""}
                           </span>
                           {closed ? (
-                            <button
-                              type="button"
-                              disabled={busyId === c.id}
-                              className="rounded border border-amber-300 bg-white px-2 py-0.5 text-xs font-medium hover:bg-amber-100 disabled:opacity-50"
-                              onClick={() =>
-                                void runAction(c.id, "link_prior", {
-                                  priorClientId: linked ? null : d.id,
-                                })
-                              }
-                            >
-                              {linked ? "Clear link" : "Link previous enrollment"}
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                className="rounded border border-brand-green/40 bg-white px-2 py-0.5 text-xs font-medium text-brand-green hover:bg-brand-green/10"
+                                onClick={() => setBeginNewServicePriorId(d.id)}
+                              >
+                                Begin New Service
+                              </button>
+                              <button
+                                type="button"
+                                disabled={busyId === c.id}
+                                className="rounded border border-amber-300 bg-white px-2 py-0.5 text-xs font-medium hover:bg-amber-100 disabled:opacity-50"
+                                onClick={() =>
+                                  void runAction(c.id, "link_prior", {
+                                    priorClientId: linked ? null : d.id,
+                                  })
+                                }
+                              >
+                                {linked ? "Clear link" : "Link previous enrollment"}
+                              </button>
+                            </>
                           ) : null}
                         </li>
                       );
@@ -656,14 +663,6 @@ function authReady(clientId: string, row: ReferralRow): boolean {
                 </div>
               ) : null}
 
-              {canBeginNewService(c) ? (
-                <p className="mt-3 text-xs text-brand-black/60">
-                  Returning client: enter the new authorization number, assign ES/TS if required,
-                  then use <strong className="font-medium">Begin New Service</strong> to link the
-                  prior enrollment and start the new service episode.
-                </p>
-              ) : null}
-
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
@@ -673,53 +672,25 @@ function authReady(clientId: string, row: ReferralRow): boolean {
                 >
                   Pending Authorization
                 </button>
-                {canBeginNewService(c) ? (
-                  <button
-                    type="button"
-                    disabled={
-                      busyId === c.id ||
-                      !authReady(c.id, c) ||
-                      (directReferralAssignEnabled && !assigneeReady(c.id, c))
-                    }
-                    title={
-                      !authReady(c.id, c)
-                        ? "Enter the new authorization # or an override reason"
-                        : directReferralAssignEnabled && !assigneeReady(c.id, c)
-                          ? "Assign an ES or TS first"
-                          : closedPriorEnrollments(c).length > 1 && !c.prior_client_id
-                            ? "Link previous enrollment when more than one closed match"
-                            : undefined
-                    }
-                    onClick={() =>
-                      void runAction(c.id, "begin_new_service", {
-                        priorClientId: c.prior_client_id ?? undefined,
-                      })
-                    }
-                    className="rounded-lg bg-brand-green px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-green/90 disabled:opacity-50"
-                  >
-                    Begin New Service
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={
-                      busyId === c.id ||
-                      (directReferralAssignEnabled &&
-                        (!authReady(c.id, c) || !assigneeReady(c.id, c)))
-                    }
-                    title={
-                      directReferralAssignEnabled && !authReady(c.id, c)
-                        ? "Enter authorization # or an override reason"
-                        : directReferralAssignEnabled && !assigneeReady(c.id, c)
-                          ? "Assign an ES or TS first"
-                          : undefined
-                    }
-                    onClick={() => void runAction(c.id, "activate")}
-                    className="rounded-lg bg-brand-green px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-green/90 disabled:opacity-50"
-                  >
-                    Activate First Stage
-                  </button>
-                )}
+                <button
+                  type="button"
+                  disabled={
+                    busyId === c.id ||
+                    (directReferralAssignEnabled &&
+                      (!authReady(c.id, c) || !assigneeReady(c.id, c)))
+                  }
+                  title={
+                    directReferralAssignEnabled && !authReady(c.id, c)
+                      ? "Enter authorization # or an override reason"
+                      : directReferralAssignEnabled && !assigneeReady(c.id, c)
+                        ? "Assign an ES or TS first"
+                        : undefined
+                  }
+                  onClick={() => void runAction(c.id, "activate")}
+                  className="rounded-lg bg-brand-green px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-green/90 disabled:opacity-50"
+                >
+                  Activate First Stage
+                </button>
                 <button
                   type="button"
                   disabled={busyId === c.id}

@@ -10,18 +10,15 @@ type ReturningRow = {
 };
 
 type Props = {
-  onCreated: () => void;
+  onOpenBeginNewService: (priorClientId: string) => void;
 };
 
-export function ReferralReturningClientPanel({ onCreated }: Props) {
+export function ReferralReturningClientPanel({ onOpenBeginNewService }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ReturningRow[]>([]);
   const [searching, setSearching] = useState(false);
   const [selectedId, setSelectedId] = useState("");
-  const [authNumber, setAuthNumber] = useState("");
-  const [overrideReason, setOverrideReason] = useState("");
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const runSearch = useCallback(async (q: string) => {
@@ -52,55 +49,15 @@ export function ReferralReturningClientPanel({ onCreated }: Props) {
     return () => window.clearTimeout(t);
   }, [open, query, runSearch]);
 
-  async function beginNewService() {
-    if (!selectedId) {
-      setError("Select a previous enrollment.");
-      return;
-    }
-    const auth = authNumber.trim();
-    const override = overrideReason.trim();
-    if (!auth && !override) {
-      setError("Enter the new authorization number or an override reason.");
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/referrals", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          state: "GA",
-          fromPriorClientId: selectedId,
-          authorizationNumber: auth,
-          overrideReason: override,
-        }),
-      });
-      const data = (await res.json()) as { error?: string; clientId?: string };
-      if (!res.ok) throw new Error(data.error || "Could not start new service");
-      setOpen(false);
-      setQuery("");
-      setResults([]);
-      setSelectedId("");
-      setAuthNumber("");
-      setOverrideReason("");
-      onCreated();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not start new service");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   if (!open) {
     return (
       <div className="rounded-xl border border-brand-green/30 bg-brand-green/5 px-4 py-3 text-sm text-brand-black">
         <p className="font-medium text-brand-black">
-          Returning client with a new authorization but no counselor referral?
+          Returning client with a new service but no counselor referral?
         </p>
         <p className="mt-1 text-brand-black/70">
-          Search a previous Complete, Dismissed, or Closed enrollment and add them to the queue with
-          the new authorization number.
+          Search a previous Complete, Dismissed, or Closed enrollment, review their information, pick
+          the new service, and add them to the queue for authorization and ES/TS assignment.
         </p>
         <button
           type="button"
@@ -117,10 +74,9 @@ export function ReferralReturningClientPanel({ onCreated }: Props) {
     <div className="rounded-xl border border-brand-green/40 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="font-semibold text-brand-black">Begin New Service — returning client</p>
+          <p className="font-semibold text-brand-black">Find prior enrollment</p>
           <p className="mt-1 text-sm text-brand-black/65">
-            No new referral form required. Demographics and counselor carry over from the prior
-            enrollment.
+            Select a closed enrollment to open the Begin New Service form.
           </p>
         </div>
         <button
@@ -176,34 +132,21 @@ export function ReferralReturningClientPanel({ onCreated }: Props) {
         <p className="mt-2 text-xs text-brand-black/55">No archived enrollments found.</p>
       ) : null}
 
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        <label className="text-sm">
-          <span className="font-medium">New authorization #</span>
-          <input
-            className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2"
-            value={authNumber}
-            onChange={(e) => setAuthNumber(e.target.value)}
-          />
-        </label>
-        <label className="text-sm">
-          <span className="font-medium">Override reason</span>
-          <input
-            className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2"
-            placeholder="If no authorization # yet"
-            value={overrideReason}
-            onChange={(e) => setOverrideReason(e.target.value)}
-          />
-        </label>
-      </div>
-
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
-          disabled={busy}
-          onClick={() => void beginNewService()}
+          disabled={!selectedId}
+          onClick={() => {
+            if (!selectedId) return;
+            onOpenBeginNewService(selectedId);
+            setOpen(false);
+            setQuery("");
+            setResults([]);
+            setSelectedId("");
+          }}
           className="rounded-lg bg-brand-green px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-green/90 disabled:opacity-50"
         >
-          Add to Referral Queue
+          Continue to Begin New Service
         </button>
       </div>
     </div>

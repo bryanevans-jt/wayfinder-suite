@@ -2,7 +2,6 @@ import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import {
   activateReferralToFirstStage,
-  beginNewServiceFromReferral,
   canAccessHospitalityIntake,
   canAssignReferralFieldSpecialist,
   canManageReferrals,
@@ -228,8 +227,9 @@ export async function POST(request: Request) {
     const createdFromPrior = await createReferralFromPriorEnrollment(admin, {
       priorClientId: fromPrior,
       actorUserId: session.effectiveUserId,
-      authorizationNumber: (body as { authorizationNumber?: string }).authorizationNumber,
-      overrideReason: (body as { overrideReason?: string }).overrideReason,
+      state,
+      payload,
+      source: "begin_new_service",
     });
     if ("error" in createdFromPrior) {
       return NextResponse.json({ error: createdFromPrior.error }, { status: 400 });
@@ -269,7 +269,6 @@ export async function PATCH(request: Request) {
     action?:
       | "pending_authorization"
       | "activate"
-      | "begin_new_service"
       | "discard"
       | "update_info"
       | "link_prior"
@@ -359,24 +358,6 @@ export async function PATCH(request: Request) {
       actorUserId: actor,
       authorizationNumber: body.authorizationNumber,
       overrideReason: body.overrideReason,
-      stageId: body.stageId,
-    });
-    if ("error" in result) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
-    }
-    return NextResponse.json({ ok: true });
-  }
-
-  if (body.action === "begin_new_service") {
-    if (!canQueue) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-    const result = await beginNewServiceFromReferral(admin, {
-      clientId: body.clientId,
-      actorUserId: actor,
-      authorizationNumber: body.authorizationNumber,
-      overrideReason: body.overrideReason,
-      priorClientId: body.priorClientId,
       stageId: body.stageId,
     });
     if ("error" in result) {

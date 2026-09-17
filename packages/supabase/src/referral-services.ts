@@ -14,6 +14,17 @@ export const GA_WEBSITE_REFERRAL_SERVICES = [
   "Individual Job Placement",
 ] as const;
 
+/** Map services.name → GA referral form label for pre-filling returning-client referrals. */
+export function gaServiceNameToReferralLabel(serviceName: string | null | undefined): string {
+  const n = (serviceName ?? "").trim().toLowerCase();
+  if (!n) return "";
+  if (n.includes("traditional supported employment")) return "Traditional Supported Employment";
+  if (n.includes("job coaching")) return "Job Coaching";
+  if (n.includes("individual job placement")) return "Individual Job Placement";
+  if (n.includes("workplace readiness")) return "Workplace Readiness Training";
+  return "";
+}
+
 export function filterGaReferralServiceLabels(
   labels: readonly string[],
   toggles: {
