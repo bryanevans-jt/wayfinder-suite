@@ -6,7 +6,7 @@ import {
   isPhase1IntakeStage,
   loadHrIntakeRecipientUserIds,
 } from "@wayfinder/supabase/referral-intake";
-import { notifyUser } from "@wayfinder/supabase/notify-user";
+import { createNotificationDigestBuffer } from "@wayfinder/supabase/notify-digest";
 import { NextResponse } from "next/server";
 
 function authorizeCron(request: Request): boolean {
@@ -43,6 +43,7 @@ export async function GET(request: Request) {
     const recipients = await loadHrIntakeRecipientUserIds(admin);
     const dedupeSince = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     let reminded = 0;
+    const digest = createNotificationDigestBuffer();
 
     for (const client of stuck ?? []) {
       const referralState = ((client.referral_state as string | null) ?? "GA").trim().toUpperCase();
@@ -82,7 +83,7 @@ export async function GET(request: Request) {
       }
 
       for (const userId of recipients) {
-        await notifyUser(admin, {
+        digest.enqueue({
           userId,
           app: "staff",
           kind: "referral_sla",
@@ -95,6 +96,7 @@ export async function GET(request: Request) {
       reminded += 1;
     }
 
+    await digest.flush(admin);
     return NextResponse.json({ ok: true, reminded });
   } catch (err) {
     return respondWithCronLoggedError("staff", route, err);

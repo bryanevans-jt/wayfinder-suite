@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createNotificationDigestBuffer } from "./notify-digest";
 import { notifyUser } from "./notify-user";
 import {
   counselorDuplicatePairKey,
@@ -98,6 +99,8 @@ export async function notifySuperAdminsOfCounselorNearMatch(
 
   if (!supers?.length) return;
 
+  const digest = createNotificationDigestBuffer();
+
   for (const match of opts.matches) {
     const pairKey = counselorDuplicatePairKey(opts.newCounselorId, match.id);
     if (await alreadyNotified(admin, pairKey)) continue;
@@ -110,7 +113,7 @@ export async function notifySuperAdminsOfCounselorNearMatch(
     const body = `“${opts.newCounselorName}” looks like “${match.full_name}” (${reason}). Review and combine them in Super Admin → Offices → Counselors if they are the same person.`;
 
     for (const profile of supers) {
-      await notifyUser(admin, {
+      digest.enqueue({
         userId: profile.id as string,
         app: "staff",
         kind: DUPLICATE_KIND,
@@ -126,6 +129,8 @@ export async function notifySuperAdminsOfCounselorNearMatch(
       });
     }
   }
+
+  await digest.flush(admin);
 }
 
 export async function mergeCounselors(

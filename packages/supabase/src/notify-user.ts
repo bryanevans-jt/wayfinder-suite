@@ -1,5 +1,6 @@
 import webpush from "web-push";
 import type { createServiceRoleClient } from "./admin-server";
+import type { NotificationDigestBuffer } from "./notify-digest";
 
 export function isWebPushConfigured(): boolean {
   return Boolean(
@@ -137,7 +138,8 @@ export async function notifyUser(
 export async function notifySupervisorsForEs(
   admin: ReturnType<typeof createServiceRoleClient>,
   esUserId: string,
-  input: Omit<NotifyUserInput, "userId">
+  input: Omit<NotifyUserInput, "userId">,
+  digest?: NotificationDigestBuffer
 ): Promise<void> {
   const { data: links, error } = await admin
     .from("supervisor_es_assignments")
@@ -150,9 +152,14 @@ export async function notifySupervisorsForEs(
   }
 
   for (const link of links ?? []) {
-    await notifyUser(admin, {
+    const payload: NotifyUserInput = {
       ...input,
       userId: link.supervisor_user_id as string,
-    });
+    };
+    if (digest) {
+      digest.enqueue(payload);
+    } else {
+      await notifyUser(admin, payload);
+    }
   }
 }

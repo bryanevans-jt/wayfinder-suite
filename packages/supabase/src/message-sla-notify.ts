@@ -1,5 +1,6 @@
 import type { createServiceRoleClient } from "./admin-server";
 import { isEsReplyOverdue } from "./business-hours";
+import { createNotificationDigestBuffer } from "./notify-digest";
 import { notifySupervisorsForEs } from "./notify-user";
 
 export type MessageSlaNotifyResult = {
@@ -24,6 +25,7 @@ export async function processOverdueMessageSla(
 
   let notified = 0;
   let skipped = 0;
+  const digest = createNotificationDigestBuffer();
 
   for (const thread of threads ?? []) {
     const lastClientAt = thread.last_client_message_at as string;
@@ -68,23 +70,30 @@ export async function processOverdueMessageSla(
       .maybeSingle();
     const esName = (esProfile?.full_name as string | null) ?? "Employment Specialist";
 
-    await notifySupervisorsForEs(admin, esUserId, {
-      kind: "message_sla_overdue",
-      title: "Client message needs a reply",
-      body: `${esName} has not replied to ${clientLabel} within 48 business hours.`,
-      link_path: `/dashboard/messages?thread=${encodeURIComponent(threadId)}`,
-      metadata: {
-        thread_id: threadId,
-        last_client_message_at: lastClientAt,
-        client_label: clientLabel,
-        es_user_id: esUserId,
-        client_id: thread.client_id ?? null,
+    await notifySupervisorsForEs(
+      admin,
+      esUserId,
+      {
+        kind: "message_sla_overdue",
+        title: "Client message needs a reply",
+        body: `${esName} has not replied to ${clientLabel} within 48 business hours.`,
+        link_path: `/dashboard/messages?thread=${encodeURIComponent(threadId)}`,
+        metadata: {
+          thread_id: threadId,
+          last_client_message_at: lastClientAt,
+          client_label: clientLabel,
+          es_user_id: esUserId,
+          client_id: thread.client_id ?? null,
+        },
+        app: "staff",
       },
-      app: "staff",
-    });
+      digest
+    );
 
     notified++;
   }
+
+  await digest.flush(admin);
 
   return {
     scanned: threads?.length ?? 0,

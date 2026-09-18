@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { notifySupervisorsForEs, notifyUser } from "@wayfinder/supabase/notify-user";
+import { createNotificationDigestBuffer } from "@wayfinder/supabase/notify-digest";
+import { notifySupervisorsForEs } from "@wayfinder/supabase/notify-user";
 import { renderTemplatedFlatEmail } from "@wayfinder/supabase/render-templated-email";
 import { getGoogleAuth, sendEmail } from "./google";
 import {
@@ -74,6 +75,7 @@ async function upsertAlerts(
 ): Promise<{ created: number; notificationsSent: number }> {
   let created = 0;
   let notificationsSent = 0;
+  const digest = createNotificationDigestBuffer();
 
   for (const candidate of candidates) {
     if (existingKeys.has(candidate.clientId)) continue;
@@ -105,9 +107,10 @@ async function upsertAlerts(
         : `Overdue SE Monthly report — ${candidate.clientName}`;
     const body = `${candidate.clientName} (${candidate.stageTitle}) — reporting month ${monthLabel}. GVRA deadline is the 10th at 5:00 PM ET.`;
 
-    await notifyUser(admin, {
+    const kind = alertType === "missing" ? "report_missing" : "report_overdue";
+    digest.enqueue({
       userId: candidate.esUserId,
-      kind: alertType === "missing" ? "report_missing" : "report_overdue",
+      kind,
       title,
       body,
       link_path: "/dashboard/reporting",
@@ -120,22 +123,28 @@ async function upsertAlerts(
     });
     notificationsSent++;
 
-    await notifySupervisorsForEs(admin, candidate.esUserId, {
-      kind: alertType === "missing" ? "report_missing" : "report_overdue",
-      title: `${title} (${candidate.esName})`,
-      body,
-      link_path: "/dashboard/reporting",
-      metadata: {
-        clientId: candidate.clientId,
-        esUserId: candidate.esUserId,
-        reportingMonth: period.reportingMonth,
-        alertType,
+    await notifySupervisorsForEs(
+      admin,
+      candidate.esUserId,
+      {
+        kind,
+        title: `${title} (${candidate.esName})`,
+        body,
+        link_path: "/dashboard/reporting",
+        metadata: {
+          clientId: candidate.clientId,
+          esUserId: candidate.esUserId,
+          reportingMonth: period.reportingMonth,
+          alertType,
+        },
+        app: "staff",
       },
-      app: "staff",
-    });
+      digest
+    );
     notificationsSent++;
   }
 
+  await digest.flush(admin);
   return { created, notificationsSent };
 }
 

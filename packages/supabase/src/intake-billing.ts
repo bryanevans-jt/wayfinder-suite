@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createNotificationDigestBuffer, type NotificationDigestBuffer } from "./notify-digest";
 import { notifyUser } from "./notify-user";
 import {
   isAccountantRole,
@@ -136,7 +137,28 @@ async function clientLabel(admin: SupabaseClient, clientId: string): Promise<str
   return (data?.contact_email as string | null)?.trim() || "Client";
 }
 
-async function notifyIntakeReadyRecipients(admin: SupabaseClient, clientId: string): Promise<void> {
+async function loadIntakeBillingNotifyRecipientIds(admin: SupabaseClient): Promise<string[]> {
+  const { data: recipients } = await admin
+    .from("profiles")
+    .select("id")
+    .in("role", ["accountant", "admin", "super_admin"])
+    .eq("is_active", true);
+
+  const seen = new Set<string>();
+  return (recipients ?? [])
+    .map((row) => row.id as string)
+    .filter((id) => {
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+}
+
+async function notifyIntakeReadyRecipients(
+  admin: SupabaseClient,
+  clientId: string,
+  digest?: NotificationDigestBuffer
+): Promise<void> {
   const label = await clientLabel(admin, clientId);
   const link_path = `/dashboard/intake-billing?client=${encodeURIComponent(clientId)}`;
   const payload = {
@@ -148,28 +170,15 @@ async function notifyIntakeReadyRecipients(admin: SupabaseClient, clientId: stri
     metadata: { clientId },
   };
 
-  const { data: recipients } = await admin
-    .from("profiles")
-    .select("id")
-    .in("role", ["accountant", "admin", "super_admin"])
-    .eq("is_active", true);
-
-  const seen = new Set<string>();
-  await Promise.all(
-    (recipients ?? [])
-      .filter((row) => {
-        const id = row.id as string;
-        if (seen.has(id)) return false;
-        seen.add(id);
-        return true;
-      })
-      .map((row) =>
-        notifyUser(admin, {
-          userId: row.id as string,
-          ...payload,
-        })
-      )
-  );
+  const recipientIds = await loadIntakeBillingNotifyRecipientIds(admin);
+  for (const userId of recipientIds) {
+    const input = { userId, ...payload };
+    if (digest) {
+      digest.enqueue(input);
+    } else {
+      await notifyUser(admin, input);
+    }
+  }
 }
 
 export async function ensureScheduledIntakeBilling(
@@ -214,7 +223,8 @@ export async function ensureScheduledIntakeBilling(
 
 export async function markIntakeReadyToBill(
   admin: SupabaseClient,
-  opts: { clientId: string; reason: IntakeReadyReason }
+  opts: { clientId: string; reason: IntakeReadyReason },
+  notify?: { digest?: NotificationDigestBuffer }
 ): Promise<{ ready: boolean; already?: boolean; error?: string }> {
   let row = await loadBilling(admin, opts.clientId);
   if (!row) {
@@ -241,7 +251,7 @@ export async function markIntakeReadyToBill(
     .eq("status", "scheduled");
   if (error) return { ready: false, error: error.message };
 
-  await notifyIntakeReadyRecipients(admin, opts.clientId);
+  await notifyIntakeReadyRecipients(admin, opts.clientId, notify?.digest);
   return { ready: true };
 }
 
@@ -327,6 +337,7 @@ export async function notifyOverdueIntakeMeetingsWithoutContact(
   }
 
   let notified = 0;
+  const digest = createNotificationDigestBuffer();
   for (const task of tasks ?? []) {
     const taskId = task.id as string;
     const clientId = task.client_id as string;
@@ -366,19 +377,17 @@ export async function notifyOverdueIntakeMeetingsWithoutContact(
 
     if (recipientIds.size === 0) continue;
 
-    await Promise.all(
-      [...recipientIds].map((userId) =>
-        notifyUser(admin, {
-          userId,
-          app: "staff",
-          kind: "intake_meeting_overdue",
-          title: `Intake follow-up needed: ${label}`,
-          body: "Scheduled intake was more than 24 hours ago with no casework contact log yet.",
-          link_path: `/dashboard/clients/${clientId}`,
-          metadata: { clientId, hospitality_task_id: taskId },
-        })
-      )
-    );
+    for (const userId of recipientIds) {
+      digest.enqueue({
+        userId,
+        app: "staff",
+        kind: "intake_meeting_overdue",
+        title: `Intake follow-up needed: ${label}`,
+        body: "Scheduled intake was more than 24 hours ago with no casework contact log yet.",
+        link_path: `/dashboard/clients/${clientId}`,
+        metadata: { clientId, hospitality_task_id: taskId },
+      });
+    }
 
     const { error: insertErr } = await admin.from("intake_meeting_overdue_notifies").insert({
       hospitality_task_id: taskId,
@@ -391,6 +400,7 @@ export async function notifyOverdueIntakeMeetingsWithoutContact(
     notified += 1;
   }
 
+  await digest.flush(admin);
   return notified;
 }
 
@@ -415,6 +425,7 @@ export async function backfillReadyIntakeBillingsFromContactLogs(
   }
 
   let marked = 0;
+  const digest = createNotificationDigestBuffer();
   for (const row of referred ?? []) {
     const clientId = row.id as string;
     const billing = await loadBilling(admin, clientId);
@@ -424,13 +435,18 @@ export async function backfillReadyIntakeBillingsFromContactLogs(
     const hasCaseworkContact = await hasNonHospitalityContactLog(admin, clientId);
     if (!hasCaseworkContact) continue;
 
-    const result = await markIntakeReadyToBill(admin, {
-      clientId,
-      reason: "contact_log",
-    });
+    const result = await markIntakeReadyToBill(
+      admin,
+      {
+        clientId,
+        reason: "contact_log",
+      },
+      { digest }
+    );
     if (result.ready) marked += 1;
   }
 
+  await digest.flush(admin);
   return marked;
 }
 

@@ -6,7 +6,10 @@ import {
   sessionInstructorNotifyUserIds,
 } from "@wayfinder/supabase/pre-ets-compliance";
 import { loadPreEtsSettings } from "@wayfinder/supabase/pre-ets-settings";
-import { notifyUser } from "@wayfinder/supabase/notify-user";
+import {
+  createNotificationDigestBuffer,
+  type NotificationDigestBuffer,
+} from "@wayfinder/supabase/notify-digest";
 import {
   STAFF_CLOCK_TIMEZONE,
   zonedDateTimeParts,
@@ -36,7 +39,8 @@ async function notifyComplianceRecipients(
   session: Awaited<ReturnType<typeof loadPreEtsSessionCompliance>>[number],
   kind: AlertKind,
   userIds: string[],
-  linkPath: string
+  linkPath: string,
+  digest: NotificationDigestBuffer
 ): Promise<number> {
   let notified = 0;
   for (const userId of userIds) {
@@ -51,13 +55,14 @@ async function notifyComplianceRecipients(
       continue;
     }
 
-    await notifyUser(admin, {
+    digest.enqueue({
       userId,
       app: "staff",
       kind: "pre_ets_compliance",
       title: "Pre-ETS documentation overdue",
       body: `${session.schoolName ?? "School"} · Auth ${session.authNumber ?? "—"} · Session ${session.sessionDate ?? "—"} — ${kind === "late_roster" ? "signed roster upload" : "class activity report"} is past due.`,
       link_path: linkPath,
+      metadata: { sessionId: session.sessionId, alertKind: kind },
     });
     notified++;
   }
@@ -88,6 +93,7 @@ export async function GET(request: Request) {
     const lateSessions = await loadPreEtsSessionCompliance(admin, { onlyLate: true });
     const supervisorRecipients = await loadSupervisorNotifyUserIds(admin);
     let notified = 0;
+    const digest = createNotificationDigestBuffer();
 
     for (const session of lateSessions) {
       const missing: AlertKind[] = [];
@@ -100,7 +106,8 @@ export async function GET(request: Request) {
           session,
           kind,
           supervisorRecipients,
-          "/dashboard/pre-ets"
+          "/dashboard/pre-ets",
+          digest
         );
 
         const instructorIds = sessionInstructorNotifyUserIds(session);
@@ -110,12 +117,14 @@ export async function GET(request: Request) {
             session,
             kind,
             instructorIds,
-            "/dashboard/pre-ets"
+            "/dashboard/pre-ets",
+            digest
           );
         }
       }
     }
 
+    await digest.flush(admin);
     return NextResponse.json({ ok: true, late: lateSessions.length, notified });
   } catch (err) {
     return respondWithCronLoggedError("staff", route, err);
