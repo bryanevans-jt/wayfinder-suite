@@ -19,6 +19,7 @@ export type ReportAlertRow = {
   esUserId: string;
   dueAt: string | null;
   createdAt: string;
+  reportTypeSlug: string;
 };
 
 type AlertRecord = {
@@ -30,7 +31,39 @@ type AlertRecord = {
   es_user_id: string;
   due_at: string | null;
   created_at: string;
+  report_type_slug: string;
 };
+
+const OPEN_ALERTS_SELECT =
+  "id, alert_type, reporting_month, wayfinder_client_id, client_name, es_user_id, due_at, created_at, report_type_slug";
+
+async function loadOpenGaReportAlertRecords(
+  admin: SupabaseClient,
+  opts: { allReportTypes: boolean; limit: number }
+): Promise<AlertRecord[]> {
+  let query = admin
+    .from("report_dashboard_alerts")
+    .select(OPEN_ALERTS_SELECT)
+    .eq("state", "GA")
+    .is("resolved_at", null)
+    .order("due_at", { ascending: true, nullsFirst: false })
+    .limit(opts.limit);
+
+  if (!opts.allReportTypes) {
+    query = query.eq("report_type_slug", "seMonthly");
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const rows = (data ?? []) as AlertRecord[];
+
+  const { data: demoClients } = await admin.from("clients").select("id").eq("is_demo", true);
+  const demoIds = new Set((demoClients ?? []).map((c) => c.id as string));
+  return rows.filter((row) => !row.wayfinder_client_id || !demoIds.has(row.wayfinder_client_id));
+}
 
 function mapAlert(row: AlertRecord): ReportAlertRow | null {
   if (!row.wayfinder_client_id) return null;
@@ -43,6 +76,7 @@ function mapAlert(row: AlertRecord): ReportAlertRow | null {
     esUserId: row.es_user_id,
     dueAt: row.due_at,
     createdAt: row.created_at,
+    reportTypeSlug: row.report_type_slug,
   };
 }
 
@@ -76,28 +110,10 @@ export async function loadReportAlertsForStaffUser(
   userId: string,
   role: string | null
 ): Promise<ReportAlertRow[]> {
-  const { data, error } = await admin
-    .from("report_dashboard_alerts")
-    .select(
-      "id, alert_type, reporting_month, wayfinder_client_id, client_name, es_user_id, due_at, created_at"
-    )
-    .eq("state", "GA")
-    .eq("report_type_slug", "seMonthly")
-    .is("resolved_at", null)
-    .order("created_at", { ascending: false })
-    .limit(100);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const rows = (data ?? []) as AlertRecord[];
-
-  const { data: demoClients } = await admin.from("clients").select("id").eq("is_demo", true);
-  const demoIds = new Set((demoClients ?? []).map((c) => c.id as string));
-  const productionRows = rows.filter(
-    (row) => !row.wayfinder_client_id || !demoIds.has(row.wayfinder_client_id)
-  );
+  const productionRows = await loadOpenGaReportAlertRecords(admin, {
+    allReportTypes: false,
+    limit: 100,
+  });
 
   if (isAdminTierRole(role)) {
     return productionRows.map(mapAlert).filter((r): r is ReportAlertRow => r !== null);
@@ -108,6 +124,29 @@ export async function loadReportAlertsForStaffUser(
       .filter((row) => row.es_user_id === userId)
       .map(mapAlert)
       .filter((r): r is ReportAlertRow => r !== null);
+  }
+
+  if (isSupervisorRole(role)) {
+    return filterAlertsForSupervisor(admin, userId, productionRows);
+  }
+
+  return [];
+}
+
+/** Compliance Calendar — org-wide open alerts for admin tier; scoped for supervisors. */
+export async function loadComplianceReportAlerts(
+  admin: SupabaseClient,
+  userId: string,
+  role: string | null
+): Promise<ReportAlertRow[]> {
+  const orgWide = isAdminTierRole(role);
+  const productionRows = await loadOpenGaReportAlertRecords(admin, {
+    allReportTypes: orgWide,
+    limit: orgWide ? 500 : 100,
+  });
+
+  if (orgWide) {
+    return productionRows.map(mapAlert).filter((r): r is ReportAlertRow => r !== null);
   }
 
   if (isSupervisorRole(role)) {

@@ -3,17 +3,10 @@ import { driveFileUrl } from "@/lib/formal-report-utils";
 import { requireAppSession, requireStaffClientAccess } from "@/lib/app-session";
 import { canOverseeFormalReportSubmissions } from "@wayfinder/supabase/roles";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
+import { FORMAL_REPORT_LABELS as REPORT_LABELS } from "@/lib/formal-report-labels";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
-
-const REPORT_LABELS: Record<string, string> = {
-  seMonthly: "SE Monthly Report",
-  vpr: "Vocational Progress Report",
-  jtsgvmr: "JTSG Vocational Monthly Report",
-  evf: "Employment Verification Form",
-  jtsgtsvs: "JTSG Time Sheet",
-};
 
 export async function GET(
   _request: Request,

@@ -3,6 +3,8 @@ import { isEsReplyOverdue } from "@wayfinder/supabase/business-hours";
 import { MIN_CONTACTS_PER_MONTH } from "@wayfinder/supabase/caseload-triage";
 import { isAdminTierRole, isGvraPartnerRole, isStaffRole } from "@wayfinder/supabase/roles";
 import { loadClientDisplayNameById } from "@/lib/client-display-names";
+import { formalReportLabel } from "@/lib/formal-report-labels";
+import { loadComplianceReportAlerts } from "@/lib/report-alerts-data";
 import { loadStaffNameById } from "@/lib/staff-names";
 
 export { loadStaffNameById } from "@/lib/staff-names";
@@ -11,11 +13,14 @@ type Admin = ReturnType<typeof createServiceRoleClient>;
 
 export type ComplianceReportRow = {
   id: string;
-  alertType: string;
+  alertType: "missing" | "overdue";
+  clientId: string;
   clientName: string;
   esName: string;
   reportingMonth: string;
   dueAt: string | null;
+  reportTypeSlug: string;
+  reportLabel: string;
 };
 
 export type ComplianceTimesheetRow = {
@@ -87,64 +92,45 @@ async function scopedEsUserIds(
 export async function loadComplianceCalendar(
   role: string,
   userId: string
-): Promise<{ reports: ComplianceReportRow[]; timesheets: ComplianceTimesheetRow[] }> {
+): Promise<{ reports: ComplianceReportRow[] }> {
+  const admin = createServiceRoleClient();
+  const alerts = await loadComplianceReportAlerts(admin, userId, role);
+  const esUserIds = [...new Set(alerts.map((a) => a.esUserId))];
+  const esName = await loadStaffNameById(admin, esUserIds);
+
+  const reports: ComplianceReportRow[] = alerts.map((a) => ({
+    id: a.id,
+    alertType: a.alertType,
+    clientId: a.clientId,
+    clientName: a.clientName,
+    esName: esName.get(a.esUserId) ?? "Employment Specialist",
+    reportingMonth: a.reportingMonth,
+    dueAt: a.dueAt,
+    reportTypeSlug: a.reportTypeSlug,
+    reportLabel: formalReportLabel(a.reportTypeSlug),
+  }));
+
+  return { reports };
+}
+
+async function loadPendingTimesheetCount(role: string, userId: string): Promise<number> {
   const admin = createServiceRoleClient();
   const esIds = await scopedEsUserIds(admin, role, userId);
 
-  let reportQuery = admin
-    .from("report_dashboard_alerts")
-    .select("id, alert_type, reporting_month, due_at, es_user_id, wayfinder_client_id")
-    .is("resolved_at", null)
-    .order("due_at", { ascending: true });
-
-  if (esIds) {
-    reportQuery = reportQuery.in("es_user_id", esIds.length ? esIds : ["00000000-0000-0000-0000-000000000000"]);
-  }
-
-  const { data: alerts } = await reportQuery;
-
-  const clientIds = [...new Set((alerts ?? []).map((a) => a.wayfinder_client_id as string).filter(Boolean))];
-  const esUserIds = [...new Set((alerts ?? []).map((a) => a.es_user_id as string))];
-
-  const [esName, nameById] = await Promise.all([
-    loadStaffNameById(admin, esUserIds),
-    loadClientDisplayNameById(admin, clientIds),
-  ]);
-
-  const reports: ComplianceReportRow[] = (alerts ?? []).map((a) => ({
-    id: a.id as string,
-    alertType: a.alert_type as string,
-    clientName: nameById.get(a.wayfinder_client_id as string) ?? "Client",
-    esName: esName.get(a.es_user_id as string) ?? "Employment Specialist",
-    reportingMonth: a.reporting_month as string,
-    dueAt: (a.due_at as string | null) ?? null,
-  }));
-
   let weekQuery = admin
     .from("es_time_week_submissions")
-    .select("id, es_user_id, week_start, status, total_minutes")
-    .in("status", ["submitted", "returned"])
-    .order("week_start", { ascending: false })
-    .limit(100);
+    .select("id", { count: "exact", head: true })
+    .in("status", ["submitted", "returned"]);
 
   if (esIds) {
-    weekQuery = weekQuery.in("es_user_id", esIds.length ? esIds : ["00000000-0000-0000-0000-000000000000"]);
+    weekQuery = weekQuery.in(
+      "es_user_id",
+      esIds.length ? esIds : ["00000000-0000-0000-0000-000000000000"]
+    );
   }
 
-  const { data: weeks } = await weekQuery;
-  const weekEsIds = [...new Set((weeks ?? []).map((w) => w.es_user_id as string))];
-  const weekEsName = await loadStaffNameById(admin, weekEsIds);
-
-  const timesheets: ComplianceTimesheetRow[] = (weeks ?? []).map((w) => ({
-    id: w.id as string,
-    esUserId: w.es_user_id as string,
-    esName: weekEsName.get(w.es_user_id as string) ?? "Employment Specialist",
-    weekStart: w.week_start as string,
-    status: w.status as string,
-    totalMinutes: w.total_minutes as number,
-  }));
-
-  return { reports, timesheets };
+  const { count } = await weekQuery;
+  return count ?? 0;
 }
 
 export async function loadCoachingQueue(
@@ -336,17 +322,18 @@ export async function loadSupervisorWeekPack(
   role: string
 ): Promise<SupervisorWeekPack> {
   const coachingRole = role === "supervisor" ? "supervisor" : role;
-  const [coaching, compliance] = await Promise.all([
+  const [coaching, compliance, timesheetsPending] = await Promise.all([
     coachingRole === "supervisor"
       ? loadCoachingQueue(userId)
       : Promise.resolve({ sla: [] as CoachingSlaRow[], thinLogs: [] as CoachingThinLogRow[] }),
     loadComplianceCalendar(role, userId),
+    loadPendingTimesheetCount(role, userId),
   ]);
 
   return {
     messageSla: coaching.sla.length,
     thinContacts: coaching.thinLogs.length,
     reportGaps: compliance.reports.length,
-    timesheetsPending: compliance.timesheets.length,
+    timesheetsPending,
   };
 }
