@@ -32,6 +32,8 @@ import { supabaseEmbedName } from "@/lib/supabase-embed";
 import { ClientProfileForm, type ClientProfileData } from "@/components/client-profile-form";
 import { ClientEsAssignmentPanel } from "@/components/client-es-assignment-panel";
 import { ClientIntakeAppointmentPanel } from "@/components/client-intake-appointment-panel";
+import { ClientIntakeSchedulePanel } from "@/components/client-intake-schedule-panel";
+import { clientPresentGuidanceTarget } from "@/lib/client-present-guidance";
 import { EmployerMatchPanel } from "@/components/employer-match-panel";
 import { ClientStaffNotesPanel } from "@/components/client-staff-notes-panel";
 import { HospitalityCheckInPanel } from "@/components/hospitality-check-in-panel";
@@ -75,10 +77,11 @@ type ClientDetailRow = {
   employment_goal_secondary: string | null;
   employment_goal_secondary_other: string | null;
   prior_client_id?: string | null;
+  intake_status?: string | null;
 };
 
 const CLIENT_SELECT_FULL =
-  "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, office_id, counselor_id, job_start_date, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other, prior_client_id";
+  "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, office_id, counselor_id, job_start_date, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other, prior_client_id, intake_status";
 
 const CLIENT_SELECT_CORE =
   "id, user_id, profile_id, contact_email, current_service_id, current_stage_id, office_id, counselor_id, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other";
@@ -475,6 +478,8 @@ export default async function EsClientDetailPage({ params }: PageProps) {
               ratio={episodeContext.clientPresentStats.ratio}
               totalMinutes={episodeContext.clientPresentStats.totalMinutes}
               presentMinutes={episodeContext.clientPresentStats.presentMinutes}
+              targetRatio={clientPresentGuidanceTarget(service?.name).ratio}
+              guidanceLabel={`GVRA ${clientPresentGuidanceTarget(service?.name).label}`}
             />
           ) : null}
         </div>
@@ -509,6 +514,12 @@ export default async function EsClientDetailPage({ params }: PageProps) {
             esUsers={hospitalityOptions.esUsers}
             canWrite={canEditEsAssignment}
           />
+        ) : null}
+
+        {!intakeAppointment &&
+        (client as ClientDetailRow).intake_status === "active" &&
+        (canEditClientIntakeAppointment(role) || auditPreview) ? (
+          <ClientIntakeSchedulePanel clientId={client.id as string} canWrite={canEditIntakeAppt} />
         ) : null}
 
         {intakeAppointment && (canEditClientIntakeAppointment(role) || auditPreview) ? (

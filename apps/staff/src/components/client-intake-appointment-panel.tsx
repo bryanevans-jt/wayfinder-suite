@@ -148,17 +148,9 @@ export function ClientIntakeAppointmentPanel({ clientId, appointment, canWrite }
               className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2"
             />
           </label>
-          <label className="block text-sm">
-            <span className="font-medium">Timezone</span>
-            <input
-              type="text"
-              value={timezone}
-              onChange={(e) => setTimezone(e.target.value)}
-              disabled={busy}
-              placeholder="America/New_York"
-              className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2"
-            />
-          </label>
+          <p className="text-xs text-brand-black/60">
+            All intake times are stored and displayed in Eastern US ({PORTAL_DISPLAY_TIME_ZONE}).
+          </p>
           <div className="flex flex-wrap gap-2">
             <button
               type="submit"

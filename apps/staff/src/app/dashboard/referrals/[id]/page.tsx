@@ -11,6 +11,7 @@ import { staffHomePath } from "@wayfinder/supabase/roles";
 import { loadReferralExportRows } from "@/lib/referral-export-data";
 import { ReferralDetailActions } from "@/components/referral-detail-actions";
 import { ReferralDetailAssignPanel } from "@/components/referral-detail-assign-panel";
+import { ReferralDetailQueueActions } from "@/components/referral-detail-queue-actions";
 import { ReferralInfoEditForm } from "@/components/referral-info-edit-form";
 
 type PageProps = { params: Promise<{ id: string }> };
@@ -34,6 +35,7 @@ export default async function ReferralDetailPage({ params }: PageProps) {
     .maybeSingle();
 
   const showAssignPanel = canAssignReferralFieldSpecialist(session.effectiveRole);
+  const directReferralAssignEnabled = await loadDirectReferralAssignEnabled(admin);
 
   return (
     <main className="px-6 py-10">
@@ -62,6 +64,16 @@ export default async function ReferralDetailPage({ params }: PageProps) {
           initialAssigneeUserId={(assigneeLink?.es_user_id as string | null) ?? null}
         />
       ) : null}
+
+      <ReferralDetailQueueActions
+        clientId={row.id}
+        officeId={row.office_id}
+        intakeStatus={row.intake_status ?? "new_referral"}
+        authorizationNumber={row.authorization_number}
+        directReferralAssignEnabled={directReferralAssignEnabled}
+        canAssignFieldSpecialist={showAssignPanel}
+        initialAssigneeUserId={(assigneeLink?.es_user_id as string | null) ?? null}
+      />
 
       <section className="mt-8 max-w-3xl">
         <h2 className="text-lg font-semibold text-brand-black">Edit Client Info</h2>

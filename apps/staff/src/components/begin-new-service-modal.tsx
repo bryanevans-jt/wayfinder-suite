@@ -75,6 +75,9 @@ export function BeginNewServiceModal({ priorClientId, onClose, onCreated }: Prop
   const [referralDateLabel, setReferralDateLabel] = useState("");
   const [priorOutcomeLabel, setPriorOutcomeLabel] = useState<string | null>(null);
   const [priorReferredAt, setPriorReferredAt] = useState<string | null>(null);
+  const [openIntakeWarning, setOpenIntakeWarning] = useState<
+    Array<{ id: string; full_name: string | null; intake_status: string }>
+  >([]);
   const [authFile, setAuthFile] = useState<File | null>(null);
   const [otherFile, setOtherFile] = useState<File | null>(null);
   const [loadingDraft, setLoadingDraft] = useState(false);
@@ -94,11 +97,14 @@ export function BeginNewServiceModal({ priorClientId, onClose, onCreated }: Prop
     setOtherFile(null);
     void (async () => {
       try {
-        const [draftRes, toggleRes] = await Promise.all([
+        const [draftRes, toggleRes, openRes] = await Promise.all([
           fetch(
             `/api/referrals/prior-enrollment?priorClientId=${encodeURIComponent(priorClientId)}`
           ),
           fetch("/api/staff/feature-toggles"),
+          fetch(
+            `/api/referrals/open-intake-warning?priorClientId=${encodeURIComponent(priorClientId)}`
+          ),
         ]);
         const draftData = (await draftRes.json()) as {
           error?: string;
@@ -122,8 +128,12 @@ export function BeginNewServiceModal({ priorClientId, onClose, onCreated }: Prop
           });
         }
 
-        setState(draftData.state === "TN" ? "TN" : "GA");
+        setState("GA");
         setForm({ ...emptyForm, ...(draftData.draft ?? {}) });
+        const openData = (await openRes.json()) as {
+          open?: Array<{ id: string; full_name: string | null; intake_status: string }>;
+        };
+        setOpenIntakeWarning(openRes.ok ? (openData.open ?? []) : []);
         setPriorOutcomeLabel(draftData.priorOutcomeLabel ?? null);
         setPriorReferredAt(draftData.priorReferredAt ?? null);
         const when = draftData.referralDate ? new Date(draftData.referralDate) : new Date();
@@ -222,6 +232,20 @@ export function BeginNewServiceModal({ priorClientId, onClose, onCreated }: Prop
               <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
                 {error}
               </p>
+            ) : null}
+
+            {openIntakeWarning.length > 0 ? (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                <p className="font-medium">Another open referral may exist for this person</p>
+                <ul className="mt-1 list-inside list-disc text-xs">
+                  {openIntakeWarning.map((o) => (
+                    <li key={o.id}>
+                      {o.full_name || o.id} ({o.intake_status})
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-1 text-xs">You can still add this enrollment to the queue.</p>
+              </div>
             ) : null}
 
             <div className="rounded-lg border border-brand-green/25 bg-brand-green/5 px-3 py-2 text-sm text-brand-black/80">

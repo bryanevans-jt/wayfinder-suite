@@ -37,14 +37,21 @@ async function digestOneCounselor(
 
   const { data: clientRows } = await admin
     .from("clients")
-    .select("id, user_id, profile_id")
+    .select("id, user_id, profile_id, referral_state")
     .or(`counselor_id.eq.${counselorUserId},counselor_id.eq.${counselorRowId}`);
 
-  if (!clientRows?.length) {
+  const gaClients = (clientRows ?? []).filter((row) => {
+    const state = ((row as { referral_state?: string | null }).referral_state ?? "GA")
+      .trim()
+      .toUpperCase();
+    return state !== "TN";
+  });
+
+  if (!gaClients.length) {
     return "skipped";
   }
 
-  const fkClientIds = [...new Set(clientRows.flatMap((row) => buildClientActivityFkIds(row)))];
+  const fkClientIds = [...new Set(gaClients.flatMap((row) => buildClientActivityFkIds(row)))];
 
   const [{ count: contactCount }, { count: applicationCount }] = await Promise.all([
     admin
@@ -78,10 +85,10 @@ async function digestOneCounselor(
     userId: counselorUserId,
     kind: DIGEST_KIND,
     title: "Your weekly client summary",
-    body: `Across ${clientRows.length} client${clientRows.length === 1 ? "" : "s"}: ${parts.join(" and ")}.`,
+    body: `Across ${gaClients.length} client${gaClients.length === 1 ? "" : "s"}: ${parts.join(" and ")}.`,
     link_path: "/dashboard/counselor",
     metadata: {
-      client_count: clientRows.length,
+      client_count: gaClients.length,
       contact_count: contacts,
       application_count: applications,
       window_days: DIGEST_WINDOW_DAYS,

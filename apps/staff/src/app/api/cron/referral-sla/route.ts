@@ -32,15 +32,22 @@ export async function GET(request: Request) {
     const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const { data: stuck } = await admin
       .from("clients")
-      .select("id, full_name, contact_email, intake_status, intake_status_changed_at, current_service_id, current_stage_id")
+      .select(
+        "id, full_name, contact_email, intake_status, intake_status_changed_at, current_service_id, current_stage_id, referral_state"
+      )
       .in("intake_status", ["new_referral", "pending_authorization", "active"])
       .lt("intake_status_changed_at", cutoff)
+      .neq("referral_state", "TN")
       .limit(200);
 
     const recipients = await loadHrIntakeRecipientUserIds(admin);
+    const dedupeSince = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     let reminded = 0;
 
     for (const client of stuck ?? []) {
+      const referralState = ((client.referral_state as string | null) ?? "GA").trim().toUpperCase();
+      if (referralState === "TN") continue;
+
       const status = client.intake_status as string;
       let include = status === "new_referral" || status === "pending_authorization";
       if (status === "active") {
@@ -49,6 +56,16 @@ export async function GET(request: Request) {
         include = ga && p1;
       }
       if (!include) continue;
+
+      const clientId = client.id as string;
+      const { data: recentNotify } = await admin
+        .from("in_app_notifications")
+        .select("id")
+        .eq("kind", "referral_sla")
+        .gte("created_at", dedupeSince)
+        .contains("metadata", { clientId })
+        .limit(1);
+      if (recentNotify?.length) continue;
 
       const label =
         (client.full_name as string)?.trim() ||
@@ -71,8 +88,8 @@ export async function GET(request: Request) {
           kind: "referral_sla",
           title: `Referral follow-up: ${label}`,
           body,
-          link_path: `/dashboard/referrals/${client.id as string}`,
-          metadata: { clientId: client.id, intake_status: status },
+          link_path: `/dashboard/referrals/${clientId}`,
+          metadata: { clientId, intake_status: status },
         });
       }
       reminded += 1;

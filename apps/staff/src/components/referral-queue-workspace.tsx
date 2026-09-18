@@ -314,6 +314,31 @@ export function ReferralQueueWorkspace() {
     }
   }
 
+  async function saveAuthorization(clientId: string) {
+    setBusyId(clientId);
+    setError(null);
+    try {
+      const res = await fetch("/api/referrals", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId,
+          action: "update_info",
+          info: {
+            authorizationNumber: authById[clientId] ?? "",
+          },
+        }),
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(data.error || "Could not save authorization");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save authorization");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function runAction(
     clientId: string,
     action: "pending_authorization" | "activate" | "discard" | "link_prior",
@@ -645,6 +670,17 @@ export function ReferralQueueWorkspace() {
                     }
                   />
                 </label>
+              </div>
+
+              <div className="mt-2">
+                <button
+                  type="button"
+                  disabled={busyId === c.id}
+                  onClick={() => void saveAuthorization(c.id)}
+                  className="rounded-lg border border-neutral-200 px-3 py-1 text-xs font-medium text-brand-black hover:bg-neutral-50 disabled:opacity-50"
+                >
+                  Save authorization
+                </button>
               </div>
 
               {canAssignFieldSpecialist ? (

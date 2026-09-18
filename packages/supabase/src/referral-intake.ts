@@ -917,7 +917,7 @@ export async function activateReferralToFirstStage(
         kind: "referral_needs_intake",
         title: `New client ready to start: ${clientLabel}`,
         body: "New client ready to start — review referral and assign supervisor.",
-        link_path: `/dashboard/hospitality/intakes/${opts.clientId}`,
+        link_path: `/dashboard/intake/calls/${opts.clientId}`,
         metadata: { clientId: opts.clientId },
       });
     }
@@ -1311,6 +1311,32 @@ export async function createReferralFromPriorEnrollment(
   await uploadReferralFile(admin, created.id, "other", payload.otherDocs ?? null);
 
   return { ok: true, clientId: created.id };
+}
+
+/** Warn-only: other open referral-queue rows for the same participant. */
+export async function findOpenIntakeForPriorClient(
+  admin: SupabaseClient,
+  priorClientId: string
+): Promise<Array<{ id: string; full_name: string | null; intake_status: string }>> {
+  const { data: prior } = await admin
+    .from("clients")
+    .select("participant_id")
+    .eq("id", priorClientId)
+    .maybeSingle();
+  const participantId = (prior as { participant_id?: string | null })?.participant_id;
+  if (!participantId) return [];
+
+  const { data: rows } = await admin
+    .from("clients")
+    .select("id, full_name, intake_status")
+    .eq("participant_id", participantId)
+    .in("intake_status", ["new_referral", "pending_authorization"]);
+
+  return (rows ?? []).filter((r) => r.id !== priorClientId) as Array<{
+    id: string;
+    full_name: string | null;
+    intake_status: string;
+  }>;
 }
 
 export async function setReferralPendingAuthorization(

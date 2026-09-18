@@ -1,6 +1,10 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { assertNotPreviewMutation, getAppSession } from "@wayfinder/supabase/preview-server";
 import {
+  INTAKE_APPOINTMENT_TIMEZONE,
+  scheduleClientIntakeAppointment,
+} from "@wayfinder/supabase/intake-scheduling";
+import {
   canEditClientIntakeAppointment,
   isAdminTierRole,
   isFieldSpecialistRole,
@@ -8,11 +12,6 @@ import {
   isHospitalitySpecialistRole,
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
-import { ensureScheduledIntakeBilling } from "@wayfinder/supabase/intake-billing";
-import {
-  resetIntakeAppointmentReminderSchedule,
-  sendIntakeAppointmentReminder,
-} from "@wayfinder/supabase/intake-appointment-reminders";
 import { deliverIntakeAppointmentReminder } from "@/lib/intake-appointment-email";
 import { requireStaffClientAccess } from "@/lib/app-session";
 import { NextResponse } from "next/server";
@@ -46,96 +45,101 @@ async function assertCanEditIntakeAppointment(clientId: string) {
   return { session };
 }
 
+function parseBody(body: {
+  scheduledAt?: string | null;
+  location?: string | null;
+  timezone?: string | null;
+}) {
+  const scheduledAt = (body.scheduledAt ?? "").trim() || null;
+  const location = (body.location ?? "").trim();
+  const timezone =
+    (body.timezone ?? "").trim() || INTAKE_APPOINTMENT_TIMEZONE;
+  return { scheduledAt, location, timezone };
+}
+
+export async function POST(request: Request, context: RouteContext) {
+  const { id: clientId } = await context.params;
+  const auth = await assertCanEditIntakeAppointment(clientId);
+  if ("error" in auth) return auth.error;
+
+  const body = parseBody((await request.json()) as Parameters<typeof parseBody>[0]);
+  if (!body.scheduledAt) {
+    return NextResponse.json({ error: "Intake date and time are required." }, { status: 400 });
+  }
+
+  const admin = createServiceRoleClient();
+  const result = await scheduleClientIntakeAppointment(admin, {
+    clientId,
+    scheduledAt: body.scheduledAt,
+    location: body.location,
+    timezone: body.timezone,
+    actorUserId: auth.session.effectiveUserId,
+    deliverReminder: deliverIntakeAppointmentReminder,
+    replaceScheduledAt: false,
+  });
+
+  if ("error" in result) {
+    return NextResponse.json({ error: result.error }, { status: 400 });
+  }
+
+  return NextResponse.json({
+    ok: true,
+    appointment: {
+      id: result.taskId,
+      startsAt: body.scheduledAt,
+      location: body.location,
+      timezone: body.timezone,
+    },
+    reminder: result.reminder,
+  });
+}
+
 export async function PATCH(request: Request, context: RouteContext) {
   const { id: clientId } = await context.params;
   const auth = await assertCanEditIntakeAppointment(clientId);
   if ("error" in auth) return auth.error;
 
-  const body = (await request.json()) as {
-    scheduledAt?: string | null;
-    location?: string | null;
-    timezone?: string | null;
-  };
-
-  const scheduledAt = (body.scheduledAt ?? "").trim() || null;
-  const location = (body.location ?? "").trim();
-  const timezone = (body.timezone ?? "").trim() || "America/New_York";
-
-  if (!scheduledAt) {
+  const body = parseBody((await request.json()) as Parameters<typeof parseBody>[0]);
+  if (!body.scheduledAt) {
     return NextResponse.json({ error: "Intake date and time are required." }, { status: 400 });
-  }
-  if (!location) {
-    return NextResponse.json({ error: "Intake location is required." }, { status: 400 });
-  }
-  if (Number.isNaN(new Date(scheduledAt).getTime())) {
-    return NextResponse.json({ error: "Invalid intake date/time." }, { status: 400 });
   }
 
   const admin = createServiceRoleClient();
-  const { data: task, error: loadErr } = await admin
+  const { data: task } = await admin
     .from("hospitality_intake_tasks")
-    .select("id, client_id, appointment_starts_at")
+    .select("id, appointment_starts_at")
     .eq("client_id", clientId)
-    .not("appointment_starts_at", "is", null)
-    .order("appointment_starts_at", { ascending: false })
-    .limit(1)
     .maybeSingle();
 
-  if (loadErr || !task) {
+  if (!task?.appointment_starts_at) {
     return NextResponse.json(
-      { error: loadErr?.message ?? "No scheduled intake appointment found for this client." },
+      { error: "No scheduled intake appointment found. Use Schedule intake first." },
       { status: 404 }
     );
   }
 
-  const taskId = task.id as string;
-  const { error: updateErr } = await admin
-    .from("hospitality_intake_tasks")
-    .update({
-      appointment_starts_at: scheduledAt,
-      appointment_location: location,
-      appointment_timezone: timezone,
-    })
-    .eq("id", taskId);
-
-  if (updateErr) {
-    return NextResponse.json({ error: updateErr.message }, { status: 500 });
-  }
-
-  const billing = await ensureScheduledIntakeBilling(admin, {
+  const result = await scheduleClientIntakeAppointment(admin, {
     clientId,
-    hospitalityTaskId: taskId,
-    scheduledAt,
+    scheduledAt: body.scheduledAt,
+    location: body.location,
+    timezone: body.timezone,
+    actorUserId: auth.session.effectiveUserId,
+    deliverReminder: deliverIntakeAppointmentReminder,
     replaceScheduledAt: true,
   });
-  if ("error" in billing) {
-    return NextResponse.json({ error: billing.error }, { status: 500 });
+
+  if ("error" in result) {
+    return NextResponse.json({ error: result.error }, { status: 400 });
   }
-
-  await resetIntakeAppointmentReminderSchedule(admin, taskId);
-
-  const reminder = await sendIntakeAppointmentReminder(admin, {
-    hospitalityTaskId: taskId,
-    clientId,
-    startsAt: scheduledAt,
-    location,
-    timezone,
-    kind: "scheduled",
-    deliver: deliverIntakeAppointmentReminder,
-  });
 
   return NextResponse.json({
     ok: true,
     appointment: {
-      id: taskId,
-      startsAt: scheduledAt,
-      location,
-      timezone,
+      id: result.taskId,
+      startsAt: body.scheduledAt,
+      location: body.location,
+      timezone: body.timezone,
     },
-    reminder: {
-      sent: reminder.sent,
-      skipped: reminder.skipped,
-      errors: reminder.errors,
-    },
+    reminder: result.reminder,
   });
 }

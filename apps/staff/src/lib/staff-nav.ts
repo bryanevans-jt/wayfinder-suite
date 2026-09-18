@@ -308,7 +308,16 @@ export function staffNavSectionsForRole(
         { label: "Portal", items },
         {
           label: "Oversight",
-          items: [operationsNav, complianceNav, analyticsNav],
+          items: [
+            {
+              href: "/dashboard/intake-snapshot",
+              label: "Intake Snapshot",
+              match: (p) => p === "/dashboard/intake-snapshot",
+            },
+            operationsNav,
+            complianceNav,
+            analyticsNav,
+          ],
         },
         {
           label: "Tools",
