@@ -1,4 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  contactLogDisplayText,
+  fetchContactLogsWithSchemaFallback,
+  listContactLogsForClientIds,
+} from "./contact-logs-query";
 import { createNotificationDigestBuffer, type NotificationDigestBuffer } from "./notify-digest";
 import { notifyUser } from "./notify-user";
 import {
@@ -113,6 +118,131 @@ export async function hasNonHospitalityContactLog(
   });
 }
 
+export type IntakeBillingReadyContactLog = {
+  id: string;
+  createdAt: string;
+  body: string;
+  loggedByUserId: string | null;
+};
+
+function isCaseworkContactLog(
+  log: { logged_by: string | null },
+  intakeOpsIds: Set<string>
+): boolean {
+  const loggedBy = log.logged_by;
+  if (!loggedBy) return true;
+  return !intakeOpsIds.has(loggedBy);
+}
+
+/** Earliest non-Hospitality/HR contact log for a client (optionally before a timestamp). */
+export async function findFirstCaseworkContactLog(
+  admin: SupabaseClient,
+  clientId: string,
+  opts?: { beforeOrAt?: string | null }
+): Promise<IntakeBillingReadyContactLog | null> {
+  const intakeOpsIds = await intakeOpsUserIdsExcludedFromBillingContact(admin);
+  const logs = await listContactLogsForClientIds(admin, [clientId], {
+    orderAscending: true,
+    limit: 200,
+  });
+  const cutoff = opts?.beforeOrAt ? Date.parse(opts.beforeOrAt) : null;
+
+  for (const log of logs) {
+    if (cutoff != null && !Number.isNaN(cutoff)) {
+      const t = Date.parse(log.created_at);
+      if (!Number.isNaN(t) && t > cutoff) continue;
+    }
+    if (!isCaseworkContactLog(log, intakeOpsIds)) continue;
+    const body = contactLogDisplayText(log);
+    if (!body) continue;
+    return {
+      id: log.id,
+      createdAt: log.created_at,
+      body,
+      loggedByUserId: log.logged_by,
+    };
+  }
+  return null;
+}
+
+async function loadContactLogBillingContext(
+  admin: SupabaseClient,
+  logId: string
+): Promise<IntakeBillingReadyContactLog | null> {
+  type LogRow = {
+    id: string;
+    created_at: string;
+    public_outcome: string | null;
+    notes: string | null;
+    outcome: string | null;
+    logged_by: string | null;
+  };
+  const rows = await fetchContactLogsWithSchemaFallback<LogRow>(async (cols) => {
+    const result = await admin.from("contact_logs").select(cols).eq("id", logId).limit(1);
+    return {
+      data: (result.data ?? null) as LogRow[] | null,
+      error: result.error,
+    };
+  });
+  const log = rows[0];
+  if (!log?.id) return null;
+  const body = contactLogDisplayText(log);
+  if (!body) return null;
+  return {
+    id: log.id,
+    createdAt: log.created_at,
+    body,
+    loggedByUserId: log.logged_by ?? null,
+  };
+}
+
+/** Ready-to-bill rows: contact log that moved the client to ready (contact_log reason). */
+export async function loadReadyContactLogsForIntakeBillings(
+  admin: SupabaseClient,
+  billings: Array<{
+    client_id: string;
+    ready_at: string | null;
+    ready_reason: string | null;
+    ready_contact_log_id: string | null;
+  }>
+): Promise<Map<string, IntakeBillingReadyContactLog>> {
+  const out = new Map<string, IntakeBillingReadyContactLog>();
+  const logIds = new Set<string>();
+
+  for (const row of billings) {
+    if (row.ready_reason !== "contact_log") continue;
+    if (row.ready_contact_log_id) {
+      logIds.add(row.ready_contact_log_id);
+    }
+  }
+
+  const byLogId = new Map<string, IntakeBillingReadyContactLog>();
+  await Promise.all(
+    [...logIds].map(async (id) => {
+      const ctx = await loadContactLogBillingContext(admin, id);
+      if (ctx) byLogId.set(id, ctx);
+    })
+  );
+
+  for (const row of billings) {
+    if (row.ready_reason !== "contact_log") continue;
+    const clientId = row.client_id;
+    if (row.ready_contact_log_id) {
+      const linked = byLogId.get(row.ready_contact_log_id);
+      if (linked) {
+        out.set(clientId, linked);
+        continue;
+      }
+    }
+    const inferred = await findFirstCaseworkContactLog(admin, clientId, {
+      beforeOrAt: row.ready_at,
+    });
+    if (inferred) out.set(clientId, inferred);
+  }
+
+  return out;
+}
+
 async function clientLabel(admin: SupabaseClient, clientId: string): Promise<string> {
   const { data } = await admin
     .from("clients")
@@ -223,7 +353,12 @@ export async function ensureScheduledIntakeBilling(
 
 export async function markIntakeReadyToBill(
   admin: SupabaseClient,
-  opts: { clientId: string; reason: IntakeReadyReason },
+  opts: {
+    clientId: string;
+    reason: IntakeReadyReason;
+    /** When reason is contact_log, the log that triggered ready (optional — resolved if omitted). */
+    contactLogId?: string | null;
+  },
   notify?: { digest?: NotificationDigestBuffer }
 ): Promise<{ ready: boolean; already?: boolean; error?: string }> {
   let row = await loadBilling(admin, opts.clientId);
@@ -239,16 +374,40 @@ export async function markIntakeReadyToBill(
   }
 
   const now = new Date().toISOString();
-  const { error } = await admin
+  let readyContactLogId: string | null = null;
+  if (opts.reason === "contact_log") {
+    if (opts.contactLogId) {
+      readyContactLogId = opts.contactLogId;
+    } else {
+      const first = await findFirstCaseworkContactLog(admin, opts.clientId, { beforeOrAt: now });
+      readyContactLogId = first?.id ?? null;
+    }
+  }
+
+  const patch: Record<string, unknown> = {
+    status: "ready_to_bill",
+    ready_at: now,
+    ready_reason: opts.reason,
+    updated_at: now,
+  };
+  if (readyContactLogId) {
+    patch.ready_contact_log_id = readyContactLogId;
+  }
+
+  let { error } = await admin
     .from("intake_billings")
-    .update({
-      status: "ready_to_bill",
-      ready_at: now,
-      ready_reason: opts.reason,
-      updated_at: now,
-    })
+    .update(patch)
     .eq("id", row.id)
     .eq("status", "scheduled");
+  if (error && /ready_contact_log_id|schema cache/i.test(error.message)) {
+    delete patch.ready_contact_log_id;
+    const retry = await admin
+      .from("intake_billings")
+      .update(patch)
+      .eq("id", row.id)
+      .eq("status", "scheduled");
+    error = retry.error;
+  }
   if (error) return { ready: false, error: error.message };
 
   await notifyIntakeReadyRecipients(admin, opts.clientId, notify?.digest);
@@ -262,7 +421,12 @@ export async function markIntakeReadyToBill(
  */
 export async function markIntakeReadyAfterContactLog(
   admin: SupabaseClient,
-  opts: { clientId: string; reason?: IntakeReadyReason; loggedByUserId?: string | null }
+  opts: {
+    clientId: string;
+    reason?: IntakeReadyReason;
+    loggedByUserId?: string | null;
+    contactLogId?: string | null;
+  }
 ): Promise<void> {
   if (opts.loggedByUserId) {
     const { data: profile } = await admin
@@ -278,6 +442,7 @@ export async function markIntakeReadyAfterContactLog(
   await markIntakeReadyToBill(admin, {
     clientId: opts.clientId,
     reason: opts.reason ?? "contact_log",
+    contactLogId: opts.contactLogId,
   });
 }
 

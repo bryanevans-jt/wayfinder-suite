@@ -146,6 +146,7 @@ export async function saveClientContactLog(
     clientId: input.clientId,
     reason: "contact_log",
     loggedByUserId: userId,
+    contactLogId,
   });
 
   return warning ? { ok: true, warning } : { ok: true };
