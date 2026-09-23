@@ -142,6 +142,16 @@ export function canViewStaffOnlyClientNotes(role: string | null | undefined): bo
   );
 }
 
+/** Referral disability/history on client profile — same visibility as internal staff notes. */
+export function canViewStaffOnlyDisabilityHistory(role: string | null | undefined): boolean {
+  return canViewStaffOnlyClientNotes(role);
+}
+
+/** Casework team may add or update disability/history when it was missing from the referral. */
+export function canEditStaffOnlyDisabilityHistory(role: string | null | undefined): boolean {
+  return canViewStaffOnlyDisabilityHistory(role);
+}
+
 /**
  * Intake → service-start ops (Referral Queue / Intake Calls / Start Client).
  * HR Director inherits Hospitality intake work; Admins can execute and oversee.

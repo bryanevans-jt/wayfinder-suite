@@ -15,6 +15,8 @@ import {
   canViewClientProfiles,
   isAdminTierRole,
   canViewStaffOnlyClientNotes,
+  canViewStaffOnlyDisabilityHistory,
+  canEditStaffOnlyDisabilityHistory,
   canWriteStaffOnlyClientNotes,
   staffHomePath,
 } from "@wayfinder/supabase/roles";
@@ -33,6 +35,7 @@ import { ClientProfileForm, type ClientProfileData } from "@/components/client-p
 import { ClientEsAssignmentPanel } from "@/components/client-es-assignment-panel";
 import { ClientIntakeAppointmentPanel } from "@/components/client-intake-appointment-panel";
 import { EmployerMatchPanel } from "@/components/employer-match-panel";
+import { ClientDisabilityHistoryPanel } from "@/components/client-disability-history-panel";
 import { ClientStaffNotesPanel } from "@/components/client-staff-notes-panel";
 import { HospitalityCheckInPanel } from "@/components/hospitality-check-in-panel";
 import { ClientJobStartDateForm } from "./client-job-start-date-form";
@@ -75,10 +78,12 @@ type ClientDetailRow = {
   employment_goal_secondary: string | null;
   employment_goal_secondary_other: string | null;
   prior_client_id?: string | null;
+  intake_status?: string | null;
+  disability_history?: string | null;
 };
 
 const CLIENT_SELECT_FULL =
-  "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, office_id, counselor_id, job_start_date, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other, prior_client_id";
+  "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, office_id, counselor_id, job_start_date, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other, prior_client_id, intake_status, disability_history";
 
 const CLIENT_SELECT_CORE =
   "id, user_id, profile_id, contact_email, current_service_id, current_stage_id, office_id, counselor_id, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other";
@@ -411,6 +416,9 @@ export default async function EsClientDetailPage({ params }: PageProps) {
       ? "Back to clients"
       : "Back";
   const showStaffNotes = canViewStaffOnlyClientNotes(role);
+  const showDisabilityHistory = canViewStaffOnlyDisabilityHistory(role);
+  const canEditDisabilityHistory =
+    canEditStaffOnlyDisabilityHistory(role) && !session.isPreviewing;
   const canWriteNotes = canWriteStaffOnlyClientNotes(role) && !session.isPreviewing;
   const showCheckIns = canLogHospitalityCheckIns(role) || showStaffNotes;
   const showSubmittedFormalReports =
@@ -526,6 +534,14 @@ export default async function EsClientDetailPage({ params }: PageProps) {
           missingGoals={missingGoals}
           missingGeocode={missingGeocode}
         />
+
+        {showDisabilityHistory ? (
+          <ClientDisabilityHistoryPanel
+            clientId={client.id as string}
+            initialValue={(client as ClientDetailRow).disability_history ?? null}
+            canWrite={canEditDisabilityHistory}
+          />
+        ) : null}
 
         {showStaffNotes ? (
           <ClientStaffNotesPanel clientId={client.id} canWrite={canWriteNotes} />

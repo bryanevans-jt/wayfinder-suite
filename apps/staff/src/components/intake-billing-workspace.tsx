@@ -13,6 +13,12 @@ type Billing = {
   ready_reason: string | null;
   billed_at: string | null;
   paid_at: string | null;
+  ready_contact_log: {
+    id: string;
+    created_at: string;
+    body: string;
+    logged_by_name: string | null;
+  } | null;
   client: {
     id: string;
     full_name: string | null;
@@ -134,6 +140,7 @@ export function IntakeBillingWorkspace({ canManage = true }: { canManage?: boole
                 <th className="px-3 py-2">Client</th>
                 <th className="px-3 py-2">Auth #</th>
                 <th className="px-3 py-2">Ready</th>
+                <th className="px-3 py-2">First contact (ready trigger)</th>
                 <th className="px-3 py-2">Status</th>
                 <th className="px-3 py-2">{canManage ? "Actions" : "Status detail"}</th>
               </tr>
@@ -177,6 +184,33 @@ export function IntakeBillingWorkspace({ canManage = true }: { canManage?: boole
                     <td className="px-3 py-3">
                       {row.ready_at ? new Date(row.ready_at).toLocaleString() : "—"}
                       <p className="text-xs text-brand-black/55">{reasonLabel(row.ready_reason)}</p>
+                    </td>
+                    <td className="max-w-md px-3 py-3 align-top">
+                      {row.ready_contact_log ? (
+                        <div className="space-y-1">
+                          <p className="text-xs text-brand-black/55">
+                            {new Date(row.ready_contact_log.created_at).toLocaleString()}
+                            {row.ready_contact_log.logged_by_name
+                              ? ` · ${row.ready_contact_log.logged_by_name}`
+                              : ""}
+                          </p>
+                          <p className="whitespace-pre-wrap text-sm text-brand-black">
+                            {row.ready_contact_log.body}
+                          </p>
+                          {row.client ? (
+                            <Link
+                              href={`/dashboard/clients/${row.client.id}`}
+                              className="text-xs font-medium text-brand-green hover:underline"
+                            >
+                              View client profile →
+                            </Link>
+                          ) : null}
+                        </div>
+                      ) : row.ready_reason === "contact_log" ? (
+                        <span className="text-xs text-brand-black/55">Contact log not found</span>
+                      ) : (
+                        <span className="text-xs text-brand-black/45">—</span>
+                      )}
                     </td>
                     <td className="px-3 py-3 capitalize">{row.status.replaceAll("_", " ")}</td>
                     <td className="px-3 py-3">
