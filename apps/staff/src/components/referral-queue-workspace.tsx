@@ -15,6 +15,8 @@ type ReferralRow = {
   intake_status: string;
   referral_state: string | null;
   referred_at: string | null;
+  intake_status_changed_at?: string | null;
+  created_at?: string | null;
   counselor_id: string | null;
   counselorName: string | null;
   serviceName: string | null;
@@ -51,7 +53,8 @@ function stageForRow(c: ReferralRow): string {
 }
 
 function referredMs(c: ReferralRow): number {
-  return c.referred_at ? new Date(c.referred_at).getTime() : 0;
+  const raw = c.referred_at ?? c.intake_status_changed_at ?? c.created_at;
+  return raw ? new Date(raw).getTime() : 0;
 }
 
 function timeCutoff(filter: TimeFilter): number | null {

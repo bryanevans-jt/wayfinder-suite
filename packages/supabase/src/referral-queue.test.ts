@@ -1,6 +1,16 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { clientBelongsInReferralQueue } from "./referral-intake";
+import {
+  clientBelongsInReferralQueue,
+  normalizedClientIntakeStatus,
+} from "./referral-intake";
+
+describe("normalizedClientIntakeStatus", () => {
+  it("treats null/empty as active", () => {
+    assert.equal(normalizedClientIntakeStatus(null), "active");
+    assert.equal(normalizedClientIntakeStatus(""), "active");
+  });
+});
 
 describe("clientBelongsInReferralQueue", () => {
   it("includes open pipeline statuses", () => {
@@ -13,6 +23,26 @@ describe("clientBelongsInReferralQueue", () => {
 
   it("excludes legacy active roster without referred_at even when includeActive", () => {
     assert.equal(clientBelongsInReferralQueue("active", null, { includeActive: true }), false);
+  });
+
+  it("includes active with authorization when includeActive", () => {
+    assert.equal(
+      clientBelongsInReferralQueue("active", null, {
+        includeActive: true,
+        authorizationNumber: "AUTH-123",
+      }),
+      true
+    );
+  });
+
+  it("includes active with ES assignment when includeActive", () => {
+    assert.equal(
+      clientBelongsInReferralQueue("active", null, {
+        includeActive: true,
+        hasEsAssignment: true,
+      }),
+      true
+    );
   });
 
   it("includes activated referrals with referred_at when includeActive", () => {

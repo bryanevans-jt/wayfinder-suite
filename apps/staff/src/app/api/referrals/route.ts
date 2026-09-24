@@ -13,8 +13,11 @@ import {
   priorEnrollmentOutcomeLabel,
   setReferralPendingAuthorization,
   updateReferralClientInfo,
-  clientBelongsInReferralQueue,
+  isReferralQueueSearchUuid,
+  loadReferralQueueEsAssignedExtras,
+  referralQueueClientSelectColumns,
   referralQueueListFilter,
+  referralQueueRowMembership,
   type PublicReferralPayload,
   type ReferralState,
 } from "@wayfinder/supabase/referral-intake";
@@ -41,11 +44,12 @@ export async function GET(request: Request) {
   const directReferralAssignEnabled = await loadDirectReferralAssignEnabled(admin);
   const canAssignFieldSpecialist = canAssignReferralFieldSpecialist(session.effectiveRole);
 
+  const clientSelect = referralQueueClientSelectColumns();
+  type ClientListRow = Record<string, unknown>;
+
   let query = admin
     .from("clients")
-    .select(
-      "id, full_name, contact_email, intake_status, referral_state, referred_at, intake_status_changed_at, current_service_id, current_stage_id, office_id, counselor_id, authorization_number, date_of_birth, primary_phone, gender, ethnicity, disability_history, created_at, prior_client_id"
-    )
+    .select(clientSelect)
     .order("referred_at", { ascending: false, nullsFirst: false });
 
   if (status && ["new_referral", "pending_authorization", "active"].includes(status)) {
@@ -57,15 +61,45 @@ export async function GET(request: Request) {
     query = query.or(referralQueueListFilter(includeActive));
   }
 
-  let { data: rows, error } = await query.limit(500);
+  let { data: rowsData, error } = await query.limit(500);
+  let rows: ClientListRow[] | null = (rowsData ?? null) as ClientListRow[] | null;
 
-  if (!error && searchQuery.length >= 2) {
+  async function filterSearchRows(searchRows: Array<Record<string, unknown>> | null): Promise<ClientListRow[]> {
+    const ids = (searchRows ?? []).map((r) => r.id as string).filter(Boolean);
+    const { data: esLinks } = ids.length
+      ? await admin.from("es_client_assignments").select("client_id").in("client_id", ids)
+      : { data: [] as { client_id: string }[] };
+    const assignedClientIds = new Set((esLinks ?? []).map((l) => l.client_id as string));
+    return (searchRows ?? []).filter((row) => {
+      if (status && ["new_referral", "pending_authorization", "active"].includes(status)) {
+        return (row.intake_status as string) === status;
+      }
+      return referralQueueRowMembership(row, {
+        includeActive,
+        allowActiveWithoutReferredAt: true,
+        assignedClientIds,
+      });
+    });
+  }
+
+  if (!error && isReferralQueueSearchUuid(searchQuery)) {
+    const { data: byId, error: byIdErr } = await admin
+      .from("clients")
+      .select(clientSelect)
+      .eq("id", searchQuery)
+      .maybeSingle();
+    if (byIdErr) {
+      error = byIdErr;
+    } else if (byId) {
+      rows = await filterSearchRows([byId as unknown as Record<string, unknown>]);
+    } else {
+      rows = [];
+    }
+  } else if (!error && searchQuery.length >= 2) {
     const pattern = `%${searchQuery}%`;
     const { data: searchRows, error: searchErr } = await admin
       .from("clients")
-      .select(
-        "id, full_name, contact_email, intake_status, referral_state, referred_at, intake_status_changed_at, current_service_id, current_stage_id, office_id, counselor_id, authorization_number, date_of_birth, primary_phone, gender, ethnicity, disability_history, created_at, prior_client_id"
-      )
+      .select(clientSelect)
       .or(
         `full_name.ilike.${pattern},contact_email.ilike.${pattern},authorization_number.ilike.${pattern}`
       )
@@ -74,16 +108,18 @@ export async function GET(request: Request) {
     if (searchErr) {
       error = searchErr;
     } else {
-      rows = (searchRows ?? []).filter((row) => {
-        if (status && ["new_referral", "pending_authorization", "active"].includes(status)) {
-          return (row.intake_status as string) === status;
-        }
-        return clientBelongsInReferralQueue(
-          row.intake_status as string | null,
-          row.referred_at as string | null,
-          { includeActive, allowActiveWithoutReferredAt: true }
-        );
+      rows = await filterSearchRows((searchRows ?? []) as unknown as Array<Record<string, unknown>>);
+    }
+    if (includeActive && searchQuery.length >= 2 && !(rows?.length)) {
+      const extras = await loadReferralQueueEsAssignedExtras(admin, new Set(), true);
+      const needle = searchQuery.toLowerCase();
+      const matched = extras.filter((row) => {
+        const name = String(row.full_name ?? "").toLowerCase();
+        const email = String(row.contact_email ?? "").toLowerCase();
+        const auth = String(row.authorization_number ?? "").toLowerCase();
+        return name.includes(needle) || email.includes(needle) || auth.includes(needle);
       });
+      rows = await filterSearchRows(matched);
     }
   }
   if (error?.message.includes("prior_client_id")) {
@@ -103,9 +139,22 @@ export async function GET(request: Request) {
       retriedQuery = retriedQuery.or(referralQueueListFilter(includeActive));
     }
     const retried = await retriedQuery.limit(500);
-    rows = (retried.data ?? []) as typeof rows;
+    rows = (retried.data ?? []) as ClientListRow[];
     error = retried.error;
-    if (!error && searchQuery.length >= 2) {
+    if (!error && isReferralQueueSearchUuid(searchQuery)) {
+      const { data: byId, error: byIdErr } = await admin
+        .from("clients")
+        .select(
+          "id, full_name, contact_email, intake_status, referral_state, referred_at, intake_status_changed_at, current_service_id, current_stage_id, office_id, counselor_id, authorization_number, date_of_birth, primary_phone, gender, ethnicity, disability_history, created_at"
+        )
+        .eq("id", searchQuery)
+        .maybeSingle();
+      if (byIdErr) error = byIdErr;
+      else
+        rows = await filterSearchRows(
+          byId ? [byId as unknown as Record<string, unknown>] : []
+        );
+    } else if (!error && searchQuery.length >= 2) {
       const pattern = `%${searchQuery}%`;
       const { data: searchRows, error: searchErr } = await admin
         .from("clients")
@@ -120,13 +169,7 @@ export async function GET(request: Request) {
       if (searchErr) {
         error = searchErr;
       } else {
-        rows = (searchRows ?? []).filter((row) =>
-          clientBelongsInReferralQueue(
-            row.intake_status as string | null,
-            row.referred_at as string | null,
-            { includeActive, allowActiveWithoutReferredAt: true }
-          )
-        ) as typeof rows;
+        rows = await filterSearchRows((searchRows ?? []) as unknown as Array<Record<string, unknown>>);
       }
     }
   }
@@ -134,7 +177,17 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const list = rows ?? [];
+  let list = rows ?? [];
+  if (includeActive && !searchQuery) {
+    const extras = await loadReferralQueueEsAssignedExtras(
+      admin,
+      new Set(list.map((r) => r.id as string)),
+      includeActive
+    );
+    if (extras.length) {
+      list = [...list, ...extras];
+    }
+  }
   const clientIds = list.map((r) => r.id as string);
   const { data: esLinks } = clientIds.length
     ? await admin.from("es_client_assignments").select("client_id, es_user_id").in("client_id", clientIds)

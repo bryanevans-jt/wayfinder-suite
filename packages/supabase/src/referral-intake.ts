@@ -172,18 +172,37 @@ export function canAssignReferralFieldSpecialist(role: string | null | undefined
   return isAdminRole(role) || isSuperAdminRole(role) || isAdminTierRole(role);
 }
 
+/** Align with ES caseload: null/empty intake is treated as active roster. */
+export function normalizedClientIntakeStatus(intakeStatus: string | null | undefined): string {
+  const s = (intakeStatus ?? "active").trim().toLowerCase();
+  return s === "" ? "active" : s;
+}
+
+export type ReferralQueueMembershipHints = {
+  authorizationNumber?: string | null;
+  priorClientId?: string | null;
+  hasEsAssignment?: boolean;
+};
+
 /** Referral Queue rows (excludes legacy roster clients that are active but never referred). */
 export function clientBelongsInReferralQueue(
   intakeStatus: string | null | undefined,
   referredAt: string | null | undefined,
-  options: { includeActive: boolean; allowActiveWithoutReferredAt?: boolean }
+  options: {
+    includeActive: boolean;
+    allowActiveWithoutReferredAt?: boolean;
+  } & ReferralQueueMembershipHints
 ): boolean {
-  const s = (intakeStatus ?? "").trim().toLowerCase();
+  const s = normalizedClientIntakeStatus(intakeStatus);
   if (s === "discarded") return false;
   if (s === "new_referral" || s === "pending_authorization") return true;
   if (options.includeActive && s === "active") {
+    if ((referredAt ?? "").trim()) return true;
     if (options.allowActiveWithoutReferredAt) return true;
-    return Boolean((referredAt ?? "").trim());
+    if ((options.authorizationNumber ?? "").trim()) return true;
+    if ((options.priorClientId ?? "").trim()) return true;
+    if (options.hasEsAssignment) return true;
+    return false;
   }
   return false;
 }
@@ -191,9 +210,97 @@ export function clientBelongsInReferralQueue(
 /** PostgREST filter for referral queue list queries. */
 export function referralQueueListFilter(includeActive: boolean): string {
   if (includeActive) {
-    return "intake_status.in.(new_referral,pending_authorization),and(intake_status.eq.active,referred_at.not.is.null)";
+    return [
+      "intake_status.in.(new_referral,pending_authorization)",
+      "and(intake_status.eq.active,referred_at.not.is.null)",
+      "and(intake_status.eq.active,referred_at.is.null,authorization_number.not.is.null)",
+      "and(intake_status.eq.active,referred_at.is.null,prior_client_id.not.is.null)",
+    ].join(",");
   }
   return "intake_status.in.(new_referral,pending_authorization)";
+}
+
+const REFERRAL_QUEUE_CLIENT_SELECT =
+  "id, full_name, contact_email, intake_status, referral_state, referred_at, intake_status_changed_at, current_service_id, current_stage_id, office_id, counselor_id, authorization_number, date_of_birth, primary_phone, gender, ethnicity, disability_history, created_at, prior_client_id";
+
+const REFERRAL_QUEUE_CLIENT_SELECT_NO_PRIOR = REFERRAL_QUEUE_CLIENT_SELECT.replace(
+  ", prior_client_id",
+  ""
+);
+
+export function referralQueueClientSelectColumns(): string {
+  return REFERRAL_QUEUE_CLIENT_SELECT;
+}
+
+export function isReferralQueueSearchUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value.trim()
+  );
+}
+
+export function referralQueueRowMembership(
+  row: {
+    intake_status?: string | null;
+    referred_at?: string | null;
+    authorization_number?: string | null;
+    prior_client_id?: string | null;
+    id?: string;
+  },
+  options: {
+    includeActive: boolean;
+    allowActiveWithoutReferredAt?: boolean;
+    assignedClientIds?: Set<string>;
+  }
+): boolean {
+  const clientId = (row.id ?? "").trim();
+  return clientBelongsInReferralQueue(row.intake_status, row.referred_at, {
+    includeActive: options.includeActive,
+    allowActiveWithoutReferredAt: options.allowActiveWithoutReferredAt,
+    authorizationNumber: row.authorization_number,
+    priorClientId: row.prior_client_id,
+    hasEsAssignment: clientId ? options.assignedClientIds?.has(clientId) : false,
+  });
+}
+
+/** Active pipeline clients assigned to ES/TS but missing referred_at (post-activation edge cases). */
+export async function loadReferralQueueEsAssignedExtras(
+  admin: SupabaseClient,
+  existingIds: Set<string>,
+  includeActive: boolean
+): Promise<Array<Record<string, unknown>>> {
+  if (!includeActive) return [];
+
+  const { data: links } = await admin.from("es_client_assignments").select("client_id");
+  const candidateIds = [
+    ...new Set(
+      (links ?? [])
+        .map((l) => l.client_id as string)
+        .filter((id) => id && !existingIds.has(id))
+    ),
+  ].slice(0, 300);
+  if (candidateIds.length === 0) return [];
+
+  let { data: rows, error } = await admin
+    .from("clients")
+    .select(REFERRAL_QUEUE_CLIENT_SELECT)
+    .in("id", candidateIds);
+  if (error?.message.includes("prior_client_id")) {
+    const fallback = await admin
+      .from("clients")
+      .select(REFERRAL_QUEUE_CLIENT_SELECT_NO_PRIOR)
+      .in("id", candidateIds);
+    rows = fallback.data as typeof rows;
+    error = fallback.error;
+  }
+  if (error || !rows?.length) return [];
+
+  const assigned = new Set(candidateIds);
+  return rows.filter((row) =>
+    referralQueueRowMembership(row, {
+      includeActive: true,
+      assignedClientIds: assigned,
+    })
+  ) as Array<Record<string, unknown>>;
 }
 
 export function canAccessHospitalityIntake(role: string | null | undefined): boolean {
