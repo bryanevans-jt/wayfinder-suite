@@ -264,12 +264,22 @@ export function ReferralQueueWorkspace() {
   const filteredClients = useMemo(() => {
     const cutoff = timeCutoff(timeFilter);
     const q = clientQuery.trim().toLowerCase();
+    const serverSearchActive = searchForApi.length >= 2;
     const copy = clients.filter((c) => {
-      if (q) {
+      if (q && !serverSearchActive) {
+        const id = c.id.toLowerCase();
         const name = (c.full_name ?? "").toLowerCase();
         const email = (c.contact_email ?? "").toLowerCase();
         const auth = (c.authorization_number ?? "").toLowerCase();
-        if (!name.includes(q) && !email.includes(q) && !auth.includes(q)) return false;
+        if (
+          id !== q &&
+          !id.includes(q) &&
+          !name.includes(q) &&
+          !email.includes(q) &&
+          !auth.includes(q)
+        ) {
+          return false;
+        }
       }
       if (counselorId) {
         if (counselorId.startsWith("name:")) {
@@ -289,7 +299,16 @@ export function ReferralQueueWorkspace() {
     });
     copy.sort((a, b) => referredMs(a) - referredMs(b));
     return copy;
-  }, [clients, clientQuery, counselorId, stateFilter, serviceFilter, stageFilter, timeFilter]);
+  }, [
+    clients,
+    clientQuery,
+    searchForApi,
+    counselorId,
+    stateFilter,
+    serviceFilter,
+    stageFilter,
+    timeFilter,
+  ]);
 
   const hasFilters =
     Boolean(clientQuery.trim() || counselorId || stateFilter || serviceFilter || stageFilter) ||
@@ -540,9 +559,12 @@ export function ReferralQueueWorkspace() {
           </label>
         </div>
         <p className="mt-3 text-xs text-brand-black/55">
-          Showing oldest referrals first
+          Newest referrals first
           {!loading ? ` · ${filteredClients.length} of ${clients.length}` : ""}
           {hasFilters ? " (filtered)" : ""}
+          {clientQuery.trim() && searchForApi.length >= 2 && timeFilter !== "all"
+            ? " · Set Time to All Time if a search result is missing"
+            : ""}
         </p>
       </div>
 

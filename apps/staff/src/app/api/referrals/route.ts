@@ -15,6 +15,7 @@ import {
   updateReferralClientInfo,
   isReferralQueueSearchUuid,
   loadReferralQueueEsAssignedExtras,
+  normalizedClientIntakeStatus,
   referralQueueClientSelectColumns,
   referralQueueListFilter,
   referralQueueRowMembership,
@@ -38,7 +39,13 @@ export async function GET(request: Request) {
     searchParams.get("includeActive") === "1" ||
     searchParams.get("includeAssigned") === "1";
   const status = searchParams.get("status");
+  const clientIdParam = (searchParams.get("clientId") ?? "").trim();
   const searchQuery = (searchParams.get("q") ?? "").trim().replace(/[%_,]/g, "");
+  const searchActive =
+    searchQuery.length >= 2 ||
+    isReferralQueueSearchUuid(searchQuery) ||
+    isReferralQueueSearchUuid(clientIdParam);
+  const includeActiveEffective = includeActive || searchActive;
 
   const admin = createServiceRoleClient();
   const directReferralAssignEnabled = await loadDirectReferralAssignEnabled(admin);
@@ -58,59 +65,91 @@ export async function GET(request: Request) {
       query = query.not("referred_at", "is", null);
     }
   } else {
-    query = query.or(referralQueueListFilter(includeActive));
+    query = query.or(referralQueueListFilter(includeActiveEffective));
   }
 
   let { data: rowsData, error } = await query.limit(500);
   let rows: ClientListRow[] | null = (rowsData ?? null) as ClientListRow[] | null;
 
-  async function filterSearchRows(searchRows: Array<Record<string, unknown>> | null): Promise<ClientListRow[]> {
+  async function filterSearchRows(
+    searchRows: Array<Record<string, unknown>> | null,
+    options: { byExplicitId?: boolean } = {}
+  ): Promise<ClientListRow[]> {
     const ids = (searchRows ?? []).map((r) => r.id as string).filter(Boolean);
     const { data: esLinks } = ids.length
       ? await admin.from("es_client_assignments").select("client_id").in("client_id", ids)
       : { data: [] as { client_id: string }[] };
     const assignedClientIds = new Set((esLinks ?? []).map((l) => l.client_id as string));
     return (searchRows ?? []).filter((row) => {
+      if (options.byExplicitId) {
+        return normalizedClientIntakeStatus(row.intake_status as string | null) !== "discarded";
+      }
       if (status && ["new_referral", "pending_authorization", "active"].includes(status)) {
         return (row.intake_status as string) === status;
       }
       return referralQueueRowMembership(row, {
-        includeActive,
+        includeActive: includeActiveEffective,
         allowActiveWithoutReferredAt: true,
         assignedClientIds,
       });
     });
   }
 
-  if (!error && isReferralQueueSearchUuid(searchQuery)) {
+  async function searchClientsByText(query: string): Promise<ClientListRow[]> {
+    const pattern = `%${query}%`;
+    const [byName, byEmail, byAuth] = await Promise.all([
+      admin.from("clients").select(clientSelect).ilike("full_name", pattern).limit(80),
+      admin.from("clients").select(clientSelect).ilike("contact_email", pattern).limit(80),
+      admin
+        .from("clients")
+        .select(clientSelect)
+        .ilike("authorization_number", pattern)
+        .limit(80),
+    ]);
+    const firstErr = byName.error ?? byEmail.error ?? byAuth.error;
+    if (firstErr) {
+      throw firstErr;
+    }
+    const merged = new Map<string, ClientListRow>();
+    const nameRows = (byName.data ?? []) as unknown as ClientListRow[];
+    const emailRows = (byEmail.data ?? []) as unknown as ClientListRow[];
+    const authRows = (byAuth.data ?? []) as unknown as ClientListRow[];
+    for (const row of [...nameRows, ...emailRows, ...authRows]) {
+      merged.set(row.id as string, row);
+    }
+    return [...merged.values()];
+  }
+
+  const explicitId =
+    (isReferralQueueSearchUuid(clientIdParam) ? clientIdParam : "") ||
+    (isReferralQueueSearchUuid(searchQuery) ? searchQuery : "");
+
+  if (!error && explicitId) {
     const { data: byId, error: byIdErr } = await admin
       .from("clients")
       .select(clientSelect)
-      .eq("id", searchQuery)
+      .eq("id", explicitId)
       .maybeSingle();
     if (byIdErr) {
       error = byIdErr;
     } else if (byId) {
-      rows = await filterSearchRows([byId as unknown as Record<string, unknown>]);
+      rows = await filterSearchRows([byId as unknown as Record<string, unknown>], {
+        byExplicitId: true,
+      });
     } else {
       rows = [];
     }
   } else if (!error && searchQuery.length >= 2) {
-    const pattern = `%${searchQuery}%`;
-    const { data: searchRows, error: searchErr } = await admin
-      .from("clients")
-      .select(clientSelect)
-      .or(
-        `full_name.ilike.${pattern},contact_email.ilike.${pattern},authorization_number.ilike.${pattern}`
-      )
-      .order("referred_at", { ascending: false, nullsFirst: false })
-      .limit(100);
-    if (searchErr) {
-      error = searchErr;
-    } else {
-      rows = await filterSearchRows((searchRows ?? []) as unknown as Array<Record<string, unknown>>);
+    try {
+      const searchRows = await searchClientsByText(searchQuery);
+      rows = await filterSearchRows(searchRows as Array<Record<string, unknown>>);
+    } catch (searchErr) {
+      return NextResponse.json(
+        { error: searchErr instanceof Error ? searchErr.message : "Referral search failed" },
+        { status: 500 }
+      );
     }
-    if (includeActive && searchQuery.length >= 2 && !(rows?.length)) {
+    if (includeActiveEffective && searchQuery.length >= 2 && !(rows?.length)) {
       const extras = await loadReferralQueueEsAssignedExtras(admin, new Set(), true);
       const needle = searchQuery.toLowerCase();
       const matched = extras.filter((row) => {
@@ -136,40 +175,34 @@ export async function GET(request: Request) {
         retriedQuery = retriedQuery.not("referred_at", "is", null);
       }
     } else {
-      retriedQuery = retriedQuery.or(referralQueueListFilter(includeActive));
+      retriedQuery = retriedQuery.or(referralQueueListFilter(includeActiveEffective));
     }
     const retried = await retriedQuery.limit(500);
     rows = (retried.data ?? []) as ClientListRow[];
     error = retried.error;
-    if (!error && isReferralQueueSearchUuid(searchQuery)) {
+    if (!error && explicitId) {
       const { data: byId, error: byIdErr } = await admin
         .from("clients")
         .select(
           "id, full_name, contact_email, intake_status, referral_state, referred_at, intake_status_changed_at, current_service_id, current_stage_id, office_id, counselor_id, authorization_number, date_of_birth, primary_phone, gender, ethnicity, disability_history, created_at"
         )
-        .eq("id", searchQuery)
+        .eq("id", explicitId)
         .maybeSingle();
       if (byIdErr) error = byIdErr;
       else
         rows = await filterSearchRows(
-          byId ? [byId as unknown as Record<string, unknown>] : []
+          byId ? [byId as unknown as Record<string, unknown>] : [],
+          { byExplicitId: true }
         );
     } else if (!error && searchQuery.length >= 2) {
-      const pattern = `%${searchQuery}%`;
-      const { data: searchRows, error: searchErr } = await admin
-        .from("clients")
-        .select(
-          "id, full_name, contact_email, intake_status, referral_state, referred_at, intake_status_changed_at, current_service_id, current_stage_id, office_id, counselor_id, authorization_number, date_of_birth, primary_phone, gender, ethnicity, disability_history, created_at"
-        )
-        .or(
-          `full_name.ilike.${pattern},contact_email.ilike.${pattern},authorization_number.ilike.${pattern}`
-        )
-        .order("referred_at", { ascending: false, nullsFirst: false })
-        .limit(100);
-      if (searchErr) {
-        error = searchErr;
-      } else {
-        rows = await filterSearchRows((searchRows ?? []) as unknown as Array<Record<string, unknown>>);
+      try {
+        const searchRows = await searchClientsByText(searchQuery);
+        rows = await filterSearchRows(searchRows as Array<Record<string, unknown>>);
+      } catch (searchErr) {
+        return NextResponse.json(
+          { error: searchErr instanceof Error ? searchErr.message : "Referral search failed" },
+          { status: 500 }
+        );
       }
     }
   }
@@ -178,11 +211,11 @@ export async function GET(request: Request) {
   }
 
   let list = rows ?? [];
-  if (includeActive && !searchQuery) {
+  if (includeActiveEffective && !searchQuery && !explicitId) {
     const extras = await loadReferralQueueEsAssignedExtras(
       admin,
       new Set(list.map((r) => r.id as string)),
-      includeActive
+      includeActiveEffective
     );
     if (extras.length) {
       list = [...list, ...extras];
