@@ -679,10 +679,19 @@ export async function touchClientActivity(admin: SupabaseClient, clientId: strin
   await admin.from("clients").update({ last_activity_at: new Date().toISOString() }).eq("id", clientId);
 }
 
-/** Exclude pre-active intake from ES/supervisor/client-facing lists. Counselors still see their assigned. */
+/**
+ * Show on an assigned ES/TS caseload. Includes referral-queue rows assigned before activation
+ * (direct assign flow). Counselors use a separate portal.
+ */
 export function intakeVisibleToFieldStaff(intakeStatus: string | null | undefined): boolean {
-  const s = (intakeStatus ?? "active").toLowerCase();
-  return s === "active";
+  const s = (intakeStatus ?? "active").trim().toLowerCase();
+  if (s === "discarded") return false;
+  return (
+    s === "active" ||
+    s === "new_referral" ||
+    s === "pending_authorization" ||
+    s === ""
+  );
 }
 
 export async function isPhase1IntakeStage(

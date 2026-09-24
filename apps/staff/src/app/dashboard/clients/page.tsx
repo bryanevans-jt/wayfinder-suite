@@ -12,6 +12,7 @@ import {
   serviceDisplayName,
 } from "@wayfinder/branding";
 import { sortClientsByTriage, STALE_APPLICATION_DAYS } from "@wayfinder/supabase/caseload-triage";
+import { intakeStatusLabel } from "@wayfinder/supabase/referral-labels";
 import { USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -341,9 +342,14 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
             serviceLabel: c.current_service_id
               ? (serviceName.get(c.current_service_id) ?? "—")
               : "—",
-            stageLabel: c.current_stage_id
-              ? (stageTitle.get(c.current_stage_id) ?? "—")
-              : "—",
+            stageLabel: (() => {
+              const stage = c.current_stage_id
+                ? (stageTitle.get(c.current_stage_id) ?? "—")
+                : "—";
+              const intake = (c.intake_status ?? "active").trim().toLowerCase();
+              if (intake === "active" || intake === "") return stage;
+              return `${stage} · ${intakeStatusLabel(c.intake_status)}`;
+            })(),
             overdue: Boolean(overdueByClient.get(c.id)),
             archived: isArchivedClient(c.archived_at),
             pendingArchive: isPendingArchive(c.archived_at),

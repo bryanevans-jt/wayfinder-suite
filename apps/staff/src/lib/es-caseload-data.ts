@@ -4,6 +4,7 @@ import {
   retiredMarketContextFromOffices,
 } from "@wayfinder/supabase/retired-market";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { intakeVisibleToFieldStaff } from "@wayfinder/supabase/referral-intake";
 
 export type EsCaseloadClientRow = {
   id: string;
@@ -133,8 +134,7 @@ export async function fetchEsCaseloadClients(
       : rows.filter(
           (c) =>
             !isRemovedFromEsCaseload(c.archived_at) &&
-            ((c as EsCaseloadClientRow).intake_status == null ||
-              (c as EsCaseloadClientRow).intake_status === "active")
+            intakeVisibleToFieldStaff((c as EsCaseloadClientRow).intake_status)
         );
     clients = await dropRetiredMarketClients(admin, clients);
     return { clients, error: null };
@@ -150,7 +150,7 @@ export async function fetchEsCaseloadClients(
     : rows.filter(
         (c) =>
           !isRemovedFromEsCaseload(c.archived_at) &&
-          (c.intake_status == null || c.intake_status === "active")
+          intakeVisibleToFieldStaff(c.intake_status)
       );
 
   clients = await dropRetiredMarketClients(admin, clients);
