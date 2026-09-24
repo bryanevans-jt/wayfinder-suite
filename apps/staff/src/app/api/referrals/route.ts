@@ -82,6 +82,7 @@ export async function GET(request: Request) {
     const assignedClientIds = new Set((esLinks ?? []).map((l) => l.client_id as string));
     return (searchRows ?? []).filter((row) => {
       if (options.byExplicitId) {
+        if ((row.archived_at as string | null | undefined)?.trim()) return false;
         return normalizedClientIntakeStatus(row.intake_status as string | null) !== "discarded";
       }
       if (status && ["new_referral", "pending_authorization", "active"].includes(status)) {
@@ -211,14 +212,18 @@ export async function GET(request: Request) {
   }
 
   let list = rows ?? [];
-  if (includeActiveEffective && !searchQuery && !explicitId) {
+  if (includeActiveEffective && !explicitId) {
     const extras = await loadReferralQueueEsAssignedExtras(
       admin,
       new Set(list.map((r) => r.id as string)),
       includeActiveEffective
     );
     if (extras.length) {
-      list = [...list, ...extras];
+      const byId = new Map(list.map((row) => [row.id as string, row]));
+      for (const extra of extras) {
+        byId.set(extra.id as string, extra as (typeof list)[number]);
+      }
+      list = [...byId.values()];
     }
   }
   const clientIds = list.map((r) => r.id as string);

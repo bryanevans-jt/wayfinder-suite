@@ -228,5 +228,8 @@ export async function assignReferralFieldSpecialist(
     metadata: { supervisorUserId: supervisorId },
   });
 
+  const { healReferralPipelineMarkersForClient } = await import("./referral-intake");
+  await healReferralPipelineMarkersForClient(admin, opts.clientId).catch(() => undefined);
+
   return { ok: true };
 }

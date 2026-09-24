@@ -45,6 +45,27 @@ describe("clientBelongsInReferralQueue", () => {
     );
   });
 
+  it("includes ES-assigned clients even without referral timestamps when includeActive", () => {
+    assert.equal(
+      clientBelongsInReferralQueue("active", null, {
+        includeActive: true,
+        hasEsAssignment: true,
+        authorizationNumber: null,
+      }),
+      true
+    );
+  });
+
+  it("excludes archived clients", () => {
+    assert.equal(
+      clientBelongsInReferralQueue("new_referral", null, {
+        includeActive: false,
+        archivedAt: "2026-01-01T00:00:00.000Z",
+      }),
+      false
+    );
+  });
+
   it("includes activated referrals with referred_at when includeActive", () => {
     assert.equal(
       clientBelongsInReferralQueue("active", "2026-09-24T12:00:00.000Z", { includeActive: true }),

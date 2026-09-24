@@ -169,6 +169,10 @@ export async function POST(request: NextRequest) {
         .select("id")
         .single();
       if (error) throw new Error(error.message);
+      const { healReferralPipelineMarkersForClient } = await import(
+        "@wayfinder/supabase/referral-intake"
+      );
+      await healReferralPipelineMarkersForClient(admin, body.client_id).catch(() => undefined);
       return Response.json({ id: data?.id });
     }
 

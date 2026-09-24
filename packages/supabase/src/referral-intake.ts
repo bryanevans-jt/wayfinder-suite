@@ -182,6 +182,7 @@ export type ReferralQueueMembershipHints = {
   authorizationNumber?: string | null;
   priorClientId?: string | null;
   hasEsAssignment?: boolean;
+  archivedAt?: string | null;
 };
 
 /** Referral Queue rows (excludes legacy roster clients that are active but never referred). */
@@ -193,8 +194,12 @@ export function clientBelongsInReferralQueue(
     allowActiveWithoutReferredAt?: boolean;
   } & ReferralQueueMembershipHints
 ): boolean {
+  if ((options.archivedAt ?? "").trim()) return false;
   const s = normalizedClientIntakeStatus(intakeStatus);
   if (s === "discarded") return false;
+  if (options.includeActive && options.hasEsAssignment) {
+    return true;
+  }
   if (s === "new_referral" || s === "pending_authorization") return true;
   if (options.includeActive && s === "active") {
     if ((referredAt ?? "").trim()) return true;
@@ -221,7 +226,7 @@ export function referralQueueListFilter(includeActive: boolean): string {
 }
 
 const REFERRAL_QUEUE_CLIENT_SELECT =
-  "id, full_name, contact_email, intake_status, referral_state, referred_at, intake_status_changed_at, current_service_id, current_stage_id, office_id, counselor_id, authorization_number, date_of_birth, primary_phone, gender, ethnicity, disability_history, created_at, prior_client_id";
+  "id, full_name, contact_email, intake_status, referral_state, referred_at, intake_status_changed_at, current_service_id, current_stage_id, office_id, counselor_id, authorization_number, date_of_birth, primary_phone, gender, ethnicity, disability_history, created_at, prior_client_id, archived_at";
 
 const REFERRAL_QUEUE_CLIENT_SELECT_NO_PRIOR = REFERRAL_QUEUE_CLIENT_SELECT.replace(
   ", prior_client_id",
@@ -244,6 +249,7 @@ export function referralQueueRowMembership(
     referred_at?: string | null;
     authorization_number?: string | null;
     prior_client_id?: string | null;
+    archived_at?: string | null;
     id?: string;
   },
   options: {
@@ -258,8 +264,41 @@ export function referralQueueRowMembership(
     allowActiveWithoutReferredAt: options.allowActiveWithoutReferredAt,
     authorizationNumber: row.authorization_number,
     priorClientId: row.prior_client_id,
+    archivedAt: row.archived_at,
     hasEsAssignment: clientId ? options.assignedClientIds?.has(clientId) : false,
   });
+}
+
+/** Assigned ES/TS clients created outside the referral form often lack referred_at. */
+export async function healReferralPipelineMarkersForClient(
+  admin: SupabaseClient,
+  clientId: string
+): Promise<void> {
+  const id = clientId.trim();
+  if (!id) return;
+
+  const { data: row } = await admin
+    .from("clients")
+    .select("intake_status, referred_at, intake_status_changed_at, created_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (!row) return;
+
+  const status = normalizedClientIntakeStatus(row.intake_status as string | null);
+  if (status === "discarded") return;
+
+  const patch: Record<string, string> = {};
+  const nowIso = new Date().toISOString();
+  if (!(row.referred_at as string | null)?.trim()) {
+    patch.referred_at =
+      (row.intake_status_changed_at as string | null)?.trim() ||
+      (row.created_at as string | null)?.trim() ||
+      nowIso;
+  }
+  if (Object.keys(patch).length === 0) return;
+
+  patch.last_activity_at = nowIso;
+  await admin.from("clients").update(patch).eq("id", id);
 }
 
 /** Active pipeline clients assigned to ES/TS but missing referred_at (post-activation edge cases). */
@@ -277,30 +316,45 @@ export async function loadReferralQueueEsAssignedExtras(
         .map((l) => l.client_id as string)
         .filter((id) => id && !existingIds.has(id))
     ),
-  ].slice(0, 300);
+  ];
   if (candidateIds.length === 0) return [];
 
   let { data: rows, error } = await admin
     .from("clients")
     .select(REFERRAL_QUEUE_CLIENT_SELECT)
     .in("id", candidateIds);
-  if (error?.message.includes("prior_client_id")) {
-    const fallback = await admin
-      .from("clients")
-      .select(REFERRAL_QUEUE_CLIENT_SELECT_NO_PRIOR)
-      .in("id", candidateIds);
+  if (
+    error?.message.includes("prior_client_id") ||
+    error?.message.includes("archived_at")
+  ) {
+    let selectCols = REFERRAL_QUEUE_CLIENT_SELECT;
+    if (error.message.includes("prior_client_id")) {
+      selectCols = selectCols.replace(", prior_client_id", "");
+    }
+    if (error.message.includes("archived_at")) {
+      selectCols = selectCols.replace(", archived_at", "");
+    }
+    const fallback = await admin.from("clients").select(selectCols).in("id", candidateIds);
     rows = fallback.data as typeof rows;
     error = fallback.error;
   }
   if (error || !rows?.length) return [];
 
   const assigned = new Set(candidateIds);
-  return rows.filter((row) =>
+  const matched = rows.filter((row) =>
     referralQueueRowMembership(row, {
       includeActive: true,
       assignedClientIds: assigned,
     })
   ) as Array<Record<string, unknown>>;
+
+  await Promise.all(
+    matched
+      .filter((row) => !(row.referred_at as string | null | undefined)?.trim())
+      .map((row) => healReferralPipelineMarkersForClient(admin, row.id as string))
+  );
+
+  return matched;
 }
 
 export function canAccessHospitalityIntake(role: string | null | undefined): boolean {
