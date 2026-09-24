@@ -1568,6 +1568,89 @@ export async function setReferralPendingAuthorization(
   return { ok: true };
 }
 
+async function inferReferralStatusBeforeDiscard(
+  admin: SupabaseClient,
+  clientId: string
+): Promise<Exclude<IntakeStatus, "discarded">> {
+  const { data: client } = await admin
+    .from("clients")
+    .select("authorization_number, current_stage_id")
+    .eq("id", clientId)
+    .maybeSingle();
+
+  const { data: events } = await admin
+    .from("client_intake_events")
+    .select("event_type, from_value, to_value")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false })
+    .limit(30);
+
+  for (const event of events ?? []) {
+    if (event.event_type === "discarded") {
+      const from = normalizedClientIntakeStatus(event.from_value as string | null);
+      if (from === "new_referral" || from === "pending_authorization" || from === "active") {
+        return from;
+      }
+      continue;
+    }
+    const to = normalizedClientIntakeStatus(event.to_value as string | null);
+    if (to === "new_referral" || to === "pending_authorization" || to === "active") {
+      return to;
+    }
+  }
+
+  if (client?.current_stage_id) return "active";
+  if ((client?.authorization_number as string | null)?.trim()) return "pending_authorization";
+  return "new_referral";
+}
+
+/** Undo Referral Queue discard (HR / Admin / Super Admin). */
+export async function restoreReferralFromDiscarded(
+  admin: SupabaseClient,
+  opts: {
+    clientId: string;
+    actorUserId: string;
+    targetStatus?: Exclude<IntakeStatus, "discarded">;
+  }
+): Promise<{ ok: true; intakeStatus: Exclude<IntakeStatus, "discarded"> } | { error: string }> {
+  const { data: client } = await admin
+    .from("clients")
+    .select("intake_status, archived_at")
+    .eq("id", opts.clientId)
+    .maybeSingle();
+  if (!client) return { error: "Client not found" };
+  if ((client.archived_at as string | null)?.trim()) {
+    return { error: "Archived clients cannot be restored from the referral queue." };
+  }
+  if (normalizedClientIntakeStatus(client.intake_status as string | null) !== "discarded") {
+    return { error: "This referral is not discarded." };
+  }
+
+  const target = opts.targetStatus ?? (await inferReferralStatusBeforeDiscard(admin, opts.clientId));
+  const nowIso = new Date().toISOString();
+  const { error } = await admin
+    .from("clients")
+    .update({
+      intake_status: target,
+      intake_status_changed_at: nowIso,
+      last_activity_at: nowIso,
+    })
+    .eq("id", opts.clientId);
+  if (error) return { error: error.message };
+
+  await healReferralPipelineMarkersForClient(admin, opts.clientId).catch(() => undefined);
+
+  await admin.from("client_intake_events").insert({
+    client_id: opts.clientId,
+    actor_user_id: opts.actorUserId,
+    event_type: "referral_restored",
+    from_value: "discarded",
+    to_value: target,
+  });
+
+  return { ok: true, intakeStatus: target };
+}
+
 export type ReferralClientInfoUpdate = {
   fullName?: string | null;
   dateOfBirth?: string | null;

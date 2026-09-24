@@ -69,6 +69,10 @@ export function ReferralDetailQueueActions({
     if (ok) setSaved(true);
   }
 
+  if (intakeStatus === "discarded") {
+    return null;
+  }
+
   if (!queueOpen) {
     return (
       <p className="text-sm text-brand-black/65">

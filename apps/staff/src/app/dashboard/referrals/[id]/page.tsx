@@ -11,6 +11,7 @@ import { staffHomePath } from "@wayfinder/supabase/roles";
 import { loadReferralExportRows } from "@/lib/referral-export-data";
 import { ReferralDetailActions } from "@/components/referral-detail-actions";
 import { ReferralDetailAssignPanel } from "@/components/referral-detail-assign-panel";
+import { ReferralDiscardedRestorePanel } from "@/components/referral-discarded-restore-panel";
 import { ReferralDetailQueueActions } from "@/components/referral-detail-queue-actions";
 import { ReferralInfoEditForm } from "@/components/referral-info-edit-form";
 
@@ -56,6 +57,10 @@ export default async function ReferralDetailPage({ params }: PageProps) {
       <div className="mt-4">
         <ReferralDetailActions clientId={row.id} />
       </div>
+
+      {row.intake_status === "discarded" ? (
+        <ReferralDiscardedRestorePanel clientId={row.id} />
+      ) : null}
 
       {showAssignPanel ? (
         <ReferralDetailAssignPanel

@@ -12,6 +12,7 @@ import {
   linkReferralPriorEnrollment,
   priorEnrollmentOutcomeLabel,
   setReferralPendingAuthorization,
+  restoreReferralFromDiscarded,
   updateReferralClientInfo,
   isReferralQueueSearchUuid,
   loadReferralQueueEsAssignedExtras,
@@ -426,7 +427,8 @@ export async function PATCH(request: Request) {
       | "discard"
       | "update_info"
       | "link_prior"
-      | "assign_field_specialist";
+      | "assign_field_specialist"
+      | "restore";
     authorizationNumber?: string;
     overrideReason?: string;
     stageId?: string;
@@ -521,6 +523,11 @@ export async function PATCH(request: Request) {
   }
 
   if (body.action === "discard") {
+    const { data: before } = await admin
+      .from("clients")
+      .select("intake_status")
+      .eq("id", body.clientId)
+      .maybeSingle();
     const nowIso = new Date().toISOString();
     const { error } = await admin
       .from("clients")
@@ -537,9 +544,24 @@ export async function PATCH(request: Request) {
       client_id: body.clientId,
       actor_user_id: actor,
       event_type: "discarded",
+      from_value: (before?.intake_status as string | null) ?? null,
       to_value: "discarded",
     });
     return NextResponse.json({ ok: true });
+  }
+
+  if (body.action === "restore") {
+    if (!canQueue) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const result = await restoreReferralFromDiscarded(admin, {
+      clientId: body.clientId,
+      actorUserId: actor,
+    });
+    if ("error" in result) {
+      return NextResponse.json({ error: result.error }, { status: 400 });
+    }
+    return NextResponse.json({ ok: true, intakeStatus: result.intakeStatus });
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });
