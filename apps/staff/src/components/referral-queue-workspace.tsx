@@ -7,6 +7,7 @@ import { ManualReferralModal } from "@/components/manual-referral-modal";
 import { ReferralFieldSpecialistSelect } from "@/components/referral-field-specialist-select";
 import { BeginNewServiceModal } from "@/components/begin-new-service-modal";
 import { ReferralReturningClientPanel } from "@/components/referral-returning-client-panel";
+import { confirmDiscardReferral } from "@/lib/referral-discard-prompt";
 
 type ReferralRow = {
   id: string;
@@ -765,17 +766,23 @@ export function ReferralQueueWorkspace() {
                 >
                   Activate First Stage
                 </button>
+              </div>
+
+              <div className="mt-6 border-t border-neutral-200 pt-4">
+                <p className="mb-2 text-xs text-brand-black/55">
+                  Discarding hides this referral from the queue until restored.
+                </p>
                 <button
                   type="button"
                   disabled={busyId === c.id}
                   onClick={() => {
-                    if (confirm("Discard this referral client?")) {
+                    if (confirmDiscardReferral()) {
                       void runAction(c.id, "discard");
                     }
                   }}
                   className="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-800 hover:bg-red-50 disabled:opacity-50"
                 >
-                  Discard
+                  Discard referral
                 </button>
               </div>
             </li>

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ReferralFieldSpecialistSelect } from "@/components/referral-field-specialist-select";
+import { confirmDiscardReferral } from "@/lib/referral-discard-prompt";
 
 type Props = {
   clientId: string;
@@ -168,17 +169,23 @@ export function ReferralDetailQueueActions({
         >
           Activate First Stage
         </button>
+      </div>
+
+      <div className="mt-6 border-t border-neutral-200 pt-4">
+        <p className="mb-2 text-xs text-brand-black/55">
+          Discarding hides this referral from the queue until restored.
+        </p>
         <button
           type="button"
           disabled={busy}
           onClick={() => {
-            if (confirm("Discard this referral client?")) {
+            if (confirmDiscardReferral()) {
               void patch({ action: "discard" });
             }
           }}
           className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-sm font-medium text-red-800 hover:bg-red-50 disabled:opacity-50"
         >
-          Discard
+          Discard referral
         </button>
       </div>
     </section>
