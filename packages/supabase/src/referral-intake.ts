@@ -172,6 +172,29 @@ export function canAssignReferralFieldSpecialist(role: string | null | undefined
   return isAdminRole(role) || isSuperAdminRole(role) || isAdminTierRole(role);
 }
 
+/** Referral Queue rows (excludes legacy roster clients that are active but never referred). */
+export function clientBelongsInReferralQueue(
+  intakeStatus: string | null | undefined,
+  referredAt: string | null | undefined,
+  options: { includeActive: boolean }
+): boolean {
+  const s = (intakeStatus ?? "").trim().toLowerCase();
+  if (s === "discarded") return false;
+  if (s === "new_referral" || s === "pending_authorization") return true;
+  if (options.includeActive && s === "active") {
+    return Boolean((referredAt ?? "").trim());
+  }
+  return false;
+}
+
+/** PostgREST filter for referral queue list queries. */
+export function referralQueueListFilter(includeActive: boolean): string {
+  if (includeActive) {
+    return "intake_status.in.(new_referral,pending_authorization),and(intake_status.eq.active,referred_at.not.is.null)";
+  }
+  return "intake_status.in.(new_referral,pending_authorization)";
+}
+
 export function canAccessHospitalityIntake(role: string | null | undefined): boolean {
   return isHospitalitySpecialistRole(role) || canManageReferrals(role);
 }

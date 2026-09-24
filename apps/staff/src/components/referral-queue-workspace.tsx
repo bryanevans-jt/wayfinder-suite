@@ -180,11 +180,24 @@ export function ReferralQueueWorkspace() {
   const [assigneeById, setAssigneeById] = useState<Record<string, string>>({});
   const [beginNewServicePriorId, setBeginNewServicePriorId] = useState<string | null>(null);
 
+  const [searchForApi, setSearchForApi] = useState("");
+
+  useEffect(() => {
+    const trimmed = clientQuery.trim();
+    const handle = window.setTimeout(() => {
+      setSearchForApi(trimmed.length >= 2 ? trimmed : "");
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [clientQuery]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const qs = includeActive ? "?includeActive=1" : "";
+      const params = new URLSearchParams();
+      if (includeActive) params.set("includeActive", "1");
+      if (searchForApi.length >= 2) params.set("q", searchForApi);
+      const qs = params.toString() ? `?${params.toString()}` : "";
       const res = await fetch(`/api/referrals${qs}`);
       const data = (await res.json()) as {
         clients?: ReferralRow[];
@@ -211,7 +224,7 @@ export function ReferralQueueWorkspace() {
     } finally {
       setLoading(false);
     }
-  }, [includeActive]);
+  }, [includeActive, searchForApi]);
 
   useEffect(() => {
     void load();

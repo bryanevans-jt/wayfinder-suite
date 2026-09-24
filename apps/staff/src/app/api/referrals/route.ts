@@ -13,6 +13,7 @@ import {
   priorEnrollmentOutcomeLabel,
   setReferralPendingAuthorization,
   updateReferralClientInfo,
+  referralQueueListFilter,
   type PublicReferralPayload,
   type ReferralState,
 } from "@wayfinder/supabase/referral-intake";
@@ -33,6 +34,7 @@ export async function GET(request: Request) {
     searchParams.get("includeActive") === "1" ||
     searchParams.get("includeAssigned") === "1";
   const status = searchParams.get("status");
+  const searchQuery = (searchParams.get("q") ?? "").trim().replace(/[%_,]/g, "");
 
   const admin = createServiceRoleClient();
   const directReferralAssignEnabled = await loadDirectReferralAssignEnabled(admin);
@@ -43,17 +45,25 @@ export async function GET(request: Request) {
     .select(
       "id, full_name, contact_email, intake_status, referral_state, referred_at, intake_status_changed_at, current_service_id, current_stage_id, office_id, counselor_id, authorization_number, date_of_birth, primary_phone, gender, ethnicity, disability_history, created_at, prior_client_id"
     )
-    .order("referred_at", { ascending: true, nullsFirst: false });
+    .order("referred_at", { ascending: false, nullsFirst: false });
 
   if (status && ["new_referral", "pending_authorization", "active"].includes(status)) {
     query = query.eq("intake_status", status);
-  } else if (includeActive) {
-    query = query.in("intake_status", ["new_referral", "pending_authorization", "active"]);
+    if (status === "active") {
+      query = query.not("referred_at", "is", null);
+    }
   } else {
-    query = query.in("intake_status", ["new_referral", "pending_authorization"]);
+    query = query.or(referralQueueListFilter(includeActive));
   }
 
-  let { data: rows, error } = await query.limit(500);
+  if (searchQuery.length >= 2) {
+    const pattern = `%${searchQuery}%`;
+    query = query.or(
+      `full_name.ilike.${pattern},contact_email.ilike.${pattern},authorization_number.ilike.${pattern}`
+    );
+  }
+
+  let { data: rows, error } = await query.limit(searchQuery.length >= 2 ? 100 : 500);
   if (error?.message.includes("prior_client_id")) {
     const fallback = admin
       .from("clients")
@@ -61,16 +71,22 @@ export async function GET(request: Request) {
         "id, full_name, contact_email, intake_status, referral_state, referred_at, intake_status_changed_at, current_service_id, current_stage_id, office_id, counselor_id, authorization_number, date_of_birth, primary_phone, gender, ethnicity, disability_history, created_at"
       )
       .order("referred_at", { ascending: true, nullsFirst: false });
-    const retried =
-      status && ["new_referral", "pending_authorization", "active"].includes(status)
-        ? await fallback.eq("intake_status", status).limit(500)
-        : includeActive
-          ? await fallback
-              .in("intake_status", ["new_referral", "pending_authorization", "active"])
-              .limit(500)
-          : await fallback
-              .in("intake_status", ["new_referral", "pending_authorization"])
-              .limit(500);
+    let retriedQuery = fallback.order("referred_at", { ascending: false, nullsFirst: false });
+    if (status && ["new_referral", "pending_authorization", "active"].includes(status)) {
+      retriedQuery = retriedQuery.eq("intake_status", status);
+      if (status === "active") {
+        retriedQuery = retriedQuery.not("referred_at", "is", null);
+      }
+    } else {
+      retriedQuery = retriedQuery.or(referralQueueListFilter(includeActive));
+    }
+    if (searchQuery.length >= 2) {
+      const pattern = `%${searchQuery}%`;
+      retriedQuery = retriedQuery.or(
+        `full_name.ilike.${pattern},contact_email.ilike.${pattern},authorization_number.ilike.${pattern}`
+      );
+    }
+    const retried = await retriedQuery.limit(searchQuery.length >= 2 ? 100 : 500);
     rows = (retried.data ?? []) as typeof rows;
     error = retried.error;
   }

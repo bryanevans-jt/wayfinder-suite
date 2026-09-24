@@ -1,6 +1,6 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { getAppSession, assertNotPreviewMutation } from "@wayfinder/supabase/preview-server";
-import { canAssignClientEs } from "@wayfinder/supabase/roles";
+import { canAssignClientEs, isFieldSpecialistRole } from "@wayfinder/supabase/roles";
 import { NextResponse } from "next/server";
 
 /**
@@ -54,9 +54,12 @@ export async function PATCH(request: Request) {
       );
     }
     const role = String(profile.role ?? "").toLowerCase();
-    if (role !== "es" && role !== "supervisor") {
+    if (!isFieldSpecialistRole(role) && role !== "supervisor") {
       return NextResponse.json(
-        { error: "Caseload can only be assigned to an Employment Specialist or supervisor." },
+        {
+          error:
+            "Caseload can only be assigned to an Employment Specialist, Transition Specialist, or supervisor.",
+        },
         { status: 400 }
       );
     }
