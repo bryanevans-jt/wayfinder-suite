@@ -65,11 +65,22 @@ export async function GET(request: Request) {
       query = query.not("referred_at", "is", null);
     }
   } else {
-    query = query.or(referralQueueListFilter(includeActiveEffective));
+    query = query.or(referralQueueListFilter(includeActive));
   }
 
-  let { data: rowsData, error } = await query.limit(500);
-  let rows: ClientListRow[] | null = (rowsData ?? null) as ClientListRow[] | null;
+  const explicitId =
+    (isReferralQueueSearchUuid(clientIdParam) ? clientIdParam : "") ||
+    (isReferralQueueSearchUuid(searchQuery) ? searchQuery : "");
+
+  const isTextSearch = searchQuery.length >= 2 && !explicitId;
+  let rows: ClientListRow[] | null = null;
+  let error = null as { message: string } | null;
+
+  if (!isTextSearch && !explicitId) {
+    const { data: rowsData, error: listErr } = await query.limit(500);
+    rows = (rowsData ?? null) as ClientListRow[] | null;
+    error = listErr;
+  }
 
   async function filterSearchRows(
     searchRows: Array<Record<string, unknown>> | null,
@@ -90,7 +101,6 @@ export async function GET(request: Request) {
       }
       return referralQueueRowMembership(row, {
         includeActive: includeActiveEffective,
-        allowActiveWithoutReferredAt: true,
         assignedClientIds,
       });
     });
@@ -121,11 +131,7 @@ export async function GET(request: Request) {
     return [...merged.values()];
   }
 
-  const explicitId =
-    (isReferralQueueSearchUuid(clientIdParam) ? clientIdParam : "") ||
-    (isReferralQueueSearchUuid(searchQuery) ? searchQuery : "");
-
-  if (!error && explicitId) {
+  if (explicitId) {
     const { data: byId, error: byIdErr } = await admin
       .from("clients")
       .select(clientSelect)
@@ -140,7 +146,7 @@ export async function GET(request: Request) {
     } else {
       rows = [];
     }
-  } else if (!error && searchQuery.length >= 2) {
+  } else if (searchQuery.length >= 2) {
     try {
       const searchRows = await searchClientsByText(searchQuery);
       rows = await filterSearchRows(searchRows as Array<Record<string, unknown>>);
@@ -150,7 +156,7 @@ export async function GET(request: Request) {
         { status: 500 }
       );
     }
-    if (includeActiveEffective && searchQuery.length >= 2 && !(rows?.length)) {
+    if (!(rows?.length)) {
       const extras = await loadReferralQueueEsAssignedExtras(admin, new Set(), true);
       const needle = searchQuery.toLowerCase();
       const matched = extras.filter((row) => {
@@ -176,7 +182,7 @@ export async function GET(request: Request) {
         retriedQuery = retriedQuery.not("referred_at", "is", null);
       }
     } else {
-      retriedQuery = retriedQuery.or(referralQueueListFilter(includeActiveEffective));
+      retriedQuery = retriedQuery.or(referralQueueListFilter(includeActive));
     }
     const retried = await retriedQuery.limit(500);
     rows = (retried.data ?? []) as ClientListRow[];
@@ -212,11 +218,12 @@ export async function GET(request: Request) {
   }
 
   let list = rows ?? [];
-  if (includeActiveEffective && !explicitId) {
+  // Browse with Include Active only — never append every ES-assigned client during search.
+  if (includeActive && !searchQuery && !explicitId) {
     const extras = await loadReferralQueueEsAssignedExtras(
       admin,
       new Set(list.map((r) => r.id as string)),
-      includeActiveEffective
+      true
     );
     if (extras.length) {
       const byId = new Map(list.map((row) => [row.id as string, row]));
