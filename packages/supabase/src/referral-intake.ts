@@ -176,12 +176,13 @@ export function canAssignReferralFieldSpecialist(role: string | null | undefined
 export function clientBelongsInReferralQueue(
   intakeStatus: string | null | undefined,
   referredAt: string | null | undefined,
-  options: { includeActive: boolean }
+  options: { includeActive: boolean; allowActiveWithoutReferredAt?: boolean }
 ): boolean {
   const s = (intakeStatus ?? "").trim().toLowerCase();
   if (s === "discarded") return false;
   if (s === "new_referral" || s === "pending_authorization") return true;
   if (options.includeActive && s === "active") {
+    if (options.allowActiveWithoutReferredAt) return true;
     return Boolean((referredAt ?? "").trim());
   }
   return false;
@@ -746,7 +747,7 @@ export async function activateReferralToFirstStage(
   const { data: client, error } = await admin
     .from("clients")
     .select(
-      "id, full_name, contact_email, intake_status, authorization_number, current_service_id, current_stage_id, office_id, counselor_id"
+      "id, full_name, contact_email, intake_status, authorization_number, current_service_id, current_stage_id, office_id, counselor_id, referred_at"
     )
     .eq("id", opts.clientId)
     .maybeSingle();
@@ -817,6 +818,7 @@ export async function activateReferralToFirstStage(
   }
 
   const nowIso = new Date().toISOString();
+  const referredAt = (client.referred_at as string | null | undefined)?.trim() || nowIso;
   const { error: updErr } = await admin
     .from("clients")
     .update({
@@ -826,6 +828,7 @@ export async function activateReferralToFirstStage(
       current_stage_id: stageId,
       authorization_number: authNumber || client.authorization_number,
       authorization_override_reason: authNumber ? null : override,
+      referred_at: referredAt,
     })
     .eq("id", opts.clientId);
 

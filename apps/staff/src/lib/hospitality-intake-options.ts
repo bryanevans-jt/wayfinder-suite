@@ -30,7 +30,7 @@ export type HospitalityCounselorOption = {
 export type HospitalityEsOption = {
   id: string;
   name: string;
-  role: "es" | "supervisor";
+  role: "es" | "transition_specialist" | "supervisor";
 };
 
 export async function loadHospitalityIntakeOptions(admin: Admin): Promise<{
@@ -56,7 +56,7 @@ export async function loadHospitalityIntakeOptions(admin: Admin): Promise<{
       admin
         .from("profiles")
         .select("id, role")
-        .in("role", ["es", "supervisor"])
+        .in("role", ["es", "transition_specialist", "supervisor"])
         .eq("is_active", true),
     ]);
 
@@ -94,11 +94,22 @@ export async function loadHospitalityIntakeOptions(admin: Admin): Promise<{
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const esUsers: HospitalityEsOption[] = (esRows ?? [])
-    .map((r) => ({
-      id: r.id as string,
-      name: nameById.get(r.id as string) ?? "Employment Specialist",
-      role: (r.role === "supervisor" ? "supervisor" : "es") as "es" | "supervisor",
-    }))
+    .map((r) => {
+      const role = String(r.role ?? "es").toLowerCase();
+      const mappedRole =
+        role === "supervisor"
+          ? ("supervisor" as const)
+          : role === "transition_specialist"
+            ? ("transition_specialist" as const)
+            : ("es" as const);
+      const fallbackName =
+        mappedRole === "transition_specialist" ? "Transition Specialist" : "Employment Specialist";
+      return {
+        id: r.id as string,
+        name: nameById.get(r.id as string) ?? fallbackName,
+        role: mappedRole,
+      };
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
 
   return {

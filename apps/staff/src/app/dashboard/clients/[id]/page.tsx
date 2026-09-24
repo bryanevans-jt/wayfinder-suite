@@ -234,7 +234,13 @@ export default async function EsClientDetailPage({ params }: PageProps) {
       .limit(1),
     canAssignClientEs(role)
       ? loadHospitalityIntakeOptions(admin)
-      : Promise.resolve({ esUsers: [] as { id: string; name: string; role: "es" | "supervisor" }[] }),
+      : Promise.resolve({
+          esUsers: [] as {
+            id: string;
+            name: string;
+            role: "es" | "transition_specialist" | "supervisor";
+          }[],
+        }),
   ]);
 
   const assignedEsUserId =

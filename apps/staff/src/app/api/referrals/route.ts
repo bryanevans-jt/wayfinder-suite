@@ -13,6 +13,7 @@ import {
   priorEnrollmentOutcomeLabel,
   setReferralPendingAuthorization,
   updateReferralClientInfo,
+  clientBelongsInReferralQueue,
   referralQueueListFilter,
   type PublicReferralPayload,
   type ReferralState,
@@ -56,14 +57,35 @@ export async function GET(request: Request) {
     query = query.or(referralQueueListFilter(includeActive));
   }
 
-  if (searchQuery.length >= 2) {
-    const pattern = `%${searchQuery}%`;
-    query = query.or(
-      `full_name.ilike.${pattern},contact_email.ilike.${pattern},authorization_number.ilike.${pattern}`
-    );
-  }
+  let { data: rows, error } = await query.limit(500);
 
-  let { data: rows, error } = await query.limit(searchQuery.length >= 2 ? 100 : 500);
+  if (!error && searchQuery.length >= 2) {
+    const pattern = `%${searchQuery}%`;
+    const { data: searchRows, error: searchErr } = await admin
+      .from("clients")
+      .select(
+        "id, full_name, contact_email, intake_status, referral_state, referred_at, intake_status_changed_at, current_service_id, current_stage_id, office_id, counselor_id, authorization_number, date_of_birth, primary_phone, gender, ethnicity, disability_history, created_at, prior_client_id"
+      )
+      .or(
+        `full_name.ilike.${pattern},contact_email.ilike.${pattern},authorization_number.ilike.${pattern}`
+      )
+      .order("referred_at", { ascending: false, nullsFirst: false })
+      .limit(100);
+    if (searchErr) {
+      error = searchErr;
+    } else {
+      rows = (searchRows ?? []).filter((row) => {
+        if (status && ["new_referral", "pending_authorization", "active"].includes(status)) {
+          return (row.intake_status as string) === status;
+        }
+        return clientBelongsInReferralQueue(
+          row.intake_status as string | null,
+          row.referred_at as string | null,
+          { includeActive, allowActiveWithoutReferredAt: true }
+        );
+      });
+    }
+  }
   if (error?.message.includes("prior_client_id")) {
     const fallback = admin
       .from("clients")
@@ -80,15 +102,33 @@ export async function GET(request: Request) {
     } else {
       retriedQuery = retriedQuery.or(referralQueueListFilter(includeActive));
     }
-    if (searchQuery.length >= 2) {
-      const pattern = `%${searchQuery}%`;
-      retriedQuery = retriedQuery.or(
-        `full_name.ilike.${pattern},contact_email.ilike.${pattern},authorization_number.ilike.${pattern}`
-      );
-    }
-    const retried = await retriedQuery.limit(searchQuery.length >= 2 ? 100 : 500);
+    const retried = await retriedQuery.limit(500);
     rows = (retried.data ?? []) as typeof rows;
     error = retried.error;
+    if (!error && searchQuery.length >= 2) {
+      const pattern = `%${searchQuery}%`;
+      const { data: searchRows, error: searchErr } = await admin
+        .from("clients")
+        .select(
+          "id, full_name, contact_email, intake_status, referral_state, referred_at, intake_status_changed_at, current_service_id, current_stage_id, office_id, counselor_id, authorization_number, date_of_birth, primary_phone, gender, ethnicity, disability_history, created_at"
+        )
+        .or(
+          `full_name.ilike.${pattern},contact_email.ilike.${pattern},authorization_number.ilike.${pattern}`
+        )
+        .order("referred_at", { ascending: false, nullsFirst: false })
+        .limit(100);
+      if (searchErr) {
+        error = searchErr;
+      } else {
+        rows = (searchRows ?? []).filter((row) =>
+          clientBelongsInReferralQueue(
+            row.intake_status as string | null,
+            row.referred_at as string | null,
+            { includeActive, allowActiveWithoutReferredAt: true }
+          )
+        ) as typeof rows;
+      }
+    }
   }
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

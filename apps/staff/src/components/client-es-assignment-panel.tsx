@@ -6,8 +6,14 @@ import { useRouter } from "next/navigation";
 export type ClientEsOption = {
   id: string;
   name: string;
-  role?: "es" | "supervisor";
+  role?: "es" | "transition_specialist" | "supervisor";
 };
+
+function roleSuffix(role: ClientEsOption["role"]): string {
+  if (role === "transition_specialist") return "TS";
+  if (role === "supervisor") return "Supervisor";
+  return "ES";
+}
 
 type Props = {
   clientId: string;
@@ -68,7 +74,7 @@ export function ClientEsAssignmentPanel({
   if (!canWrite) {
     return (
       <div className="rounded-xl border border-neutral-200 bg-white p-4">
-        <h3 className="text-sm font-semibold text-brand-black">Employment Specialist</h3>
+        <h3 className="text-sm font-semibold text-brand-black">ES / TS assignment</h3>
         <p className="mt-2 text-sm text-brand-black">{currentLabel}</p>
       </div>
     );
@@ -80,9 +86,9 @@ export function ClientEsAssignmentPanel({
       className="space-y-4 rounded-xl border border-neutral-200 bg-white p-4"
     >
       <div>
-        <h3 className="text-sm font-semibold text-brand-black">Employment Specialist</h3>
+        <h3 className="text-sm font-semibold text-brand-black">ES / TS assignment</h3>
         <p className="mt-1 text-sm text-brand-black/65">
-          Assign or change the Employment Specialist for this client.
+          Assign or change the Employment or Transition Specialist for this client.
         </p>
       </div>
 
@@ -108,8 +114,7 @@ export function ClientEsAssignmentPanel({
           <option value="">Unassigned</option>
           {filtered.map((e) => (
             <option key={e.id} value={e.id}>
-              {e.name}
-              {e.role === "supervisor" ? " (Supervisor)" : ""}
+              {e.name} ({roleSuffix(e.role)})
             </option>
           ))}
         </select>
@@ -121,7 +126,7 @@ export function ClientEsAssignmentPanel({
         </p>
       ) : null}
       {saved ? (
-        <p className="text-sm font-medium text-brand-green">Employment Specialist saved.</p>
+        <p className="text-sm font-medium text-brand-green">Assignment saved.</p>
       ) : null}
 
       <button
@@ -129,7 +134,7 @@ export function ClientEsAssignmentPanel({
         disabled={busy}
         className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white hover:bg-brand-green/90 disabled:opacity-60"
       >
-        {busy ? "Saving…" : "Save Employment Specialist"}
+        {busy ? "Saving…" : "Save assignment"}
       </button>
     </form>
   );
