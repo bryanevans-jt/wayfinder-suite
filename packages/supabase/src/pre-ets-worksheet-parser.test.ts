@@ -70,6 +70,33 @@ describe("pre-ets-worksheet-parser", () => {
     assert.equal(tattnallEnDash.instructorName, "TIFFANY POWELL");
   });
 
+  it("starts a new school when column headers are not repeated (D8-style)", () => {
+    const csv = [
+      "JOSHUA TREE OCTOBER PRE-ETS BILLING 2026-27,,,,,,,,,,,",
+      "DISTRICT 8 SCHOOLS,,,,,,,,,,,,",
+      "STATESBORO OFFICE SCHOOLS,,,,,,,,,,,,",
+      "FIRST HIGH SCHOOL - MONTHLY - INST A,,,,,,,,,,,,",
+      "#,STUDENT NAME,PID #,A&I,SERVICE,CODE,UNITS,Class Time,Invoice #,Billed",
+      "1,Alice,11111,,PRE,PRE-1,1,,,",
+      "TATTNALL COUNTY HIGH SCHOOL - BI-WEEKLY - FRIDAYS - TIFFANY POWELL,,,,,,,,,,,,",
+      "SUPERVISOR: Rachel,,,,,,,,,,,,",
+      "1,Bob,22222,,PRE,PRE-1,1,,,",
+      "2,Carol,NOT APPROVED,,PRE,PRE-1,1,,,",
+      "3,Dave,33333,,PRE,PRE-1,1,,,",
+    ].join("\n");
+
+    const parsed = parseDistrictWorksheet(csv);
+    assert.equal(parsed.stats.groupCount, 2);
+    const tattnall = parsed.offices[0]?.groups.find((g) =>
+      g.schoolName.includes("TATTNALL")
+    );
+    assert.ok(tattnall);
+    assert.deepEqual(
+      tattnall?.students.map((s) => s.participantId),
+      ["22222", "33333"]
+    );
+  });
+
   it("skips student rows without PID", () => {
     const csv = [
       "Joshua Tree Service Group March Pre-ETS Worksheet 2025-2026",

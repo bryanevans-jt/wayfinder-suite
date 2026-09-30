@@ -133,6 +133,27 @@ function isSummaryTotalLine(line: string): boolean {
   return label === "total" || label.startsWith("total ");
 }
 
+/** Billing exports repeat column headers once per office; the next school line must start a new group. */
+export function looksLikeWorksheetGroupHeaderLine(line: string, cells: string[]): boolean {
+  if (isSupervisorLine(line) || isSummaryTotalLine(line) || isHeaderRow(cells)) {
+    return false;
+  }
+  const label = primaryCsvLabel(line);
+  if (!label || label.length < 8) return false;
+  const firstCell = (cells[0] ?? "").trim();
+  if (/^\d+\.?$/u.test(firstCell)) return false;
+
+  const parts = splitGroupHeaderParts(label);
+  if (parts.length < 2) return false;
+
+  const schoolPart = parts[0] ?? "";
+  return (
+    /\b(high\s+school|middle\s+school|elementary|academy|institute|learning\s+center|campus)\b/i.test(
+      schoolPart
+    ) || (/\bcounty\b/i.test(schoolPart) && parts.length >= 2)
+  );
+}
+
 function isPreEtsTitleLine(line: string): boolean {
   const lower = primaryCsvLabel(line).toLowerCase();
   return /joshua\s+tree/.test(lower) && /pre-?ets/.test(lower);
@@ -582,7 +603,7 @@ export function parseDistrictWorksheet(
       continue;
     }
 
-    if (currentHeaders && currentGroup) {
+    if (currentHeaders && currentGroup && !looksLikeWorksheetGroupHeaderLine(line, cells)) {
       const student = parseStudentRow(cells, currentHeaders, rowNum, options);
       if (student.notApproved) {
         issues.push(`Row ${rowNum}: NOT APPROVED — skipped`);
@@ -645,7 +666,6 @@ export function parseDistrictWorksheet(
       students: [],
     };
     currentOffice.groups.push(currentGroup);
-    currentHeaders = null;
   }
 
   let studentCount = 0;
