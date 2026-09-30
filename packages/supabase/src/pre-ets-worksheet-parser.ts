@@ -106,7 +106,31 @@ export function parseCsvLine(line: string): string[] {
 }
 
 function isBlankLine(line: string): boolean {
-  return line.trim().length === 0;
+  const trimmed = line.trim();
+  if (!trimmed) return true;
+  if (/^,+$/u.test(trimmed)) return true;
+  return parseCsvLine(line).every((cell) => !cell.trim());
+}
+
+/** First non-empty CSV cell (billing exports pad rows with trailing commas). */
+export function primaryCsvLabel(line: string): string {
+  const cells = parseCsvLine(line);
+  const first = cells.find((c) => c.trim().length > 0);
+  return (first ?? line).replace(/\u00a0/g, " ").trim();
+}
+
+function isSupervisorLine(line: string): boolean {
+  return /^\s*supervisor\s*:/i.test(primaryCsvLabel(line));
+}
+
+function isSummaryTotalLine(line: string): boolean {
+  const label = primaryCsvLabel(line).toLowerCase();
+  return label === "total" || label.startsWith("total ");
+}
+
+function isPreEtsTitleLine(line: string): boolean {
+  const lower = primaryCsvLabel(line).toLowerCase();
+  return /joshua\s+tree/.test(lower) && /pre-?ets/.test(lower);
 }
 
 function isHeaderRow(cells: string[]): boolean {
@@ -139,9 +163,14 @@ function parseTitleLine(line: string): {
   const yearMatch = normalized.match(/(\d{4}\s*[-–]\s*\d{2,4}|\d{4}-\d{4}|\d{4}-\d{2})/i);
   const schoolYear = normalizeSchoolYear(yearMatch?.[1] ?? null);
 
-  const monthMatch = normalized.match(
-    /(?:emsgi\s*\/\s*)?joshua\s+tree(?:\s+service\s+group)?\s+(.+?)\s+pre-?ets\s+worksheet/i
+  let monthMatch = normalized.match(
+    /(?:emsgi\s*\/\s*)?joshua\s+tree(?:\s+service\s+group)?\s+(.+?)\s+pre-?ets\s+(?:worksheet|billing)/i
   );
+  if (!monthMatch) {
+    monthMatch = normalized.match(
+      /(?:emsgi\s*\/\s*)?joshua\s+tree(?:\s+service\s+group)?\s+([a-z]+)\s+pre-?ets\b/i
+    );
+  }
   if (!monthMatch) {
     return { monthLabel: null, schoolYear };
   }
@@ -155,9 +184,12 @@ function parseTitleLine(line: string): {
 }
 
 function parseDistrictLine(line: string): string | null {
-  const match = line.match(/district\s+(\d+)\s+schools/i);
+  const match = primaryCsvLabel(line).match(/district\s+(\d+)\s+schools/i);
   return match?.[1] ?? null;
 }
+
+const GROUP_DESIGNATION_HINT =
+  /^(inclusion|self\s*contained|resource|co-?teach|main|n\/a)$/i;
 
 const MONTH_MAP: Record<string, number> = {
   january: 1,
@@ -244,6 +276,37 @@ export function parseGroupHeader(headerRaw: string): {
   }
 
   if (freqIndex < 0) {
+    if (parts.length >= 3) {
+      const groupDesignation = parts.pop() ?? null;
+      const instructorName = parts.pop() ?? null;
+      const schoolName = parts.join(" - ").trim() || trimmed;
+      return {
+        schoolName,
+        groupName: groupDesignation ?? "Main",
+        groupDesignation,
+        frequency: null,
+        instructorName,
+      };
+    }
+    if (parts.length === 2) {
+      const second = parts[1] ?? "";
+      if (GROUP_DESIGNATION_HINT.test(second)) {
+        return {
+          schoolName: parts[0] ?? trimmed,
+          groupName: second,
+          groupDesignation: second,
+          frequency: null,
+          instructorName: null,
+        };
+      }
+      return {
+        schoolName: parts[0] ?? trimmed,
+        groupName: "Main",
+        groupDesignation: null,
+        frequency: null,
+        instructorName: second || null,
+      };
+    }
     const instructorName = parts.pop() ?? null;
     const freqRaw = parts.pop() ?? null;
     const schoolName = parts.join(" - ").trim() || trimmed;
@@ -460,11 +523,8 @@ export function parseDistrictWorksheet(
 
     const cells = parseCsvLine(line);
 
-    if (
-      rowNum === 1 ||
-      (!titleLine && /(?:emsgi\s*\/\s*)?joshua\s+tree/i.test(line) && /pre-?ets/i.test(line))
-    ) {
-      titleLine = line.trim();
+    if (rowNum === 1 || (!titleLine && isPreEtsTitleLine(line))) {
+      titleLine = primaryCsvLabel(line);
       const parsed = parseTitleLine(titleLine);
       monthLabel = parsed.monthLabel;
       schoolYear = parsed.schoolYear;
@@ -473,8 +533,8 @@ export function parseDistrictWorksheet(
       continue;
     }
 
-    if (rowNum === 2 || (!districtLine && /district\s+\d+/i.test(line))) {
-      districtLine = line.trim();
+    if (rowNum === 2 || (!districtLine && /district\s+\d+/i.test(primaryCsvLabel(line)))) {
+      districtLine = primaryCsvLabel(line);
       districtNumber = parseDistrictLine(districtLine);
       if (!districtNumber) issues.push(`Row ${rowNum}: could not parse GVRA district number`);
       continue;
@@ -509,9 +569,18 @@ export function parseDistrictWorksheet(
       continue;
     }
 
-    const lower = line.toLowerCase();
-    if (lower.includes("office") && lower.includes("school")) {
-      currentOffice = { name: line.trim(), groups: [] };
+    if (isSupervisorLine(line)) {
+      continue;
+    }
+
+    if (isSummaryTotalLine(line)) {
+      currentHeaders = null;
+      continue;
+    }
+
+    const officeLabel = primaryCsvLabel(line).toLowerCase();
+    if (officeLabel.includes("office") && officeLabel.includes("school")) {
+      currentOffice = { name: primaryCsvLabel(line), groups: [] };
       offices.push(currentOffice);
       currentGroup = null;
       currentHeaders = null;
@@ -523,7 +592,8 @@ export function parseDistrictWorksheet(
       offices.push(currentOffice);
     }
 
-    const headerRaw = line.trim();
+    const headerRaw = primaryCsvLabel(line);
+    if (!headerRaw) continue;
     const { schoolName, groupName, groupDesignation, frequency, instructorName } =
       parseGroupHeader(headerRaw);
     currentGroup = {

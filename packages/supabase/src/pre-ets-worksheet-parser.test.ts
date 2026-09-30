@@ -11,6 +11,26 @@ describe("pre-ets-worksheet-parser", () => {
     assert.ok(issues.some((i) => i.includes('missing required column "PID #')));
   });
 
+  it("parses October billing title and district line", () => {
+    const csv = [
+      "JOSHUA TREE OCTOBER PRE-ETS BILLING 2026-27,,,,,,,,,,,",
+      "DISTRICT 5 SCHOOLS,,,,,,,,,,,,",
+      "COLUMBUS OFFICE SCHOOLS,,,,,,,,,,,,",
+      "SHAW HIGH SCHOOL - IVETTE CORDERO - INCLUSION ,,,,,,,,,,,,",
+      "SUPERVISOR: VICTORIA BEIL ,,,,,,,,,,,,",
+      "#,STUDENT NAME,PID #,A&I,SERVICE,CODE,UNITS,Class Time,Invoice #,Billed",
+      "1,Test Student,12345,,PRE,PRE-1,1,,,",
+    ].join("\n");
+
+    const parsed = parseDistrictWorksheet(csv);
+    assert.equal(parsed.districtNumber, "5");
+    assert.equal(parsed.monthLabel, "OCTOBER");
+    assert.equal(parsed.schoolYear, "2026-2027");
+    assert.equal(parsed.serviceMonth, "2026-10-01");
+    assert.equal(parsed.stats.studentCount, 1);
+    assert.equal(parsed.offices[0]?.groups[0]?.schoolName, "SHAW HIGH SCHOOL");
+  });
+
   it("skips student rows without PID", () => {
     const csv = [
       "Joshua Tree Service Group March Pre-ETS Worksheet 2025-2026",
