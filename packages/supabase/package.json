@@ -69,6 +69,7 @@
     "./pre-ets-worksheet-import": "./src/pre-ets-worksheet-import.ts",
     "./pre-ets-worksheet-auth-match": "./src/pre-ets-worksheet-auth-match.ts",
     "./pre-ets-worksheet-group-mapping": "./src/pre-ets-worksheet-group-mapping.ts",
+    "./pre-ets-school-admin": "./src/pre-ets-school-admin.ts",
     "./pre-ets-class-setup": "./src/pre-ets-class-setup.ts",
     "./pre-ets-school-name-match": "./src/pre-ets-school-name-match.ts",
     "./pre-ets-compliance": "./src/pre-ets-compliance.ts",

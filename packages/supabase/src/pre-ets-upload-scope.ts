@@ -109,7 +109,7 @@ export async function loadPreEtsAssignedSchoolIds(
   role: string | null | undefined
 ): Promise<string[] | null> {
   const r = normalizeRole(role);
-  if (isSuperAdminRole(r) || isAccountantRole(r)) {
+  if (isSuperAdminRole(r) || isAccountantRole(r) || isAdminRole(r)) {
     return null;
   }
   if (isSupervisorRole(r)) {
@@ -118,13 +118,6 @@ export async function loadPreEtsAssignedSchoolIds(
       .select("school_id")
       .eq("user_id", userId)
       .eq("assignment_role", "supervisor");
-    return [...new Set((data ?? []).map((row) => row.school_id as string))];
-  }
-  if (isAdminRole(r)) {
-    const { data } = await admin
-      .from("pre_ets_staff_school_assignments")
-      .select("school_id")
-      .eq("user_id", userId);
     return [...new Set((data ?? []).map((row) => row.school_id as string))];
   }
   return [];

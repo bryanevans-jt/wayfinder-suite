@@ -47,8 +47,13 @@ describe("pre-ets-worksheet-parser", () => {
       "KENDRICK HIGH SCHOOL - WEEKLY - THURSDAYS - IVETTE CORDERO (Muscogee County)"
     );
     assert.equal(kendrick.instructorName, "IVETTE CORDERO (Muscogee County)");
-    assert.equal(kendrick.groupName, "Main");
+    assert.equal(kendrick.groupName, "WEEKLY · THURSDAYS");
     assert.equal(kendrick.frequency, "WEEKLY");
+
+    const wheeler = parseGroupHeader("WHEELER COUNTY HIGH SCHOOL - MONTHLY - TIFFANY POWELL");
+    assert.equal(wheeler.schoolName, "WHEELER COUNTY HIGH SCHOOL");
+    assert.equal(wheeler.instructorName, "TIFFANY POWELL");
+    assert.equal(wheeler.groupName, "MONTHLY");
   });
 
   it("skips student rows without PID", () => {

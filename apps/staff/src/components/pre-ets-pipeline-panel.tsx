@@ -72,6 +72,7 @@ export function PreEtsPipelinePanel() {
   const [finalizeTarget, setFinalizeTarget] = useState<PipelineRow | null>(null);
   const [labelsTarget, setLabelsTarget] = useState<PipelineRow | null>(null);
   const [canEditGroupLabels, setCanEditGroupLabels] = useState(false);
+  const [canDeleteSchools, setCanDeleteSchools] = useState(false);
 
   useEffect(() => {
     const t = window.setTimeout(() => setSearchDebounced(search.trim()), 300);
@@ -92,6 +93,7 @@ export function PreEtsPipelinePanel() {
           canManageSetup?: boolean;
           canSupervise?: boolean;
           canAccounts?: boolean;
+          canManageSettings?: boolean;
         };
       };
       if (res.ok) {
@@ -102,6 +104,7 @@ export function PreEtsPipelinePanel() {
             data.access?.canManageSetup || data.access?.canSupervise || data.access?.canAccounts
           )
         );
+        setCanDeleteSchools(Boolean(data.access?.canManageSettings));
       }
     })();
   }, []);
@@ -137,6 +140,26 @@ export function PreEtsPipelinePanel() {
 
   const rangeStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const rangeEnd = Math.min(page * pageSize, total);
+
+  async function onRemoveSchool(row: PipelineRow) {
+    const label = row.groupName !== row.schoolName ? `${row.schoolName} (${row.groupName})` : row.schoolName;
+    if (
+      !window.confirm(
+        `Remove "${label}" from Pre-ETS?\n\nThis deletes the school record and all related program groups, authorizations, rosters, and sessions for that school. This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    setLoading(true);
+    const res = await fetch(`/api/pre-ets/schools/${row.schoolId}`, { method: "DELETE" });
+    const data = (await res.json()) as { error?: string };
+    setLoading(false);
+    if (!res.ok) {
+      window.alert(data.error ?? "Could not remove school");
+      return;
+    }
+    void load();
+  }
 
   return (
     <section className="space-y-4">
@@ -261,6 +284,15 @@ export function PreEtsPipelinePanel() {
                           onClick={() => setLabelsTarget(row)}
                         >
                           Fix labels
+                        </button>
+                      ) : null}
+                      {canDeleteSchools ? (
+                        <button
+                          type="button"
+                          className="text-red-700 hover:underline"
+                          onClick={() => void onRemoveSchool(row)}
+                        >
+                          Remove school
                         </button>
                       ) : null}
                       {row.authorizationId && row.status === "pending_authorization" ? (

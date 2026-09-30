@@ -350,8 +350,12 @@ export function parseGroupHeader(headerRaw: string): {
     }
   }
 
-  const groupDesignation =
+  let groupDesignation =
     groupParts.length > 0 ? groupParts.join(" - ").replace(/\s+-\s*$/u, "").trim() : null;
+  if (!groupDesignation && frequency) {
+    const daySeg = segments.find((s) => s.kind === "day");
+    groupDesignation = daySeg ? `${frequency} · ${daySeg.part}` : frequency;
+  }
 
   return {
     schoolName,
