@@ -8,7 +8,7 @@ import {
 } from "@wayfinder/supabase/pre-ets-staff-assignments";
 import {
   filterSessionsForFieldGate,
-  preEtsFieldReleaseGateApplies,
+  preEtsReleasedAuthorizationGateApplies,
 } from "@/lib/pre-ets-field-gate";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
@@ -48,7 +48,7 @@ export async function GET(request: Request) {
       });
     }
 
-    const gate = preEtsFieldReleaseGateApplies(auth.role, auth.settings);
+    const gate = preEtsReleasedAuthorizationGateApplies(auth.role, auth.settings);
     const sessions = filterSessionsForFieldGate(data ?? [], gate);
 
     return NextResponse.json({ sessions });

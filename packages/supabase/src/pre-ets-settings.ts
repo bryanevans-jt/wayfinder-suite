@@ -55,6 +55,8 @@ export type PreEtsSettingsRow = {
   group_auth_digit_count: number;
   not_approved_marker: string;
   service_codes: PreEtsServiceCodeRow[];
+  /** Admin testing: create/view pending rosters without GVRA auth numbers (admin-only visibility). */
+  worksheet_testing_override_enabled: boolean;
   updated_at: string;
   updated_by: string | null;
 };
@@ -84,6 +86,7 @@ export const DEFAULT_PRE_ETS_SETTINGS: Omit<
   group_auth_digit_count: 5,
   not_approved_marker: "NOT APPROVED",
   service_codes: [],
+  worksheet_testing_override_enabled: false,
 };
 
 /** Replace NBSP and trim; safe for any GVRA characters in the value. */
@@ -206,6 +209,7 @@ export function normalizePreEtsSettingsRow(
       data.not_approved_marker ?? DEFAULT_PRE_ETS_SETTINGS.not_approved_marker
     ),
     service_codes: parseServiceCodes(data.service_codes),
+    worksheet_testing_override_enabled: data.worksheet_testing_override_enabled === true,
     updated_at: String(data.updated_at ?? new Date().toISOString()),
     updated_by: (data.updated_by as string | null) ?? null,
   };
@@ -262,6 +266,18 @@ export function canAccessPreEtsAccounts(
 /** Super Admin only — settings page and role rollout configuration. */
 export function canManagePreEtsSettings(role: string | null | undefined): boolean {
   return isSuperAdminRole(role);
+}
+
+/** Admin / Super Admin — temporary worksheet testing override toggle. */
+export function canManagePreEtsWorksheetTestingOverride(role: string | null | undefined): boolean {
+  const r = normalizeRole(role);
+  return isSuperAdminRole(r) || isAdminRole(r);
+}
+
+export function preEtsWorksheetTestingOverrideActive(
+  settings: Pick<PreEtsSettingsRow, "worksheet_testing_override_enabled">
+): boolean {
+  return settings.worksheet_testing_override_enabled === true;
 }
 
 /** HR view-only oversight when hr is in enabled_roles. */

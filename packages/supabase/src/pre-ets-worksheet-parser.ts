@@ -64,6 +64,7 @@ export type ParsedDistrictWorksheet = {
     groupCount: number;
     studentCount: number;
     notApprovedCount: number;
+    skippedMissingPidCount: number;
   };
 };
 
@@ -308,6 +309,39 @@ function columnIndexPrimaryService(headers: string[]): number {
 }
 
 /** Prefer the primary Code column paired with Service (not Service 2/3 codes). */
+const REQUIRED_WORKSHEET_COLUMNS = [
+  { key: "student name", label: "Student Name" },
+  { key: "pid", label: "PID #" },
+] as const;
+
+const RECOMMENDED_WORKSHEET_COLUMNS = [
+  { key: "a & i", label: "A & I", alt: "a&i" },
+  { key: "service", label: "Service" },
+  { key: "code", label: "Code" },
+  { key: "units", label: "Units" },
+] as const;
+
+/** Flag missing or ambiguous column headers on a student table row. */
+export function validateWorksheetHeaderColumns(headers: string[], rowNumber: number): string[] {
+  const issues: string[] = [];
+  for (const col of REQUIRED_WORKSHEET_COLUMNS) {
+    if (columnIndex(headers, col.key) < 0) {
+      issues.push(`Row ${rowNumber}: missing required column "${col.label}"`);
+    }
+  }
+  for (const col of RECOMMENDED_WORKSHEET_COLUMNS) {
+    const keys = col.alt ? [col.key, col.alt] : [col.key];
+    if (columnIndex(headers, ...keys) < 0) {
+      issues.push(`Row ${rowNumber}: could not find column "${col.label}" — check spreadsheet layout`);
+    }
+  }
+  const classTimeIdx = columnIndex(headers, "class time");
+  if (classTimeIdx < 0) {
+    issues.push(`Row ${rowNumber}: no "Class Time" column — class times will be left blank`);
+  }
+  return issues;
+}
+
 function columnIndexPrimaryCode(headers: string[]): number {
   const lower = headers.map((h) => h.toLowerCase().trim());
   const serviceIdx = columnIndexPrimaryService(headers);
@@ -447,6 +481,7 @@ export function parseDistrictWorksheet(
 
     if (isHeaderRow(cells)) {
       currentHeaders = cells;
+      issues.push(...validateWorksheetHeaderColumns(cells, rowNum));
       continue;
     }
 
@@ -455,15 +490,19 @@ export function parseDistrictWorksheet(
       if (student.notApproved) {
         issues.push(`Row ${rowNum}: NOT APPROVED — skipped`);
       } else if (student.studentName || student.participantId) {
-        currentGroup.students.push(student);
-        if (!currentGroup.classTime && student.classTime) {
-          currentGroup.classTime = student.classTime;
-        }
-        if (!currentGroup.serviceCode && student.serviceCode) {
-          currentGroup.serviceCode = student.serviceCode;
-        }
-        if (!currentGroup.serviceLabel && student.service) {
-          currentGroup.serviceLabel = student.service;
+        if (!student.participantId.trim()) {
+          issues.push(`Row ${rowNum}: skipped — missing PID #${student.studentName ? ` (${student.studentName})` : ""}`);
+        } else {
+          currentGroup.students.push(student);
+          if (!currentGroup.classTime && student.classTime?.trim()) {
+            currentGroup.classTime = student.classTime.trim();
+          }
+          if (!currentGroup.serviceCode && student.serviceCode) {
+            currentGroup.serviceCode = student.serviceCode;
+          }
+          if (!currentGroup.serviceLabel && student.service) {
+            currentGroup.serviceLabel = student.service;
+          }
         }
       }
       continue;
@@ -504,7 +543,11 @@ export function parseDistrictWorksheet(
 
   let studentCount = 0;
   let notApprovedCount = 0;
+  let skippedMissingPidCount = 0;
   let groupCount = 0;
+  for (const issue of issues) {
+    if (issue.includes("skipped — missing PID")) skippedMissingPidCount++;
+  }
   for (const office of offices) {
     groupCount += office.groups.length;
     for (const group of office.groups) {
@@ -529,6 +572,7 @@ export function parseDistrictWorksheet(
       groupCount,
       studentCount,
       notApprovedCount,
+      skippedMissingPidCount,
     },
   };
 }

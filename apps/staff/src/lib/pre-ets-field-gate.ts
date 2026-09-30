@@ -2,10 +2,25 @@ import {
   canAccessPreEtsAccounts,
   canDeliverPreEtsSessions,
   canSupervisePreEts,
+  preEtsWorksheetTestingOverrideActive,
   type PreEtsSettingsRow,
 } from "@wayfinder/supabase/pre-ets-settings";
 import { isPreEtsAuthorizationReleasedToField } from "@wayfinder/supabase/pre-ets-release";
-import { isSuperAdminRole } from "@wayfinder/supabase/roles";
+import { isAdminRole, isSuperAdminRole } from "@wayfinder/supabase/roles";
+
+export type PreEtsReleaseGateSettings = Pick<
+  PreEtsSettingsRow,
+  "module_enabled" | "enabled_roles" | "worksheet_testing_override_enabled"
+>;
+
+/** While testing override is on, only admin / super_admin may view unreleased rosters. */
+export function preEtsUnreleasedRosterHiddenFromRole(
+  role: string,
+  settings: Pick<PreEtsSettingsRow, "worksheet_testing_override_enabled">
+): boolean {
+  if (!preEtsWorksheetTestingOverrideActive(settings)) return false;
+  return !isSuperAdminRole(role) && !isAdminRole(role);
+}
 
 export function preEtsFieldReleaseGateApplies(
   role: string,
@@ -15,6 +30,23 @@ export function preEtsFieldReleaseGateApplies(
   if (canSupervisePreEts(role, settings)) return false;
   if (canAccessPreEtsAccounts(role, settings)) return false;
   return canDeliverPreEtsSessions(role, settings);
+}
+
+/** Hide unreleased authorizations from field staff and, during testing override, from non-admins. */
+export function preEtsReleasedAuthorizationGateApplies(
+  role: string,
+  settings: PreEtsReleaseGateSettings
+): boolean {
+  return preEtsFieldReleaseGateApplies(role, settings) || preEtsUnreleasedRosterHiddenFromRole(role, settings);
+}
+
+export function isPreEtsAuthorizationVisibleToRole(
+  auth: { auth_number: string | null; auth_type: string } | null | undefined,
+  role: string,
+  settings: PreEtsReleaseGateSettings
+): boolean {
+  if (!preEtsReleasedAuthorizationGateApplies(role, settings)) return true;
+  return isPreEtsAuthorizationReleasedToField(auth);
 }
 
 export function filterAuthorizationsForFieldGate<

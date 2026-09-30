@@ -5,6 +5,7 @@ import {
   canAccessPreEtsAccounts,
   canSupervisePreEts,
   loadPreEtsSettings,
+  preEtsWorksheetTestingOverrideActive,
 } from "@wayfinder/supabase/pre-ets-settings";
 import {
   assertPlanningWorksheetDistrictAllowed,
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
   const auth = await requirePreEtsApi("access");
   if (isPreEtsApiError(auth)) return auth;
 
-  if (!canUploadPreEtsWorksheets(auth.role)) {
+  if (!canUploadPreEtsWorksheets(auth.role, auth.settings)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -56,11 +57,13 @@ export async function POST(request: Request) {
       isAccountantRole(auth.role) &&
       !isAdminRole(auth.role) &&
       !isSupervisor;
+    const testingOverride = preEtsWorksheetTestingOverrideActive(settings);
     const usesPlanning =
       isSuperAdminRole(auth.role) ||
+      (testingOverride && isAdminRole(auth.role)) ||
       (!accountantOnly && usesPreEtsPlanningWorksheetUpload(auth.role));
 
-    if (usesPlanning && !worksheetUploadBypassesDistrictScope(auth.role)) {
+    if (usesPlanning && !worksheetUploadBypassesDistrictScope(auth.role, settings)) {
       const allowed = await assertPlanningWorksheetDistrictAllowed(
         createServiceRoleClient(),
         auth.userId,
@@ -108,7 +111,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: commit.error }, { status: 400 });
       }
 
-      if (commit.schoolGroupLabels.length > 0) {
+      if (!testingOverride && commit.schoolGroupLabels.length > 0) {
         await notifyPreEtsAuthRequestsSubmitted(admin, {
           schoolGroupLabels: commit.schoolGroupLabels,
           serviceMonth: commit.serviceMonth,
@@ -147,7 +150,7 @@ export async function GET() {
   const auth = await requirePreEtsApi("access");
   if (isPreEtsApiError(auth)) return auth;
 
-  if (!canUploadPreEtsWorksheets(auth.role)) {
+  if (!canUploadPreEtsWorksheets(auth.role, auth.settings)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

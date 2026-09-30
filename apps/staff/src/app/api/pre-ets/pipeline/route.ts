@@ -11,6 +11,8 @@ import {
   loadPreEtsSettings,
 } from "@wayfinder/supabase/pre-ets-settings";
 import { isAdminRole, isSuperAdminRole } from "@wayfinder/supabase/roles";
+import { isPreEtsAuthorizationReleasedToField } from "@wayfinder/supabase/pre-ets-release";
+import { preEtsUnreleasedRosterHiddenFromRole } from "@/lib/pre-ets-field-gate";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
@@ -55,11 +57,20 @@ export async function GET(request: Request) {
 
   try {
     const admin = createServiceRoleClient();
-    const allRows = await loadPreEtsSchoolPipeline(admin, {
+    let allRows = await loadPreEtsSchoolPipeline(admin, {
       userId: auth.userId,
       role: auth.role,
       serviceMonth: month,
     });
+
+    if (preEtsUnreleasedRosterHiddenFromRole(auth.role, auth.settings)) {
+      allRows = allRows.filter((row) =>
+        isPreEtsAuthorizationReleasedToField({
+          auth_number: row.authNumber,
+          auth_type: row.authType ?? "pending",
+        })
+      );
+    }
 
     const result = paginatePreEtsPipelineRows(allRows, {
       search,
