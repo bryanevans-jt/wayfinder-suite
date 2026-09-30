@@ -57,6 +57,10 @@ export function PreEtsWorksheetPanel() {
   const [parseIssues, setParseIssues] = useState<string[]>([]);
   const [testingOverrideEnabled, setTestingOverrideEnabled] = useState(false);
   const [canManageTestingOverride, setCanManageTestingOverride] = useState(false);
+  const [emailRosterMonth, setEmailRosterMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
 
   const isSupervisorMode = panelRole === "supervisor";
 
@@ -222,6 +226,32 @@ export function PreEtsWorksheetPanel() {
     void load();
   }
 
+  async function onEmailTestRosters() {
+    setBusy(true);
+    setMessage(null);
+    const res = await fetch("/api/pre-ets/worksheets/email-test-rosters", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ serviceMonth: emailRosterMonth }),
+    });
+    const data = (await res.json()) as {
+      error?: string;
+      rosterCount?: number;
+      emailedTo?: string;
+      skippedEmpty?: number;
+    };
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(data.error ?? "Could not email test rosters");
+      return;
+    }
+    setMessage(
+      `Emailed ${data.rosterCount ?? 0} roster PDF(s) as a ZIP to ${data.emailedTo ?? "you"} for ${emailRosterMonth}.${
+        (data.skippedEmpty ?? 0) > 0 ? ` Skipped ${data.skippedEmpty} empty authorization(s).` : ""
+      }`
+    );
+  }
+
   async function onToggleTestingOverride(enabled: boolean) {
     setBusy(true);
     setMessage(null);
@@ -280,6 +310,33 @@ export function PreEtsWorksheetPanel() {
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
           Worksheet testing override is active (admin-managed).
         </p>
+      ) : null}
+
+      {testingOverrideEnabled && canManageTestingOverride ? (
+        <div className="flex flex-wrap items-end gap-4 rounded-xl border border-blue-200 bg-blue-50/80 p-4">
+          <label className="text-sm">
+            <span className="font-medium text-brand-black">Email test rosters</span>
+            <input
+              type="month"
+              className="mt-1 block rounded-lg border border-neutral-300 px-3 py-2"
+              value={emailRosterMonth}
+              onChange={(e) => setEmailRosterMonth(e.target.value)}
+              disabled={busy}
+            />
+          </label>
+          <button
+            type="button"
+            disabled={busy}
+            className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            onClick={() => void onEmailTestRosters()}
+          >
+            {busy ? "Sending…" : "Email all rosters (ZIP)"}
+          </button>
+          <p className="text-xs text-brand-black/65">
+            Sends template PDFs for every roster in that month to bryan.evans@thejoshuatree.org
+            (pending auth numbers OK). Students without a PID or marked NOT APPROVED are excluded.
+          </p>
+        </div>
       ) : null}
 
       <div className="flex flex-wrap items-end gap-4">

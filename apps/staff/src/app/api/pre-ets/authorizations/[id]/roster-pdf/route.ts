@@ -1,24 +1,15 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { loadPreEtsSettings } from "@wayfinder/supabase/pre-ets-settings";
+import { buildAuthorizationRosterPdf } from "@/lib/pre-ets-authorization-roster-pdf";
 import { isPreEtsAuthorizationVisibleToRole } from "@/lib/pre-ets-field-gate";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
-import { buildPreEtsRosterPdf } from "@/lib/pre-ets-roster-export";
 import { NextResponse } from "next/server";
 
 type AuthRow = {
   auth_number: string | null;
   auth_type: string;
-  service_code: string;
-  service_label: string | null;
-  pre_ets_schools: { name: string } | { name: string }[] | null;
-  pre_ets_program_groups: { instructor_name: string | null } | { instructor_name: string | null }[] | null;
 };
-
-function relationOne<T>(raw: T | T[] | null | undefined): T | null {
-  if (!raw) return null;
-  return Array.isArray(raw) ? (raw[0] ?? null) : raw;
-}
 
 export async function GET(
   request: Request,
@@ -57,48 +48,14 @@ export async function GET(
         { status: 403 }
       );
     }
-    const school = relationOne(authRow.pre_ets_schools);
-    const group = relationOne(authRow.pre_ets_program_groups);
-
-    const { data: rosterEntries } = await admin
-      .from("pre_ets_roster_entries")
-      .select("list_order, pre_ets_students(participant_id, full_name)")
-      .eq("authorization_id", id)
-      .eq("not_approved", false)
-      .order("list_order", { ascending: true });
-
-    const students = (rosterEntries ?? [])
-      .map((row) => {
-        const st = relationOne(
-          row.pre_ets_students as
-            | { participant_id: string; full_name: string }
-            | { participant_id: string; full_name: string }[]
-            | null
-        );
-        if (!st) return null;
-        return { participantId: st.participant_id, fullName: st.full_name };
-      })
-      .filter((s): s is { participantId: string; fullName: string } => s !== null);
+    const settings = await loadPreEtsSettings(admin);
+    const built = await buildAuthorizationRosterPdf(admin, id, settings, { sessionDate });
+    if (!built.ok) {
+      return NextResponse.json({ error: built.error }, { status: 400 });
+    }
 
     const authType = authRow.auth_type as "group" | "individual" | "pending";
-    const pdfStudents =
-      authType === "individual" && students.length > 0 ? [students[0]] : students;
-
-    const settings = await loadPreEtsSettings(admin);
-    const pdfBytes = await buildPreEtsRosterPdf(
-      {
-        authorizationNumber: authRow.auth_number ?? "",
-        authType,
-        sessionDate,
-        schoolName: school?.name ?? "",
-        instructorName: group?.instructor_name ?? "",
-        topic: authRow.service_label ?? "",
-        serviceCode: authRow.service_code ?? "",
-        students: pdfStudents,
-      },
-      settings
-    );
-
+    const pdfBytes = built.pdfBytes;
     const suffix = authType === "individual" ? "individual" : "group";
     return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
