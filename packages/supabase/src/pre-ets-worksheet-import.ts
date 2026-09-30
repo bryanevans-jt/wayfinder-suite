@@ -12,6 +12,7 @@ import {
   type AuthMatchStats,
 } from "./pre-ets-worksheet-auth-match";
 import { assignPreEtsPrimaryInstructorFromWorksheet } from "./pre-ets-instructor-match";
+import { restorePreEtsProgramGroupFromWorksheetImport } from "./pre-ets-program-group-visibility";
 import {
   applyWorksheetGroupMapping,
   findProgramGroupForWorksheetImport,
@@ -361,6 +362,13 @@ export async function commitWorksheetImport(
 
       if (!programGroupId) continue;
 
+      const groupStudents = group.students.filter(
+        (s) => !s.notApproved && s.participantId.trim().length > 0
+      );
+      if (groupStudents.length > 0) {
+        await restorePreEtsProgramGroupFromWorksheetImport(admin, programGroupId);
+      }
+
       await linkPreEtsClassSetupToSchool(admin, {
         schoolYear: parsed.schoolYear,
         districtNumber: parsed.districtNumber,
@@ -376,9 +384,6 @@ export async function commitWorksheetImport(
         instructorName: group.instructorName,
       });
 
-      const groupStudents = group.students.filter(
-        (s) => !s.notApproved && s.participantId.trim().length > 0
-      );
       if (groupStudents.length === 0) continue;
       const byAuth = new Map<string, typeof groupStudents>();
 

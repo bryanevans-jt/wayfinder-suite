@@ -1,6 +1,7 @@
 "use client";
 
 import { PreEtsAuthorizationFinalizeModal } from "@/components/pre-ets-authorization-finalize-modal";
+import { PreEtsProgramGroupCombineModal } from "@/components/pre-ets-program-group-combine-modal";
 import { PreEtsProgramGroupLabelsModal } from "@/components/pre-ets-program-group-labels-modal";
 import { PreEtsServiceCodeDisplay } from "@/components/pre-ets-service-code-display";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -24,6 +25,9 @@ type PipelineRow = {
   serviceCode: string | null;
   instructorName: string | null;
   classTime: string | null;
+  hidden?: boolean;
+  mergedIntoProgramGroupId?: string | null;
+  mergedIntoGroupName?: string | null;
 };
 
 const STATUS_OPTIONS: { id: PipelineStatus | "all"; label: string }[] = [
@@ -72,7 +76,11 @@ export function PreEtsPipelinePanel() {
   const [finalizeTarget, setFinalizeTarget] = useState<PipelineRow | null>(null);
   const [labelsTarget, setLabelsTarget] = useState<PipelineRow | null>(null);
   const [canEditGroupLabels, setCanEditGroupLabels] = useState(false);
-  const [canDeleteSchools, setCanDeleteSchools] = useState(false);
+  const [includeHidden, setIncludeHidden] = useState(false);
+  const [combineSource, setCombineSource] = useState<PipelineRow | null>(null);
+  const [combineCandidates, setCombineCandidates] = useState<
+    { programGroupId: string; groupName: string; instructorName: string | null }[]
+  >([]);
 
   useEffect(() => {
     const t = window.setTimeout(() => setSearchDebounced(search.trim()), 300);
@@ -81,7 +89,7 @@ export function PreEtsPipelinePanel() {
 
   useEffect(() => {
     setPage(1);
-  }, [month, status, searchDebounced, pageSize]);
+  }, [month, status, searchDebounced, pageSize, includeHidden]);
 
   useEffect(() => {
     void (async () => {
@@ -104,7 +112,6 @@ export function PreEtsPipelinePanel() {
             data.access?.canManageSetup || data.access?.canSupervise || data.access?.canAccounts
           )
         );
-        setCanDeleteSchools(Boolean(data.access?.canManageSettings));
       }
     })();
   }, []);
@@ -118,6 +125,7 @@ export function PreEtsPipelinePanel() {
       status,
     });
     if (searchDebounced) params.set("search", searchDebounced);
+    if (includeHidden) params.set("includeHidden", "1");
 
     const res = await fetch(`/api/pre-ets/pipeline?${params.toString()}`);
     const data = (await res.json()) as {
@@ -132,7 +140,7 @@ export function PreEtsPipelinePanel() {
       setTotalPages(data.totalPages ?? 1);
     }
     setLoading(false);
-  }, [month, page, pageSize, status, searchDebounced]);
+  }, [month, page, pageSize, status, searchDebounced, includeHidden]);
 
   useEffect(() => {
     void load();
@@ -141,49 +149,69 @@ export function PreEtsPipelinePanel() {
   const rangeStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const rangeEnd = Math.min(page * pageSize, total);
 
-  async function onRemoveGroup(row: PipelineRow) {
-    if (!row.programGroupId) return;
+  async function onHideGroup(row: PipelineRow) {
+    if (!row.programGroupId || row.hidden) return;
     const label =
       row.groupName !== row.schoolName
         ? `${row.schoolName} · ${row.groupName}`
         : row.groupName;
     if (
       !window.confirm(
-        `Remove group "${label}"?\n\nThis deletes this program group and its authorizations, rosters, and sessions for the selected service month. The school record and other groups at the same school are kept.`
+        `Hide "${label}" from Schools & groups?\n\nData is kept. Re-uploading a worksheet with this group header and student PIDs can show it again.`
       )
     ) {
       return;
     }
     setLoading(true);
-    const res = await fetch(`/api/pre-ets/program-groups/${row.programGroupId}`, {
-      method: "DELETE",
+    const res = await fetch(`/api/pre-ets/program-groups/${row.programGroupId}/hide`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: "Hidden from pipeline" }),
     });
     const data = (await res.json()) as { error?: string };
     setLoading(false);
     if (!res.ok) {
-      window.alert(data.error ?? "Could not remove group");
+      window.alert(data.error ?? "Could not hide group");
       return;
     }
     void load();
   }
 
-  async function onRemoveEntireSchool(row: PipelineRow) {
-    if (
-      !window.confirm(
-        `Delete the entire school "${row.schoolName}" from Pre-ETS?\n\nThis removes ALL groups, authorizations, rosters, sessions, and assignments for this school — not just the row you clicked. This cannot be undone.\n\nTo remove only one group, use "Remove group" instead.`
-      )
-    ) {
-      return;
-    }
+  async function onRestoreGroup(row: PipelineRow) {
+    if (!row.programGroupId || !row.hidden) return;
     setLoading(true);
-    const res = await fetch(`/api/pre-ets/schools/${row.schoolId}`, { method: "DELETE" });
+    const res = await fetch(`/api/pre-ets/program-groups/${row.programGroupId}/restore`, {
+      method: "POST",
+    });
     const data = (await res.json()) as { error?: string };
     setLoading(false);
     if (!res.ok) {
-      window.alert(data.error ?? "Could not remove school");
+      window.alert(data.error ?? "Could not restore group");
       return;
     }
     void load();
+  }
+
+  async function openCombine(row: PipelineRow) {
+    if (!row.programGroupId) return;
+    const res = await fetch(
+      `/api/pre-ets/program-groups?month=${encodeURIComponent(month)}&schoolId=${encodeURIComponent(row.schoolId)}`
+    );
+    const data = (await res.json()) as {
+      groups?: Array<{ id: string; group_name: string; instructor_name: string | null }>;
+    };
+    if (!res.ok) {
+      window.alert("Could not load groups for this school.");
+      return;
+    }
+    setCombineCandidates(
+      (data.groups ?? []).map((g) => ({
+        programGroupId: g.id,
+        groupName: g.group_name,
+        instructorName: g.instructor_name,
+      }))
+    );
+    setCombineSource(row);
   }
 
   return (
@@ -192,8 +220,10 @@ export function PreEtsPipelinePanel() {
         <h2 className="text-lg font-semibold text-brand-black">Schools &amp; groups</h2>
         <p className="mt-1 text-sm text-brand-black/65">
           Track each school or group through Awaiting spreadsheet → Pending authorization → Roster
-          submitted. Use <strong className="font-medium">Fix labels</strong> to correct school, group,
-          or instructor names and optionally remember them for the next spreadsheet upload.
+          submitted. Use <strong className="font-medium">Fix labels</strong> to correct names,{" "}
+          <strong className="font-medium">Hide group</strong> when a class is not taught this month, or{" "}
+          <strong className="font-medium">Combine</strong> when two spreadsheet groups are one class.
+          Hidden groups can return when a worksheet upload includes them with PIDs again.
         </p>
       </div>
 
@@ -245,6 +275,14 @@ export function PreEtsPipelinePanel() {
             ))}
           </select>
         </label>
+        <label className="flex items-center gap-2 pb-2 text-sm">
+          <input
+            type="checkbox"
+            checked={includeHidden}
+            onChange={(e) => setIncludeHidden(e.target.checked)}
+          />
+          <span>Show hidden groups</span>
+        </label>
       </div>
 
       <p className="text-sm text-brand-black/60">
@@ -277,18 +315,26 @@ export function PreEtsPipelinePanel() {
               </tr>
             ) : (
               rows.map((row) => (
-                <tr key={`${row.schoolId}-${row.programGroupId ?? "none"}-${row.groupName}`} className="border-t border-neutral-100">
+                <tr
+                  key={`${row.schoolId}-${row.programGroupId ?? "none"}-${row.groupName}`}
+                  className={`border-t border-neutral-100 ${row.hidden ? "bg-neutral-50/90" : ""}`}
+                >
                   <td className="px-3 py-2">
                     <span
                       className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(row.status)}`}
                     >
-                      {statusLabel(row.status)}
+                      {row.hidden ? "Hidden" : statusLabel(row.status)}
                     </span>
                   </td>
                   <td className="px-3 py-2">
                     <p className="font-medium text-brand-black">{row.groupName}</p>
                     {row.groupName !== row.schoolName ? (
                       <p className="text-xs text-brand-black/55">{row.schoolName}</p>
+                    ) : null}
+                    {row.hidden && row.mergedIntoGroupName ? (
+                      <p className="text-xs text-brand-black/50">
+                        Combined into {row.mergedIntoGroupName}
+                      </p>
                     ) : null}
                   </td>
                   <td className="px-3 py-2">{row.studentCount}</td>
@@ -311,22 +357,31 @@ export function PreEtsPipelinePanel() {
                           Fix labels
                         </button>
                       ) : null}
-                      {canDeleteSchools && row.programGroupId ? (
-                        <button
-                          type="button"
-                          className="text-red-700 hover:underline"
-                          onClick={() => void onRemoveGroup(row)}
-                        >
-                          Remove group
-                        </button>
+                      {canEditGroupLabels && row.programGroupId && !row.hidden ? (
+                        <>
+                          <button
+                            type="button"
+                            className="text-brand-black/65 hover:underline"
+                            onClick={() => void onHideGroup(row)}
+                          >
+                            Hide group
+                          </button>
+                          <button
+                            type="button"
+                            className="text-brand-black/65 hover:underline"
+                            onClick={() => void openCombine(row)}
+                          >
+                            Combine…
+                          </button>
+                        </>
                       ) : null}
-                      {canDeleteSchools ? (
+                      {canEditGroupLabels && row.programGroupId && row.hidden ? (
                         <button
                           type="button"
-                          className="text-red-800/70 hover:underline"
-                          onClick={() => void onRemoveEntireSchool(row)}
+                          className="text-brand-green hover:underline"
+                          onClick={() => void onRestoreGroup(row)}
                         >
-                          Delete entire school
+                          Restore
                         </button>
                       ) : null}
                       {row.authorizationId && row.status === "pending_authorization" ? (
@@ -414,6 +469,19 @@ export function PreEtsPipelinePanel() {
           onSaved={() => void load()}
         />
       ) : null}
+
+      <PreEtsProgramGroupCombineModal
+        open={combineSource !== null}
+        sourceProgramGroupId={combineSource?.programGroupId ?? null}
+        sourceLabel={
+          combineSource
+            ? `${combineSource.groupName}${combineSource.groupName !== combineSource.schoolName ? ` · ${combineSource.schoolName}` : ""}`
+            : ""
+        }
+        candidates={combineCandidates}
+        onClose={() => setCombineSource(null)}
+        onCombined={() => void load()}
+      />
 
       {labelsTarget?.programGroupId ? (
         <PreEtsProgramGroupLabelsModal

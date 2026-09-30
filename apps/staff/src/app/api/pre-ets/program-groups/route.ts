@@ -9,10 +9,11 @@ import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
   const route = "api/pre-ets/program-groups";
-  const auth = await requirePreEtsApi("supervise");
+  const url = new URL(request.url);
+  const schoolId = url.searchParams.get("schoolId")?.trim();
+  const auth = await requirePreEtsApi(schoolId ? "access" : "supervise");
   if (isPreEtsApiError(auth)) return auth;
 
-  const url = new URL(request.url);
   const month = url.searchParams.get("month");
 
   try {
@@ -20,14 +21,18 @@ export async function GET(request: Request) {
     let query = admin
       .from("pre_ets_program_groups")
       .select(
-        "id, group_name, frequency, instructor_name, class_time, service_code, service_label, service_month, school_id, pre_ets_schools(name), pre_ets_authorizations(id, auth_number, auth_type, service_code)"
+        "id, group_name, frequency, instructor_name, class_time, service_code, service_label, service_month, school_id, hidden_at, pre_ets_schools(name), pre_ets_authorizations(id, auth_number, auth_type, service_code)"
       )
+      .is("hidden_at", null)
       .order("service_month", { ascending: false })
-      .limit(100);
+      .limit(200);
 
     if (month) {
       const serviceMonth = month.length === 7 ? `${month}-01` : month;
       query = query.eq("service_month", serviceMonth);
+    }
+    if (schoolId) {
+      query = query.eq("school_id", schoolId);
     }
 
     const { data, error } = await query;

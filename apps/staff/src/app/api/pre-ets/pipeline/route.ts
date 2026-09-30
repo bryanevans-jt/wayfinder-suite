@@ -54,6 +54,7 @@ export async function GET(request: Request) {
   const search = url.searchParams.get("search")?.trim() ?? "";
   const page = Number.parseInt(url.searchParams.get("page") ?? "1", 10);
   const pageSize = Number.parseInt(url.searchParams.get("pageSize") ?? "25", 10);
+  const includeHidden = url.searchParams.get("includeHidden") === "1";
 
   try {
     const admin = createServiceRoleClient();
@@ -61,6 +62,7 @@ export async function GET(request: Request) {
       userId: auth.userId,
       role: auth.role,
       serviceMonth: month,
+      includeHidden,
     });
 
     if (preEtsUnreleasedRosterHiddenFromRole(auth.role, auth.settings)) {
