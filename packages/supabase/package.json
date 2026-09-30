@@ -81,6 +81,7 @@
     "./pre-ets-supervisor-scope": "./src/pre-ets-supervisor-scope.ts",
     "./pre-ets-upload-scope": "./src/pre-ets-upload-scope.ts",
     "./pre-ets-school-pipeline": "./src/pre-ets-school-pipeline.ts",
+    "./postgrest-fetch-all": "./src/postgrest-fetch-all.ts",
     "./pre-ets-roster-update": "./src/pre-ets-roster-update.ts",
     "./pre-ets-release": "./src/pre-ets-release.ts",
     "./pre-ets-auth-request-notify": "./src/pre-ets-auth-request-notify.ts",
