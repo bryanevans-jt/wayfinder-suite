@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isPreEtsAuthorizationReleasedToField } from "./pre-ets-release";
+import { fetchAllPostgrestRows } from "./postgrest-fetch-all";
 import { loadPreEtsAssignedSchoolIds } from "./pre-ets-upload-scope";
 
 export type PreEtsPipelineStatus =
@@ -51,18 +52,24 @@ export async function loadPreEtsSchoolPipeline(
   const serviceMonth = normalizeServiceMonth(input.serviceMonth);
   const scopedSchoolIds = await loadPreEtsAssignedSchoolIds(admin, input.userId, input.role);
 
-  let schoolsQuery = admin
-    .from("pre_ets_schools")
-    .select("id, name")
-    .order("name", { ascending: true });
-
-  if (scopedSchoolIds !== null) {
-    if (scopedSchoolIds.length === 0) return [];
-    schoolsQuery = schoolsQuery.in("id", scopedSchoolIds);
+  if (scopedSchoolIds !== null && scopedSchoolIds.length === 0) {
+    return [];
   }
 
-  const { data: schools, error: schoolErr } = await schoolsQuery;
-  if (schoolErr) throw new Error(schoolErr.message);
+  const schools = await fetchAllPostgrestRows<{ id: string; name: string }>(
+    admin,
+    "pre_ets_schools",
+    "id, name",
+    {
+      order: { column: "name", ascending: true },
+      applyFilters: (query) => {
+        if (scopedSchoolIds !== null) {
+          return query.in("id", scopedSchoolIds);
+        }
+        return query;
+      },
+    }
+  );
 
   const rows: PreEtsPipelineRow[] = [];
 
