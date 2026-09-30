@@ -15,10 +15,29 @@ import {
 } from "@wayfinder/supabase/pre-ets-upload-scope";
 import { isAccountantRole, isAdminRole, isSuperAdminRole } from "@wayfinder/supabase/roles";
 import { commitWorksheetImport } from "@wayfinder/supabase/pre-ets-worksheet-import";
-import { parseDistrictWorksheet } from "@wayfinder/supabase/pre-ets-worksheet-parser";
+import { parseDistrictWorksheet, type ParsedDistrictWorksheet } from "@wayfinder/supabase/pre-ets-worksheet-parser";
+import { worksheetFileToDistrictCsvTexts } from "@wayfinder/supabase/pre-ets-worksheet-workbook";
 import { archiveWorksheetImportToDrive } from "@/lib/pre-ets-worksheet-archive";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
+
+type DistrictUploadResult =
+  | {
+      ok: true;
+      sheetName: string;
+      fileLabel: string;
+      import: Record<string, unknown>;
+      parsed: ParsedDistrictWorksheet;
+      committed: boolean;
+      districtId?: string;
+      ytdWarnings?: unknown[];
+      authMatchStats?: unknown;
+      schoolGroupLabels?: string[];
+      schoolNameWarnings?: unknown[];
+      archivedToDrive?: boolean;
+      archiveError?: string | null;
+    }
+  | { ok: false; sheetName: string; fileLabel: string; error: string; parsed?: ParsedDistrictWorksheet };
 
 export async function POST(request: Request) {
   const route = "api/pre-ets/worksheets";
@@ -36,22 +55,21 @@ export async function POST(request: Request) {
     const form = await request.formData();
     const file = form.get("file");
     if (!(file instanceof File)) {
-      return NextResponse.json({ error: "CSV file is required" }, { status: 400 });
+      return NextResponse.json({ error: "A CSV or Excel file is required" }, { status: 400 });
     }
 
-    const text = await file.text();
-    const settings = await loadPreEtsSettings(createServiceRoleClient());
-    const parsed = parseDistrictWorksheet(text, {
-      notApprovedMarker: settings.not_approved_marker,
-      groupAuthDigitCount: settings.group_auth_digit_count,
-    });
-
-    if (!parsed.districtNumber || !parsed.serviceMonth || !parsed.schoolYear) {
+    let workbook;
+    try {
+      workbook = await worksheetFileToDistrictCsvTexts(file);
+    } catch (err) {
       return NextResponse.json(
-        { error: "Worksheet must include district number, service month, and school year." },
+        { error: err instanceof Error ? err.message : "Could not read upload file" },
         { status: 400 }
       );
     }
+
+    const settings = await loadPreEtsSettings(createServiceRoleClient());
+    const admin = createServiceRoleClient();
 
     const accountantOnly =
       isAccountantRole(auth.role) &&
@@ -63,80 +81,179 @@ export async function POST(request: Request) {
       (testingOverride && isAdminRole(auth.role)) ||
       (!accountantOnly && usesPreEtsPlanningWorksheetUpload(auth.role));
 
-    if (usesPlanning && !worksheetUploadBypassesDistrictScope(auth.role, settings)) {
-      const allowed = await assertPlanningWorksheetDistrictAllowed(
-        createServiceRoleClient(),
-        auth.userId,
-        auth.role,
-        parsed.districtNumber,
-        parsed.schoolYear
-      );
-      if (!allowed.ok) {
-        return NextResponse.json({ error: allowed.error }, { status: 403 });
-      }
-    }
-
     const phase = usesPlanning ? "planning" : "auth_match";
-    const admin = createServiceRoleClient();
+    const results: DistrictUploadResult[] = [];
 
-    const { data, error } = await admin
-      .from("pre_ets_worksheet_imports")
-      .insert({
-        service_month: parsed.serviceMonth,
-        school_year: parsed.schoolYear,
-        phase,
-        status: "parsed",
-        file_name: file.name,
-        file_content: text,
-        parse_result: parsed,
-        created_by: auth.userId,
-      })
-      .select("id, service_month, school_year, phase, status, file_name, created_at")
-      .single();
+    for (const sheet of workbook.sheets) {
+      const fileLabel =
+        workbook.sheets.length > 1
+          ? `${file.name} · ${sheet.sheetName}`
+          : file.name;
 
-    if (error || !data) {
-      return respondWithLoggedError("staff", route, error, {
-        userId: auth.userId,
-        userRole: auth.role,
+      const parsed = parseDistrictWorksheet(sheet.csvText, {
+        notApprovedMarker: settings.not_approved_marker,
+        groupAuthDigitCount: settings.group_auth_digit_count,
       });
-    }
 
-    const importId = data.id as string;
-
-    if (phase === "planning") {
-      const commit = await commitWorksheetImport(admin, importId, auth.userId, {
-        allowDirectCommit: true,
-      });
-      if (!commit.ok) {
-        return NextResponse.json({ error: commit.error }, { status: 400 });
-      }
-
-      if (!testingOverride && commit.schoolGroupLabels.length > 0) {
-        await notifyPreEtsAuthRequestsSubmitted(admin, {
-          schoolGroupLabels: commit.schoolGroupLabels,
-          serviceMonth: commit.serviceMonth,
-          districtNumber: commit.districtNumber,
-          importId,
+      if (!parsed.districtNumber || !parsed.serviceMonth || !parsed.schoolYear) {
+        results.push({
+          ok: false,
+          sheetName: sheet.sheetName,
+          fileLabel,
+          error: "Sheet must include district number, service month, and school year.",
+          parsed,
         });
+        continue;
       }
 
-      const archive = await archiveWorksheetImportToDrive(admin, importId);
+      if (usesPlanning && !worksheetUploadBypassesDistrictScope(auth.role, settings)) {
+        const allowed = await assertPlanningWorksheetDistrictAllowed(
+          admin,
+          auth.userId,
+          auth.role,
+          parsed.districtNumber,
+          parsed.schoolYear
+        );
+        if (!allowed.ok) {
+          results.push({
+            ok: false,
+            sheetName: sheet.sheetName,
+            fileLabel,
+            error: allowed.error,
+            parsed,
+          });
+          continue;
+        }
+      }
 
-      return NextResponse.json({
+      const storedFileName =
+        workbook.format === "csv"
+          ? file.name
+          : `${file.name.replace(/\.(xlsx|xls)$/i, "")}-${sheet.sheetName}.csv`;
+
+      const { data, error } = await admin
+        .from("pre_ets_worksheet_imports")
+        .insert({
+          service_month: parsed.serviceMonth,
+          school_year: parsed.schoolYear,
+          phase,
+          status: "parsed",
+          file_name: storedFileName,
+          file_content: sheet.csvText,
+          parse_result: parsed,
+          created_by: auth.userId,
+        })
+        .select("id, service_month, school_year, phase, status, file_name, created_at")
+        .single();
+
+      if (error || !data) {
+        results.push({
+          ok: false,
+          sheetName: sheet.sheetName,
+          fileLabel,
+          error: error?.message ?? "Could not save import",
+          parsed,
+        });
+        continue;
+      }
+
+      const importId = data.id as string;
+
+      if (phase === "planning") {
+        const commit = await commitWorksheetImport(admin, importId, auth.userId, {
+          allowDirectCommit: true,
+        });
+        if (!commit.ok) {
+          results.push({
+            ok: false,
+            sheetName: sheet.sheetName,
+            fileLabel,
+            error: commit.error,
+            parsed,
+          });
+          continue;
+        }
+
+        if (!testingOverride && commit.schoolGroupLabels.length > 0) {
+          await notifyPreEtsAuthRequestsSubmitted(admin, {
+            schoolGroupLabels: commit.schoolGroupLabels,
+            serviceMonth: commit.serviceMonth,
+            districtNumber: commit.districtNumber,
+            importId,
+          });
+        }
+
+        const archive = await archiveWorksheetImportToDrive(admin, importId);
+
+        results.push({
+          ok: true,
+          sheetName: sheet.sheetName,
+          fileLabel,
+          import: data,
+          parsed,
+          committed: true,
+          districtId: commit.districtId,
+          ytdWarnings: commit.ytdWarnings,
+          authMatchStats: commit.authMatchStats,
+          schoolGroupLabels: commit.schoolGroupLabels,
+          schoolNameWarnings: commit.schoolNameWarnings,
+          archivedToDrive: archive.ok,
+          archiveError: archive.ok ? null : archive.error,
+        });
+        continue;
+      }
+
+      results.push({
+        ok: true,
+        sheetName: sheet.sheetName,
+        fileLabel,
         import: data,
         parsed,
-        committed: true,
-        districtId: commit.districtId,
-        ytdWarnings: commit.ytdWarnings,
-        authMatchStats: commit.authMatchStats,
-        schoolGroupLabels: commit.schoolGroupLabels,
-        schoolNameWarnings: commit.schoolNameWarnings,
-        archivedToDrive: archive.ok,
-        archiveError: archive.ok ? null : archive.error,
+        committed: false,
       });
     }
 
-    return NextResponse.json({ import: data, parsed, committed: false });
+    const successes = results.filter((r) => r.ok) as Extract<DistrictUploadResult, { ok: true }>[];
+    const failures = results.filter((r) => !r.ok);
+
+    if (successes.length === 0) {
+      return NextResponse.json(
+        {
+          error:
+            failures[0]?.error ??
+            "No district worksheets were imported. Check each tab has a billing header and district line.",
+          multi: workbook.sheets.length > 1,
+          districts: results,
+        },
+        { status: 400 }
+      );
+    }
+
+    if (workbook.sheets.length === 1 && successes.length === 1) {
+      const one = successes[0]!;
+      return NextResponse.json({
+        import: one.import,
+        parsed: one.parsed,
+        committed: one.committed,
+        districtId: one.districtId,
+        ytdWarnings: one.ytdWarnings,
+        authMatchStats: one.authMatchStats,
+        schoolGroupLabels: one.schoolGroupLabels,
+        schoolNameWarnings: one.schoolNameWarnings,
+        archivedToDrive: one.archivedToDrive,
+        archiveError: one.archiveError,
+        uploadFormat: workbook.format,
+      });
+    }
+
+    return NextResponse.json({
+      multi: true,
+      uploadFormat: workbook.format,
+      districts: results,
+      committed: successes.every((s) => s.committed),
+      importCount: successes.length,
+      failedCount: failures.length,
+    });
   } catch (err) {
     return respondWithLoggedError("staff", route, err, {
       userId: auth.userId,

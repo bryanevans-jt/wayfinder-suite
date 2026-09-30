@@ -84,14 +84,10 @@
     "./postgrest-fetch-all": "./src/postgrest-fetch-all.ts",
     "./pre-ets-program-group-admin": "./src/pre-ets-program-group-admin.ts",
     "./pre-ets-program-group-visibility": "./src/pre-ets-program-group-visibility.ts",
+    "./pre-ets-worksheet-workbook": "./src/pre-ets-worksheet-workbook.ts",
     "./pre-ets-data-reset": "./src/pre-ets-data-reset.ts",
     "./pre-ets-instructor-match": "./src/pre-ets-instructor-match.ts",
     "./pre-ets-roster-update": "./src/pre-ets-roster-update.ts",
-    "./pre-ets-release": "./src/pre-ets-release.ts",
-    "./pre-ets-auth-request-notify": "./src/pre-ets-auth-request-notify.ts",
-    "./pre-ets-roster-released-notify": "./src/pre-ets-roster-released-notify.ts",
-    "./pre-ets-authorization-finalize": "./src/pre-ets-authorization-finalize.ts",
-    "./pre-ets-list-format": "./src/pre-ets-list-format.ts",
     "./pre-ets-auth-request-notify": "./src/pre-ets-auth-request-notify.ts",
     "./pre-ets-roster-released-notify": "./src/pre-ets-roster-released-notify.ts",
     "./pre-ets-authorization-finalize": "./src/pre-ets-authorization-finalize.ts",
@@ -107,10 +103,11 @@
     "test": "node --import tsx --test src/**/*.test.ts"
   },
   "dependencies": {
-    "@wayfinder/branding": "*",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.49.8",
-    "web-push": "^3.6.7"
+    "@wayfinder/branding": "*",
+    "web-push": "^3.6.7",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/web-push": "^3.6.4",

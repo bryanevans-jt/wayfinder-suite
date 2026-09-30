@@ -116,6 +116,17 @@ export function PreEtsWorksheetPanel() {
       import?: { id: string };
       parsed?: ParsedDistrictWorksheet;
       committed?: boolean;
+      multi?: boolean;
+      importCount?: number;
+      failedCount?: number;
+      districts?: Array<{
+        ok: boolean;
+        sheetName?: string;
+        fileLabel?: string;
+        error?: string;
+        parsed?: ParsedDistrictWorksheet;
+        schoolGroupLabels?: string[];
+      }>;
       ytdWarnings?: YtdWarning[];
       authMatchStats?: AuthMatchStats | null;
       schoolGroupLabels?: string[];
@@ -132,6 +143,26 @@ export function PreEtsWorksheetPanel() {
 
     if (data.parsed?.issues?.length) {
       setParseIssues(data.parsed.issues);
+    }
+
+    if (data.multi && data.districts?.length) {
+      const okRows = data.districts.filter((d) => d.ok);
+      const badRows = data.districts.filter((d) => !d.ok);
+      const labels = okRows.flatMap((d) => d.schoolGroupLabels ?? []);
+      setSchoolGroupLabels(labels);
+      setParseIssues(
+        badRows.flatMap((d) =>
+          (d.parsed?.issues ?? []).map((issue) => `${d.sheetName ?? "Sheet"}: ${issue}`)
+        )
+      );
+      setMessage(
+        `Imported ${okRows.length} district tab(s) from workbook.${
+          badRows.length ? ` ${badRows.length} tab(s) skipped — see flags below.` : ""
+        }${testingOverrideEnabled ? " Testing override is ON." : ""}`
+      );
+      setPreview(null);
+      void load();
+      return;
     }
 
     if (data.committed) {
@@ -280,11 +311,11 @@ export function PreEtsWorksheetPanel() {
         <h2 className="text-lg font-semibold text-brand-black">District worksheet import</h2>
         <p className="mt-1 text-sm text-brand-black/65">
           {testingOverrideEnabled
-            ? "Testing override is on: upload CSV without authorization numbers, create pending rosters, and verify them as Admin or Super Admin only. Rows without a PID # are skipped; missing class times stay blank."
+            ? "Testing override is on: upload CSV or Excel (.xlsx/.xls) without authorization numbers. Rows without a PID # are skipped."
             : isSuperAdminUploader
-              ? "Upload any district planning CSV (no authorization numbers required). Pending rosters commit immediately for the whole district in the file."
+              ? "Upload a district CSV or a multi-tab Excel workbook (one district per sheet). Pending rosters commit immediately per district tab."
               : isSupervisorMode
-                ? "Upload your monthly district CSV before GVRA authorization numbers are available. Pending rosters are created immediately; you can re-upload the same month to add schools or students."
+                ? "Upload CSV or Excel before GVRA authorization numbers are available. Excel workbooks can use one tab per district; CSV is one district per file."
                 : "Support uploads and review import history. Supervisors normally upload planning worksheets; enter authorization numbers under Rosters & auths when GVRA responds."}
         </p>
       </div>
@@ -344,7 +375,7 @@ export function PreEtsWorksheetPanel() {
           {busy ? "Uploading…" : "Upload CSV"}
           <input
             type="file"
-            accept=".csv,text/csv"
+            accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
             className="hidden"
             disabled={busy}
             onChange={(e) => {
