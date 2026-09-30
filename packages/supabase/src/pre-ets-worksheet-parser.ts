@@ -245,6 +245,61 @@ function normalizeFrequencyToken(token: string): string | null {
   return FREQUENCY_ALIASES[key] ?? null;
 }
 
+const WEEKDAY_HINT = /^(mon|tues?|wednes?|thurs?|fri)days?$/i;
+
+function isWeekdayPart(part: string): boolean {
+  return WEEKDAY_HINT.test(part.trim().toLowerCase());
+}
+
+function isGroupDesignationPart(part: string): boolean {
+  const lower = part.trim().toLowerCase();
+  if (!lower) return false;
+  if (GROUP_DESIGNATION_HINT.test(lower)) return true;
+  if (/^inclusion\b/.test(lower)) return true;
+  if (/^self\s*cont(ained)?\b/.test(lower)) return true;
+  if (/^class\s+\d+/i.test(part)) return true;
+  if (/period/i.test(part)) return true;
+  return false;
+}
+
+function looksLikePersonName(part: string): boolean {
+  const p = part.trim();
+  if (!p) return false;
+  if (isGroupDesignationPart(p) || normalizeFrequencyToken(p) || isWeekdayPart(p)) return false;
+  if (/\([a-z\s]+county\)/i.test(p)) return true;
+  const inclusionParen = p.match(/^(.+?)\s*\(inclusion\)\s*$/i);
+  if (inclusionParen && inclusionParen[1]?.trim().split(/\s+/).length >= 2) return true;
+  return p.split(/\s+/).filter(Boolean).length >= 2;
+}
+
+function isGroupSuffixPart(part: string): boolean {
+  const p = part.trim();
+  if (!p || p.includes("(")) return false;
+  if (isGroupDesignationPart(p) || normalizeFrequencyToken(p) || isWeekdayPart(p)) return false;
+  if (looksLikePersonName(p)) return false;
+  return p.split(/\s+/).length === 1 && /^[A-Za-z'.-]+$/.test(p);
+}
+
+type HeaderSegmentKind = "freq" | "day" | "group" | "person" | "suffix";
+
+function classifyHeaderSegment(part: string): HeaderSegmentKind {
+  if (normalizeFrequencyToken(part)) return "freq";
+  if (isWeekdayPart(part)) return "day";
+  if (isGroupDesignationPart(part)) return "group";
+  if (looksLikePersonName(part)) return "person";
+  if (isGroupSuffixPart(part)) return "suffix";
+  if (part.trim().split(/\s+/).length >= 2) return "person";
+  return "suffix";
+}
+
+function splitInstructorPart(part: string): { instructorName: string; groupHint: string | null } {
+  const inclusionParen = part.match(/^(.+?)\s*\(inclusion\)\s*$/i);
+  if (inclusionParen) {
+    return { instructorName: inclusionParen[1]?.trim() ?? part, groupHint: "INCLUSION" };
+  }
+  return { instructorName: part.trim(), groupHint: null };
+}
+
 export function parseGroupHeader(headerRaw: string): {
   schoolName: string;
   groupName: string;
@@ -264,89 +319,42 @@ export function parseGroupHeader(headerRaw: string): {
     };
   }
 
-  let freqIndex = -1;
+  const schoolName = parts[0] ?? trimmed;
+  const segments = parts.slice(1).map((part) => ({ part, kind: classifyHeaderSegment(part) }));
+
   let frequency: string | null = null;
-  for (let i = 0; i < parts.length; i++) {
-    const normalized = normalizeFrequencyToken(parts[i] ?? "");
-    if (normalized) {
-      freqIndex = i;
-      frequency = normalized;
-      break;
+  for (const seg of segments) {
+    if (seg.kind === "freq") {
+      frequency = normalizeFrequencyToken(seg.part) ?? frequency;
     }
   }
 
-  if (freqIndex < 0) {
-    if (parts.length >= 3) {
-      const groupDesignation = parts.pop() ?? null;
-      const instructorName = parts.pop() ?? null;
-      const schoolName = parts.join(" - ").trim() || trimmed;
-      return {
-        schoolName,
-        groupName: groupDesignation ?? "Main",
-        groupDesignation,
-        frequency: null,
-        instructorName,
-      };
+  const personSeg = segments.find((s) => s.kind === "person");
+  let instructorName: string | null = null;
+  const groupParts: string[] = [];
+
+  if (personSeg) {
+    const split = splitInstructorPart(personSeg.part);
+    instructorName = split.instructorName || null;
+    if (split.groupHint) groupParts.push(split.groupHint);
+  }
+
+  for (const seg of segments) {
+    if (seg.kind === "group" || seg.kind === "suffix") {
+      groupParts.push(seg.part);
     }
-    if (parts.length === 2) {
-      const second = parts[1] ?? "";
-      if (GROUP_DESIGNATION_HINT.test(second)) {
-        return {
-          schoolName: parts[0] ?? trimmed,
-          groupName: second,
-          groupDesignation: second,
-          frequency: null,
-          instructorName: null,
-        };
-      }
-      return {
-        schoolName: parts[0] ?? trimmed,
-        groupName: "Main",
-        groupDesignation: null,
-        frequency: null,
-        instructorName: second || null,
-      };
-    }
-    const instructorName = parts.pop() ?? null;
-    const freqRaw = parts.pop() ?? null;
-    const schoolName = parts.join(" - ").trim() || trimmed;
-    return {
-      schoolName,
-      groupName: "Main",
-      groupDesignation: null,
-      frequency: freqRaw,
-      instructorName,
-    };
   }
 
-  const schoolName = parts.slice(0, freqIndex).join(" - ").trim() || trimmed;
-  const afterFreq = parts.slice(freqIndex + 1);
+  const groupDesignation =
+    groupParts.length > 0 ? groupParts.join(" - ").replace(/\s+-\s*$/u, "").trim() : null;
 
-  if (afterFreq.length === 0) {
-    return {
-      schoolName,
-      groupName: "Main",
-      groupDesignation: null,
-      frequency,
-      instructorName: null,
-    };
-  }
-
-  if (afterFreq.length === 1) {
-    return {
-      schoolName,
-      groupName: "Main",
-      groupDesignation: null,
-      frequency,
-      instructorName: afterFreq[0] ?? null,
-    };
-  }
-
-  const instructorName = afterFreq[0] ?? null;
-  const groupDesignation = afterFreq.slice(1).join(" - ").trim() || null;
-  const groupName = groupDesignation ?? "Main";
-
-  return { schoolName, groupName, groupDesignation, frequency, instructorName };
+  return {
+    schoolName,
+    groupName: groupDesignation || "Main",
+    groupDesignation,
+    frequency,
+    instructorName,
+  };
 }
 
 function columnIndex(headers: string[], ...candidates: string[]): number {
