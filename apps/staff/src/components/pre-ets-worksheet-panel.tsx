@@ -68,7 +68,12 @@ export function PreEtsWorksheetPanel() {
     ]);
     const data = (await sheetRes.json()) as { imports?: ImportRow[]; role?: "supervisor" | "accounts" };
     const access = (await accessRes.json()) as {
-      access?: { canManageSettings?: boolean; canUploadPlanningWorksheets?: boolean };
+      access?: {
+        canManageSettings?: boolean;
+        canUploadPlanningWorksheets?: boolean;
+        canManageWorksheetTestingOverride?: boolean;
+      };
+      settings?: { worksheet_testing_override_enabled?: boolean };
     };
     if (sheetRes.ok) {
       setImports(data.imports ?? []);

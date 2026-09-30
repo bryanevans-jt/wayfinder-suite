@@ -330,7 +330,8 @@ export function validateWorksheetHeaderColumns(headers: string[], rowNumber: num
     }
   }
   for (const col of RECOMMENDED_WORKSHEET_COLUMNS) {
-    const keys = col.alt ? [col.key, col.alt] : [col.key];
+    const alt = "alt" in col ? col.alt : undefined;
+    const keys = alt ? [col.key, alt] : [col.key];
     if (columnIndex(headers, ...keys) < 0) {
       issues.push(`Row ${rowNumber}: could not find column "${col.label}" — check spreadsheet layout`);
     }
