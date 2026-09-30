@@ -8,10 +8,15 @@ import {
 } from "./pre-ets-class-setup";
 import {
   countPendingAuthorizationsForDistrictMonth,
-  findProgramGroupId,
   resolveAuthorizationForWorksheetRow,
   type AuthMatchStats,
 } from "./pre-ets-worksheet-auth-match";
+import {
+  applyWorksheetGroupMapping,
+  findProgramGroupForWorksheetImport,
+  loadWorksheetGroupMappings,
+  normalizeWorksheetHeaderKey,
+} from "./pre-ets-worksheet-group-mapping";
 
 export type PreEtsYtdWarning = {
   participantId: string;
@@ -52,12 +57,12 @@ async function upsertProgramGroup(
     group: ParsedWorksheetGroup;
   }
 ): Promise<string | null> {
-  const existingId = await findProgramGroupId(
-    admin,
-    input.schoolId,
-    input.serviceMonth,
-    input.group.groupName
-  );
+  const headerKey = normalizeWorksheetHeaderKey(input.group.headerRaw);
+  const existingId = await findProgramGroupForWorksheetImport(admin, {
+    schoolId: input.schoolId,
+    serviceMonth: input.serviceMonth,
+    group: input.group,
+  });
 
   if (existingId) {
     await admin
@@ -65,11 +70,13 @@ async function upsertProgramGroup(
       .update({
         worksheet_import_id: input.importId,
         header_raw: input.group.headerRaw,
+        group_name: input.group.groupName,
         frequency: input.group.frequency,
         instructor_name: input.group.instructorName,
         class_time: input.group.classTime,
         service_code: input.group.serviceCode,
         service_label: input.group.serviceLabel,
+        worksheet_header_key: headerKey || null,
       })
       .eq("id", existingId);
     return existingId;
@@ -83,6 +90,7 @@ async function upsertProgramGroup(
       worksheet_import_id: input.importId,
       service_month: input.serviceMonth,
       header_raw: input.group.headerRaw,
+      worksheet_header_key: headerKey || null,
       group_name: input.group.groupName,
       frequency: input.group.frequency,
       instructor_name: input.group.instructorName,
@@ -272,6 +280,11 @@ export async function commitWorksheetImport(
     .update({ district_id: districtId })
     .eq("id", importId);
 
+  const groupMappings = await loadWorksheetGroupMappings(admin, {
+    schoolYear: parsed.schoolYear,
+    districtId,
+  });
+
   for (const office of parsed.offices) {
     const { data: officeRow, error: officeErr } = await admin
       .from("pre_ets_gvra_offices")
@@ -286,6 +299,12 @@ export async function commitWorksheetImport(
     const officeId = officeRow.id as string;
 
     for (const group of office.groups) {
+      const headerKey = normalizeWorksheetHeaderKey(group.headerRaw);
+      const mapping = headerKey ? groupMappings.get(headerKey) : undefined;
+      if (mapping) {
+        applyWorksheetGroupMapping(group, mapping);
+      }
+
       const resolution = await resolveWorksheetSchoolName(admin, {
         districtId,
         schoolYear: parsed.schoolYear,
@@ -297,22 +316,35 @@ export async function commitWorksheetImport(
         schoolNameWarnings.push(resolution.warning);
       }
 
-      const schoolName = resolution.resolvedName;
-      const { data: school, error: schoolErr } = await admin
-        .from("pre_ets_schools")
-        .upsert(
-          {
-            district_id: districtId,
-            gvra_office_id: officeId,
-            name: schoolName,
-          },
-          { onConflict: "district_id,name" }
-        )
-        .select("id")
-        .single();
+      let schoolName = resolution.resolvedName;
+      let schoolId = mapping?.canonical_school_id ?? null;
 
-      if (schoolErr || !school) continue;
-      const schoolId = school.id as string;
+      if (schoolId) {
+        const { data: linkedSchool } = await admin
+          .from("pre_ets_schools")
+          .select("id, name")
+          .eq("id", schoolId)
+          .maybeSingle();
+        if (linkedSchool?.name) schoolName = linkedSchool.name as string;
+      }
+
+      if (!schoolId) {
+        const { data: school, error: schoolErr } = await admin
+          .from("pre_ets_schools")
+          .upsert(
+            {
+              district_id: districtId,
+              gvra_office_id: officeId,
+              name: schoolName,
+            },
+            { onConflict: "district_id,name" }
+          )
+          .select("id")
+          .single();
+
+        if (schoolErr || !school) continue;
+        schoolId = school.id as string;
+      }
 
       const programGroupId = await upsertProgramGroup(admin, {
         schoolId,

@@ -1,6 +1,7 @@
 "use client";
 
 import { PreEtsAuthorizationFinalizeModal } from "@/components/pre-ets-authorization-finalize-modal";
+import { PreEtsProgramGroupLabelsModal } from "@/components/pre-ets-program-group-labels-modal";
 import { PreEtsServiceCodeDisplay } from "@/components/pre-ets-service-code-display";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -69,6 +70,8 @@ export function PreEtsPipelinePanel() {
   const [canEditServiceCode, setCanEditServiceCode] = useState(false);
   const [editTarget, setEditTarget] = useState<PipelineRow | null>(null);
   const [finalizeTarget, setFinalizeTarget] = useState<PipelineRow | null>(null);
+  const [labelsTarget, setLabelsTarget] = useState<PipelineRow | null>(null);
+  const [canEditGroupLabels, setCanEditGroupLabels] = useState(false);
 
   useEffect(() => {
     const t = window.setTimeout(() => setSearchDebounced(search.trim()), 300);
@@ -83,11 +86,22 @@ export function PreEtsPipelinePanel() {
     void (async () => {
       const res = await fetch("/api/pre-ets/access");
       const data = (await res.json()) as {
-        access?: { canFinalizeAuthorizations?: boolean; canEditAuthorizationServiceCode?: boolean };
+        access?: {
+          canFinalizeAuthorizations?: boolean;
+          canEditAuthorizationServiceCode?: boolean;
+          canManageSetup?: boolean;
+          canSupervise?: boolean;
+          canAccounts?: boolean;
+        };
       };
       if (res.ok) {
         setCanFinalize(data.access?.canFinalizeAuthorizations ?? false);
         setCanEditServiceCode(data.access?.canEditAuthorizationServiceCode ?? false);
+        setCanEditGroupLabels(
+          Boolean(
+            data.access?.canManageSetup || data.access?.canSupervise || data.access?.canAccounts
+          )
+        );
       }
     })();
   }, []);
@@ -130,7 +144,8 @@ export function PreEtsPipelinePanel() {
         <h2 className="text-lg font-semibold text-brand-black">Schools &amp; groups</h2>
         <p className="mt-1 text-sm text-brand-black/65">
           Track each school or group through Awaiting spreadsheet → Pending authorization → Roster
-          submitted. Search and filter to find a site quickly.
+          submitted. Use <strong className="font-medium">Fix labels</strong> to correct school, group,
+          or instructor names and optionally remember them for the next spreadsheet upload.
         </p>
       </div>
 
@@ -239,6 +254,15 @@ export function PreEtsPipelinePanel() {
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-2 text-xs">
+                      {canEditGroupLabels && row.programGroupId ? (
+                        <button
+                          type="button"
+                          className="text-brand-black/80 hover:underline"
+                          onClick={() => setLabelsTarget(row)}
+                        >
+                          Fix labels
+                        </button>
+                      ) : null}
                       {row.authorizationId && row.status === "pending_authorization" ? (
                         <>
                           {canFinalize ? (
@@ -321,6 +345,17 @@ export function PreEtsPipelinePanel() {
           schoolLabel={`${finalizeTarget.groupName}${finalizeTarget.groupName !== finalizeTarget.schoolName ? ` · ${finalizeTarget.schoolName}` : ""}`}
           canEditServiceCode={canEditServiceCode}
           onClose={() => setFinalizeTarget(null)}
+          onSaved={() => void load()}
+        />
+      ) : null}
+
+      {labelsTarget?.programGroupId ? (
+        <PreEtsProgramGroupLabelsModal
+          programGroupId={labelsTarget.programGroupId}
+          initialSchoolName={labelsTarget.schoolName}
+          initialGroupName={labelsTarget.groupName}
+          initialInstructorName={labelsTarget.instructorName}
+          onClose={() => setLabelsTarget(null)}
           onSaved={() => void load()}
         />
       ) : null}

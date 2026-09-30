@@ -30,6 +30,25 @@ describe("pre-ets-worksheet-parser", () => {
     assert.equal(parsed.serviceMonth, "2026-10-01");
     assert.equal(parsed.stats.studentCount, 1);
     assert.equal(parsed.offices[0]?.groups[0]?.schoolName, "SHAW HIGH SCHOOL");
+    assert.equal(parsed.offices[0]?.groups[0]?.instructorName, "IVETTE CORDERO");
+    assert.equal(parsed.offices[0]?.groups[0]?.groupName, "INCLUSION");
+  });
+
+  it("keeps instructor and program type in the correct fields", () => {
+    const shaw = parseGroupHeader("SHAW HIGH SCHOOL - IVETTE CORDERO - INCLUSION");
+    assert.equal(shaw.instructorName, "IVETTE CORDERO");
+    assert.equal(shaw.groupName, "INCLUSION");
+
+    const northgate = parseGroupHeader("NORTHGATE HIGH - EMERY FAIRCLOTH - INCLUSION - MOSELY");
+    assert.equal(northgate.instructorName, "EMERY FAIRCLOTH");
+    assert.equal(northgate.groupName, "INCLUSION - MOSELY");
+
+    const kendrick = parseGroupHeader(
+      "KENDRICK HIGH SCHOOL - WEEKLY - THURSDAYS - IVETTE CORDERO (Muscogee County)"
+    );
+    assert.equal(kendrick.instructorName, "IVETTE CORDERO (Muscogee County)");
+    assert.equal(kendrick.groupName, "Main");
+    assert.equal(kendrick.frequency, "WEEKLY");
   });
 
   it("skips student rows without PID", () => {

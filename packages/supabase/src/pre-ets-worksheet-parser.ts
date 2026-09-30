@@ -112,6 +112,11 @@ function isBlankLine(line: string): boolean {
   return parseCsvLine(line).every((cell) => !cell.trim());
 }
 
+/** Stable key for matching the same spreadsheet group header across uploads. */
+export function normalizeWorksheetHeaderKey(headerRaw: string): string {
+  return headerRaw.replace(/\u00a0/g, " ").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
 /** First non-empty CSV cell (billing exports pad rows with trailing commas). */
 export function primaryCsvLabel(line: string): string {
   const cells = parseCsvLine(line);
