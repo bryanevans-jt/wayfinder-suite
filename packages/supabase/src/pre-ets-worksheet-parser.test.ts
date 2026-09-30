@@ -54,6 +54,20 @@ describe("pre-ets-worksheet-parser", () => {
     assert.equal(wheeler.schoolName, "WHEELER COUNTY HIGH SCHOOL");
     assert.equal(wheeler.instructorName, "TIFFANY POWELL");
     assert.equal(wheeler.groupName, "MONTHLY");
+
+    const tattnall = parseGroupHeader(
+      "TATTNALL COUNTY HIGH SCHOOL - BI-WEEKLY - FRIDAYS - TIFFANY POWELL"
+    );
+    assert.equal(tattnall.schoolName, "TATTNALL COUNTY HIGH SCHOOL");
+    assert.equal(tattnall.instructorName, "TIFFANY POWELL");
+    assert.equal(tattnall.frequency, "BIWEEKLY");
+    assert.equal(tattnall.groupName, "BIWEEKLY · FRIDAYS");
+
+    const tattnallEnDash = parseGroupHeader(
+      "TATTNALL COUNTY HIGH SCHOOL – BI-WEEKLY – FRIDAYS – TIFFANY POWELL"
+    );
+    assert.equal(tattnallEnDash.schoolName, "TATTNALL COUNTY HIGH SCHOOL");
+    assert.equal(tattnallEnDash.instructorName, "TIFFANY POWELL");
   });
 
   it("skips student rows without PID", () => {

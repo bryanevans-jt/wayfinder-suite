@@ -17,8 +17,11 @@ const ABBREVIATION_EXPANSIONS: Record<string, string> = {
 
 /** Expand known internal abbreviations before matching. */
 export function expandSchoolAbbreviation(name: string): string {
-  const trimmed = name.trim();
+  let trimmed = name.trim();
   const lower = trimmed.toLowerCase();
+  if (/ county high$/i.test(trimmed) && !/high school$/i.test(trimmed)) {
+    trimmed = `${trimmed} School`;
+  }
   for (const [abbr, full] of Object.entries(ABBREVIATION_EXPANSIONS)) {
     if (lower === abbr) return full;
     if (lower.startsWith(`${abbr} `)) {

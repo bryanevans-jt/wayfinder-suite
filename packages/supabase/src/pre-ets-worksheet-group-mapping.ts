@@ -70,6 +70,7 @@ export async function findProgramGroupForWorksheetImport(
       .maybeSingle();
 
     if (byKey?.id) return byKey.id as string;
+    return null;
   }
 
   return findProgramGroupId(

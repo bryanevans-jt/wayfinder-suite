@@ -267,10 +267,15 @@ function isGroupDesignationPart(part: string): boolean {
   return false;
 }
 
+function looksLikeClassTimePart(part: string): boolean {
+  return /\d/.test(part) && /\b(\d{1,2}\s*[–—-]\s*\d{1,2}|\d{1,2}\s*:\s*\d{2})\b/.test(part);
+}
+
 function looksLikePersonName(part: string): boolean {
   const p = part.trim();
   if (!p) return false;
   if (isGroupDesignationPart(p) || normalizeFrequencyToken(p) || isWeekdayPart(p)) return false;
+  if (looksLikeClassTimePart(p)) return false;
   if (/\([a-z\s]+county\)/i.test(p)) return true;
   const inclusionParen = p.match(/^(.+?)\s*\(inclusion\)\s*$/i);
   if (inclusionParen && inclusionParen[1]?.trim().split(/\s+/).length >= 2) return true;
@@ -305,6 +310,20 @@ function splitInstructorPart(part: string): { instructorName: string; groupHint:
   return { instructorName: part.trim(), groupHint: null };
 }
 
+const BI_WEEKLY_PLACEHOLDER = "BI__WEEKLY__FREQ";
+
+/** Split on spaced dashes only so BI-WEEKLY and en-dashes in class times stay intact. */
+export function splitGroupHeaderParts(headerRaw: string): string[] {
+  const normalized = headerRaw.replace(/\u00a0/g, " ").trim();
+  const protectedHeader = normalized.replace(/bi-weekly/gi, BI_WEEKLY_PLACEHOLDER);
+  const parts = protectedHeader
+    .split(/\s+[-–—]\s+/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => p.replace(new RegExp(BI_WEEKLY_PLACEHOLDER, "gi"), "BI-WEEKLY"));
+  return parts;
+}
+
 export function parseGroupHeader(headerRaw: string): {
   schoolName: string;
   groupName: string;
@@ -313,7 +332,7 @@ export function parseGroupHeader(headerRaw: string): {
   instructorName: string | null;
 } {
   const trimmed = headerRaw.trim();
-  const parts = trimmed.split("-").map((p) => p.trim()).filter(Boolean);
+  const parts = splitGroupHeaderParts(trimmed);
   if (parts.length < 2) {
     return {
       schoolName: trimmed,

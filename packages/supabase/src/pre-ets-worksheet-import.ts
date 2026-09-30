@@ -326,7 +326,11 @@ export async function commitWorksheetImport(
           .select("id, name")
           .eq("id", schoolId)
           .maybeSingle();
-        if (linkedSchool?.name) schoolName = linkedSchool.name as string;
+        if (linkedSchool?.id) {
+          schoolName = linkedSchool.name as string;
+        } else {
+          schoolId = null;
+        }
       }
 
       if (!schoolId) {
