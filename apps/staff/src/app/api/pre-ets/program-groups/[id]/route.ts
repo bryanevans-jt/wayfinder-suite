@@ -5,7 +5,9 @@ import {
   canManagePreEtsSetup,
   canSupervisePreEts,
 } from "@wayfinder/supabase/pre-ets-settings";
+import { deletePreEtsProgramGroup } from "@wayfinder/supabase/pre-ets-program-group-admin";
 import { updateProgramGroupLabels } from "@wayfinder/supabase/pre-ets-worksheet-group-mapping";
+import { isSuperAdminRole } from "@wayfinder/supabase/roles";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
@@ -91,6 +93,35 @@ export async function GET(
         schoolYear: district?.school_year ?? auth.settings.school_year,
       },
     });
+  } catch (err) {
+    return respondWithLoggedError("staff", route, err, {
+      userId: auth.userId,
+      userRole: auth.role,
+    });
+  }
+}
+
+export async function DELETE(
+  _request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  const route = "api/pre-ets/program-groups/[id]";
+  const auth = await requirePreEtsApi("access");
+  if (isPreEtsApiError(auth)) return auth;
+
+  if (!isSuperAdminRole(auth.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { id } = await context.params;
+
+  try {
+    const admin = createServiceRoleClient();
+    const result = await deletePreEtsProgramGroup(admin, id);
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: 400 });
+    }
+    return NextResponse.json({ ok: true });
   } catch (err) {
     return respondWithLoggedError("staff", route, err, {
       userId: auth.userId,

@@ -86,6 +86,16 @@ export function PreEtsSettingsPanel() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [driveTestMessage, setDriveTestMessage] = useState<string | null>(null);
+  const [resetDistrict, setResetDistrict] = useState("");
+  const [resetMonth, setResetMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [resetConfirm, setResetConfirm] = useState("");
+  const [resetClearMappings, setResetClearMappings] = useState(true);
+  const [resetClearClassSetup, setResetClearClassSetup] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
 
   async function testDriveFolder(folderId: string | null) {
     setDriveTestMessage(null);
@@ -559,6 +569,104 @@ export function PreEtsSettingsPanel() {
             />
           </label>
         </div>
+      </section>
+
+      <section className="rounded-xl border border-red-200 bg-red-50/40 p-5">
+        <h2 className="text-lg font-semibold text-red-950">Reset district billing month</h2>
+        <p className="mt-1 text-sm text-red-950/80">
+          Use when worksheet imports or class setup linked the wrong schools. This removes program
+          groups, authorizations, and rosters for one district and service month, deletes worksheet
+          import records, and optionally clears saved header mappings or class setup rows for that
+          district. School records may remain until you delete them separately. Re-upload district
+          CSVs after a reset to restore groups (for example all Northgate High School groups).
+        </p>
+        <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+          <label className="block">
+            <span className="font-medium">GVRA district number</span>
+            <input
+              className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2"
+              placeholder="7"
+              value={resetDistrict}
+              onChange={(e) => setResetDistrict(e.target.value)}
+            />
+          </label>
+          <label className="block">
+            <span className="font-medium">Service month</span>
+            <input
+              type="month"
+              className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2"
+              value={resetMonth}
+              onChange={(e) => setResetMonth(e.target.value)}
+            />
+          </label>
+          <label className="flex items-center gap-2 sm:col-span-2">
+            <input
+              type="checkbox"
+              checked={resetClearMappings}
+              onChange={(e) => setResetClearMappings(e.target.checked)}
+            />
+            <span>Also clear saved worksheet header mappings (Fix labels) for this district</span>
+          </label>
+          <label className="flex items-center gap-2 sm:col-span-2">
+            <input
+              type="checkbox"
+              checked={resetClearClassSetup}
+              onChange={(e) => setResetClearClassSetup(e.target.checked)}
+            />
+            <span>
+              Also delete class setup rows for this district (initial planning spreadsheet)
+            </span>
+          </label>
+          <label className="block sm:col-span-2">
+            <span className="font-medium">Type RESET BILLING to confirm</span>
+            <input
+              className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2 font-mono text-xs"
+              value={resetConfirm}
+              onChange={(e) => setResetConfirm(e.target.value)}
+              placeholder="RESET BILLING"
+            />
+          </label>
+        </div>
+        <button
+          type="button"
+          disabled={resetBusy || !resetDistrict.trim()}
+          className="mt-4 rounded-lg border border-red-700 bg-white px-4 py-2 text-sm font-semibold text-red-800 disabled:opacity-60"
+          onClick={() => {
+            void (async () => {
+              setResetBusy(true);
+              setResetMessage(null);
+              const res = await fetch("/api/admin/pre-ets-reset-billing", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  districtNumber: resetDistrict.trim(),
+                  schoolYear: settings.school_year,
+                  serviceMonth: resetMonth,
+                  confirmPhrase: resetConfirm,
+                  clearGroupMappings: resetClearMappings,
+                  clearClassSetup: resetClearClassSetup,
+                }),
+              });
+              const data = (await res.json()) as {
+                error?: string;
+                programGroupsRemoved?: number;
+                worksheetImportsRemoved?: number;
+              };
+              setResetBusy(false);
+              if (!res.ok) {
+                setResetMessage(data.error ?? "Reset failed.");
+                return;
+              }
+              setResetConfirm("");
+              setResetMessage(
+                `Reset complete: ${data.programGroupsRemoved ?? 0} groups and ${data.worksheetImportsRemoved ?? 0} worksheet imports removed. Re-upload district billing CSVs for this month.`
+              );
+            })();
+          }}
+        >
+          {resetBusy ? "Resetting…" : "Reset billing month for district"}
+        </button>
+        {resetMessage ? <p className="mt-2 text-sm text-red-950/85">{resetMessage}</p> : null}
       </section>
 
       <div className="flex flex-wrap items-center gap-3">

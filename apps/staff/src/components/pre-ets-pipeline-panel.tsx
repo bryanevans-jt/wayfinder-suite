@@ -141,11 +141,36 @@ export function PreEtsPipelinePanel() {
   const rangeStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const rangeEnd = Math.min(page * pageSize, total);
 
-  async function onRemoveSchool(row: PipelineRow) {
-    const label = row.groupName !== row.schoolName ? `${row.schoolName} (${row.groupName})` : row.schoolName;
+  async function onRemoveGroup(row: PipelineRow) {
+    if (!row.programGroupId) return;
+    const label =
+      row.groupName !== row.schoolName
+        ? `${row.schoolName} · ${row.groupName}`
+        : row.groupName;
     if (
       !window.confirm(
-        `Remove "${label}" from Pre-ETS?\n\nThis deletes the school record and all related program groups, authorizations, rosters, and sessions for that school. This cannot be undone.`
+        `Remove group "${label}"?\n\nThis deletes this program group and its authorizations, rosters, and sessions for the selected service month. The school record and other groups at the same school are kept.`
+      )
+    ) {
+      return;
+    }
+    setLoading(true);
+    const res = await fetch(`/api/pre-ets/program-groups/${row.programGroupId}`, {
+      method: "DELETE",
+    });
+    const data = (await res.json()) as { error?: string };
+    setLoading(false);
+    if (!res.ok) {
+      window.alert(data.error ?? "Could not remove group");
+      return;
+    }
+    void load();
+  }
+
+  async function onRemoveEntireSchool(row: PipelineRow) {
+    if (
+      !window.confirm(
+        `Delete the entire school "${row.schoolName}" from Pre-ETS?\n\nThis removes ALL groups, authorizations, rosters, sessions, and assignments for this school — not just the row you clicked. This cannot be undone.\n\nTo remove only one group, use "Remove group" instead.`
       )
     ) {
       return;
@@ -286,13 +311,22 @@ export function PreEtsPipelinePanel() {
                           Fix labels
                         </button>
                       ) : null}
-                      {canDeleteSchools ? (
+                      {canDeleteSchools && row.programGroupId ? (
                         <button
                           type="button"
                           className="text-red-700 hover:underline"
-                          onClick={() => void onRemoveSchool(row)}
+                          onClick={() => void onRemoveGroup(row)}
                         >
-                          Remove school
+                          Remove group
+                        </button>
+                      ) : null}
+                      {canDeleteSchools ? (
+                        <button
+                          type="button"
+                          className="text-red-800/70 hover:underline"
+                          onClick={() => void onRemoveEntireSchool(row)}
+                        >
+                          Delete entire school
                         </button>
                       ) : null}
                       {row.authorizationId && row.status === "pending_authorization" ? (

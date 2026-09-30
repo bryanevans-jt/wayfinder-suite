@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isMissingSchemaError, isMissingTableError } from "./schema-fallback";
 import { loadPreEtsSettings } from "./pre-ets-settings";
+import { normalizeInstructorNameForLookup } from "./pre-ets-instructor-match";
 import { expandSchoolAbbreviation, pickBestSchoolNameMatch } from "./pre-ets-school-name-match";
 
 export const PRE_ETS_CLASS_SETUP_MIGRATION = "20260909160000_pre_ets_class_setup.sql";
@@ -169,11 +170,11 @@ export async function upsertPreEtsClassSetupEntry(
     "admin",
     "super_admin",
   ]);
-  const ts = await resolveStaffUserId(admin, input.transitionSpecialistName ?? null, [
-    "transition_specialist",
-    "instructor",
-    "es",
-  ]);
+  const ts = await resolveStaffUserId(
+    admin,
+    normalizeInstructorNameForLookup(input.transitionSpecialistName ?? "") || null,
+    ["transition_specialist", "instructor", "es"]
+  );
 
   const patch = {
     school_year: settings.school_year,
@@ -342,17 +343,6 @@ export async function resolveWorksheetSchoolName(
   }
 
   const { match, ambiguous } = pickBestSchoolNameMatch(expanded, candidates);
-  if (match) {
-    const warning: SchoolNameResolutionWarning | null =
-      normalizeLookup(match.name) !== normalizeLookup(expanded)
-        ? {
-            worksheetSchoolName: expanded,
-            resolvedSchoolName: match.name,
-            source: match.source,
-          }
-        : null;
-    return { resolvedName: match.name, warning };
-  }
 
   if (ambiguous.length > 0) {
     return {
@@ -364,6 +354,18 @@ export async function resolveWorksheetSchoolName(
         ambiguousCandidates: ambiguous.map((m) => m.name),
       },
     };
+  }
+
+  if (match && match.score >= 0.95) {
+    const warning: SchoolNameResolutionWarning | null =
+      normalizeLookup(match.name) !== normalizeLookup(expanded)
+        ? {
+            worksheetSchoolName: expanded,
+            resolvedSchoolName: match.name,
+            source: match.source,
+          }
+        : null;
+    return { resolvedName: match.name, warning };
   }
 
   return { resolvedName: expanded, warning: null };

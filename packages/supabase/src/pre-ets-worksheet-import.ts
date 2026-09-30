@@ -11,6 +11,7 @@ import {
   resolveAuthorizationForWorksheetRow,
   type AuthMatchStats,
 } from "./pre-ets-worksheet-auth-match";
+import { assignPreEtsPrimaryInstructorFromWorksheet } from "./pre-ets-instructor-match";
 import {
   applyWorksheetGroupMapping,
   findProgramGroupForWorksheetImport,
@@ -363,6 +364,12 @@ export async function commitWorksheetImport(
         schoolId,
         programGroupId,
         classTime: group.classTime,
+      });
+
+      await assignPreEtsPrimaryInstructorFromWorksheet(admin, {
+        schoolId,
+        programGroupId,
+        instructorName: group.instructorName,
       });
 
       const groupStudents = group.students.filter(
