@@ -7,6 +7,7 @@ import {
   canDeliverPreEtsSessions,
   canManagePreEtsSettings,
   canManagePreEtsSetup,
+  canManagePreEtsWorksheetTestingOverride,
   canSupervisePreEts,
   canViewPreEtsHr,
   loadPreEtsSettings,
@@ -46,7 +47,7 @@ export async function GET() {
       canManageSetup: canManagePreEtsSetup(role, settings),
       canDeliver: canDeliverPreEtsSessions(role, settings),
       canViewHr: canViewPreEtsHr(role, settings),
-      canUploadPlanningWorksheets: canUploadPreEtsWorksheets(role),
+      canUploadPlanningWorksheets: canUploadPreEtsWorksheets(role, settings),
       canFinalizeAuthorizations: canAccounts,
       canEditAuthorizationServiceCode: canEditPreEtsAuthorizationServiceCode(role, settings),
       canViewPipeline:
@@ -54,6 +55,7 @@ export async function GET() {
         isAdminRole(role) ||
         canAccounts ||
         canSupervise,
+      canManageWorksheetTestingOverride: canManagePreEtsWorksheetTestingOverride(role),
     };
 
     if (!access.canAccess) {
@@ -68,6 +70,7 @@ export async function GET() {
         submission_deadline_hours: settings.submission_deadline_hours,
         ytd_unit_warning_threshold: settings.ytd_unit_warning_threshold,
         service_codes: settings.service_codes,
+        worksheet_testing_override_enabled: settings.worksheet_testing_override_enabled,
       },
     });
   } catch (err) {

@@ -2,7 +2,8 @@ import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import {
   filterAuthorizationsForFieldGate,
-  preEtsFieldReleaseGateApplies,
+  isPreEtsAuthorizationVisibleToRole,
+  preEtsReleasedAuthorizationGateApplies,
 } from "@/lib/pre-ets-field-gate";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
@@ -35,7 +36,19 @@ export async function GET(request: Request) {
         .eq("student_id", studentId)
         .maybeSingle();
 
-      return NextResponse.json({ authorizations: entries ?? [], ytd });
+      const gate = preEtsReleasedAuthorizationGateApplies(auth.role, auth.settings);
+      const visibleEntries = gate
+        ? (entries ?? []).filter((entry) => {
+            const raw = entry.pre_ets_authorizations as
+              | { auth_number: string | null; auth_type: string }
+              | { auth_number: string | null; auth_type: string }[]
+              | null;
+            const row = Array.isArray(raw) ? raw[0] : raw;
+            return isPreEtsAuthorizationVisibleToRole(row, auth.role, auth.settings);
+          })
+        : (entries ?? []);
+
+      return NextResponse.json({ authorizations: visibleEntries, ytd });
     }
 
     let query = admin
@@ -63,7 +76,7 @@ export async function GET(request: Request) {
       });
     }
 
-    const gate = preEtsFieldReleaseGateApplies(auth.role, auth.settings);
+    const gate = preEtsReleasedAuthorizationGateApplies(auth.role, auth.settings);
     const authorizations = filterAuthorizationsForFieldGate(data ?? [], gate);
 
     return NextResponse.json({ authorizations });

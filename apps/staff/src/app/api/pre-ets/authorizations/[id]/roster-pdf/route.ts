@@ -1,8 +1,7 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { loadPreEtsSettings } from "@wayfinder/supabase/pre-ets-settings";
-import { isPreEtsAuthorizationReleasedToField } from "@wayfinder/supabase/pre-ets-release";
-import { preEtsFieldReleaseGateApplies } from "@/lib/pre-ets-field-gate";
+import { isPreEtsAuthorizationVisibleToRole } from "@/lib/pre-ets-field-gate";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { buildPreEtsRosterPdf } from "@/lib/pre-ets-roster-export";
 import { NextResponse } from "next/server";
@@ -48,12 +47,13 @@ export async function GET(
     }
 
     const authRow = authorization as AuthRow;
-    if (
-      preEtsFieldReleaseGateApplies(auth.role, auth.settings) &&
-      !isPreEtsAuthorizationReleasedToField(authRow)
-    ) {
+    if (!isPreEtsAuthorizationVisibleToRole(authRow, auth.role, auth.settings)) {
       return NextResponse.json(
-        { error: "This roster is not available until an authorization number is entered." },
+        {
+          error: auth.settings.worksheet_testing_override_enabled
+            ? "This test roster is visible to Admin and Super Admin only until authorization numbers are finalized."
+            : "This roster is not available until an authorization number is entered.",
+        },
         { status: 403 }
       );
     }

@@ -333,7 +333,9 @@ export async function commitWorksheetImport(
         classTime: group.classTime,
       });
 
-      const groupStudents = group.students.filter((s) => !s.notApproved);
+      const groupStudents = group.students.filter(
+        (s) => !s.notApproved && s.participantId.trim().length > 0
+      );
       if (groupStudents.length === 0) continue;
       const byAuth = new Map<string, typeof groupStudents>();
 
@@ -445,7 +447,7 @@ export async function commitWorksheetImport(
               authorization_id: authId,
               student_id: studentId,
               units_approved: row.units,
-              class_time: row.classTime || group.classTime,
+              class_time: row.classTime?.trim() || group.classTime?.trim() || null,
               invoice_number: row.invoiceNumber || null,
               billed_cents: billedCents,
               not_approved: false,

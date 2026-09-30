@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { updatePendingPreEtsRoster } from "@wayfinder/supabase/pre-ets-roster-update";
+import { isPreEtsAuthorizationVisibleToRole } from "@/lib/pre-ets-field-gate";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
@@ -50,6 +51,27 @@ export async function GET(
         userId: auth.userId,
         userRole: auth.role,
       });
+    }
+
+    if (
+      authRow &&
+      !isPreEtsAuthorizationVisibleToRole(
+        {
+          auth_number: authRow.auth_number as string | null,
+          auth_type: authRow.auth_type as string,
+        },
+        auth.role,
+        auth.settings
+      )
+    ) {
+      return NextResponse.json(
+        {
+          error: auth.settings.worksheet_testing_override_enabled
+            ? "This test roster is visible to Admin and Super Admin only until authorization numbers are finalized."
+            : "This roster is not available until an authorization number is entered.",
+        },
+        { status: 403 }
+      );
     }
 
     const roster = (data ?? []).map((row) => {

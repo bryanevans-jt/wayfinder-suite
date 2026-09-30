@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  preEtsWorksheetTestingOverrideActive,
+  type PreEtsSettingsRow,
+} from "./pre-ets-settings";
+import {
   isAccountantRole,
   isAdminRole,
   isSuperAdminRole,
@@ -14,16 +18,24 @@ export type PreEtsUploadDistrict = {
 };
 
 /** Super Admin and Accounts Specialist may upload any district (support). */
-export function worksheetUploadBypassesDistrictScope(role: string | null | undefined): boolean {
+export function worksheetUploadBypassesDistrictScope(
+  role: string | null | undefined,
+  settings?: Pick<PreEtsSettingsRow, "worksheet_testing_override_enabled">
+): boolean {
   const r = normalizeRole(role);
-  return isSuperAdminRole(r) || isAccountantRole(r);
+  if (isSuperAdminRole(r) || isAccountantRole(r)) return true;
+  return preEtsWorksheetTestingOverrideActive(settings ?? { worksheet_testing_override_enabled: false }) && isAdminRole(r);
 }
 
 /** May upload district CSV (planning or support import). */
-export function canUploadPreEtsWorksheets(role: string | null | undefined): boolean {
+export function canUploadPreEtsWorksheets(
+  role: string | null | undefined,
+  settings?: Pick<PreEtsSettingsRow, "worksheet_testing_override_enabled">
+): boolean {
   const r = normalizeRole(role);
   if (isSuperAdminRole(r)) return true;
-  return usesPreEtsPlanningWorksheetUpload(r) || isAccountantRole(r);
+  if (usesPreEtsPlanningWorksheetUpload(r) || isAccountantRole(r)) return true;
+  return preEtsWorksheetTestingOverrideActive(settings ?? { worksheet_testing_override_enabled: false }) && isAdminRole(r);
 }
 
 async function loadDistrictsForSchoolIds(

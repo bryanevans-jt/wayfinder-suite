@@ -2,7 +2,7 @@ import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import {
   filterProgramGroupsForFieldGate,
-  preEtsFieldReleaseGateApplies,
+  preEtsReleasedAuthorizationGateApplies,
 } from "@/lib/pre-ets-field-gate";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
       });
     }
 
-    const gate = preEtsFieldReleaseGateApplies(auth.role, auth.settings);
+    const gate = preEtsReleasedAuthorizationGateApplies(auth.role, auth.settings);
     const groups = filterProgramGroupsForFieldGate(data ?? [], gate);
 
     return NextResponse.json({ groups });

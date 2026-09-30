@@ -54,17 +54,26 @@ export function PreEtsWorksheetPanel() {
   const [authMatchStats, setAuthMatchStats] = useState<AuthMatchStats | null>(null);
   const [schoolNameWarnings, setSchoolNameWarnings] = useState<SchoolNameWarning[]>([]);
   const [schoolGroupLabels, setSchoolGroupLabels] = useState<string[]>([]);
+  const [parseIssues, setParseIssues] = useState<string[]>([]);
+  const [testingOverrideEnabled, setTestingOverrideEnabled] = useState(false);
+  const [canManageTestingOverride, setCanManageTestingOverride] = useState(false);
 
   const isSupervisorMode = panelRole === "supervisor";
 
   const load = useCallback(async () => {
-    const [sheetRes, accessRes] = await Promise.all([
+    const [sheetRes, accessRes, overrideRes] = await Promise.all([
       fetch("/api/pre-ets/worksheets"),
       fetch("/api/pre-ets/access"),
+      fetch("/api/pre-ets/worksheets/testing-override"),
     ]);
     const data = (await sheetRes.json()) as { imports?: ImportRow[]; role?: "supervisor" | "accounts" };
     const access = (await accessRes.json()) as {
-      access?: { canManageSettings?: boolean; canUploadPlanningWorksheets?: boolean };
+      access?: {
+        canManageSettings?: boolean;
+        canUploadPlanningWorksheets?: boolean;
+        canManageWorksheetTestingOverride?: boolean;
+      };
+      settings?: { worksheet_testing_override_enabled?: boolean };
     };
     if (sheetRes.ok) {
       setImports(data.imports ?? []);
@@ -73,6 +82,16 @@ export function PreEtsWorksheetPanel() {
     setIsSuperAdminUploader(
       Boolean(access.access?.canManageSettings && access.access?.canUploadPlanningWorksheets)
     );
+    if (overrideRes.ok) {
+      const override = (await overrideRes.json()) as { enabled?: boolean; canManage?: boolean };
+      setTestingOverrideEnabled(Boolean(override.enabled));
+      setCanManageTestingOverride(Boolean(override.canManage));
+    } else if (accessRes.ok) {
+      setTestingOverrideEnabled(
+        Boolean(access.settings?.worksheet_testing_override_enabled)
+      );
+      setCanManageTestingOverride(Boolean(access.access?.canManageWorksheetTestingOverride));
+    }
   }, []);
 
   useEffect(() => {
@@ -85,6 +104,7 @@ export function PreEtsWorksheetPanel() {
     setAuthMatchStats(null);
     setSchoolGroupLabels([]);
     setSchoolNameWarnings([]);
+    setParseIssues([]);
     const form = new FormData();
     form.set("file", file);
     const res = await fetch("/api/pre-ets/worksheets", { method: "POST", body: form });
@@ -106,6 +126,10 @@ export function PreEtsWorksheetPanel() {
       return;
     }
 
+    if (data.parsed?.issues?.length) {
+      setParseIssues(data.parsed.issues);
+    }
+
     if (data.committed) {
       setYtdWarnings(data.ytdWarnings ?? []);
       setAuthMatchStats(data.authMatchStats ?? null);
@@ -114,8 +138,12 @@ export function PreEtsWorksheetPanel() {
       const groups = data.schoolGroupLabels?.length
         ? ` Authorization requests submitted for ${data.schoolGroupLabels.join(", ")}. Accounts were notified.`
         : "";
+      const issueNote =
+        (data.parsed?.issues?.length ?? 0) > 0
+          ? ` ${data.parsed?.issues.length} spreadsheet flag(s) — review below.`
+          : "";
       setMessage(
-        `Worksheet committed. Pending rosters are ready for authorization numbers.${groups}${
+        `Worksheet committed.${testingOverrideEnabled ? " Testing override is ON — rosters are admin-only until auth numbers are entered." : " Pending rosters are ready for authorization numbers."}${groups}${issueNote}${
           (data.ytdWarnings?.length ?? 0) > 0
             ? ` ${data.ytdWarnings?.length} YTD warning(s) — review below.`
             : ""
@@ -128,6 +156,7 @@ export function PreEtsWorksheetPanel() {
 
     if (data.import?.id && data.parsed) {
       setPreview({ importId: data.import.id, parsed: data.parsed });
+      setParseIssues(data.parsed.issues ?? []);
     }
     void load();
   }
@@ -193,18 +222,65 @@ export function PreEtsWorksheetPanel() {
     void load();
   }
 
+  async function onToggleTestingOverride(enabled: boolean) {
+    setBusy(true);
+    setMessage(null);
+    const res = await fetch("/api/pre-ets/worksheets/testing-override", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    });
+    const data = (await res.json()) as { enabled?: boolean; error?: string };
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(data.error ?? "Could not update testing override");
+      return;
+    }
+    setTestingOverrideEnabled(Boolean(data.enabled));
+    setMessage(
+      data.enabled
+        ? "Worksheet testing override enabled. Upload without auth numbers; only Admin and Super Admin can view unreleased rosters."
+        : "Worksheet testing override disabled. Normal Pre-ETS visibility rules apply."
+    );
+  }
+
   return (
     <section className="space-y-6">
       <div>
         <h2 className="text-lg font-semibold text-brand-black">District worksheet import</h2>
         <p className="mt-1 text-sm text-brand-black/65">
-          {isSuperAdminUploader
-            ? "Upload any district planning CSV (no authorization numbers required). Pending rosters commit immediately for the whole district in the file."
-            : isSupervisorMode
-              ? "Upload your monthly district CSV before GVRA authorization numbers are available. Pending rosters are created immediately; you can re-upload the same month to add schools or students."
-              : "Support uploads and review import history. Supervisors normally upload planning worksheets; enter authorization numbers under Rosters & auths when GVRA responds."}
+          {testingOverrideEnabled
+            ? "Testing override is on: upload CSV without authorization numbers, create pending rosters, and verify them as Admin or Super Admin only. Rows without a PID # are skipped; missing class times stay blank."
+            : isSuperAdminUploader
+              ? "Upload any district planning CSV (no authorization numbers required). Pending rosters commit immediately for the whole district in the file."
+              : isSupervisorMode
+                ? "Upload your monthly district CSV before GVRA authorization numbers are available. Pending rosters are created immediately; you can re-upload the same month to add schools or students."
+                : "Support uploads and review import history. Supervisors normally upload planning worksheets; enter authorization numbers under Rosters & auths when GVRA responds."}
         </p>
       </div>
+
+      {canManageTestingOverride ? (
+        <label className="flex max-w-xl cursor-pointer items-start gap-3 rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={testingOverrideEnabled}
+            disabled={busy}
+            onChange={(e) => void onToggleTestingOverride(e.target.checked)}
+          />
+          <span>
+            <span className="font-semibold text-brand-black">Worksheet testing override</span>
+            <span className="mt-1 block text-brand-black/70">
+              Temporary mode for spreadsheet trials: no GVRA auth numbers required, unreleased
+              rosters hidden from supervisors, accounts, and field staff.
+            </span>
+          </span>
+        </label>
+      ) : testingOverrideEnabled ? (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          Worksheet testing override is active (admin-managed).
+        </p>
+      ) : null}
 
       <div className="flex flex-wrap items-end gap-4">
         <label className="cursor-pointer rounded-lg bg-brand-gold px-4 py-2 text-sm font-semibold text-white">
@@ -223,6 +299,26 @@ export function PreEtsWorksheetPanel() {
       </div>
 
       {message ? <p className="text-sm text-brand-black/70">{message}</p> : null}
+
+      {parseIssues.length > 0 ? (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm">
+          <h3 className="font-semibold text-brand-black">Spreadsheet flags</h3>
+          <p className="mt-1 text-xs text-brand-black/70">
+            These items need review — missing columns, skipped rows, or parse warnings. Fix the
+            source file when possible and re-upload.
+          </p>
+          <ul className="mt-2 max-h-48 overflow-y-auto text-xs text-amber-950">
+            {parseIssues.slice(0, 100).map((issue, i) => (
+              <li key={`${issue}-${i}`}>{issue}</li>
+            ))}
+          </ul>
+          {parseIssues.length > 100 ? (
+            <p className="mt-2 text-xs text-brand-black/55">
+              Showing first 100 of {parseIssues.length} flags.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       {schoolGroupLabels.length > 0 ? (
         <p className="text-sm text-brand-black/75">

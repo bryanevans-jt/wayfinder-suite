@@ -94,6 +94,9 @@ function buildPatch(
   if (body.service_codes !== undefined) {
     patch.service_codes = sanitizePreEtsServiceCodes(body.service_codes);
   }
+  if (typeof body.worksheet_testing_override_enabled === "boolean") {
+    patch.worksheet_testing_override_enabled = body.worksheet_testing_override_enabled;
+  }
 
   return patch;
 }
