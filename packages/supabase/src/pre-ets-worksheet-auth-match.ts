@@ -8,11 +8,10 @@ export type AuthMatchStats = {
   authorizationsCreated: number;
   rosterEntriesUpdated: number;
   unmatchedStudents: Array<{ participantId: string; fullName: string; reason: string }>;
-  unmatchedInstructors: Array<{
-    schoolName: string;
-    groupName: string;
-    instructorName: string;
-  }>;
+  /** Schools whose primary staff assignment was set from a matched spreadsheet instructor. */
+  instructorSchoolsAssigned: number;
+  /** Spreadsheet instructor names skipped (no Transition Specialist / Instructor profile). */
+  instructorNamesIgnored: number;
   pendingAuthsRemaining: number;
 };
 

@@ -11,7 +11,7 @@ import {
   resolveAuthorizationForWorksheetRow,
   type AuthMatchStats,
 } from "./pre-ets-worksheet-auth-match";
-import { assignPreEtsPrimaryInstructorFromWorksheet } from "./pre-ets-instructor-match";
+import { syncPreEtsSchoolAssignmentsFromSpreadsheet } from "./pre-ets-instructor-sync";
 import { restorePreEtsProgramGroupFromWorksheetImport } from "./pre-ets-program-group-visibility";
 import {
   applyWorksheetGroupMapping,
@@ -268,7 +268,8 @@ export async function commitWorksheetImport(
     authorizationsCreated: 0,
     rosterEntriesUpdated: 0,
     unmatchedStudents: [],
-    unmatchedInstructors: [],
+    instructorSchoolsAssigned: 0,
+    instructorNamesIgnored: 0,
     pendingAuthsRemaining: 0,
   };
   const schoolNameWarnings: SchoolNameResolutionWarning[] = [];
@@ -394,19 +395,6 @@ export async function commitWorksheetImport(
         programGroupId,
         classTime: group.classTime,
       });
-
-      const instructorMatch = await assignPreEtsPrimaryInstructorFromWorksheet(admin, {
-        schoolId,
-        programGroupId,
-        instructorName: group.instructorName,
-      });
-      if (!instructorMatch.matched && group.instructorName?.trim()) {
-        authMatchStats.unmatchedInstructors.push({
-          schoolName: group.schoolName,
-          groupName: group.groupName,
-          instructorName: group.instructorName.trim(),
-        });
-      }
 
       if (groupStudents.length === 0) {
         skippedEmptyGroups.push({
@@ -551,6 +539,13 @@ export async function commitWorksheetImport(
     districtId,
     parsed.serviceMonth
   );
+
+  const assignmentSync = await syncPreEtsSchoolAssignmentsFromSpreadsheet(admin, {
+    serviceMonth: parsed.serviceMonth,
+    districtId,
+  });
+  authMatchStats.instructorSchoolsAssigned = assignmentSync.schoolsUpdated;
+  authMatchStats.instructorNamesIgnored = assignmentSync.namesIgnored;
 
   const commitWarnings = {
     ytdWarnings,

@@ -185,6 +185,20 @@ export async function upsertPreEtsPrimarySchoolAssignment(
   );
 }
 
+/** One primary Transition Specialist / Instructor per school — spreadsheet is source of truth. */
+export async function replacePreEtsPrimaryInstructorForSchool(
+  admin: SupabaseClient,
+  input: { schoolId: string; userId: string }
+): Promise<void> {
+  await admin
+    .from("pre_ets_staff_school_assignments")
+    .delete()
+    .eq("school_id", input.schoolId)
+    .eq("assignment_role", "primary");
+
+  await upsertPreEtsPrimarySchoolAssignment(admin, input);
+}
+
 /** Match worksheet instructor (often ALL CAPS) to Transition Specialist / Instructor profiles. */
 export async function assignPreEtsPrimaryInstructorFromWorksheet(
   admin: SupabaseClient,
@@ -207,7 +221,7 @@ export async function assignPreEtsPrimaryInstructorFromWorksheet(
     return { matched: false, userId: null, displayName: displayName ?? raw };
   }
 
-  await upsertPreEtsPrimarySchoolAssignment(admin, {
+  await replacePreEtsPrimaryInstructorForSchool(admin, {
     schoolId: input.schoolId,
     userId,
   });

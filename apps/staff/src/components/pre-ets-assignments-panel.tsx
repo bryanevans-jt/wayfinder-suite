@@ -125,22 +125,18 @@ export function PreEtsAssignmentsPanel() {
     });
     const data = (await res.json()) as {
       processed?: number;
-      matched?: number;
-      unmatched?: Array<{ instructorName: string; groupName: string }>;
+      schoolsUpdated?: number;
+      namesIgnored?: number;
       error?: string;
     };
     setSyncBusy(false);
     if (!res.ok) {
-      setMessage(data.error ?? "Instructor sync failed.");
+      setMessage(data.error ?? "Assignment sync failed.");
       void load();
       return;
     }
-    const unmatchedNote =
-      (data.unmatched?.length ?? 0) > 0
-        ? ` ${data.unmatched?.length} group(s) still unmatched — check names match profiles (Transition Specialist / Instructor).`
-        : "";
     setMessage(
-      `Matched ${data.matched ?? 0} of ${data.processed ?? 0} roster instructor name(s) to user accounts.${unmatchedNote}`
+      `Updated primary assignments for ${data.schoolsUpdated ?? 0} school(s) from spreadsheet instructor names (${data.processed ?? 0} group row(s) scanned; ${data.namesIgnored ?? 0} name(s) skipped with no Transition Specialist / Instructor profile).`
     );
     void load();
   }
@@ -229,7 +225,7 @@ export function PreEtsAssignmentsPanel() {
 
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm">
         <label className="block">
-          <span className="font-medium">Match roster instructors</span>
+          <span className="font-medium">Update from spreadsheet</span>
           <input
             type="month"
             className="mt-1 block rounded-lg border border-neutral-300 px-2 py-1.5"
@@ -243,11 +239,12 @@ export function PreEtsAssignmentsPanel() {
           className="rounded-lg border border-brand-green bg-white px-3 py-2 text-sm font-semibold text-brand-green"
           onClick={() => void syncFromWorksheetInstructors()}
         >
-          {syncBusy ? "Working…" : "Match from worksheet names"}
+          {syncBusy ? "Working…" : "Update assignments from spreadsheet"}
         </button>
         <p className="max-w-md text-xs text-brand-black/65">
-          Uses instructor names on committed program groups (ALL CAPS OK) and links them to
-          Transition Specialist / Instructor profiles under Staff school assignments.
+          Sets each school&apos;s primary assignment from the instructor on committed worksheet
+          rows. Names that are not an active Transition Specialist or Instructor profile are
+          ignored.
         </p>
       </div>
 
