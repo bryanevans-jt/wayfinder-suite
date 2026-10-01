@@ -13,6 +13,21 @@ const MONTH_SHORT = [
   "Dec",
 ] as const;
 
+/**
+ * School line on roster PDFs: "School - Group" unless the group is "Main" (any case).
+ */
+export function formatPreEtsRosterSchoolDisplayName(
+  schoolName: string,
+  groupName: string | null | undefined
+): string {
+  const school = schoolName.trim() || "School";
+  const group = (groupName ?? "").trim();
+  if (!group || /^main$/i.test(group)) {
+    return school;
+  }
+  return `${school} - ${group}`;
+}
+
 export function sanitizePreEtsRosterFileNamePart(value: string): string {
   return value
     .replace(/[^\w\s.-]/g, "")

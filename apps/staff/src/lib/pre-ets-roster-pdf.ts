@@ -1,3 +1,4 @@
+import { formatPreEtsRosterSchoolDisplayName } from "@wayfinder/supabase/pre-ets-roster-filename";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
 export type RosterPdfStudent = {
@@ -20,6 +21,8 @@ export type RosterPdfInput = {
   authType?: "group" | "individual" | "pending";
   sessionDate: string | null;
   schoolName: string;
+  /** When set, PDF school line is "School - Group" unless group is Main. */
+  groupName?: string | null;
   instructorName: string;
   topic: string;
   serviceCode: string;
@@ -76,7 +79,9 @@ export async function generatePreEtsRosterPdf(input: RosterPdfInput): Promise<Ui
     input.authType === "individual" ? "Individual Authorization #" : "Group Authorization #";
   draw(`${authLabel}: ${input.authorizationNumber || "_______________"}`);
   draw(`Date: ${input.sessionDate || "_______________"}`);
-  draw(`School: ${input.schoolName}`);
+  draw(
+    `School: ${formatPreEtsRosterSchoolDisplayName(input.schoolName, input.groupName)}`
+  );
   draw(`Instructor: ${input.instructorName || "_______________"}`);
   draw(`Topic: ${input.topic || "_______________"}`);
   draw(`Service Code: ${input.serviceCode}`);

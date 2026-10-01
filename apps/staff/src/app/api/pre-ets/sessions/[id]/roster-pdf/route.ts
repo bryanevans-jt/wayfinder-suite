@@ -100,6 +100,7 @@ export async function GET(
         authType,
         sessionDate: effectiveSessionDate,
         schoolName: school?.name ?? "",
+        groupName: programGroup?.group_name ?? null,
         instructorName: (session.instructor_name as string) ?? "",
         topic,
         serviceCode,

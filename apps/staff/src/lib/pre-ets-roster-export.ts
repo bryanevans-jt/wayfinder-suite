@@ -1,3 +1,4 @@
+import { formatPreEtsRosterSchoolDisplayName } from "@wayfinder/supabase/pre-ets-roster-filename";
 import type { PreEtsSettingsRow } from "@wayfinder/supabase/pre-ets-settings";
 import { fillGoogleDocTemplatePdf } from "@/lib/pre-ets-google-doc";
 import { splitPreEtsStudentName } from "@/lib/pre-ets-google-doc-roster-table";
@@ -14,7 +15,7 @@ export function rosterPdfPlaceholders(input: RosterPdfInput): Record<string, str
     AuthNumber: input.authorizationNumber,
     AuthType: input.authType === "individual" ? "Individual" : "Group",
     SessionDate: input.sessionDate ?? "",
-    SchoolName: input.schoolName,
+    SchoolName: formatPreEtsRosterSchoolDisplayName(input.schoolName, input.groupName),
     InstructorName: input.instructorName,
     Topic: input.topic,
     ServiceCode: input.serviceCode,

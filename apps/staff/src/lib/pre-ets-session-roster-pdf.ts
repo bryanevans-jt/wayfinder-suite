@@ -13,6 +13,10 @@ type AuthRow = {
   service_code: string;
   service_label: string | null;
   auth_type: string;
+  pre_ets_program_groups:
+    | { group_name: string }
+    | { group_name: string }[]
+    | null;
 };
 
 export async function loadSessionRosterPdfInput(
@@ -23,7 +27,7 @@ export async function loadSessionRosterPdfInput(
   const { data: session } = await admin
     .from("pre_ets_sessions")
     .select(
-      "id, session_date, instructor_name, authorization_id, pre_ets_authorizations(auth_number, service_code, service_label, auth_type), pre_ets_schools(name)"
+      "id, session_date, instructor_name, authorization_id, pre_ets_authorizations(auth_number, service_code, service_label, auth_type, pre_ets_program_groups(group_name)), pre_ets_schools(name)"
     )
     .eq("id", sessionId)
     .maybeSingle();
@@ -32,6 +36,7 @@ export async function loadSessionRosterPdfInput(
 
   const authId = session.authorization_id as string;
   const authRow = relationOne(session.pre_ets_authorizations as AuthRow | AuthRow[] | null);
+  const programGroup = relationOne(authRow?.pre_ets_program_groups ?? null);
   const school = relationOne(session.pre_ets_schools as { name: string } | { name: string }[] | null);
 
   const signatureByStudentId = new Map<
@@ -95,6 +100,7 @@ export async function loadSessionRosterPdfInput(
       (session.session_date as string | null) ??
       null,
     schoolName: school?.name ?? "",
+    groupName: programGroup?.group_name ?? null,
     instructorName: (session.instructor_name as string) ?? "",
     topic: "",
     serviceCode: authRow?.service_code ?? "",

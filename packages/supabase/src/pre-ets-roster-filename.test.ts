@@ -1,7 +1,24 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { buildPreEtsRosterFileLabel } from "./pre-ets-roster-filename";
+import {
+  buildPreEtsRosterFileLabel,
+  formatPreEtsRosterSchoolDisplayName,
+} from "./pre-ets-roster-filename";
 import { resolvePreEtsWorksheetServiceFields } from "./pre-ets-settings";
+
+describe("formatPreEtsRosterSchoolDisplayName", () => {
+  it("combines school and group", () => {
+    assert.equal(
+      formatPreEtsRosterSchoolDisplayName("Tattnall High", "Self Contained"),
+      "Tattnall High - Self Contained"
+    );
+  });
+
+  it("omits Main group", () => {
+    assert.equal(formatPreEtsRosterSchoolDisplayName("Tattnall High", "Main"), "Tattnall High");
+    assert.equal(formatPreEtsRosterSchoolDisplayName("Tattnall High", "main"), "Tattnall High");
+  });
+});
 
 describe("buildPreEtsRosterFileLabel", () => {
   it("includes school year and service month", () => {

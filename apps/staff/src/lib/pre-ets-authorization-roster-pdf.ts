@@ -103,6 +103,7 @@ export async function buildAuthorizationRosterPdf(
       authType,
       sessionDate: options?.sessionDate ?? null,
       schoolName: school?.name ?? "",
+      groupName: group?.group_name ?? null,
       instructorName: group?.instructor_name ?? "",
       topic,
       serviceCode,
