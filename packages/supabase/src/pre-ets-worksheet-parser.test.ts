@@ -71,6 +71,27 @@ describe("pre-ets-worksheet-parser", () => {
     assert.equal(tattnallEnDash.instructorName, "TIFFANY POWELL");
   });
 
+  it("recognizes Project United group headers without High School in the label", () => {
+    const header = "PROJECT UNITED - MONTHLY - JANE DOE";
+    assert.ok(looksLikeWorksheetGroupHeaderLine(`${header},,,,,,,,,,,,`, [header]));
+
+    const csv = [
+      "JOSHUA TREE OCTOBER PRE-ETS BILLING 2026-27,,,,,,,,,,,",
+      "DISTRICT 5 SCHOOLS,,,,,,,,,,,,",
+      "COLUMBUS OFFICE SCHOOLS,,,,,,,,,,,,",
+      "PIKE COUNTY HIGH - MONTHLY - INST A,,,,,,,,,,,,",
+      "#,STUDENT NAME,PID #,A&I,SERVICE,CODE,UNITS,Class Time,Invoice #,Billed",
+      "1,Alice,11111,,PRE,PRE-1,1,,,",
+      `${header},,,,,,,,,,,,`,
+      "1,Bob,33333,,PRE,PRE-1,1,,,",
+    ].join("\n");
+
+    const parsed = parseDistrictWorksheet(csv);
+    const project = parsed.offices[0]?.groups.find((g) => /project united/i.test(g.schoolName));
+    assert.ok(project, "expected Project United group");
+    assert.equal(project?.students[0]?.participantId, "33333");
+  });
+
   it("recognizes Upson Lee without High in the school segment", () => {
     const header = "UPSON LEE - EMERY FAIRCLOTH - INCLUSION";
     assert.ok(

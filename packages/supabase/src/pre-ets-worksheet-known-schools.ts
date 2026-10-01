@@ -5,12 +5,19 @@ const WORKSHEET_SCHOOL_CANONICAL: Array<{ pattern: RegExp; canonical: string }> 
   { pattern: /^upson\s*[-]?\s*lee(\s+high(\s+school)?|\s+school)?$/i, canonical: "Upson Lee High School" },
   { pattern: /^pike\s+county(\s+high(\s+school)?|\s+school)?$/i, canonical: "Pike County High School" },
   { pattern: /^northgate(\s+high(\s+school)?|\s+school)?$/i, canonical: "Northgate High School" },
+  {
+    pattern: /^project\s+united(\s+high(\s+school)?|\s+school)?$/i,
+    canonical: "Project United",
+  },
 ];
 
 const KNOWN_SCHOOL_LABEL_PATTERNS: RegExp[] = [
   /\bupson\s*[-]?\s*lee\b/i,
   /\bpike\s+county\b/i,
   /\bnorthgate\b/i,
+  /\bproject\s+united\b/i,
+  /** Alternate Pre-ETS sites billed like schools but not named “___ High School”. */
+  /^project\s+[a-z0-9]/i,
 ];
 
 /** True when the label is a known school even without "High School" (e.g. "Upson Lee"). */
