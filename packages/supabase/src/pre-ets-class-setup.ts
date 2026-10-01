@@ -1,7 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isMissingSchemaError, isMissingTableError } from "./schema-fallback";
 import { loadPreEtsSettings } from "./pre-ets-settings";
-import { normalizeInstructorNameForLookup } from "./pre-ets-instructor-match";
+import {
+  normalizeInstructorNameForLookup,
+  PRE_ETS_CLASS_SETUP_TS_ROLES,
+  resolvePreEtsStaffProfileByName,
+  upsertPreEtsPrimarySchoolAssignment,
+} from "./pre-ets-instructor-match";
 import { expandSchoolAbbreviation, pickBestSchoolNameMatch } from "./pre-ets-school-name-match";
 
 export const PRE_ETS_CLASS_SETUP_MIGRATION = "20260909160000_pre_ets_class_setup.sql";
@@ -85,46 +90,10 @@ function normalizeLookup(value: string): string {
 async function resolveStaffUserId(
   admin: SupabaseClient,
   label: string | null | undefined,
-  roles: string[]
+  roles: readonly string[]
 ): Promise<{ userId: string | null; displayName: string | null }> {
-  const raw = (label ?? "").trim();
-  if (!raw) return { userId: null, displayName: null };
-
-  if (raw.includes("@")) {
-    const email = raw.toLowerCase();
-    const { data: users } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    const match = users.users.find((u) => u.email?.toLowerCase() === email);
-    if (match) {
-      const { data: profile } = await admin
-        .from("profiles")
-        .select("id, full_name, role, is_active")
-        .eq("id", match.id)
-        .maybeSingle();
-      if (profile?.is_active !== false && roles.includes(String(profile?.role ?? ""))) {
-        return {
-          userId: profile?.id as string,
-          displayName: (profile?.full_name as string | null) ?? raw,
-        };
-      }
-    }
-    return { userId: null, displayName: raw };
-  }
-
-  const { data: profiles } = await admin
-    .from("profiles")
-    .select("id, full_name, role, is_active")
-    .eq("is_active", true)
-    .in("role", roles);
-
-  const target = normalizeLookup(raw);
-  const exact = (profiles ?? []).filter((p) => normalizeLookup(String(p.full_name ?? "")) === target);
-  const pick = exact[0] ?? (profiles ?? []).find((p) =>
-    normalizeLookup(String(p.full_name ?? "")).includes(target)
-  );
-  if (pick && roles.includes(String(pick.role ?? ""))) {
-    return { userId: pick.id as string, displayName: (pick.full_name as string | null) ?? raw };
-  }
-  return { userId: null, displayName: raw };
+  const resolved = await resolvePreEtsStaffProfileByName(admin, label, roles);
+  return { userId: resolved.userId, displayName: resolved.displayName };
 }
 
 export async function listPreEtsClassSetup(
@@ -173,7 +142,7 @@ export async function upsertPreEtsClassSetupEntry(
   const ts = await resolveStaffUserId(
     admin,
     normalizeInstructorNameForLookup(input.transitionSpecialistName ?? "") || null,
-    ["transition_specialist", "instructor", "es"]
+    PRE_ETS_CLASS_SETUP_TS_ROLES
   );
 
   const patch = {
@@ -402,11 +371,24 @@ export async function linkPreEtsClassSetupToSchool(
   if (!rows?.length) return;
 
   for (const row of rows) {
+    let transitionSpecialistUserId = row.transition_specialist_user_id as string | null;
+    if (!transitionSpecialistUserId && row.transition_specialist_name) {
+      const resolved = await resolvePreEtsStaffProfileByName(
+        admin,
+        row.transition_specialist_name as string,
+        PRE_ETS_CLASS_SETUP_TS_ROLES
+      );
+      if (resolved.userId) {
+        transitionSpecialistUserId = resolved.userId;
+      }
+    }
+
     await admin
       .from("pre_ets_class_setup")
       .update({
         school_id: input.schoolId,
         linked_program_group_id: input.programGroupId ?? null,
+        transition_specialist_user_id: transitionSpecialistUserId,
         updated_at: new Date().toISOString(),
       })
       .eq("id", row.id as string);
@@ -423,7 +405,10 @@ export async function linkPreEtsClassSetupToSchool(
 
     await applyPreEtsClassSetupAssignmentsForRow(admin, {
       schoolId: input.schoolId,
-      row: row as { transition_specialist_user_id: string | null },
+      row: {
+        transition_specialist_user_id: transitionSpecialistUserId,
+        regional_supervisor_user_id: null,
+      },
       setupId: row.id as string,
     });
   }
@@ -543,14 +528,10 @@ async function applyPreEtsClassSetupAssignmentsForRow(
   const supervisorUserId = setup?.regional_supervisor_user_id ?? null;
 
   if (tsUserId) {
-    await admin.from("pre_ets_staff_school_assignments").upsert(
-      {
-        school_id: input.schoolId,
-        user_id: tsUserId,
-        assignment_role: "primary",
-      },
-      { onConflict: "school_id,user_id,assignment_role" }
-    );
+    await upsertPreEtsPrimarySchoolAssignment(admin, {
+      schoolId: input.schoolId,
+      userId: tsUserId,
+    });
   }
 
   if (supervisorUserId) {

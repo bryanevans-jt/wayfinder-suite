@@ -51,6 +51,10 @@ export function PreEtsAssignmentsPanel() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [classSetupRows, setClassSetupRows] = useState<ClassSetupRow[]>([]);
   const [syncBusy, setSyncBusy] = useState(false);
+  const [syncMonth, setSyncMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -108,6 +112,36 @@ export function PreEtsAssignmentsPanel() {
     await fetch(`/api/pre-ets/staff-assignments?id=${encodeURIComponent(id)}`, {
       method: "DELETE",
     });
+    void load();
+  }
+
+  async function syncFromWorksheetInstructors() {
+    setSyncBusy(true);
+    setMessage(null);
+    const res = await fetch("/api/pre-ets/instructors/sync-assignments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ serviceMonth: syncMonth }),
+    });
+    const data = (await res.json()) as {
+      processed?: number;
+      matched?: number;
+      unmatched?: Array<{ instructorName: string; groupName: string }>;
+      error?: string;
+    };
+    setSyncBusy(false);
+    if (!res.ok) {
+      setMessage(data.error ?? "Instructor sync failed.");
+      void load();
+      return;
+    }
+    const unmatchedNote =
+      (data.unmatched?.length ?? 0) > 0
+        ? ` ${data.unmatched?.length} group(s) still unmatched — check names match profiles (Transition Specialist / Instructor).`
+        : "";
+    setMessage(
+      `Matched ${data.matched ?? 0} of ${data.processed ?? 0} roster instructor name(s) to user accounts.${unmatchedNote}`
+    );
     void load();
   }
 
@@ -192,6 +226,30 @@ export function PreEtsAssignmentsPanel() {
           or wait for Accounts to commit a district CSV.
         </p>
       ) : null}
+
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm">
+        <label className="block">
+          <span className="font-medium">Match roster instructors</span>
+          <input
+            type="month"
+            className="mt-1 block rounded-lg border border-neutral-300 px-2 py-1.5"
+            value={syncMonth}
+            onChange={(e) => setSyncMonth(e.target.value)}
+          />
+        </label>
+        <button
+          type="button"
+          disabled={syncBusy}
+          className="rounded-lg border border-brand-green bg-white px-3 py-2 text-sm font-semibold text-brand-green"
+          onClick={() => void syncFromWorksheetInstructors()}
+        >
+          {syncBusy ? "Working…" : "Match from worksheet names"}
+        </button>
+        <p className="max-w-md text-xs text-brand-black/65">
+          Uses instructor names on committed program groups (ALL CAPS OK) and links them to
+          Transition Specialist / Instructor profiles under Staff school assignments.
+        </p>
+      </div>
 
       <div className="grid gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm md:grid-cols-4">
         <label className="block">

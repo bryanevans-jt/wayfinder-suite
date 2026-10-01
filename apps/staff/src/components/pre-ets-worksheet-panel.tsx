@@ -35,6 +35,11 @@ type AuthMatchStats = {
   authorizationsCreated: number;
   rosterEntriesUpdated: number;
   unmatchedStudents: Array<{ participantId: string; fullName: string; reason: string }>;
+  unmatchedInstructors?: Array<{
+    schoolName: string;
+    groupName: string;
+    instructorName: string;
+  }>;
   pendingAuthsRemaining: number;
 };
 
@@ -754,6 +759,25 @@ export function PreEtsWorksheetPanel() {
               <dd className="font-semibold">{authMatchStats.pendingAuthsRemaining}</dd>
             </div>
           </dl>
+          {(authMatchStats.unmatchedInstructors?.length ?? 0) > 0 ? (
+            <div className="mt-3 border-t border-blue-200 pt-3 text-xs text-amber-950">
+              <p className="font-semibold text-brand-black">
+                Instructors not linked to a user account
+              </p>
+              <p className="mt-1 text-brand-black/65">
+                Names must match Transition Specialist or Instructor profiles (middle initials and
+                ALL CAPS are OK). Fix the profile name or use Pre-ETS → Staff assignments → Match
+                from worksheet names after deploy.
+              </p>
+              <ul className="mt-2 max-h-32 overflow-y-auto">
+                {authMatchStats.unmatchedInstructors?.map((row, i) => (
+                  <li key={`${row.schoolName}-${row.instructorName}-${i}`}>
+                    {row.schoolName} — {row.groupName}: {row.instructorName}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
       ) : null}
 

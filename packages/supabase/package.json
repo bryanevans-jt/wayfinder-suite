@@ -88,6 +88,7 @@
     "./pre-ets-worksheet-workbook": "./src/pre-ets-worksheet-workbook.ts",
     "./pre-ets-data-reset": "./src/pre-ets-data-reset.ts",
     "./pre-ets-instructor-match": "./src/pre-ets-instructor-match.ts",
+    "./pre-ets-instructor-sync": "./src/pre-ets-instructor-sync.ts",
     "./pre-ets-roster-update": "./src/pre-ets-roster-update.ts",
     "./pre-ets-auth-request-notify": "./src/pre-ets-auth-request-notify.ts",
     "./pre-ets-roster-released-notify": "./src/pre-ets-roster-released-notify.ts",

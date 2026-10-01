@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ParsedWorksheetGroup } from "./pre-ets-worksheet-parser";
-import { normalizeWorksheetHeaderKey } from "./pre-ets-worksheet-parser";
+import {
+  normalizeWorksheetHeaderKey,
+  normalizeWorksheetHeaderKeyLoose,
+  worksheetHeaderKeysMatch,
+} from "./pre-ets-worksheet-parser";
 import { findProgramGroupId } from "./pre-ets-worksheet-auth-match";
 
 export type PreEtsWorksheetGroupMappingRow = {
@@ -35,9 +39,37 @@ export async function loadWorksheetGroupMappings(
 
   const map = new Map<string, PreEtsWorksheetGroupMappingRow>();
   for (const row of data ?? []) {
-    map.set(row.worksheet_header_key as string, row as PreEtsWorksheetGroupMappingRow);
+    const typed = row as PreEtsWorksheetGroupMappingRow;
+    map.set(row.worksheet_header_key as string, typed);
+    const sample = typed.header_raw_sample?.trim();
+    if (sample) {
+      map.set(normalizeWorksheetHeaderKeyLoose(sample), typed);
+    }
   }
   return map;
+}
+
+/** Resolve a saved Fix labels mapping across CSV/Excel header formatting differences. */
+export function resolveWorksheetGroupMapping(
+  map: Map<string, PreEtsWorksheetGroupMappingRow>,
+  headerRaw: string
+): PreEtsWorksheetGroupMappingRow | undefined {
+  const trimmed = headerRaw.trim();
+  if (!trimmed) return undefined;
+
+  const direct = map.get(normalizeWorksheetHeaderKey(trimmed));
+  if (direct) return direct;
+
+  for (const row of map.values()) {
+    if (row.header_raw_sample && worksheetHeaderKeysMatch(row.header_raw_sample, trimmed)) {
+      return row;
+    }
+    if (worksheetHeaderKeysMatch(row.worksheet_header_key, trimmed)) {
+      return row;
+    }
+  }
+
+  return undefined;
 }
 
 export function applyWorksheetGroupMapping(
@@ -57,7 +89,9 @@ export async function findProgramGroupForWorksheetImport(
     group: ParsedWorksheetGroup;
   }
 ): Promise<string | null> {
-  const headerKey = normalizeWorksheetHeaderKey(input.group.headerRaw);
+  const headerRaw = input.group.headerRaw.trim();
+  const headerKey = normalizeWorksheetHeaderKey(headerRaw);
+
   if (headerKey) {
     const { data: byKey } = await admin
       .from("pre_ets_program_groups")
@@ -70,15 +104,50 @@ export async function findProgramGroupForWorksheetImport(
       .maybeSingle();
 
     if (byKey?.id) return byKey.id as string;
-    return null;
+
+    const { data: groups } = await admin
+      .from("pre_ets_program_groups")
+      .select("id, worksheet_header_key, header_raw, group_name, instructor_name")
+      .eq("school_id", input.schoolId)
+      .eq("service_month", input.serviceMonth);
+
+    for (const row of groups ?? []) {
+      const storedKey = (row.worksheet_header_key as string | null) ?? "";
+      const storedRaw = (row.header_raw as string | null) ?? "";
+      if (
+        (storedKey && worksheetHeaderKeysMatch(storedKey, headerRaw)) ||
+        (storedRaw && worksheetHeaderKeysMatch(storedRaw, headerRaw))
+      ) {
+        return row.id as string;
+      }
+    }
   }
 
-  return findProgramGroupId(
+  const byGroupName = await findProgramGroupId(
     admin,
     input.schoolId,
     input.serviceMonth,
     input.group.groupName
   );
+  if (byGroupName) return byGroupName;
+
+  if (headerKey && input.group.instructorName?.trim()) {
+    const instructorKey = normalizeWorksheetHeaderKeyLoose(input.group.instructorName);
+    const { data: groups } = await admin
+      .from("pre_ets_program_groups")
+      .select("id, group_name, instructor_name")
+      .eq("school_id", input.schoolId)
+      .eq("service_month", input.serviceMonth)
+      .eq("group_name", input.group.groupName);
+
+    const match = (groups ?? []).find(
+      (row) =>
+        normalizeWorksheetHeaderKeyLoose(String(row.instructor_name ?? "")) === instructorKey
+    );
+    if (match?.id) return match.id as string;
+  }
+
+  return null;
 }
 
 export async function upsertWorksheetGroupMapping(

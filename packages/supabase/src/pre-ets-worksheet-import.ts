@@ -18,6 +18,7 @@ import {
   findProgramGroupForWorksheetImport,
   loadWorksheetGroupMappings,
   normalizeWorksheetHeaderKey,
+  resolveWorksheetGroupMapping,
 } from "./pre-ets-worksheet-group-mapping";
 
 export type PreEtsYtdWarning = {
@@ -267,6 +268,7 @@ export async function commitWorksheetImport(
     authorizationsCreated: 0,
     rosterEntriesUpdated: 0,
     unmatchedStudents: [],
+    unmatchedInstructors: [],
     pendingAuthsRemaining: 0,
   };
   const schoolNameWarnings: SchoolNameResolutionWarning[] = [];
@@ -316,8 +318,7 @@ export async function commitWorksheetImport(
     const officeId = officeRow.id as string;
 
     for (const group of office.groups) {
-      const headerKey = normalizeWorksheetHeaderKey(group.headerRaw);
-      const mapping = headerKey ? groupMappings.get(headerKey) : undefined;
+      const mapping = resolveWorksheetGroupMapping(groupMappings, group.headerRaw);
       if (mapping) {
         applyWorksheetGroupMapping(group, mapping);
       }
@@ -394,11 +395,18 @@ export async function commitWorksheetImport(
         classTime: group.classTime,
       });
 
-      await assignPreEtsPrimaryInstructorFromWorksheet(admin, {
+      const instructorMatch = await assignPreEtsPrimaryInstructorFromWorksheet(admin, {
         schoolId,
         programGroupId,
         instructorName: group.instructorName,
       });
+      if (!instructorMatch.matched && group.instructorName?.trim()) {
+        authMatchStats.unmatchedInstructors.push({
+          schoolName: group.schoolName,
+          groupName: group.groupName,
+          instructorName: group.instructorName.trim(),
+        });
+      }
 
       if (groupStudents.length === 0) {
         skippedEmptyGroups.push({

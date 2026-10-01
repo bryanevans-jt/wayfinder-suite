@@ -8,6 +8,11 @@ export type AuthMatchStats = {
   authorizationsCreated: number;
   rosterEntriesUpdated: number;
   unmatchedStudents: Array<{ participantId: string; fullName: string; reason: string }>;
+  unmatchedInstructors: Array<{
+    schoolName: string;
+    groupName: string;
+    instructorName: string;
+  }>;
   pendingAuthsRemaining: number;
 };
 

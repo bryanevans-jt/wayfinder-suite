@@ -113,8 +113,26 @@ function isBlankLine(line: string): boolean {
 }
 
 /** Stable key for matching the same spreadsheet group header across uploads. */
+/**
+ * Stable key for worksheet group header lines — CSV vs Excel exports often differ in
+ * trailing commas, NBSP, or dash characters for the same row.
+ */
+export function normalizeWorksheetHeaderKeyLoose(headerRaw: string): string {
+  return headerRaw
+    .replace(/\u00a0/g, " ")
+    .replace(/[\u2013\u2014–—]/g, "-")
+    .replace(/,/g, " ")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function normalizeWorksheetHeaderKey(headerRaw: string): string {
-  return headerRaw.replace(/\u00a0/g, " ").toLowerCase().replace(/\s+/g, " ").trim();
+  return normalizeWorksheetHeaderKeyLoose(headerRaw);
+}
+
+export function worksheetHeaderKeysMatch(a: string, b: string): boolean {
+  return normalizeWorksheetHeaderKeyLoose(a) === normalizeWorksheetHeaderKeyLoose(b);
 }
 
 /** First non-empty CSV cell (billing exports pad rows with trailing commas). */
