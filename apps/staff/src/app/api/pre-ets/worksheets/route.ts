@@ -14,7 +14,10 @@ import {
   worksheetUploadBypassesDistrictScope,
 } from "@wayfinder/supabase/pre-ets-upload-scope";
 import { isAccountantRole, isAdminRole, isSuperAdminRole } from "@wayfinder/supabase/roles";
-import { commitWorksheetImport } from "@wayfinder/supabase/pre-ets-worksheet-import";
+import {
+  commitWorksheetImport,
+  type SkippedEmptyWorksheetGroup,
+} from "@wayfinder/supabase/pre-ets-worksheet-import";
 import { parseDistrictWorksheet, type ParsedDistrictWorksheet } from "@wayfinder/supabase/pre-ets-worksheet-parser";
 import { worksheetFileToDistrictCsvTexts } from "@wayfinder/supabase/pre-ets-worksheet-workbook";
 import { archiveWorksheetImportToDrive } from "@/lib/pre-ets-worksheet-archive";
@@ -34,6 +37,7 @@ type DistrictUploadResult =
       authMatchStats?: unknown;
       schoolGroupLabels?: string[];
       schoolNameWarnings?: unknown[];
+      skippedEmptyGroups?: SkippedEmptyWorksheetGroup[];
       archivedToDrive?: boolean;
       archiveError?: string | null;
     }
