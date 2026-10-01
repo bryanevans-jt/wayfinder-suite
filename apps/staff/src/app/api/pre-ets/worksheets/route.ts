@@ -38,6 +38,7 @@ type DistrictUploadResult =
       schoolGroupLabels?: string[];
       schoolNameWarnings?: unknown[];
       skippedEmptyGroups?: SkippedEmptyWorksheetGroup[];
+      servingMetrics?: unknown;
       archivedToDrive?: boolean;
       archiveError?: string | null;
     }
@@ -202,6 +203,7 @@ export async function POST(request: Request) {
           schoolGroupLabels: commit.schoolGroupLabels,
           schoolNameWarnings: commit.schoolNameWarnings,
           skippedEmptyGroups: commit.skippedEmptyGroups,
+          servingMetrics: commit.servingMetrics,
           archivedToDrive: archive.ok,
           archiveError: archive.ok ? null : archive.error,
         });
@@ -246,6 +248,7 @@ export async function POST(request: Request) {
         schoolGroupLabels: one.schoolGroupLabels,
         schoolNameWarnings: one.schoolNameWarnings,
         skippedEmptyGroups: one.skippedEmptyGroups,
+        servingMetrics: one.servingMetrics,
         archivedToDrive: one.archivedToDrive,
         archiveError: one.archiveError,
         uploadFormat: workbook.format,

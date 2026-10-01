@@ -82,6 +82,7 @@
     "./pre-ets-supervisor-scope": "./src/pre-ets-supervisor-scope.ts",
     "./pre-ets-upload-scope": "./src/pre-ets-upload-scope.ts",
     "./pre-ets-school-pipeline": "./src/pre-ets-school-pipeline.ts",
+    "./pre-ets-serving-metrics": "./src/pre-ets-serving-metrics.ts",
     "./postgrest-fetch-all": "./src/postgrest-fetch-all.ts",
     "./pre-ets-program-group-admin": "./src/pre-ets-program-group-admin.ts",
     "./pre-ets-program-group-visibility": "./src/pre-ets-program-group-visibility.ts",

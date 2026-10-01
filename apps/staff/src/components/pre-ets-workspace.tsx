@@ -14,6 +14,7 @@ import { PreEtsSearchPanel } from "@/components/pre-ets-search-panel";
 import { PreEtsSessionsPanel } from "@/components/pre-ets-sessions-panel";
 import { PreEtsPipelinePanel } from "@/components/pre-ets-pipeline-panel";
 import { PreEtsSetupPanel } from "@/components/pre-ets-setup-panel";
+import { PreEtsServingMetricsPanel } from "@/components/pre-ets-serving-metrics-panel";
 import { PreEtsWorksheetPanel } from "@/components/pre-ets-worksheet-panel";
 
 type Tab =
@@ -28,7 +29,8 @@ type Tab =
   | "hr"
   | "search"
   | "assignments"
-  | "setup";
+  | "setup"
+  | "serving";
 
 type AccessPayload = {
   access?: {
@@ -113,6 +115,11 @@ export function PreEtsWorkspace() {
       label: "Schools & groups",
       show: (access.canViewPipeline ?? false) && !isHrOnly,
     },
+    {
+      id: "serving",
+      label: "Serving analytics",
+      show: (access.canViewPipeline ?? false) && !isHrOnly,
+    },
     { id: "authorizations", label: "Rosters & auths", show: access.canAccess && !isHrOnly },
     { id: "setup", label: "Class setup", show: access.canManageSetup },
     { id: "schedule", label: "Schedule", show: access.canSupervise },
@@ -195,6 +202,7 @@ export function PreEtsWorkspace() {
         <PreEtsWorksheetPanel />
       ) : null}
       {tab === "pipeline" && access.canViewPipeline ? <PreEtsPipelinePanel /> : null}
+      {tab === "serving" && access.canViewPipeline ? <PreEtsServingMetricsPanel /> : null}
       {tab === "authorizations" ? <PreEtsAuthorizationsPanel /> : null}
       {tab === "setup" && access.canManageSetup ? <PreEtsSetupPanel /> : null}
       {tab === "schedule" && access.canSupervise ? <PreEtsSchedulePanel /> : null}

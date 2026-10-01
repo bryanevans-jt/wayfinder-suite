@@ -53,6 +53,13 @@ type SkippedEmptyGroup = {
   headerRaw: string;
 };
 
+type ServingMetricsSummary = {
+  serviceMonth: string;
+  programGroupCount: number;
+  uniqueStudentCount: number;
+  uniqueSchoolCount: number;
+};
+
 type TestRosterRow = {
   authorizationId: string;
   fileLabel: string;
@@ -86,7 +93,17 @@ export function PreEtsWorksheetPanel() {
   const [rosterExportBusy, setRosterExportBusy] = useState(false);
   const [rosterExportProgress, setRosterExportProgress] = useState<string | null>(null);
   const [testRosterList, setTestRosterList] = useState<TestRosterRow[] | null>(null);
+  const [servingMetrics, setServingMetrics] = useState<ServingMetricsSummary | null>(null);
   const rosterSequentialCancelRef = useRef(false);
+
+  const loadServingMetrics = useCallback(async () => {
+    const res = await fetch("/api/pre-ets/serving-metrics?allSchoolYears=1");
+    if (!res.ok) return;
+    const data = (await res.json()) as { current?: ServingMetricsSummary | null };
+    if (data.current) {
+      setServingMetrics(data.current);
+    }
+  }, []);
 
   const isSupervisorMode = panelRole === "supervisor";
 
@@ -126,7 +143,16 @@ export function PreEtsWorksheetPanel() {
 
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadServingMetrics();
+  }, [load, loadServingMetrics]);
+
+  function applyServingMetricsFromResponse(metrics: ServingMetricsSummary | null | undefined) {
+    if (metrics?.serviceMonth) {
+      setServingMetrics(metrics);
+    } else {
+      void loadServingMetrics();
+    }
+  }
 
   async function onUpload(file: File) {
     setBusy(true);
@@ -159,6 +185,7 @@ export function PreEtsWorksheetPanel() {
       schoolGroupLabels?: string[];
       schoolNameWarnings?: SchoolNameWarning[];
       skippedEmptyGroups?: SkippedEmptyGroup[];
+      servingMetrics?: ServingMetricsSummary | null;
       archivedToDrive?: boolean;
       archiveError?: string | null;
       error?: string;
@@ -219,8 +246,12 @@ export function PreEtsWorksheetPanel() {
         (data.skippedEmptyGroups?.length ?? 0) > 0
           ? ` ${data.skippedEmptyGroups?.length} group(s) had no eligible students and were skipped (see below).`
           : "";
+      applyServingMetricsFromResponse(data.servingMetrics);
+      const metricsNote = data.servingMetrics
+        ? ` This billing month: ${data.servingMetrics.programGroupCount} program groups, ${data.servingMetrics.uniqueStudentCount} students with PID.`
+        : "";
       setMessage(
-        `Worksheet committed.${testingOverrideEnabled ? " Testing override is ON — rosters are admin-only until auth numbers are entered." : " Pending rosters are ready for authorization numbers."}${groups}${skippedNote}${issueNote}${
+        `Worksheet committed.${metricsNote}${testingOverrideEnabled ? " Testing override is ON — rosters are admin-only until auth numbers are entered." : " Pending rosters are ready for authorization numbers."}${groups}${skippedNote}${issueNote}${
           (data.ytdWarnings?.length ?? 0) > 0
             ? ` ${data.ytdWarnings?.length} YTD warning(s) — review below.`
             : ""
@@ -259,6 +290,7 @@ export function PreEtsWorksheetPanel() {
       authMatchStats?: AuthMatchStats | null;
       schoolNameWarnings?: SchoolNameWarning[];
       skippedEmptyGroups?: SkippedEmptyGroup[];
+      servingMetrics?: ServingMetricsSummary | null;
       archivedToDrive?: boolean;
       archiveError?: string | null;
       error?: string;
@@ -288,6 +320,7 @@ export function PreEtsWorksheetPanel() {
         reparsedGroupCount?: number;
         reparsedStudentCount?: number;
       };
+      applyServingMetricsFromResponse(data.servingMetrics);
       setYtdWarnings(data.ytdWarnings ?? []);
       setAuthMatchStats(data.authMatchStats ?? null);
       setSchoolNameWarnings(data.schoolNameWarnings ?? []);
@@ -317,8 +350,12 @@ export function PreEtsWorksheetPanel() {
       (data.skippedEmptyGroups?.length ?? 0) > 0
         ? ` ${data.skippedEmptyGroups?.length} group(s) had no eligible students and were skipped (see below).`
         : "";
+    applyServingMetricsFromResponse(data.servingMetrics);
+    const metricsNote = data.servingMetrics
+      ? ` Billing month totals: ${data.servingMetrics.programGroupCount} groups, ${data.servingMetrics.uniqueStudentCount} students (PID).`
+      : "";
     setMessage(
-      `Worksheet committed to rosters and authorizations.${archiveNote}${matchNote}${skippedNote}${
+      `Worksheet committed to rosters and authorizations.${metricsNote}${archiveNote}${matchNote}${skippedNote}${
         (data.ytdWarnings?.length ?? 0) > 0
           ? ` ${data.ytdWarnings?.length} YTD warning(s) — review below.`
           : ""
@@ -500,6 +537,23 @@ export function PreEtsWorksheetPanel() {
                 : "Support uploads and review import history. Supervisors normally upload planning worksheets; enter authorization numbers under Rosters & auths when GVRA responds."}
         </p>
       </div>
+
+      {servingMetrics ? (
+        <div className="rounded-xl border border-blue-200 bg-blue-50/80 p-4 text-sm">
+          <p className="font-semibold text-brand-black">
+            Currently serving ({servingMetrics.serviceMonth.slice(0, 7)})
+          </p>
+          <p className="mt-1 text-brand-black/75">
+            <strong>{servingMetrics.programGroupCount}</strong> program groups ·{" "}
+            <strong>{servingMetrics.uniqueStudentCount}</strong> students with PID ·{" "}
+            <strong>{servingMetrics.uniqueSchoolCount}</strong> schools
+          </p>
+          <p className="mt-1 text-xs text-brand-black/55">
+            Updates when worksheets commit or re-parse. Open the{" "}
+            <strong>Serving analytics</strong> tab for month-over-month history and trends.
+          </p>
+        </div>
+      ) : null}
 
       {canManageTestingOverride ? (
         <label className="flex max-w-xl cursor-pointer items-start gap-3 rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-sm">

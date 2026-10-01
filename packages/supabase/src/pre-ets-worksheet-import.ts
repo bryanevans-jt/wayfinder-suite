@@ -6,6 +6,7 @@ import {
   type ParsedWorksheetGroup,
 } from "./pre-ets-worksheet-parser";
 import { resetPreEtsBillingMonthForDistrict } from "./pre-ets-data-reset";
+import { loadPreEtsServingMetrics, type PreEtsServingMetricsMonth } from "./pre-ets-serving-metrics";
 import {
   linkPreEtsClassSetupToSchool,
   resolveWorksheetSchoolName,
@@ -53,6 +54,8 @@ export type CommitWorksheetImportResult =
       schoolGroupLabels: string[];
       serviceMonth: string;
       districtNumber: string;
+      /** District-wide serving totals for this billing month after commit (PID students). */
+      servingMetrics: PreEtsServingMetricsMonth | null;
     }
   | { ok: false; error: string };
 
@@ -564,11 +567,17 @@ export async function commitWorksheetImport(
   authMatchStats.instructorSchoolsAssigned = assignmentSync.schoolsUpdated;
   authMatchStats.instructorNamesIgnored = assignmentSync.namesIgnored;
 
+  const servingSnapshot = await loadPreEtsServingMetrics(admin, {
+    schoolYear: parsed.schoolYear,
+    focusMonth: parsed.serviceMonth,
+  });
+
   const commitWarnings = {
     ytdWarnings,
     authMatchStats,
     schoolNameWarnings,
     skippedEmptyGroups,
+    servingMetrics: servingSnapshot.current,
   };
 
   await admin
@@ -591,6 +600,7 @@ export async function commitWorksheetImport(
     schoolGroupLabels: [...schoolGroupLabels],
     serviceMonth: parsed.serviceMonth,
     districtNumber: parsed.districtNumber,
+    servingMetrics: servingSnapshot.current,
   };
 }
 

@@ -113,6 +113,7 @@ export async function POST(
         skippedEmptyGroups: result.skippedEmptyGroups ?? [],
         reparsedGroupCount: result.reparsedGroupCount,
         reparsedStudentCount: result.reparsedStudentCount,
+        servingMetrics: result.servingMetrics ?? null,
         archivedToDrive: archive.ok,
         archiveError: archive.ok ? null : archive.error,
       });
@@ -137,6 +138,7 @@ export async function POST(
         authMatchStats: result.authMatchStats ?? null,
         schoolNameWarnings: result.schoolNameWarnings ?? [],
         skippedEmptyGroups: result.skippedEmptyGroups ?? [],
+        servingMetrics: result.servingMetrics ?? null,
         archivedToDrive: archive.ok,
         archiveError: archive.ok ? null : archive.error,
       });
