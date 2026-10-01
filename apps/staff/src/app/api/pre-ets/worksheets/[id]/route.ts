@@ -14,6 +14,9 @@ import { archiveWorksheetImportToDrive } from "@/lib/pre-ets-worksheet-archive";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
+/** D5/D6 district re-parse can commit thousands of roster rows. */
+export const maxDuration = 300;
+
 export async function GET(
   _request: Request,
   context: { params: Promise<{ id: string }> }
@@ -102,7 +105,15 @@ export async function POST(
         return NextResponse.json({ error: result.error }, { status: 400 });
       }
 
-      const archive = await archiveWorksheetImportToDrive(admin, id);
+      let archive: Awaited<ReturnType<typeof archiveWorksheetImportToDrive>> = {
+        ok: false,
+        error: "Skipped",
+      };
+      try {
+        archive = await archiveWorksheetImportToDrive(admin, id);
+      } catch {
+        archive = { ok: false, error: "Drive archive failed after successful re-parse" };
+      }
 
       return NextResponse.json({
         ok: true,

@@ -6,7 +6,10 @@ import {
   type ParsedWorksheetGroup,
 } from "./pre-ets-worksheet-parser";
 import { resetPreEtsBillingMonthForDistrict } from "./pre-ets-data-reset";
-import { loadPreEtsServingMetrics, type PreEtsServingMetricsMonth } from "./pre-ets-serving-metrics";
+import {
+  loadPreEtsDistrictServingMetrics,
+  type PreEtsServingMetricsMonth,
+} from "./pre-ets-serving-metrics";
 import {
   linkPreEtsClassSetupToSchool,
   resolveWorksheetSchoolName,
@@ -564,24 +567,37 @@ export async function commitWorksheetImport(
     parsed.serviceMonth
   );
 
-  const assignmentSync = await syncPreEtsSchoolAssignmentsFromSpreadsheet(admin, {
-    serviceMonth: parsed.serviceMonth,
-    districtId,
-  });
-  authMatchStats.instructorSchoolsAssigned = assignmentSync.schoolsUpdated;
-  authMatchStats.instructorNamesIgnored = assignmentSync.namesIgnored;
+  try {
+    const assignmentSync = await syncPreEtsSchoolAssignmentsFromSpreadsheet(admin, {
+      serviceMonth: parsed.serviceMonth,
+      districtId,
+    });
+    authMatchStats.instructorSchoolsAssigned = assignmentSync.schoolsUpdated;
+    authMatchStats.instructorNamesIgnored = assignmentSync.namesIgnored;
+  } catch {
+    // Assignment sync must not block roster commit.
+  }
 
-  const servingSnapshot = await loadPreEtsServingMetrics(admin, {
-    schoolYear: parsed.schoolYear,
-    focusMonth: parsed.serviceMonth,
-  });
+  let servingMetrics: PreEtsServingMetricsMonth | null = null;
+  try {
+    servingMetrics = await loadPreEtsDistrictServingMetrics(admin, {
+      districtId,
+      serviceMonth: parsed.serviceMonth,
+    });
+    servingMetrics = {
+      ...servingMetrics,
+      lastWorksheetCommittedAt: new Date().toISOString(),
+    };
+  } catch {
+    servingMetrics = null;
+  }
 
   const commitWarnings = {
     ytdWarnings,
     authMatchStats,
     schoolNameWarnings,
     skippedEmptyGroups,
-    servingMetrics: servingSnapshot.current,
+    servingMetrics,
   };
 
   await admin
@@ -604,7 +620,7 @@ export async function commitWorksheetImport(
     schoolGroupLabels: [...schoolGroupLabels],
     serviceMonth: parsed.serviceMonth,
     districtNumber: parsed.districtNumber,
-    servingMetrics: servingSnapshot.current,
+    servingMetrics,
   };
 }
 
@@ -665,12 +681,24 @@ export async function reprocessCommittedWorksheetImport(
     })
     .eq("id", importId);
 
-  const commit = await commitWorksheetImport(admin, importId, userId, {
-    allowRecommit: true,
-    allowDirectCommit: true,
-  });
+  let commit: Awaited<ReturnType<typeof commitWorksheetImport>>;
+  try {
+    commit = await commitWorksheetImport(admin, importId, userId, {
+      allowRecommit: true,
+      allowDirectCommit: true,
+    });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : "Commit failed";
+    return {
+      ok: false,
+      error: `Re-parse cleared district ${parsed.districtNumber} for ${parsed.serviceMonth.slice(0, 7)} but commit failed: ${detail}. Try Re-parse stored file again after deploy, or re-upload the worksheet.`,
+    };
+  }
   if (!commit.ok) {
-    return commit;
+    return {
+      ok: false,
+      error: `${commit.error} (District ${parsed.districtNumber} billing month was cleared before commit — run Re-parse again or re-upload if needed.)`,
+    };
   }
 
   return {

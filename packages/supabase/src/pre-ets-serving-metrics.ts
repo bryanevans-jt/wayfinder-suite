@@ -40,10 +40,42 @@ type RosterMetricsRow = {
   } | null;
 };
 
+type AuthWithRosterRow = {
+  id: string;
+  service_month: string;
+  program_group_id: string | null;
+  school_id: string;
+  pre_ets_program_groups: {
+    id: string;
+    hidden_at: string | null;
+    merged_into_program_group_id: string | null;
+  } | null;
+  pre_ets_schools: {
+    pre_ets_districts: { school_year: string } | { school_year: string }[] | null;
+  } | null;
+  pre_ets_roster_entries: Array<{
+    not_approved: boolean;
+    pre_ets_students: { participant_id: string | null } | null;
+  }>;
+};
+
 type WorksheetCommitRow = {
   service_month: string;
   committed_at: string | null;
 };
+
+const AUTH_METRICS_SELECT = [
+  "id, service_month, program_group_id, school_id,",
+  "pre_ets_program_groups(id, hidden_at, merged_into_program_group_id),",
+  "pre_ets_schools(pre_ets_districts(school_year)),",
+  "pre_ets_roster_entries(not_approved, pre_ets_students(participant_id))",
+].join(" ");
+
+function normalizeServiceMonthDate(raw: string): string {
+  const trimmed = raw.trim();
+  if (/^\d{4}-\d{2}$/.test(trimmed)) return `${trimmed}-01`;
+  return trimmed.slice(0, 10);
+}
 
 /** True when the spreadsheet PID is present and usable for billing metrics. */
 export function preEtsParticipantIdEligibleForMetrics(participantId: string | null | undefined): boolean {
@@ -79,6 +111,65 @@ function programGroupEligible(
   if (group.hidden_at) return false;
   if (group.merged_into_program_group_id) return false;
   return true;
+}
+
+function rosterRowsFromAuthorizations(auths: AuthWithRosterRow[]): RosterMetricsRow[] {
+  const rows: RosterMetricsRow[] = [];
+  for (const auth of auths) {
+    const authPayload = {
+      service_month: auth.service_month,
+      program_group_id: auth.program_group_id,
+      school_id: auth.school_id,
+      pre_ets_program_groups: auth.pre_ets_program_groups,
+      pre_ets_schools: auth.pre_ets_schools,
+    };
+    for (const entry of auth.pre_ets_roster_entries ?? []) {
+      rows.push({
+        authorization_id: auth.id,
+        not_approved: entry.not_approved,
+        pre_ets_authorizations: authPayload,
+        pre_ets_students: entry.pre_ets_students,
+      });
+    }
+  }
+  return rows;
+}
+
+async function loadAuthorizationMetricsRows(
+  admin: SupabaseClient,
+  options?: { districtId?: string; serviceMonth?: string }
+): Promise<RosterMetricsRow[]> {
+  let schoolIds: string[] | null = null;
+  if (options?.districtId?.trim()) {
+    const { data: schools, error } = await admin
+      .from("pre_ets_schools")
+      .select("id")
+      .eq("district_id", options.districtId.trim());
+    if (error) throw new Error(error.message);
+    schoolIds = (schools ?? []).map((s) => s.id as string);
+    if (schoolIds.length === 0) return [];
+  }
+
+  const serviceMonth = options?.serviceMonth?.trim()
+    ? normalizeServiceMonthDate(options.serviceMonth)
+    : null;
+
+  const auths = await fetchAllPostgrestRows<AuthWithRosterRow>(
+    admin,
+    "pre_ets_authorizations",
+    AUTH_METRICS_SELECT,
+    {
+      pageSize: 250,
+      applyFilters: (q) => {
+        let query = q;
+        if (serviceMonth) query = query.eq("service_month", serviceMonth);
+        if (schoolIds) query = query.in("school_id", schoolIds);
+        return query;
+      },
+    }
+  );
+
+  return rosterRowsFromAuthorizations(auths);
 }
 
 /** Aggregate eligible roster rows into per-month group and unique PID counts. */
@@ -136,6 +227,37 @@ function monthRowsToHistory(
     }));
 }
 
+function emptyMetricsMonth(serviceMonth: string): PreEtsServingMetricsMonth {
+  return {
+    serviceMonth: normalizePreEtsServiceMonthKey(serviceMonth),
+    programGroupCount: 0,
+    uniqueStudentCount: 0,
+    uniqueSchoolCount: 0,
+    lastWorksheetCommittedAt: null,
+  };
+}
+
+/** Fast path after worksheet commit / re-parse — one district and billing month only. */
+export async function loadPreEtsDistrictServingMetrics(
+  admin: SupabaseClient,
+  input: { districtId: string; serviceMonth: string }
+): Promise<PreEtsServingMetricsMonth> {
+  const rows = await loadAuthorizationMetricsRows(admin, {
+    districtId: input.districtId,
+    serviceMonth: input.serviceMonth,
+  });
+  const monthKey = normalizePreEtsServiceMonthKey(input.serviceMonth);
+  const bucket = aggregatePreEtsServingMetricsFromRosterRows(rows).get(monthKey);
+  if (!bucket) return emptyMetricsMonth(monthKey);
+  return {
+    serviceMonth: monthKey,
+    programGroupCount: bucket.programGroups.size,
+    uniqueStudentCount: bucket.students.size,
+    uniqueSchoolCount: bucket.schools.size,
+    lastWorksheetCommittedAt: null,
+  };
+}
+
 export async function loadPreEtsServingMetrics(
   admin: SupabaseClient,
   options?: { schoolYear?: string | null; focusMonth?: string | null }
@@ -144,20 +266,7 @@ export async function loadPreEtsServingMetrics(
   const focusMonthRaw = options?.focusMonth?.trim();
   const focusMonth = focusMonthRaw ? normalizePreEtsServiceMonthKey(focusMonthRaw) : null;
 
-  const rosterRows = await fetchAllPostgrestRows<RosterMetricsRow>(
-    admin,
-    "pre_ets_roster_entries",
-    [
-      "authorization_id",
-      "not_approved",
-      "pre_ets_authorizations(",
-      "service_month, program_group_id, school_id,",
-      "pre_ets_program_groups(id, hidden_at, merged_into_program_group_id),",
-      "pre_ets_schools(pre_ets_districts(school_year))",
-      "),",
-      "pre_ets_students(participant_id)",
-    ].join("")
-  );
+  const rosterRows = await loadAuthorizationMetricsRows(admin);
 
   const commits = await fetchAllPostgrestRows<WorksheetCommitRow>(
     admin,

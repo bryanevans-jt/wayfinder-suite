@@ -24,6 +24,8 @@ import { archiveWorksheetImportToDrive } from "@/lib/pre-ets-worksheet-archive";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
+export const maxDuration = 300;
+
 type DistrictUploadResult =
   | {
       ok: true;
