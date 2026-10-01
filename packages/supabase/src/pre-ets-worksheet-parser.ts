@@ -133,6 +133,18 @@ function isSummaryTotalLine(line: string): boolean {
   return label === "total" || label.startsWith("total ");
 }
 
+/** Standalone billing line that is only a school name (no instructor / frequency segments). */
+export function looksLikeWorksheetSchoolName(label: string): boolean {
+  const normalized = label.replace(/\u00a0/g, " ").trim();
+  if (normalized.length < 10) return false;
+  if (/^supervisor\s*:/i.test(normalized) || /^total\b/i.test(normalized)) return false;
+  return (
+    /\b(high\s+school|middle\s+school|elementary\s+school|primary\s+school)\b/i.test(normalized) ||
+    /\b(county|city)\s+(high|middle|elementary)\b/i.test(normalized) ||
+    /\bhigh\s+school\b/i.test(normalized)
+  );
+}
+
 /** Billing exports repeat column headers once per office; the next school line must start a new group. */
 export function looksLikeWorksheetGroupHeaderLine(line: string, cells: string[]): boolean {
   if (isSupervisorLine(line) || isSummaryTotalLine(line) || isHeaderRow(cells)) {
@@ -144,13 +156,17 @@ export function looksLikeWorksheetGroupHeaderLine(line: string, cells: string[])
   if (/^\d+\.?$/u.test(firstCell)) return false;
 
   const parts = splitGroupHeaderParts(label);
-  if (parts.length < 2) return false;
+  if (parts.length < 2) {
+    return looksLikeWorksheetSchoolName(label);
+  }
 
   const schoolPart = parts[0] ?? "";
   return (
+    looksLikeWorksheetSchoolName(schoolPart) ||
     /\b(high\s+school|middle\s+school|elementary|academy|institute|learning\s+center|campus)\b/i.test(
       schoolPart
-    ) || (/\bcounty\b/i.test(schoolPart) && parts.length >= 2)
+    ) ||
+    (/\bcounty\b/i.test(schoolPart) && parts.length >= 2)
   );
 }
 
@@ -680,6 +696,19 @@ export function parseDistrictWorksheet(
     for (const group of office.groups) {
       studentCount += group.students.length;
       notApprovedCount += group.students.filter((s) => s.notApproved).length;
+      const eligible = group.students.filter(
+        (s) => !s.notApproved && s.participantId.trim().length > 0
+      );
+      const label = `${group.schoolName} — ${group.groupName}`;
+      if (eligible.length === 0 && group.students.length > 0) {
+        issues.push(
+          `Group "${label}": no students with PID (all rows missing PID or NOT APPROVED) — roster will not be created`
+        );
+      } else if (eligible.length === 0) {
+        issues.push(
+          `Group "${label}": no student rows parsed — check the group header line above the student table`
+        );
+      }
     }
   }
 

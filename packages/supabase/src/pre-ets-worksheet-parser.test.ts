@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  looksLikeWorksheetGroupHeaderLine,
   parseDistrictWorksheet,
   parseGroupHeader,
   validateWorksheetHeaderColumns,
@@ -68,6 +69,31 @@ describe("pre-ets-worksheet-parser", () => {
     );
     assert.equal(tattnallEnDash.schoolName, "TATTNALL COUNTY HIGH SCHOOL");
     assert.equal(tattnallEnDash.instructorName, "TIFFANY POWELL");
+  });
+
+  it("recognizes a standalone school name line as a new group header (D9 Atkinson-style)", () => {
+    const schoolOnly = "ATKINSON COUNTY HIGH SCHOOL,,,,,,,,,,,,,";
+    assert.ok(looksLikeWorksheetGroupHeaderLine(schoolOnly, ["ATKINSON COUNTY HIGH SCHOOL"]));
+
+    const csv = [
+      "JOSHUA TREE OCTOBER PRE-ETS BILLING 2026-27,,,,,,,,,,,",
+      "DISTRICT 9 SCHOOLS,,,,,,,,,,,,",
+      "DOUGLAS OFFICE SCHOOLS,,,,,,,,,,,,",
+      "FIRST HIGH SCHOOL - MONTHLY - INST A,,,,,,,,,,,,",
+      "#,STUDENT NAME,PID #,A&I,SERVICE,CODE,UNITS,Class Time,Invoice #,Billed",
+      "1,Alice,11111,,PRE,PRE-1,1,,,",
+      "ATKINSON COUNTY HIGH SCHOOL,,,,,,,,,,,,",
+      "1,Bob,22222,,PRE,PRE-1,1,,,",
+    ].join("\n");
+
+    const parsed = parseDistrictWorksheet(csv);
+    assert.equal(parsed.stats.groupCount, 2);
+    const atkinson = parsed.offices[0]?.groups.find((g) =>
+      g.schoolName.toUpperCase().includes("ATKINSON")
+    );
+    assert.ok(atkinson, "expected Atkinson group");
+    assert.equal(atkinson?.students.length, 1);
+    assert.equal(atkinson?.students[0]?.participantId, "22222");
   });
 
   it("starts a new school when column headers are not repeated (D8-style)", () => {

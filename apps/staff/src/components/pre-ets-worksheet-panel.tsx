@@ -45,6 +45,12 @@ type SchoolNameWarning = {
   ambiguousCandidates?: string[];
 };
 
+type SkippedEmptyGroup = {
+  schoolName: string;
+  groupName: string;
+  headerRaw: string;
+};
+
 type TestRosterRow = {
   authorizationId: string;
   fileLabel: string;
@@ -68,6 +74,7 @@ export function PreEtsWorksheetPanel() {
   const [schoolNameWarnings, setSchoolNameWarnings] = useState<SchoolNameWarning[]>([]);
   const [schoolGroupLabels, setSchoolGroupLabels] = useState<string[]>([]);
   const [parseIssues, setParseIssues] = useState<string[]>([]);
+  const [skippedEmptyGroups, setSkippedEmptyGroups] = useState<SkippedEmptyGroup[]>([]);
   const [testingOverrideEnabled, setTestingOverrideEnabled] = useState(false);
   const [canManageTestingOverride, setCanManageTestingOverride] = useState(false);
   const [emailRosterMonth, setEmailRosterMonth] = useState(() => {
@@ -126,6 +133,7 @@ export function PreEtsWorksheetPanel() {
     setSchoolGroupLabels([]);
     setSchoolNameWarnings([]);
     setParseIssues([]);
+    setSkippedEmptyGroups([]);
     const form = new FormData();
     form.set("file", file);
     const res = await fetch("/api/pre-ets/worksheets", { method: "POST", body: form });
@@ -148,6 +156,7 @@ export function PreEtsWorksheetPanel() {
       authMatchStats?: AuthMatchStats | null;
       schoolGroupLabels?: string[];
       schoolNameWarnings?: SchoolNameWarning[];
+      skippedEmptyGroups?: SkippedEmptyGroup[];
       archivedToDrive?: boolean;
       archiveError?: string | null;
       error?: string;
@@ -167,6 +176,15 @@ export function PreEtsWorksheetPanel() {
       const badRows = data.districts.filter((d) => !d.ok);
       const labels = okRows.flatMap((d) => d.schoolGroupLabels ?? []);
       setSchoolGroupLabels(labels);
+      setSkippedEmptyGroups(
+        okRows.flatMap(
+          (d) =>
+            (d as { skippedEmptyGroups?: SkippedEmptyGroup[] }).skippedEmptyGroups?.map((g) => ({
+              ...g,
+              schoolName: d.sheetName ? `${g.schoolName} (${d.sheetName})` : g.schoolName,
+            })) ?? []
+        )
+      );
       setParseIssues(
         badRows.flatMap((d) =>
           (d.parsed?.issues ?? []).map((issue) => `${d.sheetName ?? "Sheet"}: ${issue}`)
@@ -187,6 +205,7 @@ export function PreEtsWorksheetPanel() {
       setAuthMatchStats(data.authMatchStats ?? null);
       setSchoolGroupLabels(data.schoolGroupLabels ?? []);
       setSchoolNameWarnings(data.schoolNameWarnings ?? []);
+      setSkippedEmptyGroups(data.skippedEmptyGroups ?? []);
       const groups = data.schoolGroupLabels?.length
         ? ` Authorization requests submitted for ${data.schoolGroupLabels.join(", ")}. Accounts were notified.`
         : "";
@@ -194,8 +213,12 @@ export function PreEtsWorksheetPanel() {
         (data.parsed?.issues?.length ?? 0) > 0
           ? ` ${data.parsed?.issues.length} spreadsheet flag(s) — review below.`
           : "";
+      const skippedNote =
+        (data.skippedEmptyGroups?.length ?? 0) > 0
+          ? ` ${data.skippedEmptyGroups?.length} group(s) had no eligible students and were skipped (see below).`
+          : "";
       setMessage(
-        `Worksheet committed.${testingOverrideEnabled ? " Testing override is ON — rosters are admin-only until auth numbers are entered." : " Pending rosters are ready for authorization numbers."}${groups}${issueNote}${
+        `Worksheet committed.${testingOverrideEnabled ? " Testing override is ON — rosters are admin-only until auth numbers are entered." : " Pending rosters are ready for authorization numbers."}${groups}${skippedNote}${issueNote}${
           (data.ytdWarnings?.length ?? 0) > 0
             ? ` ${data.ytdWarnings?.length} YTD warning(s) — review below.`
             : ""
@@ -218,6 +241,7 @@ export function PreEtsWorksheetPanel() {
     setMessage(null);
     setAuthMatchStats(null);
     setSchoolNameWarnings([]);
+    setSkippedEmptyGroups([]);
     const res = await fetch(`/api/pre-ets/worksheets/${importId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -228,6 +252,7 @@ export function PreEtsWorksheetPanel() {
       ytdWarnings?: YtdWarning[];
       authMatchStats?: AuthMatchStats | null;
       schoolNameWarnings?: SchoolNameWarning[];
+      skippedEmptyGroups?: SkippedEmptyGroup[];
       archivedToDrive?: boolean;
       archiveError?: string | null;
       error?: string;
@@ -255,6 +280,7 @@ export function PreEtsWorksheetPanel() {
     setYtdWarnings(data.ytdWarnings ?? []);
     setAuthMatchStats(data.authMatchStats ?? null);
     setSchoolNameWarnings(data.schoolNameWarnings ?? []);
+    setSkippedEmptyGroups(data.skippedEmptyGroups ?? []);
     const archiveNote = data.archivedToDrive
       ? " Archived to Google Drive."
       : data.archiveError
@@ -263,8 +289,12 @@ export function PreEtsWorksheetPanel() {
     const matchNote = data.authMatchStats
       ? ` Matched ${data.authMatchStats.authorizationsMatched} pending authorization(s); ${data.authMatchStats.authorizationsCreated} new; ${data.authMatchStats.pendingAuthsRemaining} pending remaining.`
       : "";
+    const skippedNote =
+      (data.skippedEmptyGroups?.length ?? 0) > 0
+        ? ` ${data.skippedEmptyGroups?.length} group(s) had no eligible students and were skipped (see below).`
+        : "";
     setMessage(
-      `Worksheet committed to rosters and authorizations.${archiveNote}${matchNote}${
+      `Worksheet committed to rosters and authorizations.${archiveNote}${matchNote}${skippedNote}${
         (data.ytdWarnings?.length ?? 0) > 0
           ? ` ${data.ytdWarnings?.length} YTD warning(s) — review below.`
           : ""
@@ -618,6 +648,23 @@ export function PreEtsWorksheetPanel() {
         <p className="text-sm text-brand-black/75">
           Groups in this upload: {schoolGroupLabels.join(", ")}
         </p>
+      ) : null}
+
+      {skippedEmptyGroups.length > 0 ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm">
+          <h3 className="font-semibold text-brand-black">Groups skipped (no roster created)</h3>
+          <p className="mt-1 text-xs text-brand-black/70">
+            These schools/groups appeared in the spreadsheet but had no students with a PID (or only
+            NOT APPROVED rows). Re-upload after fixing the source file, or add students manually.
+          </p>
+          <ul className="mt-2 max-h-40 overflow-y-auto text-xs text-red-950">
+            {skippedEmptyGroups.map((g, i) => (
+              <li key={`${g.headerRaw}-${i}`}>
+                {g.schoolName} — {g.groupName}
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
 
       {preview && !isSupervisorMode ? (

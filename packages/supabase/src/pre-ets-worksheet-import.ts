@@ -28,6 +28,12 @@ export type PreEtsYtdWarning = {
   threshold: number;
 };
 
+export type SkippedEmptyWorksheetGroup = {
+  schoolName: string;
+  groupName: string;
+  headerRaw: string;
+};
+
 export type CommitWorksheetImportResult =
   | {
       ok: true;
@@ -35,6 +41,8 @@ export type CommitWorksheetImportResult =
       ytdWarnings: PreEtsYtdWarning[];
       authMatchStats: AuthMatchStats;
       schoolNameWarnings: SchoolNameResolutionWarning[];
+      /** Parsed groups with no eligible students — no authorization/roster created. */
+      skippedEmptyGroups: SkippedEmptyWorksheetGroup[];
       /** School/group names with roster activity in this commit (for Accounts notifications). */
       schoolGroupLabels: string[];
       serviceMonth: string;
@@ -262,6 +270,7 @@ export async function commitWorksheetImport(
     pendingAuthsRemaining: 0,
   };
   const schoolNameWarnings: SchoolNameResolutionWarning[] = [];
+  const skippedEmptyGroups: SkippedEmptyWorksheetGroup[] = [];
   const schoolGroupLabels = new Set<string>();
 
   const { data: district, error: distErr } = await admin
@@ -391,7 +400,14 @@ export async function commitWorksheetImport(
         instructorName: group.instructorName,
       });
 
-      if (groupStudents.length === 0) continue;
+      if (groupStudents.length === 0) {
+        skippedEmptyGroups.push({
+          schoolName: group.schoolName,
+          groupName: group.groupName,
+          headerRaw: group.headerRaw,
+        });
+        continue;
+      }
       const byAuth = new Map<string, typeof groupStudents>();
 
       for (const student of groupStudents) {
@@ -532,6 +548,7 @@ export async function commitWorksheetImport(
     ytdWarnings,
     authMatchStats,
     schoolNameWarnings,
+    skippedEmptyGroups,
   };
 
   await admin
@@ -550,6 +567,7 @@ export async function commitWorksheetImport(
     ytdWarnings,
     authMatchStats,
     schoolNameWarnings,
+    skippedEmptyGroups,
     schoolGroupLabels: [...schoolGroupLabels],
     serviceMonth: parsed.serviceMonth,
     districtNumber: parsed.districtNumber,

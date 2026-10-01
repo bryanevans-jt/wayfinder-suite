@@ -197,6 +197,7 @@ export async function POST(request: Request) {
           authMatchStats: commit.authMatchStats,
           schoolGroupLabels: commit.schoolGroupLabels,
           schoolNameWarnings: commit.schoolNameWarnings,
+          skippedEmptyGroups: commit.skippedEmptyGroups,
           archivedToDrive: archive.ok,
           archiveError: archive.ok ? null : archive.error,
         });
@@ -240,6 +241,7 @@ export async function POST(request: Request) {
         authMatchStats: one.authMatchStats,
         schoolGroupLabels: one.schoolGroupLabels,
         schoolNameWarnings: one.schoolNameWarnings,
+        skippedEmptyGroups: one.skippedEmptyGroups,
         archivedToDrive: one.archivedToDrive,
         archiveError: one.archiveError,
         uploadFormat: workbook.format,

@@ -109,6 +109,7 @@ export async function POST(
         ytdWarnings: result.ytdWarnings,
         authMatchStats: result.authMatchStats ?? null,
         schoolNameWarnings: result.schoolNameWarnings ?? [],
+        skippedEmptyGroups: result.skippedEmptyGroups ?? [],
         archivedToDrive: archive.ok,
         archiveError: archive.ok ? null : archive.error,
       });
