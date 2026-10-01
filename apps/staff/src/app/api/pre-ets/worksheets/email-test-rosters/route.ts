@@ -11,6 +11,9 @@ import {
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
+/** Bulk PDF generation often exceeds default serverless limits; prefer browser ZIP download for many rosters. */
+export const maxDuration = 300;
+
 export async function POST(request: Request) {
   const route = "api/pre-ets/worksheets/email-test-rosters";
   const auth = await requirePreEtsApi("access");

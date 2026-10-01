@@ -54,13 +54,15 @@ export async function GET(
       return NextResponse.json({ error: built.error }, { status: 400 });
     }
 
-    const authType = authRow.auth_type as "group" | "individual" | "pending";
     const pdfBytes = built.pdfBytes;
-    const suffix = authType === "individual" ? "individual" : "group";
+    const safeName = (built.fileLabel || `roster-${id.slice(0, 8)}`)
+      .replace(/[^\w\s.-]/g, "")
+      .trim()
+      .slice(0, 120);
     return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="pre-ets-roster-${suffix}-${id.slice(0, 8)}.pdf"`,
+        "Content-Disposition": `attachment; filename="${safeName}.pdf"`,
       },
     });
   } catch (err) {

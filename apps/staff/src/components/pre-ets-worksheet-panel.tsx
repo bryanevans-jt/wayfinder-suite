@@ -40,6 +40,14 @@ type SchoolNameWarning = {
   ambiguousCandidates?: string[];
 };
 
+type TestRosterRow = {
+  authorizationId: string;
+  fileLabel: string;
+  schoolName: string;
+  groupName: string;
+  eligibleStudentCount: number;
+};
+
 export function PreEtsWorksheetPanel() {
   const [imports, setImports] = useState<ImportRow[]>([]);
   const [panelRole, setPanelRole] = useState<"supervisor" | "accounts">("supervisor");
@@ -61,6 +69,9 @@ export function PreEtsWorksheetPanel() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
+  const [rosterExportBusy, setRosterExportBusy] = useState(false);
+  const [rosterExportProgress, setRosterExportProgress] = useState<string | null>(null);
+  const [testRosterList, setTestRosterList] = useState<TestRosterRow[] | null>(null);
 
   const isSupervisorMode = panelRole === "supervisor";
 
@@ -257,30 +268,149 @@ export function PreEtsWorksheetPanel() {
     void load();
   }
 
-  async function onEmailTestRosters() {
-    setBusy(true);
+  async function loadTestRosterList() {
+    setRosterExportBusy(true);
+    setRosterExportProgress("Loading roster list…");
     setMessage(null);
-    const res = await fetch("/api/pre-ets/worksheets/email-test-rosters", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ serviceMonth: emailRosterMonth }),
-    });
-    const data = (await res.json()) as {
-      error?: string;
-      rosterCount?: number;
-      emailedTo?: string;
-      skippedEmpty?: number;
-    };
-    setBusy(false);
+    const res = await fetch(
+      `/api/pre-ets/worksheets/test-rosters?serviceMonth=${encodeURIComponent(emailRosterMonth)}`
+    );
+    const data = (await res.json()) as { error?: string; rosters?: TestRosterRow[] };
+    setRosterExportBusy(false);
+    setRosterExportProgress(null);
     if (!res.ok) {
-      setMessage(data.error ?? "Could not email test rosters");
+      setTestRosterList(null);
+      setMessage(data.error ?? "Could not load test rosters");
       return;
     }
+    setTestRosterList(data.rosters ?? []);
     setMessage(
-      `Emailed ${data.rosterCount ?? 0} roster PDF(s) as a ZIP to ${data.emailedTo ?? "you"} for ${emailRosterMonth}.${
-        (data.skippedEmpty ?? 0) > 0 ? ` Skipped ${data.skippedEmpty} empty authorization(s).` : ""
-      }`
+      (data.rosters?.length ?? 0) === 0
+        ? `No rosters with eligible students (PID required) for ${emailRosterMonth}.`
+        : `Found ${data.rosters?.length ?? 0} roster(s) for ${emailRosterMonth}. Download individually or build a ZIP in your browser.`
     );
+  }
+
+  async function onDownloadTestRostersZip() {
+    setRosterExportBusy(true);
+    setMessage(null);
+    try {
+      let rosters = testRosterList;
+      if (!rosters?.length) {
+        setRosterExportProgress("Loading roster list…");
+        const listRes = await fetch(
+          `/api/pre-ets/worksheets/test-rosters?serviceMonth=${encodeURIComponent(emailRosterMonth)}`
+        );
+        const listData = (await listRes.json()) as { error?: string; rosters?: TestRosterRow[] };
+        if (!listRes.ok) {
+          setMessage(listData.error ?? "Could not load test rosters");
+          return;
+        }
+        rosters = listData.rosters ?? [];
+        setTestRosterList(rosters);
+      }
+
+      if (rosters.length === 0) {
+        setMessage(`No rosters with eligible students for ${emailRosterMonth}.`);
+        return;
+      }
+
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+      const usedNames = new Map<string, number>();
+      let added = 0;
+
+      for (let i = 0; i < rosters.length; i++) {
+        const row = rosters[i];
+        setRosterExportProgress(`Building PDF ${i + 1} of ${rosters.length}: ${row.fileLabel}`);
+
+        const pdfRes = await fetch(
+          `/api/pre-ets/authorizations/${row.authorizationId}/roster-pdf`
+        );
+        if (!pdfRes.ok) {
+          const err = (await pdfRes.json().catch(() => ({}))) as { error?: string };
+          setMessage(
+            err.error ??
+              `Stopped at ${row.fileLabel}: could not generate PDF (${pdfRes.status}).`
+          );
+          break;
+        }
+
+        let baseName = row.fileLabel || `roster-${row.authorizationId.slice(0, 8)}`;
+        const seen = usedNames.get(baseName) ?? 0;
+        usedNames.set(baseName, seen + 1);
+        if (seen > 0) {
+          baseName = `${baseName} (${seen + 1})`;
+        }
+
+        const pdfBytes = await pdfRes.arrayBuffer();
+        zip.file(`${baseName}.pdf`, pdfBytes);
+        added++;
+      }
+
+      if (added === 0) {
+        setMessage("No PDFs were added to the ZIP.");
+        return;
+      }
+
+      setRosterExportProgress(`Zipping ${added} PDF(s)…`);
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `pre-ets-test-rosters-${emailRosterMonth}.zip`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+
+      setMessage(
+        `Downloaded ZIP with ${added} roster PDF(s) for ${emailRosterMonth}.${
+          added < rosters.length ? ` (${rosters.length - added} skipped after an error.)` : ""
+        }`
+      );
+    } finally {
+      setRosterExportBusy(false);
+      setRosterExportProgress(null);
+    }
+  }
+
+  async function onEmailTestRosters() {
+    setRosterExportBusy(true);
+    setMessage(null);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 4 * 60 * 1000);
+    try {
+      const res = await fetch("/api/pre-ets/worksheets/email-test-rosters", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ serviceMonth: emailRosterMonth }),
+        signal: controller.signal,
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        rosterCount?: number;
+        emailedTo?: string;
+        skippedEmpty?: number;
+      };
+      if (!res.ok) {
+        setMessage(data.error ?? "Could not email test rosters");
+        return;
+      }
+      setMessage(
+        `Emailed ${data.rosterCount ?? 0} roster PDF(s) as a ZIP to ${data.emailedTo ?? "you"} for ${emailRosterMonth}.${
+          (data.skippedEmpty ?? 0) > 0 ? ` Skipped ${data.skippedEmpty} empty authorization(s).` : ""
+        }`
+      );
+    } catch (err) {
+      const aborted = err instanceof DOMException && err.name === "AbortError";
+      setMessage(
+        aborted
+          ? "Email export timed out after 4 minutes. Use “Download ZIP (browser)” or open individual PDFs below — large months are too heavy for one server email."
+          : "Could not email test rosters. Try Download ZIP (browser) instead."
+      );
+    } finally {
+      window.clearTimeout(timeout);
+      setRosterExportBusy(false);
+    }
   }
 
   async function onToggleTestingOverride(enabled: boolean) {
@@ -344,29 +474,77 @@ export function PreEtsWorksheetPanel() {
       ) : null}
 
       {testingOverrideEnabled && canManageTestingOverride ? (
-        <div className="flex flex-wrap items-end gap-4 rounded-xl border border-blue-200 bg-blue-50/80 p-4">
-          <label className="text-sm">
-            <span className="font-medium text-brand-black">Email test rosters</span>
-            <input
-              type="month"
-              className="mt-1 block rounded-lg border border-neutral-300 px-3 py-2"
-              value={emailRosterMonth}
-              onChange={(e) => setEmailRosterMonth(e.target.value)}
-              disabled={busy}
-            />
-          </label>
-          <button
-            type="button"
-            disabled={busy}
-            className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-            onClick={() => void onEmailTestRosters()}
-          >
-            {busy ? "Sending…" : "Email all rosters (ZIP)"}
-          </button>
+        <div className="space-y-3 rounded-xl border border-blue-200 bg-blue-50/80 p-4">
+          <div className="flex flex-wrap items-end gap-4">
+            <label className="text-sm">
+              <span className="font-medium text-brand-black">Test roster export</span>
+              <input
+                type="month"
+                className="mt-1 block rounded-lg border border-neutral-300 px-3 py-2"
+                value={emailRosterMonth}
+                onChange={(e) => {
+                  setEmailRosterMonth(e.target.value);
+                  setTestRosterList(null);
+                }}
+                disabled={rosterExportBusy}
+              />
+            </label>
+            <button
+              type="button"
+              disabled={rosterExportBusy}
+              className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              onClick={() => void onDownloadTestRostersZip()}
+            >
+              {rosterExportBusy ? "Working…" : "Download ZIP (browser)"}
+            </button>
+            <button
+              type="button"
+              disabled={rosterExportBusy}
+              className="rounded-lg border border-brand-green bg-white px-4 py-2 text-sm font-semibold text-brand-green disabled:opacity-50"
+              onClick={() => void loadTestRosterList()}
+            >
+              List rosters
+            </button>
+            <button
+              type="button"
+              disabled={rosterExportBusy}
+              className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm text-brand-black/80 disabled:opacity-50"
+              onClick={() => void onEmailTestRosters()}
+            >
+              {rosterExportBusy ? "Working…" : "Email all (ZIP)"}
+            </button>
+          </div>
+          {rosterExportProgress ? (
+            <p className="text-xs font-medium text-brand-black/75">{rosterExportProgress}</p>
+          ) : null}
           <p className="text-xs text-brand-black/65">
-            Sends template PDFs for every roster in that month to bryan.evans@thejoshuatree.org
-            (pending auth numbers OK). Students without a PID or marked NOT APPROVED are excluded.
+            Builds one PDF per authorization (Google Doc template when configured).{" "}
+            Download ZIP (browser) is best for 10+
+            rosters — it generates PDFs one at a time on your machine so the server does not time
+            out. Email bundles everything in one server request and often hangs for large months.
+            Pending auth numbers OK; students without a PID or marked NOT APPROVED are excluded.
+            Email goes to bryan.evans@thejoshuatree.org.
           </p>
+          {testRosterList && testRosterList.length > 0 ? (
+            <ul className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-blue-100 bg-white p-3 text-xs">
+              {testRosterList.map((row) => (
+                <li key={row.authorizationId} className="flex flex-wrap items-center gap-2">
+                  <span className="text-brand-black/80">
+                    {row.fileLabel}{" "}
+                    <span className="text-brand-black/50">({row.eligibleStudentCount} students)</span>
+                  </span>
+                  <a
+                    className="font-semibold text-brand-green underline"
+                    href={`/api/pre-ets/authorizations/${row.authorizationId}/roster-pdf`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    PDF
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       ) : null}
 
