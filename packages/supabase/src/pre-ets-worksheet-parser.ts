@@ -165,6 +165,7 @@ export function looksLikeWorksheetSchoolName(label: string): boolean {
   if (normalized.length < 10) return false;
   return (
     /\b(high\s+school|middle\s+school|elementary\s+school|primary\s+school)\b/i.test(normalized) ||
+    /\bcharter\s+school\b/i.test(normalized) ||
     /\b(county|city)\s+(high|middle|elementary)\b/i.test(normalized) ||
     /\bhigh\s+school\b/i.test(normalized) ||
     looksLikeShortSchoolNameSuffix(normalized)
@@ -191,7 +192,7 @@ export function looksLikeWorksheetGroupHeaderLine(line: string, cells: string[])
     looksLikeKnownWorksheetSchoolLabel(schoolPart) ||
     looksLikeWorksheetSchoolName(schoolPart) ||
     looksLikeShortSchoolNameSuffix(schoolPart) ||
-    /\b(high\s+school|middle\s+school|elementary|academy|institute|learning\s+center|campus)\b/i.test(
+    /\b(high\s+school|middle\s+school|elementary|charter\s+school|academy|institute|learning\s+center|campus)\b/i.test(
       schoolPart
     ) ||
     (/\bcounty\b/i.test(schoolPart) && parts.length >= 2)

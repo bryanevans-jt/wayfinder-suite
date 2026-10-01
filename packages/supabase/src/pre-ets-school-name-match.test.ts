@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { pickBestSchoolNameMatch, rankSchoolNameMatches } from "./pre-ets-school-name-match";
+import { canonicalizeWorksheetSchoolName } from "./pre-ets-worksheet-known-schools";
 
 test("weak fuzzy matches stay below auto-remap threshold", () => {
   const candidates = [
@@ -28,4 +29,14 @@ test("Pike County and Upson Lee do not fuzzy-match each other", () => {
   assert.equal(upson.match?.name, "Upson Lee High School");
   assert.ok((upson.match?.score ?? 0) >= 0.95);
   assert.notEqual(upson.match?.name, "Pike County High School");
+});
+
+test("Scintilla Charter School Valdosta matches class setup Scintilla Charter School", () => {
+  const candidates = [{ name: "Scintilla Charter School", source: "setup" as const }];
+  const match = pickBestSchoolNameMatch(
+    canonicalizeWorksheetSchoolName("SCINTILLA CHARTER SCHOOL VALDOSTA"),
+    candidates
+  );
+  assert.equal(match.match?.name, "Scintilla Charter School");
+  assert.ok((match.match?.score ?? 0) >= 0.95);
 });

@@ -9,6 +9,10 @@ const WORKSHEET_SCHOOL_CANONICAL: Array<{ pattern: RegExp; canonical: string }> 
     pattern: /^project\s+united(\s+high(\s+school)?|\s+school)?$/i,
     canonical: "Project United",
   },
+  {
+    pattern: /^scintilla\s+charter\s+school(\s+[a-z][a-z\s.'-]+)?$/i,
+    canonical: "Scintilla Charter School",
+  },
 ];
 
 const KNOWN_SCHOOL_LABEL_PATTERNS: RegExp[] = [
@@ -16,6 +20,8 @@ const KNOWN_SCHOOL_LABEL_PATTERNS: RegExp[] = [
   /\bpike\s+county\b/i,
   /\bnorthgate\b/i,
   /\bproject\s+united\b/i,
+  /\bscintilla\s+charter\s+school\b/i,
+  /\bcharter\s+school\b/i,
   /** Alternate Pre-ETS sites billed like schools but not named “___ High School”. */
   /^project\s+[a-z0-9]/i,
 ];
@@ -34,10 +40,19 @@ export function looksLikeKnownWorksheetSchoolLabel(label: string): boolean {
 }
 
 /** Map worksheet header school segment to class-setup / pre_ets_schools naming. */
+function stripCharterSchoolCampusSuffix(name: string): string {
+  const match = name.match(/^(.+\bcharter\s+school)\s+([a-z][a-z\s.'-]+)$/i);
+  if (!match?.[1]) return name;
+  const campus = match[2]?.trim().toLowerCase() ?? "";
+  if (/^(high|middle|elementary|school)$/i.test(campus)) return name;
+  return match[1].trim();
+}
+
 export function canonicalizeWorksheetSchoolName(name: string): string {
-  const trimmed = name.replace(/\u00a0/g, " ").trim();
+  let trimmed = name.replace(/\u00a0/g, " ").trim();
   for (const { pattern, canonical } of WORKSHEET_SCHOOL_CANONICAL) {
     if (pattern.test(trimmed)) return canonical;
   }
+  trimmed = stripCharterSchoolCampusSuffix(trimmed);
   return expandSchoolAbbreviation(trimmed);
 }

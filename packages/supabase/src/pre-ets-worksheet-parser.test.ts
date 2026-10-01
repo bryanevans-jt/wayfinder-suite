@@ -71,6 +71,30 @@ describe("pre-ets-worksheet-parser", () => {
     assert.equal(tattnallEnDash.instructorName, "TIFFANY POWELL");
   });
 
+  it("recognizes Scintilla Charter School group headers on D9-style sheets", () => {
+    const header = "SCINTILLA CHARTER SCHOOL VALDOSTA - MADISON HEWETT - INCLUSION";
+    assert.ok(looksLikeWorksheetGroupHeaderLine(`${header},,,,,,,,,,,,`, [header]));
+
+    const csv = [
+      "JOSHUA TREE OCTOBER PRE-ETS BILLING 2026-27,,,,,,,,,,,",
+      "DISTRICT 9 SCHOOLS,,,,,,,,,,,,",
+      "DOUGLAS OFFICE SCHOOLS,,,,,,,,,,,,",
+      "ATKINSON COUNTY HIGH SCHOOL - MONTHLY - INST A,,,,,,,,,,,,",
+      "#,STUDENT NAME,PID #,A&I,SERVICE,CODE,UNITS,Class Time,Invoice #,Billed",
+      "1,Alice,11111,,PRE,PRE-1,1,,,",
+      `${header},,,,,,,,,,,,`,
+      "1,Bob,44444,,PRE,PRE-1,1,,,",
+    ].join("\n");
+
+    const parsed = parseDistrictWorksheet(csv);
+    const scintilla = parsed.offices[0]?.groups.find((g) =>
+      /scintilla/i.test(g.schoolName)
+    );
+    assert.ok(scintilla);
+    assert.equal(scintilla?.groupName, "INCLUSION");
+    assert.equal(scintilla?.students[0]?.participantId, "44444");
+  });
+
   it("recognizes Project United group headers without High School in the label", () => {
     const header = "PROJECT UNITED - MONTHLY - JANE DOE";
     assert.ok(looksLikeWorksheetGroupHeaderLine(`${header},,,,,,,,,,,,`, [header]));

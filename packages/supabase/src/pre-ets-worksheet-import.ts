@@ -5,7 +5,6 @@ import {
   type ParsedDistrictWorksheet,
   type ParsedWorksheetGroup,
 } from "./pre-ets-worksheet-parser";
-import { resetPreEtsBillingMonthForDistrict } from "./pre-ets-data-reset";
 import {
   loadPreEtsDistrictServingMetrics,
   type PreEtsServingMetricsMonth,
@@ -343,6 +342,18 @@ export async function commitWorksheetImport(
     const officeId = officeRow.id as string;
 
     for (const group of office.groups) {
+      const groupStudents = group.students.filter(
+        (s) => !s.notApproved && s.participantId.trim().length > 0
+      );
+      if (groupStudents.length === 0) {
+        skippedEmptyGroups.push({
+          schoolName: group.schoolName,
+          groupName: group.groupName,
+          headerRaw: group.headerRaw,
+        });
+        continue;
+      }
+
       const mapping = resolveWorksheetGroupMapping(groupMappings, group.headerRaw);
       if (mapping && worksheetGroupMappingMatchesParsedSchool(group.headerRaw, mapping)) {
         applyWorksheetGroupMapping(group, mapping);
@@ -407,12 +418,7 @@ export async function commitWorksheetImport(
 
       if (!programGroupId) continue;
 
-      const groupStudents = group.students.filter(
-        (s) => !s.notApproved && s.participantId.trim().length > 0
-      );
-      if (groupStudents.length > 0) {
-        await restorePreEtsProgramGroupFromWorksheetImport(admin, programGroupId);
-      }
+      await restorePreEtsProgramGroupFromWorksheetImport(admin, programGroupId);
 
       await linkPreEtsClassSetupToSchool(admin, {
         schoolYear: parsed.schoolYear,
@@ -423,14 +429,6 @@ export async function commitWorksheetImport(
         classTime: group.classTime,
       });
 
-      if (groupStudents.length === 0) {
-        skippedEmptyGroups.push({
-          schoolName: group.schoolName,
-          groupName: group.groupName,
-          headerRaw: group.headerRaw,
-        });
-        continue;
-      }
       const byAuth = new Map<string, typeof groupStudents>();
 
       for (const student of groupStudents) {
@@ -624,7 +622,7 @@ export async function commitWorksheetImport(
   };
 }
 
-/** Re-parse stored upload text and re-commit rosters (no new file upload). */
+/** Re-parse stored upload text and merge rosters (does not clear the district billing month). */
 export async function reprocessCommittedWorksheetImport(
   admin: SupabaseClient,
   importId: string,
@@ -660,18 +658,6 @@ export async function reprocessCommittedWorksheetImport(
     return { ok: false, error: "Re-parse failed — district, month, or school year missing" };
   }
 
-  const reset = await resetPreEtsBillingMonthForDistrict(admin, {
-    districtNumber: parsed.districtNumber,
-    schoolYear: parsed.schoolYear,
-    serviceMonth: parsed.serviceMonth,
-    clearWorksheetImports: false,
-    clearGroupMappings: false,
-    clearClassSetup: false,
-  });
-  if (!reset.ok) {
-    return { ok: false, error: reset.error };
-  }
-
   await admin
     .from("pre_ets_worksheet_imports")
     .update({
@@ -691,14 +677,11 @@ export async function reprocessCommittedWorksheetImport(
     const detail = err instanceof Error ? err.message : "Commit failed";
     return {
       ok: false,
-      error: `Re-parse cleared district ${parsed.districtNumber} for ${parsed.serviceMonth.slice(0, 7)} but commit failed: ${detail}. Try Re-parse stored file again after deploy, or re-upload the worksheet.`,
+      error: `Sync from stored file failed for district ${parsed.districtNumber}: ${detail}`,
     };
   }
   if (!commit.ok) {
-    return {
-      ok: false,
-      error: `${commit.error} (District ${parsed.districtNumber} billing month was cleared before commit — run Re-parse again or re-upload if needed.)`,
-    };
+    return { ok: false, error: commit.error };
   }
 
   return {

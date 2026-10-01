@@ -16,3 +16,11 @@ test("Project United is a known alternate site without High School in the label"
   assert.equal(canonicalizeWorksheetSchoolName("PROJECT UNITED"), "Project United");
   assert.ok(looksLikeKnownWorksheetSchoolLabel("PROJECT HOPE"));
 });
+
+test("Scintilla Charter School Valdosta maps to class setup name", () => {
+  assert.ok(looksLikeKnownWorksheetSchoolLabel("SCINTILLA CHARTER SCHOOL VALDOSTA"));
+  assert.equal(
+    canonicalizeWorksheetSchoolName("SCINTILLA CHARTER SCHOOL VALDOSTA"),
+    "Scintilla Charter School"
+  );
+});

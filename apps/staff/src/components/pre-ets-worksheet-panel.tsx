@@ -326,7 +326,7 @@ export function PreEtsWorksheetPanel() {
       setSchoolNameWarnings(data.schoolNameWarnings ?? []);
       setSkippedEmptyGroups(data.skippedEmptyGroups ?? []);
       setMessage(
-        `Re-parsed stored file (${reprocessData.reparsedGroupCount ?? "—"} groups, ${reprocessData.reparsedStudentCount ?? "—"} students) and rebuilt rosters for this district month.${
+        `Synced from stored file (${reprocessData.reparsedGroupCount ?? "—"} groups, ${reprocessData.reparsedStudentCount ?? "—"} students parsed) and merged into this district.${
           data.archivedToDrive ? " Archived to Google Drive." : ""
         }`
       );
@@ -907,11 +907,11 @@ export function PreEtsWorksheetPanel() {
                         type="button"
                         className="text-brand-green hover:underline"
                         disabled={busy}
-                        title="Re-parse the saved upload and rebuild this district month's rosters (no new file needed)"
+                        title="Re-read the saved upload and add or update groups and students (does not wipe other schools in this district month)"
                         onClick={() => {
                           if (
                             !window.confirm(
-                              "Re-parse the stored worksheet and rebuild rosters for this district and billing month? Existing program groups and authorizations for that month will be replaced."
+                              "Sync from the stored worksheet file? This re-reads the saved CSV and adds or updates groups and students for this district. It does not delete other schools' rosters for the same billing month."
                             )
                           ) {
                             return;
@@ -919,7 +919,7 @@ export function PreEtsWorksheetPanel() {
                           void worksheetAction(row.id, "reprocess");
                         }}
                       >
-                        Re-parse stored file
+                        Sync from stored file
                       </button>
                     ) : null}
                   </td>
