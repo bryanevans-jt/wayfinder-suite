@@ -71,6 +71,30 @@ describe("pre-ets-worksheet-parser", () => {
     assert.equal(tattnallEnDash.instructorName, "TIFFANY POWELL");
   });
 
+  it("recognizes Upson Lee without High in the school segment", () => {
+    const header = "UPSON LEE - EMERY FAIRCLOTH - INCLUSION";
+    assert.ok(
+      looksLikeWorksheetGroupHeaderLine(`${header},,,,,,,,,,,,`, [header])
+    );
+    const csv = [
+      "JOSHUA TREE OCTOBER PRE-ETS BILLING 2026-27,,,,,,,,,,,",
+      "DISTRICT 5 SCHOOLS,,,,,,,,,,,,",
+      "COLUMBUS OFFICE SCHOOLS,,,,,,,,,,,,",
+      "PIKE COUNTY HIGH - MONTHLY - EMERY FAIRCLOTH,,,,,,,,,,,,",
+      "#,STUDENT NAME,PID #,A&I,SERVICE,CODE,UNITS,Class Time,Invoice #,Billed",
+      "1,Alice,11111,,PRE,PRE-1,1,,,",
+      `${header},,,,,,,,,,,,`,
+      "1,Bob,22222,,PRE,PRE-1,1,,,",
+    ].join("\n");
+    const parsed = parseDistrictWorksheet(csv);
+    const pike = parsed.offices[0]?.groups.find((g) => g.schoolName.includes("PIKE"));
+    const upson = parsed.offices[0]?.groups.find((g) => /upson/i.test(g.schoolName));
+    assert.equal(pike?.students.length, 1);
+    assert.equal(pike?.students[0]?.participantId, "11111");
+    assert.ok(upson);
+    assert.equal(upson?.students[0]?.participantId, "22222");
+  });
+
   it("recognizes Northgate High and Upson Lee High group headers without repeating column headers", () => {
     assert.ok(
       looksLikeWorksheetGroupHeaderLine(

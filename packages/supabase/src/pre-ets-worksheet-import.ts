@@ -25,6 +25,7 @@ import {
   loadWorksheetGroupMappings,
   normalizeWorksheetHeaderKey,
   resolveWorksheetGroupMapping,
+  worksheetGroupMappingMatchesParsedSchool,
 } from "./pre-ets-worksheet-group-mapping";
 
 export type PreEtsYtdWarning = {
@@ -340,8 +341,11 @@ export async function commitWorksheetImport(
 
     for (const group of office.groups) {
       const mapping = resolveWorksheetGroupMapping(groupMappings, group.headerRaw);
-      if (mapping) {
+      if (mapping && worksheetGroupMappingMatchesParsedSchool(group.headerRaw, mapping)) {
         applyWorksheetGroupMapping(group, mapping);
+      } else if (mapping) {
+        group.groupName = mapping.canonical_group_name;
+        group.instructorName = mapping.canonical_instructor_name;
       }
 
       const resolution = await resolveWorksheetSchoolName(admin, {

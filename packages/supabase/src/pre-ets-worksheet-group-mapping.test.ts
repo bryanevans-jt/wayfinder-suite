@@ -4,7 +4,10 @@ import {
   normalizeWorksheetHeaderKeyLoose,
   worksheetHeaderKeysMatch,
 } from "./pre-ets-worksheet-parser";
-import { resolveWorksheetGroupMapping } from "./pre-ets-worksheet-group-mapping";
+import {
+  resolveWorksheetGroupMapping,
+  worksheetGroupMappingMatchesParsedSchool,
+} from "./pre-ets-worksheet-group-mapping";
 import type { PreEtsWorksheetGroupMappingRow } from "./pre-ets-worksheet-group-mapping";
 
 describe("worksheet header keys", () => {
@@ -42,5 +45,28 @@ describe("resolveWorksheetGroupMapping", () => {
     const fromExcel =
       "WHEELER COUNTY HIGH SCHOOL – MONTHLY – TIFFANY POWELL,,,";
     assert.equal(resolveWorksheetGroupMapping(map, fromExcel)?.canonical_school_name, row.canonical_school_name);
+  });
+});
+
+describe("worksheetGroupMappingMatchesParsedSchool", () => {
+  it("rejects remapping Upson Lee headers onto Pike County", () => {
+    const mapping: PreEtsWorksheetGroupMappingRow = {
+      id: "1",
+      school_year: "2026-2027",
+      district_id: "d1",
+      worksheet_header_key: "upson",
+      header_raw_sample: "UPSON LEE - EMERY FAIRCLOTH - INCLUSION",
+      canonical_school_name: "Pike County High School",
+      canonical_group_name: "INCLUSION",
+      canonical_instructor_name: "Emery Faircloth",
+      canonical_school_id: "pike-id",
+    };
+    assert.equal(
+      worksheetGroupMappingMatchesParsedSchool(
+        "UPSON LEE - EMERY FAIRCLOTH - INCLUSION",
+        mapping
+      ),
+      false
+    );
   });
 });

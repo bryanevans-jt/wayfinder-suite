@@ -8,6 +8,7 @@ import {
   upsertPreEtsPrimarySchoolAssignment,
 } from "./pre-ets-instructor-match";
 import { expandSchoolAbbreviation, pickBestSchoolNameMatch } from "./pre-ets-school-name-match";
+import { canonicalizeWorksheetSchoolName } from "./pre-ets-worksheet-known-schools";
 
 export const PRE_ETS_CLASS_SETUP_MIGRATION = "20260909160000_pre_ets_class_setup.sql";
 
@@ -263,7 +264,7 @@ export async function resolveWorksheetSchoolName(
   }
 ): Promise<WorksheetSchoolNameResolution> {
   const worksheetSchoolName = normalizeSchoolName(input.worksheetSchoolName);
-  const expanded = expandSchoolAbbreviation(worksheetSchoolName);
+  const expanded = canonicalizeWorksheetSchoolName(worksheetSchoolName);
 
   const { data: existingSchools } = await admin
     .from("pre_ets_schools")

@@ -1,4 +1,5 @@
 import { classifyPreEtsAuthorizationType, sanitizePreEtsServiceCodeText } from "./pre-ets-settings";
+import { looksLikeKnownWorksheetSchoolLabel } from "./pre-ets-worksheet-known-schools";
 
 export const WORKSHEET_STUDENT_COLUMNS = [
   "#",
@@ -159,8 +160,9 @@ function looksLikeShortSchoolNameSuffix(label: string): boolean {
 /** Standalone billing line that is only a school name (no instructor / frequency segments). */
 export function looksLikeWorksheetSchoolName(label: string): boolean {
   const normalized = label.replace(/\u00a0/g, " ").trim();
-  if (normalized.length < 10) return false;
   if (/^supervisor\s*:/i.test(normalized) || /^total\b/i.test(normalized)) return false;
+  if (looksLikeKnownWorksheetSchoolLabel(normalized)) return true;
+  if (normalized.length < 10) return false;
   return (
     /\b(high\s+school|middle\s+school|elementary\s+school|primary\s+school)\b/i.test(normalized) ||
     /\b(county|city)\s+(high|middle|elementary)\b/i.test(normalized) ||
@@ -186,6 +188,7 @@ export function looksLikeWorksheetGroupHeaderLine(line: string, cells: string[])
 
   const schoolPart = parts[0] ?? "";
   return (
+    looksLikeKnownWorksheetSchoolLabel(schoolPart) ||
     looksLikeWorksheetSchoolName(schoolPart) ||
     looksLikeShortSchoolNameSuffix(schoolPart) ||
     /\b(high\s+school|middle\s+school|elementary|academy|institute|learning\s+center|campus)\b/i.test(

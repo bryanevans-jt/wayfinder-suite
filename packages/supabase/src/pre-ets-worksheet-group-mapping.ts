@@ -6,6 +6,11 @@ import {
   worksheetHeaderKeysMatch,
 } from "./pre-ets-worksheet-parser";
 import { findProgramGroupId } from "./pre-ets-worksheet-auth-match";
+import {
+  canonicalizeWorksheetSchoolName,
+  looksLikeKnownWorksheetSchoolLabel,
+} from "./pre-ets-worksheet-known-schools";
+import { parseGroupHeader } from "./pre-ets-worksheet-parser";
 
 export type PreEtsWorksheetGroupMappingRow = {
   id: string;
@@ -79,6 +84,28 @@ export function applyWorksheetGroupMapping(
   group.schoolName = mapping.canonical_school_name;
   group.groupName = mapping.canonical_group_name;
   group.instructorName = mapping.canonical_instructor_name;
+}
+
+/** Ignore Fix labels rows that would remap Upson Lee (etc.) onto a different school. */
+export function worksheetGroupMappingMatchesParsedSchool(
+  headerRaw: string,
+  mapping: PreEtsWorksheetGroupMappingRow
+): boolean {
+  const parsedSchool = parseGroupHeader(headerRaw).schoolName;
+  if (!parsedSchool.trim()) return true;
+
+  const headerCanon = canonicalizeWorksheetSchoolName(parsedSchool).toLowerCase();
+  const mappingCanon = canonicalizeWorksheetSchoolName(mapping.canonical_school_name).toLowerCase();
+  if (headerCanon === mappingCanon) return true;
+
+  if (
+    looksLikeKnownWorksheetSchoolLabel(parsedSchool) ||
+    looksLikeKnownWorksheetSchoolLabel(mapping.canonical_school_name)
+  ) {
+    return headerCanon === mappingCanon;
+  }
+
+  return true;
 }
 
 export async function findProgramGroupForWorksheetImport(
