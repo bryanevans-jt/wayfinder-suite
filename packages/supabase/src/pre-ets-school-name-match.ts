@@ -22,6 +22,9 @@ export function expandSchoolAbbreviation(name: string): string {
   if (/ county high$/i.test(trimmed) && !/high school$/i.test(trimmed)) {
     trimmed = `${trimmed} School`;
   }
+  if (/\bhigh\s*$/i.test(trimmed) && !/\bhigh\s+school\s*$/i.test(trimmed)) {
+    trimmed = `${trimmed} School`;
+  }
   for (const [abbr, full] of Object.entries(ABBREVIATION_EXPANSIONS)) {
     if (lower === abbr) return full;
     if (lower.startsWith(`${abbr} `)) {
@@ -38,11 +41,44 @@ export type SchoolNameMatch = {
   id?: string;
 };
 
+const GENERIC_SCHOOL_TOKENS = new Set([
+  "county",
+  "city",
+  "high",
+  "middle",
+  "elementary",
+  "school",
+  "primary",
+  "academy",
+]);
+
+function distinctiveSchoolTokens(name: string): Set<string> {
+  const tokens = expandSchoolAbbreviation(name)
+    .toLowerCase()
+    .split(/\s+/)
+    .map((t) => t.replace(/[^a-z0-9]/g, ""))
+    .filter((t) => t.length > 2 && !GENERIC_SCHOOL_TOKENS.has(t));
+  return new Set(tokens);
+}
+
 function tokenOverlapScore(a: string, b: string): number {
-  const keyA = normalizeSchoolNameKey(expandSchoolAbbreviation(a));
-  const keyB = normalizeSchoolNameKey(expandSchoolAbbreviation(b));
+  const expandedA = expandSchoolAbbreviation(a);
+  const expandedB = expandSchoolAbbreviation(b);
+  const keyA = normalizeSchoolNameKey(expandedA);
+  const keyB = normalizeSchoolNameKey(expandedB);
   if (!keyA || !keyB) return 0;
   if (keyA === keyB) return 1;
+
+  const distinctA = distinctiveSchoolTokens(expandedA);
+  const distinctB = distinctiveSchoolTokens(expandedB);
+  if (distinctA.size > 0 && distinctB.size > 0) {
+    let sharedDistinct = 0;
+    for (const token of distinctA) {
+      if (distinctB.has(token)) sharedDistinct++;
+    }
+    if (sharedDistinct === 0) return 0;
+  }
+
   if (keyA.includes(keyB) || keyB.includes(keyA)) return 0.92;
 
   const tokensA = new Set(a.toLowerCase().split(/\s+/).filter((t) => t.length > 2));

@@ -238,7 +238,11 @@ export function PreEtsWorksheetPanel() {
     void load();
   }
 
-  async function worksheetAction(importId: string, action: "approve" | "reject" | "commit", reason?: string) {
+  async function worksheetAction(
+    importId: string,
+    action: "approve" | "reject" | "commit" | "reprocess",
+    reason?: string
+  ) {
     setBusy(true);
     setMessage(null);
     setAuthMatchStats(null);
@@ -275,6 +279,24 @@ export function PreEtsWorksheetPanel() {
     if (action === "reject") {
       setMessage("Worksheet rejected.");
       setPreview(null);
+      void load();
+      return;
+    }
+
+    if (action === "reprocess") {
+      const reprocessData = data as {
+        reparsedGroupCount?: number;
+        reparsedStudentCount?: number;
+      };
+      setYtdWarnings(data.ytdWarnings ?? []);
+      setAuthMatchStats(data.authMatchStats ?? null);
+      setSchoolNameWarnings(data.schoolNameWarnings ?? []);
+      setSkippedEmptyGroups(data.skippedEmptyGroups ?? []);
+      setMessage(
+        `Re-parsed stored file (${reprocessData.reparsedGroupCount ?? "—"} groups, ${reprocessData.reparsedStudentCount ?? "—"} students) and rebuilt rosters for this district month.${
+          data.archivedToDrive ? " Archived to Google Drive." : ""
+        }`
+      );
       void load();
       return;
     }
@@ -789,13 +811,13 @@ export function PreEtsWorksheetPanel() {
               <th className="px-3 py-2">Month</th>
               <th className="px-3 py-2">Phase</th>
               <th className="px-3 py-2">Status</th>
-              {!isSupervisorMode ? <th className="px-3 py-2">Actions</th> : null}
+              <th className="px-3 py-2">Actions</th>
             </tr>
           </thead>
           <tbody>
             {imports.length === 0 ? (
               <tr>
-                <td colSpan={isSupervisorMode ? 5 : 6} className="px-3 py-6 text-center text-brand-black/55">
+                <td colSpan={6} className="px-3 py-6 text-center text-brand-black/55">
                   No worksheet imports yet.
                 </td>
               </tr>
@@ -807,28 +829,46 @@ export function PreEtsWorksheetPanel() {
                   <td className="px-3 py-2">{row.service_month?.slice(0, 7)}</td>
                   <td className="px-3 py-2">{row.phase}</td>
                   <td className="px-3 py-2">{row.status}</td>
-                  {!isSupervisorMode ? (
-                    <td className="px-3 py-2 text-xs">
-                      {row.status === "parsed" ? (
-                        <button
-                          type="button"
-                          className="text-brand-green hover:underline"
-                          onClick={() => void worksheetAction(row.id, "approve")}
-                        >
-                          Approve
-                        </button>
-                      ) : null}
-                      {row.status === "approved" ? (
-                        <button
-                          type="button"
-                          className="text-brand-green hover:underline"
-                          onClick={() => void worksheetAction(row.id, "commit")}
-                        >
-                          Commit
-                        </button>
-                      ) : null}
-                    </td>
-                  ) : null}
+                  <td className="px-3 py-2 text-xs">
+                    {!isSupervisorMode && row.status === "parsed" ? (
+                      <button
+                        type="button"
+                        className="text-brand-green hover:underline"
+                        onClick={() => void worksheetAction(row.id, "approve")}
+                      >
+                        Approve
+                      </button>
+                    ) : null}
+                    {!isSupervisorMode && row.status === "approved" ? (
+                      <button
+                        type="button"
+                        className="text-brand-green hover:underline"
+                        onClick={() => void worksheetAction(row.id, "commit")}
+                      >
+                        Commit
+                      </button>
+                    ) : null}
+                    {row.status === "committed" ? (
+                      <button
+                        type="button"
+                        className="text-brand-green hover:underline"
+                        disabled={busy}
+                        title="Re-parse the saved upload and rebuild this district month's rosters (no new file needed)"
+                        onClick={() => {
+                          if (
+                            !window.confirm(
+                              "Re-parse the stored worksheet and rebuild rosters for this district and billing month? Existing program groups and authorizations for that month will be replaced."
+                            )
+                          ) {
+                            return;
+                          }
+                          void worksheetAction(row.id, "reprocess");
+                        }}
+                      >
+                        Re-parse stored file
+                      </button>
+                    ) : null}
+                  </td>
                 </tr>
               ))
             )}

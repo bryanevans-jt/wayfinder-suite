@@ -7,6 +7,7 @@ import {
 import {
   approveWorksheetImport,
   commitWorksheetImport,
+  reprocessCommittedWorksheetImport,
   rejectWorksheetImport,
 } from "@wayfinder/supabase/pre-ets-worksheet-import";
 import { archiveWorksheetImportToDrive } from "@/lib/pre-ets-worksheet-archive";
@@ -89,6 +90,32 @@ export async function POST(
         return NextResponse.json({ error: result.error }, { status: 400 });
       }
       return NextResponse.json({ ok: true, status: "rejected" });
+    }
+
+    if (body.action === "reprocess") {
+      if (!canAccessPreEtsAccounts(auth.role, auth.settings) && !canReviewWorksheets(auth)) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
+      const result = await reprocessCommittedWorksheetImport(admin, id, auth.userId);
+      if (!result.ok) {
+        return NextResponse.json({ error: result.error }, { status: 400 });
+      }
+
+      const archive = await archiveWorksheetImportToDrive(admin, id);
+
+      return NextResponse.json({
+        ok: true,
+        districtId: result.districtId,
+        ytdWarnings: result.ytdWarnings,
+        authMatchStats: result.authMatchStats ?? null,
+        schoolNameWarnings: result.schoolNameWarnings ?? [],
+        skippedEmptyGroups: result.skippedEmptyGroups ?? [],
+        reparsedGroupCount: result.reparsedGroupCount,
+        reparsedStudentCount: result.reparsedStudentCount,
+        archivedToDrive: archive.ok,
+        archiveError: archive.ok ? null : archive.error,
+      });
     }
 
     if (body.action === "commit") {

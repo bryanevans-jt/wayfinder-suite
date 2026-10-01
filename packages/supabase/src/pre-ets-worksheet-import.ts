@@ -1,6 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadPreEtsSettings, resolvePreEtsWorksheetServiceFields } from "./pre-ets-settings";
-import type { ParsedDistrictWorksheet, ParsedWorksheetGroup } from "./pre-ets-worksheet-parser";
+import {
+  parseDistrictWorksheet,
+  type ParsedDistrictWorksheet,
+  type ParsedWorksheetGroup,
+} from "./pre-ets-worksheet-parser";
+import { resetPreEtsBillingMonthForDistrict } from "./pre-ets-data-reset";
 import {
   linkPreEtsClassSetupToSchool,
   resolveWorksheetSchoolName,
@@ -56,7 +61,13 @@ export type { SchoolNameResolutionWarning } from "./pre-ets-class-setup";
 export type CommitWorksheetImportOptions = {
   /** Supervisor planning upload: commit from `parsed` without a separate approve step. */
   allowDirectCommit?: boolean;
+  /** Re-apply a committed import after re-parsing stored `file_content` (clears month data first). */
+  allowRecommit?: boolean;
 };
+
+export type ReprocessCommittedWorksheetImportResult =
+  | (CommitWorksheetImportResult & { ok: true; reparsedGroupCount: number; reparsedStudentCount: number })
+  | { ok: false; error: string };
 
 async function upsertProgramGroup(
   admin: SupabaseClient,
@@ -238,18 +249,24 @@ export async function commitWorksheetImport(
     return { ok: false, error: impErr?.message ?? "Import not found" };
   }
 
-  if (imp.status === "committed") {
+  const allowRecommit = options?.allowRecommit === true;
+  if (imp.status === "committed" && !allowRecommit) {
     return { ok: false, error: "Import already committed" };
   }
   if (imp.status === "rejected") {
     const reason = worksheetRejectionReason(imp.parse_result) ?? "Worksheet was rejected";
     return { ok: false, error: reason };
   }
-  const allowDirect = options?.allowDirectCommit === true;
+  const allowDirect = options?.allowDirectCommit === true || allowRecommit;
   if (!allowDirect && imp.status !== "approved") {
     return { ok: false, error: "Worksheet must be approved before commit" };
   }
-  if (allowDirect && imp.status !== "parsed" && imp.status !== "approved") {
+  if (
+    allowDirect &&
+    !allowRecommit &&
+    imp.status !== "parsed" &&
+    imp.status !== "approved"
+  ) {
     return { ok: false, error: "Worksheet cannot be committed in its current state" };
   }
 
@@ -574,5 +591,77 @@ export async function commitWorksheetImport(
     schoolGroupLabels: [...schoolGroupLabels],
     serviceMonth: parsed.serviceMonth,
     districtNumber: parsed.districtNumber,
+  };
+}
+
+/** Re-parse stored upload text and re-commit rosters (no new file upload). */
+export async function reprocessCommittedWorksheetImport(
+  admin: SupabaseClient,
+  importId: string,
+  userId: string
+): Promise<ReprocessCommittedWorksheetImportResult> {
+  const { data: imp, error: impErr } = await admin
+    .from("pre_ets_worksheet_imports")
+    .select("id, status, file_content, service_month, school_year, district_id, parse_result")
+    .eq("id", importId)
+    .maybeSingle();
+
+  if (impErr || !imp) {
+    return { ok: false, error: impErr?.message ?? "Import not found" };
+  }
+  if (imp.status !== "committed") {
+    return { ok: false, error: "Only committed imports can be reprocessed from the stored file" };
+  }
+  const fileContent = typeof imp.file_content === "string" ? imp.file_content.trim() : "";
+  if (!fileContent) {
+    return {
+      ok: false,
+      error: "Original worksheet text is not stored for this import — upload the file again",
+    };
+  }
+
+  const settings = await loadPreEtsSettings(admin);
+  const parsed = parseDistrictWorksheet(fileContent, {
+    notApprovedMarker: settings.not_approved_marker,
+    groupAuthDigitCount: settings.group_auth_digit_count,
+  });
+
+  if (!parsed.districtNumber || !parsed.serviceMonth || !parsed.schoolYear) {
+    return { ok: false, error: "Re-parse failed — district, month, or school year missing" };
+  }
+
+  const reset = await resetPreEtsBillingMonthForDistrict(admin, {
+    districtNumber: parsed.districtNumber,
+    schoolYear: parsed.schoolYear,
+    serviceMonth: parsed.serviceMonth,
+    clearWorksheetImports: false,
+    clearGroupMappings: false,
+    clearClassSetup: false,
+  });
+  if (!reset.ok) {
+    return { ok: false, error: reset.error };
+  }
+
+  await admin
+    .from("pre_ets_worksheet_imports")
+    .update({
+      parse_result: parsed,
+      service_month: parsed.serviceMonth,
+      school_year: parsed.schoolYear,
+    })
+    .eq("id", importId);
+
+  const commit = await commitWorksheetImport(admin, importId, userId, {
+    allowRecommit: true,
+    allowDirectCommit: true,
+  });
+  if (!commit.ok) {
+    return commit;
+  }
+
+  return {
+    ...commit,
+    reparsedGroupCount: parsed.stats.groupCount,
+    reparsedStudentCount: parsed.stats.studentCount,
   };
 }

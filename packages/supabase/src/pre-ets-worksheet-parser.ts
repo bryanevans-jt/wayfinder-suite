@@ -151,6 +151,11 @@ function isSummaryTotalLine(line: string): boolean {
   return label === "total" || label.startsWith("total ");
 }
 
+/** Billing exports often shorten names to "Northgate High" or "Upson Lee High" (no "School"). */
+function looksLikeShortSchoolNameSuffix(label: string): boolean {
+  return /\b(high|middle|elementary|academy)\s*$/i.test(label.trim());
+}
+
 /** Standalone billing line that is only a school name (no instructor / frequency segments). */
 export function looksLikeWorksheetSchoolName(label: string): boolean {
   const normalized = label.replace(/\u00a0/g, " ").trim();
@@ -159,7 +164,8 @@ export function looksLikeWorksheetSchoolName(label: string): boolean {
   return (
     /\b(high\s+school|middle\s+school|elementary\s+school|primary\s+school)\b/i.test(normalized) ||
     /\b(county|city)\s+(high|middle|elementary)\b/i.test(normalized) ||
-    /\bhigh\s+school\b/i.test(normalized)
+    /\bhigh\s+school\b/i.test(normalized) ||
+    looksLikeShortSchoolNameSuffix(normalized)
   );
 }
 
@@ -181,6 +187,7 @@ export function looksLikeWorksheetGroupHeaderLine(line: string, cells: string[])
   const schoolPart = parts[0] ?? "";
   return (
     looksLikeWorksheetSchoolName(schoolPart) ||
+    looksLikeShortSchoolNameSuffix(schoolPart) ||
     /\b(high\s+school|middle\s+school|elementary|academy|institute|learning\s+center|campus)\b/i.test(
       schoolPart
     ) ||
@@ -318,6 +325,7 @@ function isGroupDesignationPart(part: string): boolean {
   if (/^inclusion\b/.test(lower)) return true;
   if (/^self\s*cont(ained)?\b/.test(lower)) return true;
   if (/^class\s+\d+/i.test(part)) return true;
+  if (/^self\s*cont(ained)?\s+\d+/i.test(lower)) return true;
   if (/period/i.test(part)) return true;
   return false;
 }

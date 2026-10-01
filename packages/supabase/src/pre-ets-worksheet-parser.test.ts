@@ -71,6 +71,46 @@ describe("pre-ets-worksheet-parser", () => {
     assert.equal(tattnallEnDash.instructorName, "TIFFANY POWELL");
   });
 
+  it("recognizes Northgate High and Upson Lee High group headers without repeating column headers", () => {
+    assert.ok(
+      looksLikeWorksheetGroupHeaderLine(
+        "NORTHGATE HIGH - INCLUSION - FEELY,,,,,,,,,,,,",
+        ["NORTHGATE HIGH - INCLUSION - FEELY"]
+      )
+    );
+    assert.ok(
+      looksLikeWorksheetGroupHeaderLine(
+        "UPSON LEE HIGH - MONTHLY - JANE DOE,,,,,,,,,,,,",
+        ["UPSON LEE HIGH - MONTHLY - JANE DOE"]
+      )
+    );
+
+    const feely = parseGroupHeader("NORTHGATE HIGH - INCLUSION - FEELY");
+    assert.equal(feely.schoolName, "NORTHGATE HIGH");
+    assert.equal(feely.groupName, "INCLUSION - FEELY");
+    assert.equal(feely.instructorName, null);
+
+    const selfContained = parseGroupHeader("NORTHGATE HIGH - SELF CONTAINED 2");
+    assert.equal(selfContained.groupName, "SELF CONTAINED 2");
+
+    const csv = [
+      "JOSHUA TREE OCTOBER PRE-ETS BILLING 2026-27,,,,,,,,,,,",
+      "DISTRICT 5 SCHOOLS,,,,,,,,,,,,",
+      "COLUMBUS OFFICE SCHOOLS,,,,,,,,,,,,",
+      "PIKE COUNTY HIGH - MONTHLY - INST A,,,,,,,,,,,,",
+      "#,STUDENT NAME,PID #,A&I,SERVICE,CODE,UNITS,Class Time,Invoice #,Billed",
+      "1,Alice,11111,,PRE,PRE-1,1,,,",
+      "UPSON LEE HIGH - MONTHLY - INST B,,,,,,,,,,,,",
+      "1,Bob,22222,,PRE,PRE-1,1,,,",
+    ].join("\n");
+
+    const parsed = parseDistrictWorksheet(csv);
+    assert.equal(parsed.stats.groupCount, 2);
+    const upson = parsed.offices[0]?.groups.find((g) => g.schoolName.includes("UPSON"));
+    assert.ok(upson);
+    assert.equal(upson?.students[0]?.participantId, "22222");
+  });
+
   it("recognizes a standalone school name line as a new group header (D9 Atkinson-style)", () => {
     const schoolOnly = "ATKINSON COUNTY HIGH SCHOOL,,,,,,,,,,,,,";
     assert.ok(looksLikeWorksheetGroupHeaderLine(schoolOnly, ["ATKINSON COUNTY HIGH SCHOOL"]));
