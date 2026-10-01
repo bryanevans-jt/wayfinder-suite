@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { loadPreEtsSettings } from "./pre-ets-settings";
+import { loadPreEtsSettings, resolvePreEtsWorksheetServiceFields } from "./pre-ets-settings";
 import type { ParsedDistrictWorksheet, ParsedWorksheetGroup } from "./pre-ets-worksheet-parser";
 import {
   linkPreEtsClassSetupToSchool,
@@ -57,8 +57,14 @@ async function upsertProgramGroup(
     importId: string;
     serviceMonth: string;
     group: ParsedWorksheetGroup;
+    settings: Awaited<ReturnType<typeof loadPreEtsSettings>>;
   }
 ): Promise<string | null> {
+  const { serviceCode, serviceLabel } = resolvePreEtsWorksheetServiceFields(
+    input.group.serviceCode,
+    input.group.serviceLabel,
+    input.settings
+  );
   const headerKey = normalizeWorksheetHeaderKey(input.group.headerRaw);
   const existingId = await findProgramGroupForWorksheetImport(admin, {
     schoolId: input.schoolId,
@@ -76,8 +82,8 @@ async function upsertProgramGroup(
         frequency: input.group.frequency,
         instructor_name: input.group.instructorName,
         class_time: input.group.classTime,
-        service_code: input.group.serviceCode,
-        service_label: input.group.serviceLabel,
+        service_code: serviceCode,
+        service_label: serviceLabel,
         worksheet_header_key: headerKey || null,
       })
       .eq("id", existingId);
@@ -97,8 +103,8 @@ async function upsertProgramGroup(
       frequency: input.group.frequency,
       instructor_name: input.group.instructorName,
       class_time: input.group.classTime,
-      service_code: input.group.serviceCode,
-      service_label: input.group.serviceLabel,
+      service_code: serviceCode,
+      service_label: serviceLabel,
     })
     .select("id")
     .single();
@@ -358,6 +364,7 @@ export async function commitWorksheetImport(
         importId,
         serviceMonth: parsed.serviceMonth,
         group,
+        settings,
       });
 
       if (!programGroupId) continue;
@@ -417,6 +424,7 @@ export async function commitWorksheetImport(
           students,
           first,
           authType,
+          settings,
         });
 
         if (!resolved) continue;

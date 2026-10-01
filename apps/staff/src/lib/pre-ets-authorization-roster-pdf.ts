@@ -1,5 +1,11 @@
 import type { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
-import type { PreEtsSettingsRow } from "@wayfinder/supabase/pre-ets-settings";
+import {
+  lookupPreEtsServiceCode,
+  resolvePreEtsServiceLabel,
+  sanitizePreEtsServiceCodeText,
+  type PreEtsSettingsRow,
+} from "@wayfinder/supabase/pre-ets-settings";
+import { buildPreEtsRosterFileLabel } from "@wayfinder/supabase/pre-ets-roster-filename";
 import { buildPreEtsRosterPdf } from "@/lib/pre-ets-roster-export";
 
 type AdminClient = ReturnType<typeof createServiceRoleClient>;
@@ -18,27 +24,19 @@ export type AuthorizationRosterPdfBuildResult =
     }
   | { ok: false; error: string; skip?: boolean };
 
-function sanitizeFileNamePart(value: string): string {
-  return value
-    .replace(/[^\w\s.-]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 80);
-}
-
 export async function buildAuthorizationRosterPdf(
   admin: AdminClient,
   authorizationId: string,
   settings: Pick<
     PreEtsSettingsRow,
-    "template_roster_doc_id" | "template_individual_roster_doc_id"
+    "template_roster_doc_id" | "template_individual_roster_doc_id" | "service_codes"
   >,
   options?: { sessionDate?: string | null }
 ): Promise<AuthorizationRosterPdfBuildResult> {
   const { data: authorization, error } = await admin
     .from("pre_ets_authorizations")
     .select(
-      "id, auth_number, auth_type, service_code, service_label, pre_ets_schools(name), pre_ets_program_groups(group_name, instructor_name)"
+      "id, auth_number, auth_type, service_code, service_label, service_month, pre_ets_schools(name, pre_ets_districts(school_year)), pre_ets_program_groups(group_name, instructor_name)"
     )
     .eq("id", authorizationId)
     .maybeSingle();
@@ -48,8 +46,12 @@ export async function buildAuthorizationRosterPdf(
   }
 
   const school = relationOne(
-    authorization.pre_ets_schools as { name: string } | { name: string }[] | null
+    authorization.pre_ets_schools as
+      | { name: string; pre_ets_districts: { school_year: string } | { school_year: string }[] | null }
+      | { name: string; pre_ets_districts: { school_year: string } | { school_year: string }[] | null }[]
+      | null
   );
+  const district = relationOne(school?.pre_ets_districts ?? null);
   const group = relationOne(
     authorization.pre_ets_program_groups as
       | { group_name: string; instructor_name: string | null }
@@ -86,6 +88,15 @@ export async function buildAuthorizationRosterPdf(
   const pdfStudents =
     authType === "individual" && students.length > 0 ? [students[0]] : students;
 
+  const rawServiceCode = (authorization.service_code as string) ?? "";
+  const catalogRow = lookupPreEtsServiceCode(rawServiceCode, settings);
+  const serviceCode = catalogRow?.code ?? sanitizePreEtsServiceCodeText(rawServiceCode);
+  const topic = resolvePreEtsServiceLabel(
+    serviceCode,
+    authorization.service_label as string | null,
+    settings
+  );
+
   const pdfBytes = await buildPreEtsRosterPdf(
     {
       authorizationNumber: (authorization.auth_number as string | null) ?? "",
@@ -93,16 +104,20 @@ export async function buildAuthorizationRosterPdf(
       sessionDate: options?.sessionDate ?? null,
       schoolName: school?.name ?? "",
       instructorName: group?.instructor_name ?? "",
-      topic: (authorization.service_label as string | null) ?? "",
-      serviceCode: (authorization.service_code as string) ?? "",
+      topic,
+      serviceCode,
       students: pdfStudents,
     },
     settings
   );
 
-  const schoolPart = sanitizeFileNamePart(school?.name ?? "School");
-  const groupPart = sanitizeFileNamePart(group?.group_name ?? "Group");
-  const fileLabel = `${schoolPart} - ${groupPart}`;
+  const fileLabel = buildPreEtsRosterFileLabel({
+    schoolYear: district?.school_year ?? null,
+    serviceMonth: (authorization.service_month as string | null) ?? null,
+    schoolName: school?.name ?? "School",
+    groupName: group?.group_name ?? "Group",
+    sessionDate: options?.sessionDate ?? null,
+  });
 
   return {
     ok: true,

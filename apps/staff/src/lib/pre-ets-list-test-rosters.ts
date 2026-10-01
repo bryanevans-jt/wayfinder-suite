@@ -1,4 +1,5 @@
 import type { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { buildPreEtsRosterFileLabel } from "@wayfinder/supabase/pre-ets-roster-filename";
 import { fetchAllPostgrestRows } from "@wayfinder/supabase/postgrest-fetch-all";
 
 type AdminClient = ReturnType<typeof createServiceRoleClient>;
@@ -12,14 +13,6 @@ function normalizeServiceMonth(month: string): string {
   const trimmed = month.trim();
   if (/^\d{4}-\d{2}$/.test(trimmed)) return `${trimmed}-01`;
   return trimmed.slice(0, 10);
-}
-
-function sanitizeFileNamePart(value: string): string {
-  return value
-    .replace(/[^\w\s.-]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 80);
 }
 
 export type PreEtsTestRosterListItem = {
@@ -40,12 +33,26 @@ export async function listPreEtsTestRostersForMonth(
   const authorizations = await fetchAllPostgrestRows<{
     id: string;
     auth_type: string;
-    pre_ets_schools: { name: string } | { name: string }[] | null;
+    service_month: string;
+    pre_ets_schools:
+      | {
+          name: string;
+          pre_ets_districts: { school_year: string } | { school_year: string }[] | null;
+        }
+      | {
+          name: string;
+          pre_ets_districts: { school_year: string } | { school_year: string }[] | null;
+        }[]
+      | null;
     pre_ets_program_groups:
       | { group_name: string }
       | { group_name: string }[]
       | null;
-  }>(admin, "pre_ets_authorizations", "id, auth_type, pre_ets_schools(name), pre_ets_program_groups(group_name)", {
+  }>(
+    admin,
+    "pre_ets_authorizations",
+    "id, auth_type, service_month, pre_ets_schools(name, pre_ets_districts(school_year)), pre_ets_program_groups(group_name)",
+    {
     order: { column: "created_at", ascending: true },
     applyFilters: (q) => q.eq("service_month", serviceMonth),
   });
@@ -86,12 +93,16 @@ export async function listPreEtsTestRostersForMonth(
     const group = relationOne(auth.pre_ets_program_groups);
     const schoolName = school?.name ?? "";
     const groupName = group?.group_name ?? "";
-    const schoolPart = sanitizeFileNamePart(schoolName || "School");
-    const groupPart = sanitizeFileNamePart(groupName || "Group");
+    const district = relationOne(school?.pre_ets_districts ?? null);
 
     rosters.push({
       authorizationId: auth.id,
-      fileLabel: `${schoolPart} - ${groupPart}`,
+      fileLabel: buildPreEtsRosterFileLabel({
+        schoolYear: district?.school_year ?? null,
+        serviceMonth: auth.service_month,
+        schoolName: schoolName || "School",
+        groupName: groupName || "Group",
+      }),
       schoolName,
       groupName,
       authType: auth.auth_type,

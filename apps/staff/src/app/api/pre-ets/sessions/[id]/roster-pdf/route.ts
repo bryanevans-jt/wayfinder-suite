@@ -1,5 +1,9 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
+import {
+  buildPreEtsRosterAttachmentFilename,
+  buildPreEtsRosterFileLabel,
+} from "@wayfinder/supabase/pre-ets-roster-filename";
 import { loadPreEtsSettings, resolvePreEtsServiceLabel } from "@wayfinder/supabase/pre-ets-settings";
 import { buildPreEtsRosterPdf } from "@/lib/pre-ets-roster-export";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
@@ -34,7 +38,7 @@ export async function GET(
     const { data: session, error: sessErr } = await admin
       .from("pre_ets_sessions")
       .select(
-        "id, session_date, instructor_name, authorization_id, pre_ets_authorizations(auth_number, service_code, service_label, auth_type), pre_ets_schools(name)"
+        "id, session_date, instructor_name, authorization_id, pre_ets_authorizations(auth_number, service_code, service_label, auth_type, service_month, pre_ets_program_groups(group_name)), pre_ets_schools(name, pre_ets_districts(school_year))"
       )
       .eq("id", id)
       .maybeSingle();
@@ -44,8 +48,23 @@ export async function GET(
     }
 
     const authId = session.authorization_id as string;
-    const authRow = relationOne(session.pre_ets_authorizations as AuthRow | AuthRow[] | null);
-    const school = relationOne(session.pre_ets_schools as { name: string } | { name: string }[] | null);
+    type AuthWithMeta = AuthRow & {
+      service_month: string | null;
+      pre_ets_program_groups:
+        | { group_name: string }
+        | { group_name: string }[]
+        | null;
+    };
+    const authRow = relationOne(session.pre_ets_authorizations as AuthWithMeta | AuthWithMeta[] | null);
+    const school = relationOne(
+      session.pre_ets_schools as
+        | { name: string; pre_ets_districts: { school_year: string } | { school_year: string }[] | null }
+        | { name: string; pre_ets_districts: { school_year: string } | { school_year: string }[] | null }[]
+        | null
+    );
+    const district = relationOne(school?.pre_ets_districts ?? null);
+    const programGroup = relationOne(authRow?.pre_ets_program_groups ?? null);
+    const effectiveSessionDate = sessionDate ?? (session.session_date as string | null);
 
     const { data: rosterEntries } = await admin
       .from("pre_ets_roster_entries")
@@ -79,7 +98,7 @@ export async function GET(
       {
         authorizationNumber: authRow?.auth_number ?? "",
         authType,
-        sessionDate: sessionDate ?? (session.session_date as string | null),
+        sessionDate: effectiveSessionDate,
         schoolName: school?.name ?? "",
         instructorName: (session.instructor_name as string) ?? "",
         topic,
@@ -89,10 +108,19 @@ export async function GET(
       settings
     );
 
+    const fileLabel = buildPreEtsRosterFileLabel({
+      schoolYear: district?.school_year ?? null,
+      serviceMonth: authRow?.service_month ?? null,
+      schoolName: school?.name ?? "School",
+      groupName: programGroup?.group_name ?? "Group",
+      sessionDate: effectiveSessionDate,
+    });
+    const safeName = buildPreEtsRosterAttachmentFilename(fileLabel);
+
     return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="pre-ets-roster-${id.slice(0, 8)}.pdf"`,
+        "Content-Disposition": `attachment; filename="${safeName}.pdf"`,
       },
     });
   } catch (err) {

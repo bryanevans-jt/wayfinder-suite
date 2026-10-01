@@ -368,6 +368,26 @@ export function lookupPreEtsServiceCode(
   );
 }
 
+/**
+ * Normalize worksheet / authorization service fields against the configured catalog.
+ * Stores the catalog code when matched; topic uses catalog description over spreadsheet Service.
+ */
+export function resolvePreEtsWorksheetServiceFields(
+  rawCode: string | null | undefined,
+  worksheetServiceText: string | null | undefined,
+  settings: Pick<PreEtsSettingsRow, "service_codes">
+): { serviceCode: string; serviceLabel: string; catalogMatched: boolean } {
+  const fallbackCode = sanitizePreEtsServiceCodeText(String(rawCode ?? "").trim() || "UNKNOWN");
+  const catalogRow = lookupPreEtsServiceCode(fallbackCode, settings);
+  const serviceCode = catalogRow?.code ?? fallbackCode;
+  const serviceLabel = resolvePreEtsServiceLabel(serviceCode, worksheetServiceText, settings);
+  return {
+    serviceCode,
+    serviceLabel,
+    catalogMatched: catalogRow !== null,
+  };
+}
+
 /** Prefer settings catalog description, then worksheet label, then short service name. */
 export function resolvePreEtsServiceLabel(
   code: string,

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { sanitizePreEtsServiceCodeText } from "./pre-ets-settings";
+import type { PreEtsSettingsRow } from "./pre-ets-settings";
+import { resolvePreEtsWorksheetServiceFields } from "./pre-ets-settings";
 import type { ParsedWorksheetGroup, ParsedWorksheetStudent } from "./pre-ets-worksheet-parser";
 
 export type AuthMatchStats = {
@@ -150,6 +151,7 @@ export type ResolveAuthorizationInput = {
   students: ParsedWorksheetStudent[];
   first: ParsedWorksheetStudent;
   authType: "group" | "individual" | "pending";
+  settings: Pick<PreEtsSettingsRow, "service_codes">;
 };
 
 export type ResolveAuthorizationResult = {
@@ -162,12 +164,14 @@ export async function resolveAuthorizationForWorksheetRow(
   admin: SupabaseClient,
   input: ResolveAuthorizationInput
 ): Promise<ResolveAuthorizationResult | null> {
-  const { schoolId, serviceMonth, schoolYear, programGroupId, group, first, authType } = input;
+  const { schoolId, serviceMonth, schoolYear, programGroupId, group, first, authType, settings } =
+    input;
 
-  const serviceCode = sanitizePreEtsServiceCodeText(
-    first.serviceCode || group.serviceCode || "UNKNOWN"
+  const { serviceCode, serviceLabel } = resolvePreEtsWorksheetServiceFields(
+    first.serviceCode || group.serviceCode,
+    first.service || group.serviceLabel,
+    settings
   );
-  const serviceLabel = first.service || group.serviceLabel;
 
   if (first.authNumber) {
     const { data: existingByNumber } = await admin

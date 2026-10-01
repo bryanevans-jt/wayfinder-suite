@@ -4,6 +4,7 @@ import { PreEtsAuthorizationFinalizeModal } from "@/components/pre-ets-authoriza
 import { PreEtsProgramGroupCombineModal } from "@/components/pre-ets-program-group-combine-modal";
 import { PreEtsProgramGroupLabelsModal } from "@/components/pre-ets-program-group-labels-modal";
 import { PreEtsServiceCodeDisplay } from "@/components/pre-ets-service-code-display";
+import type { PreEtsServiceCodeRow } from "@wayfinder/supabase/pre-ets-settings";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type PipelineStatus =
@@ -78,6 +79,7 @@ export function PreEtsPipelinePanel() {
   const [canEditGroupLabels, setCanEditGroupLabels] = useState(false);
   const [includeHidden, setIncludeHidden] = useState(false);
   const [combineSource, setCombineSource] = useState<PipelineRow | null>(null);
+  const [serviceCodes, setServiceCodes] = useState<PreEtsServiceCodeRow[]>([]);
   const [combineCandidates, setCombineCandidates] = useState<
     { programGroupId: string; groupName: string; instructorName: string | null }[]
   >([]);
@@ -103,8 +105,10 @@ export function PreEtsPipelinePanel() {
           canAccounts?: boolean;
           canManageSettings?: boolean;
         };
+        settings?: { service_codes?: PreEtsServiceCodeRow[] };
       };
       if (res.ok) {
+        setServiceCodes(data.settings?.service_codes ?? []);
         setCanFinalize(data.access?.canFinalizeAuthorizations ?? false);
         setCanEditServiceCode(data.access?.canEditAuthorizationServiceCode ?? false);
         setCanEditGroupLabels(
@@ -340,7 +344,7 @@ export function PreEtsPipelinePanel() {
                   <td className="px-3 py-2">{row.studentCount}</td>
                   <td className="px-3 py-2 font-mono text-xs">{row.authNumber ?? "—"}</td>
                   <td className="px-3 py-2">
-                    <PreEtsServiceCodeDisplay code={row.serviceCode} />
+                    <PreEtsServiceCodeDisplay code={row.serviceCode} serviceCodes={serviceCodes} />
                   </td>
                   <td className="px-3 py-2 text-xs text-brand-black/75">
                     {row.instructorName ?? "—"}

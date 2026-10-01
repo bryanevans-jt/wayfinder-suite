@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { loadPreEtsSettings } from "@wayfinder/supabase/pre-ets-settings";
+import { buildPreEtsRosterAttachmentFilename } from "@wayfinder/supabase/pre-ets-roster-filename";
 import { buildAuthorizationRosterPdf } from "@/lib/pre-ets-authorization-roster-pdf";
 import { isPreEtsAuthorizationVisibleToRole } from "@/lib/pre-ets-field-gate";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
@@ -55,10 +56,9 @@ export async function GET(
     }
 
     const pdfBytes = built.pdfBytes;
-    const safeName = (built.fileLabel || `roster-${id.slice(0, 8)}`)
-      .replace(/[^\w\s.-]/g, "")
-      .trim()
-      .slice(0, 120);
+    const safeName = buildPreEtsRosterAttachmentFilename(
+      built.fileLabel || `roster-${id.slice(0, 8)}`
+    );
     return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
         "Content-Type": "application/pdf",

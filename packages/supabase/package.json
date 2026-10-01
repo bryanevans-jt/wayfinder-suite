@@ -77,6 +77,7 @@
     "./pre-ets-invoice-packet": "./src/pre-ets-invoice-packet.ts",
     "./pre-ets-schedule-plans": "./src/pre-ets-schedule-plans.ts",
     "./pre-ets-staff-assignments": "./src/pre-ets-staff-assignments.ts",
+    "./pre-ets-roster-filename": "./src/pre-ets-roster-filename.ts",
     "./pre-ets-release": "./src/pre-ets-release.ts",
     "./pre-ets-supervisor-scope": "./src/pre-ets-supervisor-scope.ts",
     "./pre-ets-upload-scope": "./src/pre-ets-upload-scope.ts",
