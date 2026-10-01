@@ -1,7 +1,12 @@
 "use client";
 
 import type { ParsedDistrictWorksheet } from "@wayfinder/supabase/pre-ets-worksheet-parser";
-import { useCallback, useEffect, useState } from "react";
+import {
+  PRE_ETS_TEST_ROSTER_ZIP_CHUNK_SIZE,
+  preEtsTestRosterZipDownloadUrl,
+  preEtsTestRosterZipPartCount,
+} from "@/lib/pre-ets-test-roster-export-config";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type ImportRow = {
   id: string;
@@ -72,6 +77,7 @@ export function PreEtsWorksheetPanel() {
   const [rosterExportBusy, setRosterExportBusy] = useState(false);
   const [rosterExportProgress, setRosterExportProgress] = useState<string | null>(null);
   const [testRosterList, setTestRosterList] = useState<TestRosterRow[] | null>(null);
+  const rosterSequentialCancelRef = useRef(false);
 
   const isSupervisorMode = panelRole === "supervisor";
 
@@ -287,90 +293,81 @@ export function PreEtsWorksheetPanel() {
     setMessage(
       (data.rosters?.length ?? 0) === 0
         ? `No rosters with eligible students (PID required) for ${emailRosterMonth}.`
-        : `Found ${data.rosters?.length ?? 0} roster(s) for ${emailRosterMonth}. Download individually or build a ZIP in your browser.`
+        : `Found ${data.rosters?.length ?? 0} roster(s) for ${emailRosterMonth}. Use ZIP parts (up to ${PRE_ETS_TEST_ROSTER_ZIP_CHUNK_SIZE} PDFs each), sequential PDF download, or individual links below.`
     );
   }
 
-  async function onDownloadTestRostersZip() {
+  async function ensureTestRosterList(): Promise<TestRosterRow[] | null> {
+    if (testRosterList?.length) return testRosterList;
+    setRosterExportProgress("Loading roster list…");
+    const listRes = await fetch(
+      `/api/pre-ets/worksheets/test-rosters?serviceMonth=${encodeURIComponent(emailRosterMonth)}`
+    );
+    const listData = (await listRes.json()) as { error?: string; rosters?: TestRosterRow[] };
+    setRosterExportProgress(null);
+    if (!listRes.ok) {
+      setMessage(listData.error ?? "Could not load test rosters");
+      return null;
+    }
+    const rosters = listData.rosters ?? [];
+    setTestRosterList(rosters);
+    return rosters;
+  }
+
+  async function onDownloadAllPdfsSequentially() {
     setRosterExportBusy(true);
     setMessage(null);
+    rosterSequentialCancelRef.current = false;
     try {
-      let rosters = testRosterList;
+      const rosters = await ensureTestRosterList();
       if (!rosters?.length) {
-        setRosterExportProgress("Loading roster list…");
-        const listRes = await fetch(
-          `/api/pre-ets/worksheets/test-rosters?serviceMonth=${encodeURIComponent(emailRosterMonth)}`
-        );
-        const listData = (await listRes.json()) as { error?: string; rosters?: TestRosterRow[] };
-        if (!listRes.ok) {
-          setMessage(listData.error ?? "Could not load test rosters");
-          return;
+        if (rosters && rosters.length === 0) {
+          setMessage(`No rosters with eligible students for ${emailRosterMonth}.`);
         }
-        rosters = listData.rosters ?? [];
-        setTestRosterList(rosters);
-      }
-
-      if (rosters.length === 0) {
-        setMessage(`No rosters with eligible students for ${emailRosterMonth}.`);
         return;
       }
 
-      const JSZip = (await import("jszip")).default;
-      const zip = new JSZip();
-      const usedNames = new Map<string, number>();
-      let added = 0;
-
+      let downloaded = 0;
       for (let i = 0; i < rosters.length; i++) {
+        if (rosterSequentialCancelRef.current) {
+          setMessage(`Stopped sequential download after ${downloaded} PDF(s).`);
+          return;
+        }
         const row = rosters[i];
-        setRosterExportProgress(`Building PDF ${i + 1} of ${rosters.length}: ${row.fileLabel}`);
+        setRosterExportProgress(`Downloading PDF ${i + 1} of ${rosters.length}…`);
 
         const pdfRes = await fetch(
           `/api/pre-ets/authorizations/${row.authorizationId}/roster-pdf`
         );
         if (!pdfRes.ok) {
           const err = (await pdfRes.json().catch(() => ({}))) as { error?: string };
-          setMessage(
-            err.error ??
-              `Stopped at ${row.fileLabel}: could not generate PDF (${pdfRes.status}).`
-          );
-          break;
+          setMessage(err.error ?? `Stopped at ${row.fileLabel} (${pdfRes.status}).`);
+          return;
         }
 
-        let baseName = row.fileLabel || `roster-${row.authorizationId.slice(0, 8)}`;
-        const seen = usedNames.get(baseName) ?? 0;
-        usedNames.set(baseName, seen + 1);
-        if (seen > 0) {
-          baseName = `${baseName} (${seen + 1})`;
+        const blob = await pdfRes.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = objectUrl;
+        anchor.download = `${row.fileLabel.replace(/[^\w\s.-]/g, "").trim() || "roster"}.pdf`;
+        anchor.click();
+        URL.revokeObjectURL(objectUrl);
+        downloaded++;
+
+        if (i < rosters.length - 1) {
+          await new Promise((resolve) => window.setTimeout(resolve, 1200));
         }
-
-        const pdfBytes = await pdfRes.arrayBuffer();
-        zip.file(`${baseName}.pdf`, pdfBytes);
-        added++;
       }
 
-      if (added === 0) {
-        setMessage("No PDFs were added to the ZIP.");
-        return;
-      }
-
-      setRosterExportProgress(`Zipping ${added} PDF(s)…`);
-      const blob = await zip.generateAsync({ type: "blob" });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `pre-ets-test-rosters-${emailRosterMonth}.zip`;
-      anchor.click();
-      URL.revokeObjectURL(url);
-
-      setMessage(
-        `Downloaded ZIP with ${added} roster PDF(s) for ${emailRosterMonth}.${
-          added < rosters.length ? ` (${rosters.length - added} skipped after an error.)` : ""
-        }`
-      );
+      setMessage(`Started download of ${downloaded} PDF(s) for ${emailRosterMonth}.`);
     } finally {
       setRosterExportBusy(false);
       setRosterExportProgress(null);
     }
+  }
+
+  function onCancelRosterExport() {
+    rosterSequentialCancelRef.current = true;
   }
 
   async function onEmailTestRosters() {
@@ -492,19 +489,28 @@ export function PreEtsWorksheetPanel() {
             <button
               type="button"
               disabled={rosterExportBusy}
-              className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-              onClick={() => void onDownloadTestRostersZip()}
-            >
-              {rosterExportBusy ? "Working…" : "Download ZIP (browser)"}
-            </button>
-            <button
-              type="button"
-              disabled={rosterExportBusy}
               className="rounded-lg border border-brand-green bg-white px-4 py-2 text-sm font-semibold text-brand-green disabled:opacity-50"
               onClick={() => void loadTestRosterList()}
             >
               List rosters
             </button>
+            <button
+              type="button"
+              disabled={rosterExportBusy}
+              className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              onClick={() => void onDownloadAllPdfsSequentially()}
+            >
+              {rosterExportBusy ? "Working…" : "Download all PDFs (one at a time)"}
+            </button>
+            {rosterExportBusy ? (
+              <button
+                type="button"
+                className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-brand-black/80"
+                onClick={onCancelRosterExport}
+              >
+                Cancel
+              </button>
+            ) : null}
             <button
               type="button"
               disabled={rosterExportBusy}
@@ -518,13 +524,35 @@ export function PreEtsWorksheetPanel() {
             <p className="text-xs font-medium text-brand-black/75">{rosterExportProgress}</p>
           ) : null}
           <p className="text-xs text-brand-black/65">
-            Builds one PDF per authorization (Google Doc template when configured).{" "}
-            Download ZIP (browser) is best for 10+
-            rosters — it generates PDFs one at a time on your machine so the server does not time
-            out. Email bundles everything in one server request and often hangs for large months.
-            Pending auth numbers OK; students without a PID or marked NOT APPROVED are excluded.
-            Email goes to bryan.evans@thejoshuatree.org.
+            ZIP downloads are built on the server in parts of up to {PRE_ETS_TEST_ROSTER_ZIP_CHUNK_SIZE}{" "}
+            PDFs so your browser does not run out of memory.{" "}
+            Download all PDFs (one at a time) is the safest option for very large months. Email
+            bundles everything in one request and often fails when there are many rosters. Pending
+            auth numbers OK; students without a PID or marked NOT APPROVED are excluded. Email goes
+            to bryan.evans@thejoshuatree.org.
           </p>
+          {testRosterList && testRosterList.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {Array.from(
+                { length: preEtsTestRosterZipPartCount(testRosterList.length) },
+                (_, index) => {
+                  const part = index + 1;
+                  const partCount = preEtsTestRosterZipPartCount(testRosterList.length);
+                  return (
+                    <a
+                      key={part}
+                      href={preEtsTestRosterZipDownloadUrl(emailRosterMonth, part)}
+                      className="rounded-lg border border-brand-green bg-white px-3 py-1.5 text-xs font-semibold text-brand-green hover:bg-brand-green/5"
+                    >
+                      {partCount === 1
+                        ? `Download ZIP (${testRosterList.length} PDFs)`
+                        : `Download ZIP part ${part} of ${partCount}`}
+                    </a>
+                  );
+                }
+              )}
+            </div>
+          ) : null}
           {testRosterList && testRosterList.length > 0 ? (
             <ul className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-blue-100 bg-white p-3 text-xs">
               {testRosterList.map((row) => (
