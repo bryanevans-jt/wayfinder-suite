@@ -29,7 +29,7 @@ export async function GET(
     const { data: authorization, error } = await admin
       .from("pre_ets_authorizations")
       .select(
-        "id, auth_number, auth_type, service_code, service_label, pre_ets_schools(name), pre_ets_program_groups(instructor_name)"
+        "id, auth_number, auth_type, service_code, service_label, program_group_id, pre_ets_schools(name), pre_ets_program_groups(instructor_name)"
       )
       .eq("id", id)
       .maybeSingle();
