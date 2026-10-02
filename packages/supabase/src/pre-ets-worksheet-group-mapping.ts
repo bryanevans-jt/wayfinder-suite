@@ -154,7 +154,8 @@ export async function findProgramGroupForWorksheetImport(
     admin,
     input.schoolId,
     input.serviceMonth,
-    input.group.groupName
+    input.group.groupName,
+    input.group.instructorName
   );
   if (byGroupName) return byGroupName;
 

@@ -162,6 +162,12 @@ describe("pre-ets-worksheet-parser", () => {
     const selfContained = parseGroupHeader("NORTHGATE HIGH - SELF CONTAINED 2");
     assert.equal(selfContained.groupName, "SELF CONTAINED 2");
 
+    const valdostaGroup1 = parseGroupHeader("VALDOSTA HIGH SCHOOL - INCLUSION - GROUP 1");
+    assert.equal(valdostaGroup1.groupName, "Inclusion Group 1");
+
+    const valdostaThomas = parseGroupHeader("VALDOSTA HIGH SCHOOL - INCLUSION - THOMAS");
+    assert.equal(valdostaThomas.groupName, "INCLUSION - THOMAS");
+
     const csv = [
       "JOSHUA TREE OCTOBER PRE-ETS BILLING 2026-27,,,,,,,,,,,",
       "DISTRICT 5 SCHOOLS,,,,,,,,,,,,",

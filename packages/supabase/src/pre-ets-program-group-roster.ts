@@ -49,6 +49,17 @@ export function programGroupLooksLikeSpecialEvent(group: ProgramGroupRosterMeta)
  * Avoids pulling a shared "Main" group authorization onto event rosters when legacy
  * imports attached the wrong program_group_id.
  */
+function isMainStyleBleedOnEventGroup(
+  group: ProgramGroupRosterMeta,
+  auth: AuthRosterSummary
+): boolean {
+  if (auth.rosterCount <= 1) return false;
+  if (auth.auth_type !== "group" && auth.auth_type !== "pending") return false;
+  const eventCode = group.service_code?.trim() ?? "";
+  if (!eventCode || !auth.service_code) return true;
+  return !preEtsServiceCodesMatch(auth.service_code, eventCode);
+}
+
 export function selectAuthorizationIdsForProgramGroupRoster(
   group: ProgramGroupRosterMeta,
   auths: AuthRosterSummary[]
@@ -70,15 +81,8 @@ export function selectAuthorizationIdsForProgramGroupRoster(
   );
 
   if (isEvent) {
-    const eventCode = group.service_code?.trim() ?? "";
-    let picked = singleSeat;
-    if (eventCode) {
-      const byCode = singleSeat.filter(
-        (a) => a.service_code && preEtsServiceCodesMatch(a.service_code, eventCode)
-      );
-      if (byCode.length > 0) picked = byCode;
-    }
-    if (picked.length > 0) return picked.map((a) => a.id);
+    const kept = withStudents.filter((a) => !isMainStyleBleedOnEventGroup(group, a));
+    if (kept.length > 0) return kept.map((a) => a.id);
     return withStudents.map((a) => a.id);
   }
 

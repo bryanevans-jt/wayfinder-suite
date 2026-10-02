@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PreEtsSettingsRow } from "./pre-ets-settings";
 import { resolvePreEtsWorksheetServiceFields } from "./pre-ets-settings";
 import type { ParsedWorksheetGroup, ParsedWorksheetStudent } from "./pre-ets-worksheet-parser";
+import { normalizeWorksheetHeaderKeyLoose } from "./pre-ets-worksheet-parser";
 
 export type AuthMatchStats = {
   authorizationsMatched: number;
@@ -30,19 +31,33 @@ export async function findProgramGroupId(
   admin: SupabaseClient,
   schoolId: string,
   serviceMonth: string,
-  groupName: string
+  groupName: string,
+  instructorName?: string | null
 ): Promise<string | null> {
-  const { data } = await admin
+  const { data: rows } = await admin
     .from("pre_ets_program_groups")
-    .select("id")
+    .select("id, instructor_name")
     .eq("school_id", schoolId)
     .eq("service_month", serviceMonth)
     .eq("group_name", groupName)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order("created_at", { ascending: false });
 
-  return (data?.id as string) ?? null;
+  const matches = rows ?? [];
+  if (matches.length === 0) return null;
+  if (matches.length === 1) return matches[0]!.id as string;
+
+  const instructorKey = instructorName?.trim()
+    ? normalizeWorksheetHeaderKeyLoose(instructorName)
+    : "";
+  if (instructorKey) {
+    const byInstructor = matches.find(
+      (row) =>
+        normalizeWorksheetHeaderKeyLoose(String(row.instructor_name ?? "")) === instructorKey
+    );
+    if (byInstructor?.id) return byInstructor.id as string;
+  }
+
+  return null;
 }
 
 export async function findPendingGroupAuthorizationId(

@@ -325,6 +325,7 @@ function isWeekdayPart(part: string): boolean {
 function isGroupDesignationPart(part: string): boolean {
   const lower = part.trim().toLowerCase();
   if (!lower) return false;
+  if (/^inclusion group \d+$/i.test(part.trim())) return true;
   if (GROUP_DESIGNATION_HINT.test(lower)) return true;
   if (/^inclusion\b/.test(lower)) return true;
   if (/^self\s*cont(ained)?\b/.test(lower)) return true;
@@ -388,7 +389,32 @@ export function splitGroupHeaderParts(headerRaw: string): string[] {
     .map((p) => p.trim())
     .filter(Boolean)
     .map((p) => p.replace(new RegExp(BI_WEEKLY_PLACEHOLDER, "gi"), "BI-WEEKLY"));
-  return parts;
+  return coalesceInclusionGroupNumberParts(parts);
+}
+
+/** "INCLUSION - GROUP - 1" → single segment "Inclusion Group 1" (distinct from "INCLUSION - THOMAS"). */
+function coalesceInclusionGroupNumberParts(parts: string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    const current = parts[i] ?? "";
+    const next = parts[i + 1]?.trim() ?? "";
+    const third = parts[i + 2]?.trim() ?? "";
+    if (/^inclusion$/i.test(current.trim())) {
+      const groupOnePart = next.match(/^group\s*(\d+)$/i);
+      if (groupOnePart?.[1]) {
+        out.push(`Inclusion Group ${groupOnePart[1]}`);
+        i += 1;
+        continue;
+      }
+      if (/^group$/i.test(next) && /^\d+$/.test(third)) {
+        out.push(`Inclusion Group ${third}`);
+        i += 2;
+        continue;
+      }
+    }
+    out.push(current);
+  }
+  return out;
 }
 
 export function parseGroupHeader(headerRaw: string): {
