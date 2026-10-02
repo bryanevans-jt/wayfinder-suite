@@ -453,7 +453,13 @@ export function parseGroupHeader(headerRaw: string): {
   if (personSeg) {
     const split = splitInstructorPart(personSeg.part);
     instructorName = split.instructorName || null;
-    if (split.groupHint) groupParts.push(split.groupHint);
+    if (split.groupHint) {
+      groupParts.push(split.groupHint);
+      const inst = split.instructorName?.trim() ?? "";
+      if (/^inclusion$/i.test(split.groupHint) && inst && inst.split(/\s+/).length === 1) {
+        groupParts.push(inst);
+      }
+    }
   }
 
   for (const seg of segments) {

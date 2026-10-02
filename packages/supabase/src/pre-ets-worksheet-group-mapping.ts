@@ -5,7 +5,6 @@ import {
   normalizeWorksheetHeaderKeyLoose,
   worksheetHeaderKeysMatch,
 } from "./pre-ets-worksheet-parser";
-import { findProgramGroupId } from "./pre-ets-worksheet-auth-match";
 import {
   canonicalizeWorksheetSchoolName,
   looksLikeKnownWorksheetSchoolLabel,
@@ -150,32 +149,22 @@ export async function findProgramGroupForWorksheetImport(
     }
   }
 
-  const byGroupName = await findProgramGroupId(
-    admin,
-    input.schoolId,
-    input.serviceMonth,
-    input.group.groupName,
-    input.group.instructorName
-  );
-  if (byGroupName) return byGroupName;
-
-  if (headerKey && input.group.instructorName?.trim()) {
-    const instructorKey = normalizeWorksheetHeaderKeyLoose(input.group.instructorName);
-    const { data: groups } = await admin
-      .from("pre_ets_program_groups")
-      .select("id, group_name, instructor_name")
-      .eq("school_id", input.schoolId)
-      .eq("service_month", input.serviceMonth)
-      .eq("group_name", input.group.groupName);
-
-    const match = (groups ?? []).find(
-      (row) =>
-        normalizeWorksheetHeaderKeyLoose(String(row.instructor_name ?? "")) === instructorKey
-    );
-    if (match?.id) return match.id as string;
-  }
-
   return null;
+}
+
+/** Reject a program group id when its saved header is a different spreadsheet line. */
+export function programGroupMatchesWorksheetHeader(
+  stored: { worksheet_header_key: string | null; header_raw: string | null },
+  headerRaw: string
+): boolean {
+  const trimmed = headerRaw.trim();
+  if (!trimmed) return true;
+  const storedKey = stored.worksheet_header_key?.trim() ?? "";
+  const storedRaw = stored.header_raw?.trim() ?? "";
+  if (!storedKey && !storedRaw) return true;
+  if (storedKey && worksheetHeaderKeysMatch(storedKey, trimmed)) return true;
+  if (storedRaw && worksheetHeaderKeysMatch(storedRaw, trimmed)) return true;
+  return false;
 }
 
 export async function upsertWorksheetGroupMapping(

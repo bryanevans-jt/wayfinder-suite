@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchAllPostgrestRows } from "./postgrest-fetch-all";
-import { preEtsServiceCodesMatch } from "./pre-ets-settings";
+import { worksheetHeaderKeysMatch } from "./pre-ets-worksheet-parser";
 
 function relationOne<T>(raw: T | T[] | null | undefined): T | null {
   if (!raw) return null;
@@ -13,153 +13,46 @@ export type ProgramGroupRosterStudent = {
   listOrder: number;
 };
 
-export type ProgramGroupRosterMeta = {
-  group_name: string;
+type ProgramGroupHeaderMeta = {
+  worksheet_header_key: string | null;
   header_raw: string;
-  service_code: string | null;
-  service_label: string | null;
 };
 
-export type AuthRosterSummary = {
-  id: string;
-  auth_type: string;
-  service_code: string | null;
-  rosterCount: number;
-};
-
-/** Special events (Fair, Pre-9000, etc.) often bill one auth per student — not the school Main group auth. */
-export function programGroupLooksLikeSpecialEvent(group: ProgramGroupRosterMeta): boolean {
-  const blob = [
-    group.group_name,
-    group.header_raw,
-    group.service_code ?? "",
-    group.service_label ?? "",
-  ]
-    .join(" ")
-    .toLowerCase();
-  return (
-    /\bday at the fair\b|\bfair\b/.test(blob) ||
-    /\bpre[-\s]?9000\b|\bpre[-\s]?5000\b|\bpre[-\s]?7000\b|\bpre[-\s]?7200\b/.test(blob) ||
-    /\b9000\b|\b5000\b|\b7000\b|\b7200\b/.test(blob)
-  );
-}
-
-/**
- * Choose which authorization(s) define the roster PDF for a program group.
- * Avoids pulling a shared "Main" group authorization onto event rosters when legacy
- * imports attached the wrong program_group_id.
- */
-function isMainStyleBleedOnEventGroup(
-  group: ProgramGroupRosterMeta,
-  auth: AuthRosterSummary
+/** Only authorizations imported under the same spreadsheet header as this program group. */
+export function authorizationMatchesProgramGroupHeader(
+  programGroup: ProgramGroupHeaderMeta,
+  authHeaderKey: string | null | undefined
 ): boolean {
-  if (auth.rosterCount <= 1) return false;
-  if (auth.auth_type !== "group" && auth.auth_type !== "pending") return false;
-  const eventCode = group.service_code?.trim() ?? "";
-  if (!eventCode || !auth.service_code) return true;
-  return !preEtsServiceCodesMatch(auth.service_code, eventCode);
+  const pgKey = programGroup.worksheet_header_key?.trim() ?? "";
+  const pgRaw = programGroup.header_raw?.trim() ?? "";
+  if (!pgKey && !pgRaw) return true;
+
+  const authKey = authHeaderKey?.trim() ?? "";
+  if (!authKey) return false;
+
+  if (pgKey && worksheetHeaderKeysMatch(pgKey, authKey)) return true;
+  if (pgRaw && worksheetHeaderKeysMatch(pgRaw, authKey)) return true;
+  return false;
 }
 
-export function selectAuthorizationIdsForProgramGroupRoster(
-  group: ProgramGroupRosterMeta,
-  auths: AuthRosterSummary[]
-): string[] {
-  if (auths.length === 0) return [];
-
-  const withStudents = auths.filter((a) => a.rosterCount > 0);
-  if (withStudents.length === 0) return [];
-
-  const isEvent = programGroupLooksLikeSpecialEvent(group);
-
-  const groupStyle = withStudents.filter(
-    (a) => (a.auth_type === "group" || a.auth_type === "pending") && a.rosterCount > 1
-  );
-  const singleSeat = withStudents.filter(
-    (a) =>
-      a.auth_type === "individual" ||
-      ((a.auth_type === "pending" || a.auth_type === "group") && a.rosterCount === 1)
-  );
-
-  if (isEvent) {
-    const kept = withStudents.filter((a) => !isMainStyleBleedOnEventGroup(group, a));
-    if (kept.length > 0) return kept.map((a) => a.id);
-    return withStudents.map((a) => a.id);
-  }
-
-  if (groupStyle.length > 0) {
-    const best = [...groupStyle].sort((a, b) => b.rosterCount - a.rosterCount)[0];
-    if (best) return [best.id];
-  }
-
-  if (singleSeat.length > 0 && groupStyle.length === 0) {
-    return singleSeat.map((a) => a.id);
-  }
-
-  const best = [...withStudents].sort((a, b) => b.rosterCount - a.rosterCount)[0];
-  return best ? [best.id] : [];
-}
-
-async function loadProgramGroupMeta(
+async function loadProgramGroupHeaderMeta(
   admin: SupabaseClient,
   programGroupId: string
-): Promise<ProgramGroupRosterMeta | null> {
+): Promise<ProgramGroupHeaderMeta | null> {
   const { data } = await admin
     .from("pre_ets_program_groups")
-    .select("group_name, header_raw, service_code, service_label")
+    .select("worksheet_header_key, header_raw")
     .eq("id", programGroupId)
     .maybeSingle();
 
   if (!data) return null;
   return {
-    group_name: String(data.group_name ?? ""),
+    worksheet_header_key: (data.worksheet_header_key as string | null) ?? null,
     header_raw: String(data.header_raw ?? ""),
-    service_code: (data.service_code as string | null) ?? null,
-    service_label: (data.service_label as string | null) ?? null,
   };
 }
 
-async function loadAuthSummariesForProgramGroup(
-  admin: SupabaseClient,
-  programGroupId: string
-): Promise<AuthRosterSummary[]> {
-  const auths = await fetchAllPostgrestRows<{
-    id: string;
-    auth_type: string;
-    service_code: string | null;
-  }>(admin, "pre_ets_authorizations", "id, auth_type, service_code", {
-    applyFilters: (q) => q.eq("program_group_id", programGroupId),
-    order: { column: "created_at", ascending: true },
-  });
-
-  if (auths.length === 0) return [];
-
-  const authIds = auths.map((a) => a.id);
-  const entries = await fetchAllPostgrestRows<{
-    authorization_id: string;
-    not_approved: boolean;
-    pre_ets_students: { participant_id: string | null } | null;
-  }>(admin, "pre_ets_roster_entries", "authorization_id, not_approved, pre_ets_students(participant_id)", {
-    applyFilters: (q) => q.in("authorization_id", authIds),
-  });
-
-  const counts = new Map<string, number>();
-  for (const row of entries) {
-    if (row.not_approved) continue;
-    const st = relationOne(row.pre_ets_students);
-    if (!st?.participant_id?.trim()) continue;
-    const authId = row.authorization_id;
-    counts.set(authId, (counts.get(authId) ?? 0) + 1);
-  }
-
-  return auths.map((a) => ({
-    id: a.id,
-    auth_type: a.auth_type,
-    service_code: a.service_code,
-    rosterCount: counts.get(a.id) ?? 0,
-  }));
-}
-
-/** Authorization ids that define the roster for this worksheet program group. */
+/** Authorization ids billed under one worksheet program group (exact header line only). */
 export async function listAuthorizationIdsForProgramGroup(
   admin: SupabaseClient,
   programGroupId: string
@@ -167,13 +60,27 @@ export async function listAuthorizationIdsForProgramGroup(
   const id = programGroupId.trim();
   if (!id) return [];
 
-  const meta = await loadProgramGroupMeta(admin, id);
-  const summaries = await loadAuthSummariesForProgramGroup(admin, id);
+  const meta = await loadProgramGroupHeaderMeta(admin, id);
+  const auths = await fetchAllPostgrestRows<{
+    id: string;
+    worksheet_header_key: string | null;
+  }>(admin, "pre_ets_authorizations", "id, worksheet_header_key", {
+    applyFilters: (q) => q.eq("program_group_id", id),
+    order: { column: "created_at", ascending: true },
+  });
+
   if (!meta) {
-    return summaries.filter((a) => a.rosterCount > 0).map((a) => a.id);
+    return auths.map((a) => a.id);
   }
 
-  return selectAuthorizationIdsForProgramGroupRoster(meta, summaries);
+  const hasHeader = Boolean(meta.worksheet_header_key?.trim() || meta.header_raw.trim());
+  if (!hasHeader) {
+    return auths.map((a) => a.id);
+  }
+
+  return auths
+    .filter((a) => authorizationMatchesProgramGroupHeader(meta, a.worksheet_header_key))
+    .map((a) => a.id);
 }
 
 /** Resolve program group from an authorization when present. */
@@ -190,7 +97,7 @@ export async function programGroupIdForAuthorization(
   return (data?.program_group_id as string | null) ?? null;
 }
 
-/** Eligible roster students for a program group, deduped by PID. */
+/** Eligible roster students for a program group (header-scoped auths only), deduped by PID. */
 export async function loadEligibleRosterStudentsForProgramGroup(
   admin: SupabaseClient,
   programGroupId: string

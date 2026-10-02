@@ -1,102 +1,43 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  programGroupLooksLikeSpecialEvent,
-  selectAuthorizationIdsForProgramGroupRoster,
-} from "./pre-ets-program-group-roster";
+import { authorizationMatchesProgramGroupHeader } from "./pre-ets-program-group-roster";
 
-test("event groups use single-seat auths only, not the Main group auth", () => {
-  const group = {
-    group_name: "Day at the Fair",
+test("roster auths must match the program group spreadsheet header key", () => {
+  const fairGroup = {
+    worksheet_header_key:
+      "appling county high school - day at the fair",
     header_raw: "APPLING COUNTY HIGH - DAY AT THE FAIR",
-    service_code: "PRE-9000",
-    service_label: "Day at the Fair",
   };
-  assert.ok(programGroupLooksLikeSpecialEvent(group));
+  const mainKey = "appling county high school - main";
 
-  const mainAuth = {
-    id: "main-auth",
-    auth_type: "pending",
-    service_code: "PRE-3241",
-    rosterCount: 12,
-  };
-  const fairAuths = Array.from({ length: 10 }, (_, i) => ({
-    id: `fair-${i}`,
-    auth_type: "individual" as const,
-    service_code: "PRE-9000",
-    rosterCount: 1,
-  }));
-
-  const selected = selectAuthorizationIdsForProgramGroupRoster(group, [mainAuth, ...fairAuths]);
-  assert.equal(selected.length, 10);
-  assert.ok(!selected.includes("main-auth"));
+  assert.ok(
+    authorizationMatchesProgramGroupHeader(fairGroup, "APPLING COUNTY HIGH - DAY AT THE FAIR")
+  );
+  assert.equal(authorizationMatchesProgramGroupHeader(fairGroup, mainKey), false);
 });
 
-test("Main group uses the shared group authorization", () => {
-  const group = {
-    group_name: "Main",
-    header_raw: "APPLING COUNTY HIGH - MAIN",
-    service_code: "PRE-3241",
-    service_label: "Pre-ETS",
+test("Valdosta inclusion headers stay distinct", () => {
+  const group1 = {
+    worksheet_header_key: "valdosta high school - inclusion - group 1",
+    header_raw: "VALDOSTA HIGH SCHOOL - INCLUSION - GROUP 1",
   };
-  assert.equal(programGroupLooksLikeSpecialEvent(group), false);
+  const thomas = {
+    worksheet_header_key: "valdosta high school - inclusion - thomas",
+    header_raw: "VALDOSTA HIGH SCHOOL - INCLUSION - THOMAS",
+  };
 
-  const mainAuth = {
-    id: "main-auth",
-    auth_type: "pending",
-    service_code: "PRE-3241",
-    rosterCount: 12,
-  };
-  const selected = selectAuthorizationIdsForProgramGroupRoster(group, [mainAuth]);
-  assert.deepEqual(selected, ["main-auth"]);
-});
-
-test("event groups include all single-seat auths even when service codes differ on rows", () => {
-  const group = {
-    group_name: "Day at the Fair",
-    header_raw: "APPLING COUNTY HIGH - DAY AT THE FAIR",
-    service_code: "PRE-9000",
-    service_label: "Day at the Fair",
-  };
-  const mainAuth = {
-    id: "main-auth",
-    auth_type: "pending",
-    service_code: "PRE-3241",
-    rosterCount: 12,
-  };
-  const fairAuths = [
-    ...Array.from({ length: 9 }, (_, i) => ({
-      id: `fair-pre-${i}`,
-      auth_type: "individual" as const,
-      service_code: "PRE-3241",
-      rosterCount: 1,
-    })),
-    {
-      id: "fair-9000",
-      auth_type: "individual" as const,
-      service_code: "PRE-9000",
-      rosterCount: 1,
-    },
-  ];
-
-  const selected = selectAuthorizationIdsForProgramGroupRoster(group, [mainAuth, ...fairAuths]);
-  assert.equal(selected.length, 10);
-  assert.ok(!selected.includes("main-auth"));
-});
-
-test("event groups can use one shared authorization when all students share the event code", () => {
-  const group = {
-    group_name: "Day at the Fair",
-    header_raw: "APPLING COUNTY HIGH - DAY AT THE FAIR",
-    service_code: "PRE-9000",
-    service_label: "Day at the Fair",
-  };
-  const fairAuth = {
-    id: "fair-group",
-    auth_type: "pending",
-    service_code: "PRE-9000",
-    rosterCount: 10,
-  };
-  const selected = selectAuthorizationIdsForProgramGroupRoster(group, [fairAuth]);
-  assert.deepEqual(selected, ["fair-group"]);
+  assert.ok(
+    authorizationMatchesProgramGroupHeader(group1, "VALDOSTA HIGH SCHOOL - INCLUSION - GROUP 1")
+  );
+  assert.equal(
+    authorizationMatchesProgramGroupHeader(group1, "VALDOSTA HIGH SCHOOL - INCLUSION - THOMAS"),
+    false
+  );
+  assert.ok(
+    authorizationMatchesProgramGroupHeader(thomas, "VALDOSTA HIGH SCHOOL - INCLUSION - THOMAS")
+  );
+  assert.equal(
+    authorizationMatchesProgramGroupHeader(thomas, "VALDOSTA HIGH SCHOOL - INCLUSION - GROUP 1"),
+    false
+  );
 });

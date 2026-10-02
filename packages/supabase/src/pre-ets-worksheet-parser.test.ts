@@ -168,6 +168,10 @@ describe("pre-ets-worksheet-parser", () => {
     const valdostaThomas = parseGroupHeader("VALDOSTA HIGH SCHOOL - INCLUSION - THOMAS");
     assert.equal(valdostaThomas.groupName, "INCLUSION - THOMAS");
 
+    const valdostaThomasParen = parseGroupHeader("VALDOSTA HIGH SCHOOL - THOMAS (INCLUSION)");
+    assert.equal(valdostaThomasParen.instructorName, "THOMAS");
+    assert.equal(valdostaThomasParen.groupName, "INCLUSION - THOMAS");
+
     const csv = [
       "JOSHUA TREE OCTOBER PRE-ETS BILLING 2026-27,,,,,,,,,,,",
       "DISTRICT 5 SCHOOLS,,,,,,,,,,,,",

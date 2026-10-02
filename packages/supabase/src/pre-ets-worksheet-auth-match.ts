@@ -64,9 +64,10 @@ export async function findPendingGroupAuthorizationId(
   admin: SupabaseClient,
   schoolId: string,
   serviceMonth: string,
-  programGroupId: string
+  programGroupId: string,
+  worksheetHeaderKey?: string | null
 ): Promise<string | null> {
-  const { data } = await admin
+  let query = admin
     .from("pre_ets_authorizations")
     .select("id")
     .eq("school_id", schoolId)
@@ -75,8 +76,14 @@ export async function findPendingGroupAuthorizationId(
     .is("auth_number", null)
     .eq("auth_type", "pending")
     .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+
+  const headerKey = worksheetHeaderKey?.trim() ?? "";
+  if (headerKey) {
+    query = query.eq("worksheet_header_key", headerKey);
+  }
+
+  const { data } = await query.maybeSingle();
 
   return (data?.id as string) ?? null;
 }
@@ -87,8 +94,10 @@ export async function findPendingIndividualAuthorizationId(
   serviceMonth: string,
   schoolYear: string,
   participantId: string,
-  programGroupId: string
+  programGroupId: string,
+  worksheetHeaderKey?: string | null
 ): Promise<string | null> {
+  const headerKey = worksheetHeaderKey?.trim() ?? "";
   const { data: student } = await admin
     .from("pre_ets_students")
     .select("id")
@@ -101,7 +110,7 @@ export async function findPendingIndividualAuthorizationId(
   const { data: rosterRows } = await admin
     .from("pre_ets_roster_entries")
     .select(
-      "authorization_id, pre_ets_authorizations(id, auth_number, auth_type, school_id, service_month, program_group_id)"
+      "authorization_id, pre_ets_authorizations(id, auth_number, auth_type, school_id, service_month, program_group_id, worksheet_header_key)"
     )
     .eq("student_id", student.id as string);
 
@@ -115,6 +124,7 @@ export async function findPendingIndividualAuthorizationId(
             school_id: string;
             service_month: string;
             program_group_id: string | null;
+            worksheet_header_key: string | null;
           }
         | {
             id: string;
@@ -123,6 +133,7 @@ export async function findPendingIndividualAuthorizationId(
             school_id: string;
             service_month: string;
             program_group_id: string | null;
+            worksheet_header_key: string | null;
           }[]
         | null
     );
@@ -131,6 +142,7 @@ export async function findPendingIndividualAuthorizationId(
       auth.school_id === schoolId &&
       auth.service_month === serviceMonth &&
       auth.program_group_id === programGroupId &&
+      (!headerKey || auth.worksheet_header_key === headerKey) &&
       !auth.auth_number &&
       (auth.auth_type === "pending" || auth.auth_type === "individual")
     ) {
@@ -170,6 +182,7 @@ export type ResolveAuthorizationInput = {
   serviceMonth: string;
   schoolYear: string;
   programGroupId: string;
+  worksheetHeaderKey: string;
   group: ParsedWorksheetGroup;
   students: ParsedWorksheetStudent[];
   first: ParsedWorksheetStudent;
@@ -187,8 +200,19 @@ export async function resolveAuthorizationForWorksheetRow(
   admin: SupabaseClient,
   input: ResolveAuthorizationInput
 ): Promise<ResolveAuthorizationResult | null> {
-  const { schoolId, serviceMonth, schoolYear, programGroupId, group, first, authType, settings } =
-    input;
+  const {
+    schoolId,
+    serviceMonth,
+    schoolYear,
+    programGroupId,
+    worksheetHeaderKey,
+    group,
+    first,
+    authType,
+    settings,
+  } = input;
+
+  const headerKey = worksheetHeaderKey.trim();
 
   const { serviceCode, serviceLabel } = resolvePreEtsWorksheetServiceFields(
     first.serviceCode || group.serviceCode,
@@ -214,6 +238,7 @@ export async function resolveAuthorizationForWorksheetRow(
           service_code: serviceCode,
           service_label: serviceLabel,
           program_group_id: programGroupId,
+          worksheet_header_key: headerKey || null,
         })
         .eq("id", existingByNumber.id);
 
@@ -232,7 +257,8 @@ export async function resolveAuthorizationForWorksheetRow(
           admin,
           schoolId,
           serviceMonth,
-          programGroupId
+          programGroupId,
+          headerKey
         );
       } else if (authType === "individual") {
         pendingId = await findPendingIndividualAuthorizationId(
@@ -241,7 +267,8 @@ export async function resolveAuthorizationForWorksheetRow(
           serviceMonth,
           schoolYear,
           first.participantId,
-          programGroupId
+          programGroupId,
+          headerKey
         );
       }
 
@@ -254,6 +281,7 @@ export async function resolveAuthorizationForWorksheetRow(
             service_code: serviceCode,
             service_label: serviceLabel,
             program_group_id: programGroupId,
+            worksheet_header_key: headerKey || null,
           })
           .eq("id", pendingId);
 
@@ -271,6 +299,7 @@ export async function resolveAuthorizationForWorksheetRow(
         auth_type: authType === "pending" ? "pending" : authType,
         service_code: serviceCode,
         service_label: serviceLabel,
+        worksheet_header_key: headerKey || null,
         status: "active",
       })
       .select("id")
@@ -292,14 +321,16 @@ export async function resolveAuthorizationForWorksheetRow(
       serviceMonth,
       schoolYear,
       first.participantId,
-      programGroupId
+      programGroupId,
+      headerKey
     );
   } else {
     pendingId = await findPendingGroupAuthorizationId(
       admin,
       schoolId,
       serviceMonth,
-      programGroupId
+      programGroupId,
+      headerKey
     );
   }
 
@@ -310,6 +341,7 @@ export async function resolveAuthorizationForWorksheetRow(
         service_code: serviceCode,
         service_label: serviceLabel,
         program_group_id: programGroupId,
+        worksheet_header_key: headerKey || null,
       })
       .eq("id", pendingId);
 
@@ -326,6 +358,7 @@ export async function resolveAuthorizationForWorksheetRow(
       auth_type: "pending",
       service_code: serviceCode,
       service_label: serviceLabel,
+      worksheet_header_key: headerKey || null,
       status: "active",
     })
     .select("id")
