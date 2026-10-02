@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isPreEtsAuthorizationReleasedToField } from "./pre-ets-release";
 import { fetchAllPostgrestRows } from "./postgrest-fetch-all";
 import { loadPreEtsAssignedSchoolIds } from "./pre-ets-upload-scope";
+import { countEligibleRosterStudentsForProgramGroup } from "./pre-ets-program-group-roster";
 
 export type PreEtsPipelineStatus =
   | "awaiting_spreadsheet"
@@ -148,15 +149,8 @@ export async function loadPreEtsSchoolPipeline(
         authList[0] ??
         null;
 
-      let studentCount = 0;
-      if (auth?.id) {
-        const { count } = await admin
-          .from("pre_ets_roster_entries")
-          .select("id", { count: "exact", head: true })
-          .eq("authorization_id", auth.id)
-          .eq("not_approved", false);
-        studentCount = count ?? 0;
-      }
+      const programGroupId = group.id as string;
+      const studentCount = await countEligibleRosterStudentsForProgramGroup(admin, programGroupId);
 
       const mergedIntoId = (group.merged_into_program_group_id as string | null) ?? null;
 

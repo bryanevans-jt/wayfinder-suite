@@ -71,7 +71,8 @@ export async function findPendingIndividualAuthorizationId(
   schoolId: string,
   serviceMonth: string,
   schoolYear: string,
-  participantId: string
+  participantId: string,
+  programGroupId: string
 ): Promise<string | null> {
   const { data: student } = await admin
     .from("pre_ets_students")
@@ -85,7 +86,7 @@ export async function findPendingIndividualAuthorizationId(
   const { data: rosterRows } = await admin
     .from("pre_ets_roster_entries")
     .select(
-      "authorization_id, pre_ets_authorizations(id, auth_number, auth_type, school_id, service_month)"
+      "authorization_id, pre_ets_authorizations(id, auth_number, auth_type, school_id, service_month, program_group_id)"
     )
     .eq("student_id", student.id as string);
 
@@ -98,6 +99,7 @@ export async function findPendingIndividualAuthorizationId(
             auth_type: string;
             school_id: string;
             service_month: string;
+            program_group_id: string | null;
           }
         | {
             id: string;
@@ -105,6 +107,7 @@ export async function findPendingIndividualAuthorizationId(
             auth_type: string;
             school_id: string;
             service_month: string;
+            program_group_id: string | null;
           }[]
         | null
     );
@@ -112,8 +115,9 @@ export async function findPendingIndividualAuthorizationId(
       auth &&
       auth.school_id === schoolId &&
       auth.service_month === serviceMonth &&
+      auth.program_group_id === programGroupId &&
       !auth.auth_number &&
-      auth.auth_type === "pending"
+      (auth.auth_type === "pending" || auth.auth_type === "individual")
     ) {
       return auth.id;
     }
@@ -183,6 +187,7 @@ export async function resolveAuthorizationForWorksheetRow(
       .select("id")
       .eq("school_id", schoolId)
       .eq("service_month", serviceMonth)
+      .eq("program_group_id", programGroupId)
       .eq("auth_number", first.authNumber)
       .maybeSingle();
 
@@ -220,7 +225,8 @@ export async function resolveAuthorizationForWorksheetRow(
           schoolId,
           serviceMonth,
           schoolYear,
-          first.participantId
+          first.participantId,
+          programGroupId
         );
       }
 
@@ -270,7 +276,8 @@ export async function resolveAuthorizationForWorksheetRow(
       schoolId,
       serviceMonth,
       schoolYear,
-      first.participantId
+      first.participantId,
+      programGroupId
     );
   } else {
     pendingId = await findPendingGroupAuthorizationId(

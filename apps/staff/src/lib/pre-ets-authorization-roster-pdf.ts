@@ -6,6 +6,10 @@ import {
   type PreEtsSettingsRow,
 } from "@wayfinder/supabase/pre-ets-settings";
 import { buildPreEtsRosterFileLabel } from "@wayfinder/supabase/pre-ets-roster-filename";
+import {
+  loadEligibleRosterStudentsForProgramGroup,
+  programGroupIdForAuthorization,
+} from "@wayfinder/supabase/pre-ets-program-group-roster";
 import { buildPreEtsRosterPdf } from "@/lib/pre-ets-roster-export";
 
 type AdminClient = ReturnType<typeof createServiceRoleClient>;
@@ -59,26 +63,39 @@ export async function buildAuthorizationRosterPdf(
       | null
   );
 
-  const { data: rosterEntries } = await admin
-    .from("pre_ets_roster_entries")
-    .select("list_order, not_approved, pre_ets_students(participant_id, full_name)")
-    .eq("authorization_id", authorizationId)
-    .eq("not_approved", false)
-    .order("list_order", { ascending: true });
+  const programGroupId = await programGroupIdForAuthorization(admin, authorizationId);
+  let students: Array<{ participantId: string; fullName: string }> = [];
 
-  const students = (rosterEntries ?? [])
-    .map((row) => {
-      if (row.not_approved) return null;
-      const st = relationOne(
-        row.pre_ets_students as
-          | { participant_id: string; full_name: string }
-          | { participant_id: string; full_name: string }[]
-          | null
-      );
-      if (!st?.participant_id?.trim()) return null;
-      return { participantId: st.participant_id.trim(), fullName: st.full_name ?? "" };
-    })
-    .filter((s): s is { participantId: string; fullName: string } => s !== null);
+  if (programGroupId) {
+    const aggregated = await loadEligibleRosterStudentsForProgramGroup(admin, programGroupId);
+    students = aggregated.map((s) => ({
+      participantId: s.participantId,
+      fullName: s.fullName,
+    }));
+  }
+
+  if (students.length === 0) {
+    const { data: rosterEntries } = await admin
+      .from("pre_ets_roster_entries")
+      .select("list_order, not_approved, pre_ets_students(participant_id, full_name)")
+      .eq("authorization_id", authorizationId)
+      .eq("not_approved", false)
+      .order("list_order", { ascending: true });
+
+    students = (rosterEntries ?? [])
+      .map((row) => {
+        if (row.not_approved) return null;
+        const st = relationOne(
+          row.pre_ets_students as
+            | { participant_id: string; full_name: string }
+            | { participant_id: string; full_name: string }[]
+            | null
+        );
+        if (!st?.participant_id?.trim()) return null;
+        return { participantId: st.participant_id.trim(), fullName: st.full_name ?? "" };
+      })
+      .filter((s): s is { participantId: string; fullName: string } => s !== null);
+  }
 
   if (students.length === 0) {
     return { ok: false, error: "No roster students with PID", skip: true };
@@ -86,7 +103,9 @@ export async function buildAuthorizationRosterPdf(
 
   const authType = authorization.auth_type as "group" | "individual" | "pending";
   const pdfStudents =
-    authType === "individual" && students.length > 0 ? [students[0]] : students;
+    !programGroupId && authType === "individual" && students.length > 0
+      ? [students[0]!]
+      : students;
 
   const rawServiceCode = (authorization.service_code as string) ?? "";
   const catalogRow = lookupPreEtsServiceCode(rawServiceCode, settings);

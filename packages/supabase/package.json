@@ -86,6 +86,7 @@
     "./postgrest-fetch-all": "./src/postgrest-fetch-all.ts",
     "./pre-ets-program-group-admin": "./src/pre-ets-program-group-admin.ts",
     "./pre-ets-program-group-visibility": "./src/pre-ets-program-group-visibility.ts",
+    "./pre-ets-program-group-roster": "./src/pre-ets-program-group-roster.ts",
     "./pre-ets-worksheet-workbook": "./src/pre-ets-worksheet-workbook.ts",
     "./pre-ets-data-reset": "./src/pre-ets-data-reset.ts",
     "./pre-ets-instructor-match": "./src/pre-ets-instructor-match.ts",
