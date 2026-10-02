@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchAllPostgrestRows } from "./postgrest-fetch-all";
+import { loadWorksheetParticipantAllowlistForProgramGroup } from "./pre-ets-program-group-worksheet-roster";
 import { worksheetHeaderKeysMatch } from "./pre-ets-worksheet-parser";
 
 function relationOne<T>(raw: T | T[] | null | undefined): T | null {
@@ -128,7 +129,52 @@ export async function loadEligibleRosterStudentsForProgramGroup(
     });
   }
 
-  return [...byPid.values()].sort((a, b) => a.listOrder - b.listOrder || a.fullName.localeCompare(b.fullName));
+  let students = [...byPid.values()].sort(
+    (a, b) => a.listOrder - b.listOrder || a.fullName.localeCompare(b.fullName)
+  );
+
+  const allowlist = await loadWorksheetParticipantAllowlistForProgramGroup(admin, programGroupId);
+  if (allowlist && allowlist.size > 0) {
+    students = students.filter((s) => allowlist.has(s.participantId));
+    if (students.length === 0) {
+      const { data: pg } = await admin
+        .from("pre_ets_program_groups")
+        .select("pre_ets_schools(pre_ets_districts(school_year))")
+        .eq("id", programGroupId)
+        .maybeSingle();
+      const schoolYear = extractSchoolYearFromProgramGroupRow(pg);
+      if (schoolYear) {
+        const pidList = [...allowlist];
+        const { data: rows } = await admin
+          .from("pre_ets_students")
+          .select("participant_id, full_name")
+          .eq("school_year", schoolYear)
+          .in("participant_id", pidList);
+        students = (rows ?? [])
+          .map((row, index) => ({
+            participantId: String(row.participant_id ?? "").trim(),
+            fullName: String(row.full_name ?? "").trim(),
+            listOrder: index,
+          }))
+          .filter((s) => s.participantId.length > 0);
+      }
+    }
+  }
+
+  return students;
+}
+
+function extractSchoolYearFromProgramGroupRow(pg: unknown): string | null {
+  if (!pg || typeof pg !== "object") return null;
+  const schools = (pg as { pre_ets_schools?: unknown }).pre_ets_schools;
+  const school = relationOne(
+    schools as
+      | { pre_ets_districts: { school_year: string } | null }
+      | { pre_ets_districts: { school_year: string } | null }[]
+      | null
+  );
+  const district = relationOne(school?.pre_ets_districts ?? null);
+  return district?.school_year?.trim() ?? null;
 }
 
 export async function countEligibleRosterStudentsForProgramGroup(

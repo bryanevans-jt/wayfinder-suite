@@ -118,9 +118,16 @@ function isBlankLine(line: string): boolean {
  * Stable key for worksheet group header lines — CSV vs Excel exports often differ in
  * trailing commas, NBSP, or dash characters for the same row.
  */
-export function normalizeWorksheetHeaderKeyLoose(headerRaw: string): string {
+/** Billing exports append roster totals like `[22, 10738]` on the group header line. */
+export function stripWorksheetGroupHeaderMetadata(headerRaw: string): string {
   return headerRaw
     .replace(/\u00a0/g, " ")
+    .replace(/\s*\[\s*\d+\s*,\s*\d+\s*\]\s*$/u, "")
+    .trim();
+}
+
+export function normalizeWorksheetHeaderKeyLoose(headerRaw: string): string {
+  return stripWorksheetGroupHeaderMetadata(headerRaw)
     .replace(/[\u2013\u2014–—]/g, "-")
     .replace(/,/g, " ")
     .toLowerCase()
@@ -138,9 +145,21 @@ export function worksheetHeaderKeysMatch(a: string, b: string): boolean {
 
 /** First non-empty CSV cell (billing exports pad rows with trailing commas). */
 export function primaryCsvLabel(line: string): string {
-  const cells = parseCsvLine(line);
-  const first = cells.find((c) => c.trim().length > 0);
-  return (first ?? line).replace(/\u00a0/g, " ").trim();
+  const cells = parseCsvLine(line).map((c) => c.replace(/\u00a0/g, " ").trim());
+  const nonEmpty = cells.filter((c) => c.length > 0);
+  if (nonEmpty.length === 0) {
+    return line.replace(/\u00a0/g, " ").trim();
+  }
+
+  let label = nonEmpty[0] ?? "";
+  if (label.includes("[") && !label.includes("]")) {
+    for (let i = 1; i < nonEmpty.length; i++) {
+      label = `${label}, ${nonEmpty[i]}`;
+      if (label.includes("]")) break;
+    }
+  }
+
+  return label.trim();
 }
 
 function isSupervisorLine(line: string): boolean {
@@ -182,6 +201,10 @@ export function looksLikeWorksheetGroupHeaderLine(line: string, cells: string[])
   const firstCell = (cells[0] ?? "").trim();
   if (/^\d+\.?$/u.test(firstCell)) return false;
 
+  if (looksLikeWorksheetSchoolContinuationHeader(label)) {
+    return true;
+  }
+
   const parts = splitGroupHeaderParts(label);
   if (parts.length < 2) {
     return looksLikeWorksheetSchoolName(label);
@@ -204,9 +227,17 @@ function isPreEtsTitleLine(line: string): boolean {
   return /joshua\s+tree/.test(lower) && /pre-?ets/.test(lower);
 }
 
+function worksheetHeaderRowHasParticipantIdColumn(joinedLower: string): boolean {
+  return (
+    joinedLower.includes("pid") ||
+    joinedLower.includes("ffa id") ||
+    /\bid\s*#/.test(joinedLower)
+  );
+}
+
 function isHeaderRow(cells: string[]): boolean {
   const joined = cells.join(" ").toLowerCase();
-  return joined.includes("student name") && joined.includes("pid");
+  return joined.includes("student name") && worksheetHeaderRowHasParticipantIdColumn(joined);
 }
 
 function normalizeSchoolYear(raw: string | null | undefined): string | null {
@@ -261,6 +292,30 @@ function parseDistrictLine(line: string): string | null {
 
 const GROUP_DESIGNATION_HINT =
   /^(inclusion|self\s*contained|resource|co-?teach|main|n\/a)$/i;
+
+/** Billing sheets sometimes repeat only the event or group segment on the next line (same school). */
+export function looksLikeWorksheetSchoolContinuationHeader(label: string): boolean {
+  const t = label.replace(/\u00a0/g, " ").trim();
+  if (!t) return false;
+  if (/\bday at the fair\b/i.test(t)) return true;
+  if (/^pre[-\s]?(9000|5000|7000|7200)\b/i.test(t)) return true;
+  if (GROUP_DESIGNATION_HINT.test(t)) return true;
+  if (/^inclusion group \d+$/i.test(t)) return true;
+  if (isGroupDesignationPart(t)) return true;
+  return false;
+}
+
+export function qualifyWorksheetGroupHeaderWithSchoolContext(
+  headerRaw: string,
+  priorSchoolName: string | null | undefined
+): string {
+  const label = stripWorksheetGroupHeaderMetadata(headerRaw);
+  const school = priorSchoolName?.trim() ?? "";
+  if (!label || !school) return label;
+  if (splitGroupHeaderParts(label).length >= 2) return label;
+  if (!looksLikeWorksheetSchoolContinuationHeader(label)) return label;
+  return `${school} - ${label}`;
+}
 
 const MONTH_MAP: Record<string, number> = {
   january: 1,
@@ -325,9 +380,11 @@ function isWeekdayPart(part: string): boolean {
 function isGroupDesignationPart(part: string): boolean {
   const lower = part.trim().toLowerCase();
   if (!lower) return false;
+  if (/\bday at the fair\b/.test(lower)) return true;
   if (/^inclusion group \d+$/i.test(part.trim())) return true;
   if (GROUP_DESIGNATION_HINT.test(lower)) return true;
   if (/^inclusion\b/.test(lower)) return true;
+  if (/^ffa$/i.test(lower)) return true;
   if (/^self\s*cont(ained)?\b/.test(lower)) return true;
   if (/^class\s+\d+/i.test(part)) return true;
   if (/^self\s*cont(ained)?\s+\d+/i.test(lower)) return true;
@@ -382,7 +439,7 @@ const BI_WEEKLY_PLACEHOLDER = "BI__WEEKLY__FREQ";
 
 /** Split on spaced dashes only so BI-WEEKLY and en-dashes in class times stay intact. */
 export function splitGroupHeaderParts(headerRaw: string): string[] {
-  const normalized = headerRaw.replace(/\u00a0/g, " ").trim();
+  const normalized = stripWorksheetGroupHeaderMetadata(headerRaw.replace(/\u00a0/g, " "));
   const protectedHeader = normalized.replace(/bi-weekly/gi, BI_WEEKLY_PLACEHOLDER);
   const parts = protectedHeader
     .split(/\s+[-–—]\s+/)
@@ -424,7 +481,7 @@ export function parseGroupHeader(headerRaw: string): {
   frequency: string | null;
   instructorName: string | null;
 } {
-  const trimmed = headerRaw.trim();
+  const trimmed = stripWorksheetGroupHeaderMetadata(headerRaw.trim());
   const parts = splitGroupHeaderParts(trimmed);
   if (parts.length < 2) {
     return {
@@ -484,6 +541,16 @@ export function parseGroupHeader(headerRaw: string): {
   };
 }
 
+function columnIndexExact(headers: string[], ...candidates: string[]): number {
+  const lower = headers.map((h) => h.toLowerCase().trim());
+  for (const c of candidates) {
+    const needle = c.toLowerCase();
+    const exact = lower.findIndex((h) => h === needle);
+    if (exact >= 0) return exact;
+  }
+  return -1;
+}
+
 function columnIndex(headers: string[], ...candidates: string[]): number {
   const lower = headers.map((h) => h.toLowerCase().trim());
   for (const c of candidates) {
@@ -509,7 +576,7 @@ function columnIndexPrimaryService(headers: string[]): number {
 /** Prefer the primary Code column paired with Service (not Service 2/3 codes). */
 const REQUIRED_WORKSHEET_COLUMNS = [
   { key: "student name", label: "Student Name" },
-  { key: "pid", label: "PID #" },
+  { key: "pid", label: "PID # or FFA ID" },
 ] as const;
 
 const RECOMMENDED_WORKSHEET_COLUMNS = [
@@ -523,6 +590,16 @@ const RECOMMENDED_WORKSHEET_COLUMNS = [
 export function validateWorksheetHeaderColumns(headers: string[], rowNumber: number): string[] {
   const issues: string[] = [];
   for (const col of REQUIRED_WORKSHEET_COLUMNS) {
+    const hasPid =
+      columnIndex(headers, "pid") >= 0 ||
+      columnIndex(headers, "ffa id") >= 0 ||
+      columnIndex(headers, "id #") >= 0;
+    if (col.key === "pid") {
+      if (!hasPid) {
+        issues.push(`Row ${rowNumber}: missing required column "PID # or FFA ID"`);
+      }
+      continue;
+    }
     if (columnIndex(headers, col.key) < 0) {
       issues.push(`Row ${rowNumber}: missing required column "${col.label}"`);
     }
@@ -564,9 +641,15 @@ function parseStudentRow(
 ): ParsedWorksheetStudent {
   const notApprovedMarker = (options.notApprovedMarker ?? "NOT APPROVED").toUpperCase();
   const idx = {
-    order: columnIndex(headers, "#"),
+    order: columnIndexExact(headers, "#", "no.", "no"),
     name: columnIndex(headers, "student name"),
-    pid: columnIndex(headers, "pid"),
+    pid: (() => {
+      const ffaId = columnIndexExact(headers, "ffa id");
+      if (ffaId >= 0) return ffaId;
+      const pidHash = columnIndexExact(headers, "pid #", "pid");
+      if (pidHash >= 0) return pidHash;
+      return columnIndex(headers, "pid");
+    })(),
     auth: columnIndex(headers, "a & i", "a&i"),
     service: columnIndexPrimaryService(headers),
     code: columnIndexPrimaryCode(headers),
@@ -576,7 +659,15 @@ function parseStudentRow(
     billed: columnIndex(headers, "billed"),
   };
 
-  const get = (i: number) => (i >= 0 && i < cells.length ? cells[i] : "");
+  const leadingRowNumber =
+    idx.order < 0 && /^\d+\.?$/u.test((cells[0] ?? "").trim()) && (cells[1] ?? "").trim().length > 0;
+  const cellOffset = leadingRowNumber ? 1 : 0;
+
+  const get = (i: number) => {
+    if (i < 0) return "";
+    const at = i + cellOffset;
+    return at >= 0 && at < cells.length ? (cells[at] ?? "") : "";
+  };
 
   const participantId = get(idx.pid);
   const authNumber = get(idx.auth);
@@ -681,7 +772,17 @@ export function parseDistrictWorksheet(
       continue;
     }
 
-    if (currentHeaders && currentGroup && !looksLikeWorksheetGroupHeaderLine(line, cells)) {
+    const rawHeaderLabel = primaryCsvLabel(line);
+    const continuationHeader =
+      Boolean(currentGroup?.schoolName?.trim()) &&
+      looksLikeWorksheetSchoolContinuationHeader(rawHeaderLabel);
+
+    if (
+      currentHeaders &&
+      currentGroup &&
+      !looksLikeWorksheetGroupHeaderLine(line, cells) &&
+      !continuationHeader
+    ) {
       const student = parseStudentRow(cells, currentHeaders, rowNum, options);
       if (student.notApproved) {
         issues.push(`Row ${rowNum}: NOT APPROVED — skipped`);
@@ -727,7 +828,10 @@ export function parseDistrictWorksheet(
       offices.push(currentOffice);
     }
 
-    const headerRaw = primaryCsvLabel(line);
+    const headerRaw = qualifyWorksheetGroupHeaderWithSchoolContext(
+      rawHeaderLabel || primaryCsvLabel(line),
+      currentGroup?.schoolName ?? null
+    );
     if (!headerRaw) continue;
     const { schoolName, groupName, groupDesignation, frequency, instructorName } =
       parseGroupHeader(headerRaw);

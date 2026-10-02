@@ -242,6 +242,39 @@ describe("pre-ets-worksheet-parser", () => {
     );
   });
 
+  it("splits Appling FFA and Day at the Fair with FFA ID columns and billing brackets", () => {
+    const csv = [
+      "Joshua Tree October Pre-ETS Billing 2026-27,,,,,,,,,,,",
+      "District 6 Schools,,,,,,,,,,,,",
+      "VIDALIA OFFICE SCHOOLS,,,,,,,,,,,,",
+      "APPLING COUNTY HIGH SCHOOL - FFA [22, 10738],,,,,,,,,,,,",
+      "STUDENT NAME,FFA ID,DOB,ID #,CATEGORY,GENDER,RACE,ETHNICITY,MAILING 1,MAILING 2",
+      "1,Adams Destiney,10001,,,,,,,",
+      "2,Beasley Emily,10002,,,,,,,",
+      "APPLING COUNTY HIGH SCHOOL - DAY AT THE FAIR - FFA [10, 8740],,,,,,,,,,,,",
+      "STUDENT NAME,FFA ID,DOB,ID #,CATEGORY,GENDER,RACE,ETHNICITY,MAILING 1,MAILING 2",
+      "1,Barnes Taylor,20001,,,,,,,",
+      "2,Courson Kylie,20002,,,,,,,",
+    ].join("\n");
+
+    const parsed = parseDistrictWorksheet(csv);
+    const appling = parsed.offices[0]?.groups.filter((g) =>
+      g.schoolName.toUpperCase().includes("APPLING")
+    );
+    assert.equal(appling?.length, 2);
+
+    const ffa = appling?.find(
+      (g) => /^\s*ffa\s*$/i.test(g.groupName) && !/day at the fair/i.test(g.headerRaw)
+    );
+    const fair = appling?.find((g) => /day at the fair/i.test(g.headerRaw));
+    assert.ok(ffa);
+    assert.ok(fair);
+    assert.equal(ffa?.students.length, 2);
+    assert.equal(fair?.students.length, 2);
+    assert.deepEqual(ffa?.students.map((s) => s.participantId), ["10001", "10002"]);
+    assert.deepEqual(fair?.students.map((s) => s.participantId), ["20001", "20002"]);
+  });
+
   it("skips student rows without PID", () => {
     const csv = [
       "Joshua Tree Service Group March Pre-ETS Worksheet 2025-2026",
