@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
+import { loadEligibleRosterStudentsForProgramGroup } from "@wayfinder/supabase/pre-ets-program-group-roster";
 import { loadPreEtsSettings } from "@wayfinder/supabase/pre-ets-settings";
 import { isPreEtsAuthorizationVisibleToRole } from "@/lib/pre-ets-field-gate";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
@@ -37,7 +38,7 @@ export async function GET(
     const { data: authorization, error } = await admin
       .from("pre_ets_authorizations")
       .select(
-        "id, auth_number, auth_type, service_code, service_label, pre_ets_schools(name), pre_ets_program_groups(instructor_name)"
+        "id, auth_number, auth_type, service_code, service_label, program_group_id, pre_ets_schools(name), pre_ets_program_groups(instructor_name)"
       )
       .eq("id", id)
       .maybeSingle();
@@ -60,29 +61,47 @@ export async function GET(
     const school = relationOne(authRow.pre_ets_schools);
     const group = relationOne(authRow.pre_ets_program_groups);
 
-    const { data: rosterEntries } = await admin
-      .from("pre_ets_roster_entries")
-      .select("list_order, pre_ets_students(participant_id, full_name)")
-      .eq("authorization_id", id)
-      .eq("not_approved", false)
-      .order("list_order", { ascending: true });
+    const programGroupId = (authorization as { program_group_id?: string | null }).program_group_id;
+    const rosterStudents =
+      programGroupId?.trim()
+        ? await loadEligibleRosterStudentsForProgramGroup(admin, programGroupId.trim())
+        : null;
 
-    const students = (rosterEntries ?? [])
-      .map((row) => {
-        const st = relationOne(
-          row.pre_ets_students as
-            | { participant_id: string; full_name: string }
-            | { participant_id: string; full_name: string }[]
-            | null
-        );
-        if (!st) return null;
-        return { participantId: st.participant_id, fullName: st.full_name };
-      })
-      .filter((s): s is { participantId: string; fullName: string } => s !== null);
+    let students: { participantId: string; fullName: string }[];
+    if (rosterStudents) {
+      students = rosterStudents.map((s) => ({
+        participantId: s.participantId,
+        fullName: s.fullName,
+      }));
+    } else {
+      const { data: rosterEntries } = await admin
+        .from("pre_ets_roster_entries")
+        .select("list_order, pre_ets_students(participant_id, full_name)")
+        .eq("authorization_id", id)
+        .eq("not_approved", false)
+        .order("list_order", { ascending: true });
+
+      students = (rosterEntries ?? [])
+        .map((row) => {
+          const st = relationOne(
+            row.pre_ets_students as
+              | { participant_id: string; full_name: string }
+              | { participant_id: string; full_name: string }[]
+              | null
+          );
+          if (!st) return null;
+          return { participantId: st.participant_id, fullName: st.full_name };
+        })
+        .filter((s): s is { participantId: string; fullName: string } => s !== null);
+    }
 
     const authType = authRow.auth_type as "group" | "individual" | "pending";
     const pdfStudents =
-      authType === "individual" && students.length > 0 ? [students[0]] : students;
+      rosterStudents != null
+        ? students
+        : authType === "individual" && students.length > 0
+          ? [students[0]]
+          : students;
 
     const settings = await loadPreEtsSettings(admin);
     const pdfBytes = await buildPreEtsRosterPdf(

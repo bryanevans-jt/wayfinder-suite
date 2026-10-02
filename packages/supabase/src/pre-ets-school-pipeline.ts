@@ -108,15 +108,11 @@ export async function loadPreEtsSchoolPipeline(
         authList[0] ??
         null;
 
-      let studentCount = 0;
-      if (auth?.id) {
-        const { count } = await admin
-          .from("pre_ets_roster_entries")
-          .select("id", { count: "exact", head: true })
-          .eq("authorization_id", auth.id)
-          .eq("not_approved", false);
-        studentCount = count ?? 0;
-      }
+      const programGroupId = group.id as string;
+      const { countEligibleRosterStudentsForProgramGroup } = await import(
+        "./pre-ets-program-group-roster"
+      );
+      const studentCount = await countEligibleRosterStudentsForProgramGroup(admin, programGroupId);
 
       rows.push({
         schoolId,
