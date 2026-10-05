@@ -73,11 +73,11 @@ export function PreEtsPipelinePanel() {
   const [loading, setLoading] = useState(true);
   const [canFinalize, setCanFinalize] = useState(false);
   const [canEditServiceCode, setCanEditServiceCode] = useState(false);
+  const [includeHidden, setIncludeHidden] = useState(false);
   const [editTarget, setEditTarget] = useState<PipelineRow | null>(null);
   const [finalizeTarget, setFinalizeTarget] = useState<PipelineRow | null>(null);
   const [labelsTarget, setLabelsTarget] = useState<PipelineRow | null>(null);
   const [canEditGroupLabels, setCanEditGroupLabels] = useState(false);
-  const [includeHidden, setIncludeHidden] = useState(false);
   const [combineSource, setCombineSource] = useState<PipelineRow | null>(null);
   const [serviceCodes, setServiceCodes] = useState<PreEtsServiceCodeRow[]>([]);
   const [combineCandidates, setCombineCandidates] = useState<
@@ -218,6 +218,32 @@ export function PreEtsPipelinePanel() {
     setCombineSource(row);
   }
 
+  async function onRemoveEmptyShell(row: PipelineRow) {
+    if (!row.programGroupId || row.studentCount > 0) return;
+    const label =
+      row.groupName !== row.schoolName
+        ? `${row.schoolName} · ${row.groupName}`
+        : row.groupName;
+    if (
+      !window.confirm(
+        `Remove empty shell "${label}"?\n\nOnly groups with zero students and no entered authorization numbers can be removed. Groups with rosters are blocked.`
+      )
+    ) {
+      return;
+    }
+    setLoading(true);
+    const res = await fetch(`/api/pre-ets/program-groups/${row.programGroupId}/remove-empty`, {
+      method: "POST",
+    });
+    const data = (await res.json()) as { error?: string };
+    setLoading(false);
+    if (!res.ok) {
+      window.alert(data.error ?? "Could not remove empty group");
+      return;
+    }
+    void load();
+  }
+
   return (
     <section className="space-y-4">
       <div>
@@ -225,9 +251,11 @@ export function PreEtsPipelinePanel() {
         <p className="mt-1 text-sm text-brand-black/65">
           Track each school or group through Awaiting spreadsheet → Pending authorization → Roster
           submitted. Use <strong className="font-medium">Fix labels</strong> to correct names,{" "}
-          <strong className="font-medium">Hide group</strong> when a class is not taught this month, or{" "}
-          <strong className="font-medium">Combine</strong> when two spreadsheet groups are one class.
-          Hidden groups can return when a worksheet upload includes them with PIDs again.
+          <strong className="font-medium">Remove empty shell</strong> for setup leftovers with zero
+          students, <strong className="font-medium">Hide group</strong> when a class is not taught
+          this month, or <strong className="font-medium">Combine</strong> when two spreadsheet
+          groups are one class. Hidden groups can return when a worksheet upload includes them with
+          PIDs again.
         </p>
       </div>
 
@@ -279,14 +307,16 @@ export function PreEtsPipelinePanel() {
             ))}
           </select>
         </label>
-        <label className="flex items-center gap-2 pb-2 text-sm">
-          <input
-            type="checkbox"
-            checked={includeHidden}
-            onChange={(e) => setIncludeHidden(e.target.checked)}
-          />
-          <span>Show hidden groups</span>
-        </label>
+        {canEditGroupLabels ? (
+          <label className="flex items-center gap-2 pb-2 text-sm">
+            <input
+              type="checkbox"
+              checked={includeHidden}
+              onChange={(e) => setIncludeHidden(e.target.checked)}
+            />
+            <span>Show hidden groups</span>
+          </label>
+        ) : null}
       </div>
 
       <p className="text-sm text-brand-black/60">
@@ -329,6 +359,11 @@ export function PreEtsPipelinePanel() {
                     >
                       {row.hidden ? "Hidden" : statusLabel(row.status)}
                     </span>
+                    {row.hidden && row.mergedIntoGroupName ? (
+                      <p className="mt-1 text-xs text-brand-black/55">
+                        Combined into {row.mergedIntoGroupName}
+                      </p>
+                    ) : null}
                   </td>
                   <td className="px-3 py-2">
                     <p className="font-medium text-brand-black">{row.groupName}</p>
@@ -363,6 +398,15 @@ export function PreEtsPipelinePanel() {
                       ) : null}
                       {canEditGroupLabels && row.programGroupId && !row.hidden ? (
                         <>
+                          {row.studentCount === 0 && row.status === "awaiting_spreadsheet" ? (
+                            <button
+                              type="button"
+                              className="text-brand-black/65 hover:underline"
+                              onClick={() => void onRemoveEmptyShell(row)}
+                            >
+                              Remove empty shell
+                            </button>
+                          ) : null}
                           <button
                             type="button"
                             className="text-brand-black/65 hover:underline"
