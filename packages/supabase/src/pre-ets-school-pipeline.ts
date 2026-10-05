@@ -21,6 +21,9 @@ export type PreEtsPipelineRow = {
   serviceCode: string | null;
   instructorName: string | null;
   classTime: string | null;
+  hidden: boolean;
+  mergedIntoProgramGroupId: string | null;
+  mergedIntoGroupName: string | null;
 };
 
 function normalizeServiceMonth(month: string): string {
@@ -46,6 +49,7 @@ export async function loadPreEtsSchoolPipeline(
     userId: string;
     role: string;
     serviceMonth: string;
+    includeHidden?: boolean;
   }
 ): Promise<PreEtsPipelineRow[]> {
   const serviceMonth = normalizeServiceMonth(input.serviceMonth);
@@ -70,15 +74,23 @@ export async function loadPreEtsSchoolPipeline(
     const schoolId = school.id as string;
     const schoolName = school.name as string;
 
-    const { data: groups } = await admin
+    let groupsQuery = admin
       .from("pre_ets_program_groups")
       .select(
-        "id, group_name, instructor_name, class_time, service_code, pre_ets_authorizations(id, auth_number, auth_type, service_code)"
+        "id, group_name, instructor_name, class_time, service_code, hidden_at, merged_into_program_group_id, pre_ets_authorizations(id, auth_number, auth_type, service_code)"
       )
       .eq("school_id", schoolId)
       .eq("service_month", serviceMonth);
 
-    if (!groups?.length) {
+    if (!input.includeHidden) {
+      groupsQuery = groupsQuery.is("hidden_at", null);
+    }
+
+    const { data: groups } = await groupsQuery;
+
+    const visibleGroups = (groups ?? []).filter((g) => input.includeHidden || !g.hidden_at);
+
+    if (!visibleGroups.length) {
       rows.push({
         schoolId,
         schoolName,
@@ -93,11 +105,32 @@ export async function loadPreEtsSchoolPipeline(
         serviceCode: null,
         instructorName: null,
         classTime: null,
+        hidden: false,
+        mergedIntoProgramGroupId: null,
+        mergedIntoGroupName: null,
       });
       continue;
     }
 
-    for (const group of groups) {
+    const mergeTargetIds = [
+      ...new Set(
+        visibleGroups
+          .map((g) => g.merged_into_program_group_id as string | null)
+          .filter(Boolean) as string[]
+      ),
+    ];
+    const mergeTargetNames = new Map<string, string>();
+    if (mergeTargetIds.length > 0) {
+      const { data: targets } = await admin
+        .from("pre_ets_program_groups")
+        .select("id, group_name")
+        .in("id", mergeTargetIds);
+      for (const t of targets ?? []) {
+        mergeTargetNames.set(t.id as string, t.group_name as string);
+      }
+    }
+
+    for (const group of visibleGroups) {
       const authsRaw = group.pre_ets_authorizations as
         | { id: string; auth_number: string | null; auth_type: string; service_code: string }
         | { id: string; auth_number: string | null; auth_type: string; service_code: string }[]
@@ -108,15 +141,18 @@ export async function loadPreEtsSchoolPipeline(
         authList[0] ??
         null;
 
+      const authIds = authList.map((a) => a.id);
       let studentCount = 0;
-      if (auth?.id) {
+      if (authIds.length > 0) {
         const { count } = await admin
           .from("pre_ets_roster_entries")
           .select("id", { count: "exact", head: true })
-          .eq("authorization_id", auth.id)
+          .in("authorization_id", authIds)
           .eq("not_approved", false);
         studentCount = count ?? 0;
       }
+
+      const mergedIntoId = (group.merged_into_program_group_id as string | null) ?? null;
 
       rows.push({
         schoolId,
@@ -132,6 +168,9 @@ export async function loadPreEtsSchoolPipeline(
         serviceCode: (auth?.service_code as string) ?? (group.service_code as string) ?? null,
         instructorName: (group.instructor_name as string | null) ?? null,
         classTime: (group.class_time as string | null) ?? null,
+        hidden: Boolean(group.hidden_at),
+        mergedIntoProgramGroupId: mergedIntoId,
+        mergedIntoGroupName: mergedIntoId ? mergeTargetNames.get(mergedIntoId) ?? null : null,
       });
     }
   }

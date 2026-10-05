@@ -23,6 +23,9 @@ type PipelineRow = {
   serviceCode: string | null;
   instructorName: string | null;
   classTime: string | null;
+  hidden?: boolean;
+  mergedIntoProgramGroupId?: string | null;
+  mergedIntoGroupName?: string | null;
 };
 
 const STATUS_OPTIONS: { id: PipelineStatus | "all"; label: string }[] = [
@@ -67,6 +70,8 @@ export function PreEtsPipelinePanel() {
   const [loading, setLoading] = useState(true);
   const [canFinalize, setCanFinalize] = useState(false);
   const [canEditServiceCode, setCanEditServiceCode] = useState(false);
+  const [canManageGroups, setCanManageGroups] = useState(false);
+  const [includeHidden, setIncludeHidden] = useState(false);
   const [editTarget, setEditTarget] = useState<PipelineRow | null>(null);
   const [finalizeTarget, setFinalizeTarget] = useState<PipelineRow | null>(null);
 
@@ -83,11 +88,22 @@ export function PreEtsPipelinePanel() {
     void (async () => {
       const res = await fetch("/api/pre-ets/access");
       const data = (await res.json()) as {
-        access?: { canFinalizeAuthorizations?: boolean; canEditAuthorizationServiceCode?: boolean };
+        access?: {
+          canFinalizeAuthorizations?: boolean;
+          canEditAuthorizationServiceCode?: boolean;
+          canManageSetup?: boolean;
+          canSupervise?: boolean;
+          canAccounts?: boolean;
+        };
       };
       if (res.ok) {
         setCanFinalize(data.access?.canFinalizeAuthorizations ?? false);
         setCanEditServiceCode(data.access?.canEditAuthorizationServiceCode ?? false);
+        setCanManageGroups(
+          Boolean(
+            data.access?.canManageSetup || data.access?.canSupervise || data.access?.canAccounts
+          )
+        );
       }
     })();
   }, []);
@@ -101,6 +117,7 @@ export function PreEtsPipelinePanel() {
       status,
     });
     if (searchDebounced) params.set("search", searchDebounced);
+    if (includeHidden) params.set("includeHidden", "1");
 
     const res = await fetch(`/api/pre-ets/pipeline?${params.toString()}`);
     const data = (await res.json()) as {
@@ -115,7 +132,7 @@ export function PreEtsPipelinePanel() {
       setTotalPages(data.totalPages ?? 1);
     }
     setLoading(false);
-  }, [month, page, pageSize, status, searchDebounced]);
+  }, [month, page, pageSize, status, searchDebounced, includeHidden]);
 
   useEffect(() => {
     void load();
@@ -124,13 +141,83 @@ export function PreEtsPipelinePanel() {
   const rangeStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const rangeEnd = Math.min(page * pageSize, total);
 
+  async function onHideGroup(row: PipelineRow) {
+    if (!row.programGroupId || row.hidden) return;
+    const label =
+      row.groupName !== row.schoolName
+        ? `${row.schoolName} · ${row.groupName}`
+        : row.groupName;
+    if (
+      !window.confirm(
+        `Hide "${label}" from Schools & groups?\n\nRoster data is kept. A future worksheet with this group header can show it again.`
+      )
+    ) {
+      return;
+    }
+    setLoading(true);
+    const res = await fetch(`/api/pre-ets/program-groups/${row.programGroupId}/hide`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: "Hidden from pipeline" }),
+    });
+    const data = (await res.json()) as { error?: string };
+    setLoading(false);
+    if (!res.ok) {
+      window.alert(data.error ?? "Could not hide group");
+      return;
+    }
+    void load();
+  }
+
+  async function onRestoreGroup(row: PipelineRow) {
+    if (!row.programGroupId || !row.hidden) return;
+    setLoading(true);
+    const res = await fetch(`/api/pre-ets/program-groups/${row.programGroupId}/restore`, {
+      method: "POST",
+    });
+    const data = (await res.json()) as { error?: string };
+    setLoading(false);
+    if (!res.ok) {
+      window.alert(data.error ?? "Could not restore group");
+      return;
+    }
+    void load();
+  }
+
+  async function onRemoveEmptyShell(row: PipelineRow) {
+    if (!row.programGroupId || row.studentCount > 0) return;
+    const label =
+      row.groupName !== row.schoolName
+        ? `${row.schoolName} · ${row.groupName}`
+        : row.groupName;
+    if (
+      !window.confirm(
+        `Remove empty shell "${label}"?\n\nOnly groups with zero students and no entered authorization numbers can be removed. Groups with rosters are blocked.`
+      )
+    ) {
+      return;
+    }
+    setLoading(true);
+    const res = await fetch(`/api/pre-ets/program-groups/${row.programGroupId}/remove-empty`, {
+      method: "POST",
+    });
+    const data = (await res.json()) as { error?: string };
+    setLoading(false);
+    if (!res.ok) {
+      window.alert(data.error ?? "Could not remove empty group");
+      return;
+    }
+    void load();
+  }
+
   return (
     <section className="space-y-4">
       <div>
         <h2 className="text-lg font-semibold text-brand-black">Schools &amp; groups</h2>
         <p className="mt-1 text-sm text-brand-black/65">
           Track each school or group through Awaiting spreadsheet → Pending authorization → Roster
-          submitted. Search and filter to find a site quickly.
+          submitted. Use <strong className="font-medium">Remove empty shell</strong> for setup
+          leftovers with zero students (groups with rosters cannot be removed).
         </p>
       </div>
 
@@ -182,6 +269,16 @@ export function PreEtsPipelinePanel() {
             ))}
           </select>
         </label>
+        {canManageGroups ? (
+          <label className="flex items-center gap-2 pb-2 text-sm">
+            <input
+              type="checkbox"
+              checked={includeHidden}
+              onChange={(e) => setIncludeHidden(e.target.checked)}
+            />
+            Show hidden groups
+          </label>
+        ) : null}
       </div>
 
       <p className="text-sm text-brand-black/60">
@@ -214,13 +311,21 @@ export function PreEtsPipelinePanel() {
               </tr>
             ) : (
               rows.map((row) => (
-                <tr key={`${row.schoolId}-${row.programGroupId ?? "none"}-${row.groupName}`} className="border-t border-neutral-100">
+                <tr
+                  key={`${row.schoolId}-${row.programGroupId ?? "none"}-${row.groupName}`}
+                  className={`border-t border-neutral-100 ${row.hidden ? "bg-neutral-50/90" : ""}`}
+                >
                   <td className="px-3 py-2">
                     <span
                       className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(row.status)}`}
                     >
-                      {statusLabel(row.status)}
+                      {row.hidden ? "Hidden" : statusLabel(row.status)}
                     </span>
+                    {row.hidden && row.mergedIntoGroupName ? (
+                      <p className="mt-1 text-xs text-brand-black/55">
+                        Combined into {row.mergedIntoGroupName}
+                      </p>
+                    ) : null}
                   </td>
                   <td className="px-3 py-2">
                     <p className="font-medium text-brand-black">{row.groupName}</p>
@@ -270,6 +375,35 @@ export function PreEtsPipelinePanel() {
                         >
                           Print PDF
                         </a>
+                      ) : null}
+                      {canManageGroups && row.programGroupId && !row.hidden ? (
+                        <>
+                          {row.studentCount === 0 && row.status === "awaiting_spreadsheet" ? (
+                            <button
+                              type="button"
+                              className="text-brand-black/65 hover:underline"
+                              onClick={() => void onRemoveEmptyShell(row)}
+                            >
+                              Remove empty shell
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            className="text-brand-black/65 hover:underline"
+                            onClick={() => void onHideGroup(row)}
+                          >
+                            Hide group
+                          </button>
+                        </>
+                      ) : null}
+                      {canManageGroups && row.programGroupId && row.hidden ? (
+                        <button
+                          type="button"
+                          className="text-brand-green hover:underline"
+                          onClick={() => void onRestoreGroup(row)}
+                        >
+                          Restore
+                        </button>
                       ) : null}
                     </div>
                   </td>
