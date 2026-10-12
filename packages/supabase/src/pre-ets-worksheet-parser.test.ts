@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   applyWorksheetTabDistrictHints,
+  isWorksheetNotApprovedAuthCell,
   looksLikeWorksheetGroupHeaderLine,
   parseDistrictWorksheet,
   parseGroupHeader,
@@ -9,6 +10,24 @@ import {
 } from "./pre-ets-worksheet-parser";
 
 describe("pre-ets-worksheet-parser", () => {
+  it("treats N/A in A&I as not approved", () => {
+    assert.ok(isWorksheetNotApprovedAuthCell("N/A"));
+    assert.ok(isWorksheetNotApprovedAuthCell("n/a"));
+    const csv = [
+      "JOSHUA TREE OCTOBER PRE-ETS BILLING 2026-27",
+      "DISTRICT 5 SCHOOLS",
+      "OFFICE SCHOOLS",
+      "PROJECT UNITED - INST - SELF CONTAINED",
+      "#,STUDENT NAME,PID #,A&I,SERVICE,CODE,UNITS",
+      "1,Approved One,11111,12345,PRE,PRE-1,1",
+      "2,Not Approved,22222,N/A,PRE,PRE-1,1",
+    ].join("\n");
+    const parsed = parseDistrictWorksheet(csv);
+    const group = parsed.offices[0]?.groups[0];
+    assert.equal(group?.students.length, 1);
+    assert.equal(group?.students[0]?.participantId, "11111");
+  });
+
   it("flags missing required columns on header row", () => {
     const issues = validateWorksheetHeaderColumns(["Student Name", "Units"], 12);
     assert.ok(issues.some((i) => i.includes('missing required column "PID #')));

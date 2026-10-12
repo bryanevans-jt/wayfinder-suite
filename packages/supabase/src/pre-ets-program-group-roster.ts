@@ -136,45 +136,52 @@ export async function loadEligibleRosterStudentsForProgramGroup(
   const allowlist = await loadWorksheetParticipantAllowlistForProgramGroup(admin, programGroupId);
   if (allowlist && allowlist.size > 0) {
     students = students.filter((s) => allowlist.has(s.participantId));
-    if (students.length === 0) {
-      const { data: pg } = await admin
-        .from("pre_ets_program_groups")
-        .select("pre_ets_schools(pre_ets_districts(school_year))")
-        .eq("id", programGroupId)
-        .maybeSingle();
-      const schoolYear = extractSchoolYearFromProgramGroupRow(pg);
-      if (schoolYear) {
-        const pidList = [...allowlist];
-        const { data: rows } = await admin
-          .from("pre_ets_students")
-          .select("participant_id, full_name")
-          .eq("school_year", schoolYear)
-          .in("participant_id", pidList);
-        students = (rows ?? [])
-          .map((row, index) => ({
-            participantId: String(row.participant_id ?? "").trim(),
-            fullName: String(row.full_name ?? "").trim(),
-            listOrder: index,
-          }))
-          .filter((s) => s.participantId.length > 0);
-      }
-    }
   }
 
   return students;
 }
 
-function extractSchoolYearFromProgramGroupRow(pg: unknown): string | null {
-  if (!pg || typeof pg !== "object") return null;
-  const schools = (pg as { pre_ets_schools?: unknown }).pre_ets_schools;
-  const school = relationOne(
-    schools as
-      | { pre_ets_districts: { school_year: string } | null }
-      | { pre_ets_districts: { school_year: string } | null }[]
-      | null
+/** Roster students saved on one authorization (respects Edit roster / finalize). */
+export async function loadEligibleRosterStudentsForAuthorization(
+  admin: SupabaseClient,
+  authorizationId: string
+): Promise<ProgramGroupRosterStudent[]> {
+  const id = authorizationId.trim();
+  if (!id) return [];
+
+  const entries = await fetchAllPostgrestRows<{
+    list_order: number;
+    not_approved: boolean;
+    pre_ets_students: { participant_id: string | null; full_name: string | null } | null;
+  }>(admin, "pre_ets_roster_entries", "list_order, not_approved, pre_ets_students(participant_id, full_name)", {
+    applyFilters: (q) => q.eq("authorization_id", id),
+    order: { column: "list_order", ascending: true },
+  });
+
+  const students: ProgramGroupRosterStudent[] = [];
+  for (const row of entries) {
+    if (row.not_approved) continue;
+    const st = relationOne(row.pre_ets_students);
+    const pid = st?.participant_id?.trim() ?? "";
+    if (!pid) continue;
+    students.push({
+      participantId: pid,
+      fullName: st?.full_name?.trim() ?? "",
+      listOrder: row.list_order ?? 0,
+    });
+  }
+
+  return students.sort(
+    (a, b) => a.listOrder - b.listOrder || a.fullName.localeCompare(b.fullName)
   );
-  const district = relationOne(school?.pre_ets_districts ?? null);
-  return district?.school_year?.trim() ?? null;
+}
+
+export async function countEligibleRosterStudentsForAuthorization(
+  admin: SupabaseClient,
+  authorizationId: string
+): Promise<number> {
+  const students = await loadEligibleRosterStudentsForAuthorization(admin, authorizationId);
+  return students.length;
 }
 
 export async function countEligibleRosterStudentsForProgramGroup(

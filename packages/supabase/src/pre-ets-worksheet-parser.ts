@@ -590,6 +590,16 @@ function columnIndexExact(headers: string[], ...candidates: string[]): number {
   return -1;
 }
 
+/** A&I values that mean the student is not approved for billing (no GVRA auth). */
+export function isWorksheetNotApprovedAuthCell(value: string): boolean {
+  const v = value.replace(/\u00a0/g, " ").trim();
+  if (!v) return false;
+  const upper = v.toUpperCase();
+  if (upper === "N/A" || upper === "NA" || upper === "N A") return true;
+  if (/^N\s*\/\s*A$/i.test(v)) return true;
+  return false;
+}
+
 function columnIndex(headers: string[], ...candidates: string[]): number {
   const lower = headers.map((h) => h.toLowerCase().trim());
   for (const c of candidates) {
@@ -709,10 +719,12 @@ function parseStudentRow(
   };
 
   const participantId = get(idx.pid);
-  const authNumber = get(idx.auth);
+  const authCellRaw = get(idx.auth);
+  const authNumber = isWorksheetNotApprovedAuthCell(authCellRaw) ? "" : authCellRaw;
   const pidUpper = participantId.toUpperCase();
-  const authUpper = authNumber.toUpperCase();
+  const authUpper = authCellRaw.toUpperCase();
   const notApproved =
+    isWorksheetNotApprovedAuthCell(authCellRaw) ||
     pidUpper.includes(notApprovedMarker) ||
     authUpper.includes(notApprovedMarker) ||
     (pidUpper.includes("NOT") && authUpper.includes("APPROVED"));
