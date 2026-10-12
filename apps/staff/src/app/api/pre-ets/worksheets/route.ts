@@ -18,7 +18,11 @@ import {
   commitWorksheetImport,
   type SkippedEmptyWorksheetGroup,
 } from "@wayfinder/supabase/pre-ets-worksheet-import";
-import { parseDistrictWorksheet, type ParsedDistrictWorksheet } from "@wayfinder/supabase/pre-ets-worksheet-parser";
+import {
+  applyWorksheetTabDistrictHints,
+  parseDistrictWorksheet,
+  type ParsedDistrictWorksheet,
+} from "@wayfinder/supabase/pre-ets-worksheet-parser";
 import { worksheetFileToDistrictCsvTexts } from "@wayfinder/supabase/pre-ets-worksheet-workbook";
 import { archiveWorksheetImportToDrive } from "@/lib/pre-ets-worksheet-archive";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
@@ -91,16 +95,28 @@ export async function POST(request: Request) {
     const phase = usesPlanning ? "planning" : "auth_match";
     const results: DistrictUploadResult[] = [];
 
+    for (const skipped of workbook.skipped) {
+      results.push({
+        ok: false,
+        sheetName: skipped.sheetName,
+        fileLabel: `${file.name} · ${skipped.sheetName}`,
+        error: skipped.reason,
+      });
+    }
+
     for (const sheet of workbook.sheets) {
       const fileLabel =
         workbook.sheets.length > 1
           ? `${file.name} · ${sheet.sheetName}`
           : file.name;
 
-      const parsed = parseDistrictWorksheet(sheet.csvText, {
-        notApprovedMarker: settings.not_approved_marker,
-        groupAuthDigitCount: settings.group_auth_digit_count,
-      });
+      const parsed = applyWorksheetTabDistrictHints(
+        parseDistrictWorksheet(sheet.csvText, {
+          notApprovedMarker: settings.not_approved_marker,
+          groupAuthDigitCount: settings.group_auth_digit_count,
+        }),
+        sheet.sheetName
+      );
 
       if (!parsed.districtNumber || !parsed.serviceMonth || !parsed.schoolYear) {
         results.push({
@@ -119,7 +135,8 @@ export async function POST(request: Request) {
           auth.userId,
           auth.role,
           parsed.districtNumber,
-          parsed.schoolYear
+          parsed.schoolYear,
+          settings
         );
         if (!allowed.ok) {
           results.push({

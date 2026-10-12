@@ -286,8 +286,47 @@ function parseTitleLine(line: string): {
 }
 
 function parseDistrictLine(line: string): string | null {
-  const match = primaryCsvLabel(line).match(/district\s+(\d+)\s+schools/i);
-  return match?.[1] ?? null;
+  const label = primaryCsvLabel(line);
+  const withSchools = label.match(/district\s+(\d+)\s+schools/i);
+  if (withSchools?.[1]) return withSchools[1];
+  const bare = label.match(/^district\s+(\d+)\s*$/i);
+  if (bare?.[1]) return bare[1];
+  return null;
+}
+
+/** Tab names like D4 or District 4 — used when row 2 says District N but omits "Schools". */
+export function districtNumberFromWorksheetTabName(sheetName: string): string | null {
+  const trimmed = sheetName.trim();
+  const short = trimmed.match(/^D(\d{1,2})$/i);
+  if (short?.[1]) return short[1];
+  const long = trimmed.match(/^district\s+(\d{1,2})$/i);
+  if (long?.[1]) return long[1];
+  return null;
+}
+
+/** Align district number with Excel tab names (D4) and flag tab vs row-2 mismatches. */
+export function applyWorksheetTabDistrictHints(
+  parsed: ParsedDistrictWorksheet,
+  sheetName: string
+): ParsedDistrictWorksheet {
+  const tabDistrict = districtNumberFromWorksheetTabName(sheetName);
+  let districtNumber = parsed.districtNumber;
+  let issues = [...parsed.issues];
+
+  if (!districtNumber && tabDistrict && parsed.districtLine && /district/i.test(parsed.districtLine)) {
+    districtNumber = tabDistrict;
+    issues = issues.filter((i) => !i.includes("could not parse GVRA district number"));
+  }
+
+  if (tabDistrict && districtNumber && tabDistrict !== districtNumber) {
+    issues.push(
+      `Tab "${sheetName}" suggests district ${tabDistrict} but row 2 is district ${districtNumber} — update the DISTRICT line on this tab.`
+    );
+  }
+
+  return districtNumber === parsed.districtNumber && issues.length === parsed.issues.length
+    ? parsed
+    : { ...parsed, districtNumber, issues };
 }
 
 const GROUP_DESIGNATION_HINT =

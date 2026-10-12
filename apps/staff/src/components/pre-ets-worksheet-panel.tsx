@@ -193,6 +193,20 @@ export function PreEtsWorksheetPanel() {
     setBusy(false);
     if (!res.ok) {
       setMessage(data.error ?? "Upload failed");
+      if (data.districts?.length) {
+        setParseIssues(
+          data.districts
+            .filter((d) => !d.ok)
+            .flatMap((d) => {
+              const lines: string[] = [];
+              if (d.error) lines.push(`${d.sheetName ?? "Sheet"}: ${d.error}`);
+              for (const issue of d.parsed?.issues ?? []) {
+                lines.push(`${d.sheetName ?? "Sheet"}: ${issue}`);
+              }
+              return lines;
+            })
+        );
+      }
       return;
     }
 
@@ -215,9 +229,16 @@ export function PreEtsWorksheetPanel() {
         )
       );
       setParseIssues(
-        badRows.flatMap((d) =>
-          (d.parsed?.issues ?? []).map((issue) => `${d.sheetName ?? "Sheet"}: ${issue}`)
-        )
+        badRows.flatMap((d) => {
+          const lines: string[] = [];
+          if (d.error) {
+            lines.push(`${d.sheetName ?? "Sheet"}: ${d.error}`);
+          }
+          for (const issue of d.parsed?.issues ?? []) {
+            lines.push(`${d.sheetName ?? "Sheet"}: ${issue}`);
+          }
+          return lines;
+        })
       );
       setMessage(
         `Imported ${okRows.length} district tab(s) from workbook.${
@@ -686,7 +707,7 @@ export function PreEtsWorksheetPanel() {
 
       <div className="flex flex-wrap items-end gap-4">
         <label className="cursor-pointer rounded-lg bg-brand-gold px-4 py-2 text-sm font-semibold text-white">
-          {busy ? "Uploading…" : "Upload CSV"}
+          {busy ? "Uploading…" : "Upload CSV / Excel"}
           <input
             type="file"
             accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"

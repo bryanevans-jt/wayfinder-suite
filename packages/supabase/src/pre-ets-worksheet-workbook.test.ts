@@ -36,12 +36,33 @@ test("readWorkbookDistrictSheets parses each tab as district CSV", () => {
   XLSX.utils.book_append_sheet(wb, sheetB, "D8");
   const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
 
-  const sheets = readWorkbookDistrictSheets(buffer);
+  const { sheets, skipped } = readWorkbookDistrictSheets(buffer);
   assert.equal(sheets.length, 2);
+  assert.equal(skipped.length, 0);
 
   const d5 = parseDistrictWorksheet(sheets[0]?.csvText ?? "");
   const d8 = parseDistrictWorksheet(sheets[1]?.csvText ?? "");
   assert.equal(d5.districtNumber, "5");
   assert.equal(d8.districtNumber, "8");
   assert.equal(d8.offices[0]?.groups[0]?.schoolName, "TATTNALL COUNTY HIGH SCHOOL");
+});
+
+test("readWorkbookDistrictSheets reports empty tabs instead of ignoring them", () => {
+  const sheetA = XLSX.utils.aoa_to_sheet([
+    ["JOSHUA TREE OCTOBER PRE-ETS BILLING 2026-27"],
+    ["DISTRICT 4 SCHOOLS"],
+    ["OFFICE SCHOOLS"],
+    ["EXAMPLE HIGH - MONTHLY - INST"],
+    ["#", "STUDENT NAME", "PID #", "A&I", "SERVICE", "CODE", "UNITS"],
+    ["1", "Alice", "11111", "", "PRE", "PRE-1", "1"],
+  ]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, sheetA, "D4");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([]), "D5-empty");
+  const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
+
+  const { sheets, skipped } = readWorkbookDistrictSheets(buffer);
+  assert.equal(sheets.length, 1);
+  assert.equal(skipped.length, 1);
+  assert.equal(skipped[0]?.sheetName, "D5-empty");
 });

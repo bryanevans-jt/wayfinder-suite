@@ -128,9 +128,10 @@ export async function assertPlanningWorksheetDistrictAllowed(
   userId: string,
   role: string | null | undefined,
   districtNumber: string,
-  schoolYear: string
+  schoolYear: string,
+  settings?: Pick<PreEtsSettingsRow, "worksheet_testing_override_enabled">
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  if (worksheetUploadBypassesDistrictScope(role)) {
+  if (worksheetUploadBypassesDistrictScope(role, settings)) {
     return { ok: true };
   }
 

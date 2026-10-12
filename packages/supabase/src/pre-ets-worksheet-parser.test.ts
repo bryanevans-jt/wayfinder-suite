@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  applyWorksheetTabDistrictHints,
   looksLikeWorksheetGroupHeaderLine,
   parseDistrictWorksheet,
   parseGroupHeader,
@@ -33,6 +34,37 @@ describe("pre-ets-worksheet-parser", () => {
     assert.equal(parsed.offices[0]?.groups[0]?.schoolName, "SHAW HIGH SCHOOL");
     assert.equal(parsed.offices[0]?.groups[0]?.instructorName, "IVETTE CORDERO");
     assert.equal(parsed.offices[0]?.groups[0]?.groupName, "INCLUSION");
+  });
+
+  it("parses district line without the word Schools", () => {
+    const csv = [
+      "JOSHUA TREE OCTOBER PRE-ETS BILLING 2026-27",
+      "DISTRICT 4",
+      "OFFICE SCHOOLS",
+      "EXAMPLE HIGH - MONTHLY - INST",
+      "#,STUDENT NAME,PID #,A&I,SERVICE,CODE,UNITS",
+      "1,Test Student,12345,,PRE,PRE-1,1",
+    ].join("\n");
+
+    const parsed = parseDistrictWorksheet(csv);
+    assert.equal(parsed.districtNumber, "4");
+  });
+
+  it("warns when tab name and district row disagree", () => {
+    const csv = [
+      "JOSHUA TREE OCTOBER PRE-ETS BILLING 2026-27",
+      "DISTRICT 3 SCHOOLS",
+      "OFFICE SCHOOLS",
+      "EXAMPLE HIGH - MONTHLY - INST",
+      "#,STUDENT NAME,PID #,A&I,SERVICE,CODE,UNITS",
+      "1,Test Student,12345,,PRE,PRE-1,1",
+    ].join("\n");
+
+    const hinted = applyWorksheetTabDistrictHints(parseDistrictWorksheet(csv), "D4");
+    assert.equal(hinted.districtNumber, "3");
+    assert.ok(
+      hinted.issues.some((i) => i.includes("Tab \"D4\" suggests district 4 but row 2 is district 3"))
+    );
   });
 
   it("keeps instructor and program type in the correct fields", () => {
