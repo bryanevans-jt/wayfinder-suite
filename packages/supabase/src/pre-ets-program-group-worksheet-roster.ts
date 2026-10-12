@@ -4,6 +4,8 @@ import {
   worksheetHeaderKeysMatch,
   type ParsedWorksheetGroup,
 } from "./pre-ets-worksheet-parser";
+import { normalizeProgramGroupNameKey } from "./pre-ets-worksheet-group-mapping";
+import { canonicalizeWorksheetSchoolName } from "./pre-ets-worksheet-known-schools";
 import { loadPreEtsSettings } from "./pre-ets-settings";
 
 /** Participant IDs listed under this header line on the last committed worksheet import. */
@@ -13,7 +15,9 @@ export async function loadWorksheetParticipantAllowlistForProgramGroup(
 ): Promise<Set<string> | null> {
   const { data: pg } = await admin
     .from("pre_ets_program_groups")
-    .select("header_raw, worksheet_header_key, worksheet_import_id")
+    .select(
+      "header_raw, worksheet_header_key, worksheet_import_id, group_name, pre_ets_schools(name)"
+    )
     .eq("id", programGroupId)
     .maybeSingle();
 
@@ -38,19 +42,66 @@ export async function loadWorksheetParticipantAllowlistForProgramGroup(
     groupAuthDigitCount: settings.group_auth_digit_count,
   });
 
-  const matched = findParsedWorksheetGroupForProgramGroup(parsed.offices.flatMap((o) => o.groups), {
+  const allGroups = parsed.offices.flatMap((o) => o.groups);
+  const schoolRel = pg.pre_ets_schools as { name: string } | { name: string }[] | null;
+  const schoolName = Array.isArray(schoolRel) ? schoolRel[0]?.name : schoolRel?.name;
+  const matched = collectParsedWorksheetGroupsForProgramGroup(allGroups, {
     headerRaw,
     headerKey,
+    groupName: String(pg.group_name ?? ""),
+    schoolName: schoolName ?? "",
   });
-  if (!matched) return null;
+  if (matched.length === 0) return null;
 
   const pids = new Set<string>();
-  for (const student of matched.students) {
-    if (student.notApproved) continue;
-    const pid = student.participantId.trim();
-    if (pid) pids.add(pid);
+  for (const group of matched) {
+    for (const student of group.students) {
+      if (student.notApproved) continue;
+      const pid = student.participantId.trim();
+      if (pid) pids.add(pid);
+    }
   }
   return pids;
+}
+
+/** Match header line first; also include spreadsheet sections with the same school + group name. */
+export function collectParsedWorksheetGroupsForProgramGroup(
+  groups: ParsedWorksheetGroup[],
+  target: { headerRaw: string; headerKey: string; groupName: string; schoolName: string }
+): ParsedWorksheetGroup[] {
+  const out: ParsedWorksheetGroup[] = [];
+  const seenHeaders = new Set<string>();
+
+  const headerMatch = findParsedWorksheetGroupForProgramGroup(groups, {
+    headerRaw: target.headerRaw,
+    headerKey: target.headerKey,
+  });
+  if (headerMatch) {
+    out.push(headerMatch);
+    seenHeaders.add(headerMatch.headerRaw.trim().toLowerCase());
+  }
+
+  const schoolKey = normalizeProgramGroupNameKey(
+    canonicalizeWorksheetSchoolName(target.schoolName)
+  );
+  const groupKey = normalizeProgramGroupNameKey(target.groupName);
+  if (!groupKey) return out;
+
+  for (const group of groups) {
+    const headerId = group.headerRaw.trim().toLowerCase();
+    if (seenHeaders.has(headerId)) continue;
+
+    const gSchool = normalizeProgramGroupNameKey(
+      canonicalizeWorksheetSchoolName(group.schoolName)
+    );
+    const gGroup = normalizeProgramGroupNameKey(group.groupName);
+    if (gSchool === schoolKey && gGroup === groupKey) {
+      out.push(group);
+      seenHeaders.add(headerId);
+    }
+  }
+
+  return out;
 }
 
 export function findParsedWorksheetGroupForProgramGroup(

@@ -5,6 +5,7 @@ import {
   worksheetHeaderKeysMatch,
 } from "./pre-ets-worksheet-parser";
 import {
+  pickCanonicalProgramGroupForName,
   resolveWorksheetGroupMapping,
   worksheetGroupMappingMatchesParsedSchool,
 } from "./pre-ets-worksheet-group-mapping";
@@ -45,6 +46,19 @@ describe("resolveWorksheetGroupMapping", () => {
     const fromExcel =
       "WHEELER COUNTY HIGH SCHOOL – MONTHLY – TIFFANY POWELL,,,";
     assert.equal(resolveWorksheetGroupMapping(map, fromExcel)?.canonical_school_name, row.canonical_school_name);
+  });
+});
+
+describe("pickCanonicalProgramGroupForName", () => {
+  it("returns the oldest row when duplicate group names exist", () => {
+    const picked = pickCanonicalProgramGroupForName(
+      [
+        { id: "newer", group_name: "SELF CONTAINED", created_at: "2026-02-02T00:00:00Z" },
+        { id: "older", group_name: "Self Contained", created_at: "2026-02-01T00:00:00Z" },
+      ],
+      "SELF CONTAINED"
+    );
+    assert.equal(picked?.id, "older");
   });
 });
 

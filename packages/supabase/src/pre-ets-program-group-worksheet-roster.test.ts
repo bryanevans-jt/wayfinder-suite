@@ -1,73 +1,101 @@
 import assert from "node:assert/strict";
-import test from "node:test";
-import { findParsedWorksheetGroupForProgramGroup } from "./pre-ets-program-group-worksheet-roster";
+import { describe, it } from "node:test";
 import type { ParsedWorksheetGroup } from "./pre-ets-worksheet-parser";
+import { collectParsedWorksheetGroupsForProgramGroup } from "./pre-ets-program-group-worksheet-roster";
 
-test("findParsedWorksheetGroupForProgramGroup matches Day at the Fair header without billing brackets", () => {
-  const groups: ParsedWorksheetGroup[] = [
-    {
-      headerRaw: "APPLING COUNTY HIGH SCHOOL - FFA",
-      schoolName: "APPLING COUNTY HIGH SCHOOL",
-      groupName: "FFA",
-      groupDesignation: "FFA",
-      frequency: null,
-      instructorName: null,
-      classTime: null,
-      serviceCode: null,
-      serviceLabel: null,
-      students: [
-        {
-          listOrder: 1,
-          studentName: "A",
-          participantId: "10001",
-          authNumber: "",
-          service: "",
-          serviceCode: "",
-          units: 1,
-          classTime: "",
-          invoiceNumber: "",
-          billed: "",
-          notApproved: false,
-          authType: "pending",
-          issues: [],
-        },
-      ],
-    },
-    {
-      headerRaw: "APPLING COUNTY HIGH SCHOOL - DAY AT THE FAIR - FFA",
-      schoolName: "APPLING COUNTY HIGH SCHOOL",
-      groupName: "DAY AT THE FAIR - FFA",
-      groupDesignation: "DAY AT THE FAIR - FFA",
-      frequency: null,
-      instructorName: null,
-      classTime: null,
-      serviceCode: null,
-      serviceLabel: null,
-      students: [
-        {
-          listOrder: 1,
-          studentName: "B",
-          participantId: "20001",
-          authNumber: "",
-          service: "",
-          serviceCode: "",
-          units: 1,
-          classTime: "",
-          invoiceNumber: "",
-          billed: "",
-          notApproved: false,
-          authType: "pending",
-          issues: [],
-        },
-      ],
-    },
-  ];
+describe("collectParsedWorksheetGroupsForProgramGroup", () => {
+  it("unions students from duplicate instructor headers with the same group name", () => {
+    const groups: ParsedWorksheetGroup[] = [
+      {
+        headerRaw: "PROJECT UNITED - INST A - SELF CONTAINED",
+        schoolName: "Project United",
+        groupName: "SELF CONTAINED",
+        groupDesignation: "SELF CONTAINED",
+        frequency: null,
+        instructorName: "INST A",
+        classTime: null,
+        serviceCode: null,
+        serviceLabel: null,
+        students: [
+          {
+            rowNumber: 1,
+            listOrder: 1,
+            studentName: "One",
+            participantId: "111",
+            authNumber: "",
+            service: "",
+            serviceCode: "",
+            units: 1,
+            classTime: "",
+            invoiceNumber: "",
+            billed: "",
+            notApproved: false,
+            authType: "pending",
+            issues: [],
+          },
+          {
+            rowNumber: 2,
+            listOrder: 2,
+            studentName: "Two",
+            participantId: "222",
+            authNumber: "",
+            service: "",
+            serviceCode: "",
+            units: 1,
+            classTime: "",
+            invoiceNumber: "",
+            billed: "",
+            notApproved: true,
+            authType: "skipped",
+            issues: [],
+          },
+        ],
+      },
+      {
+        headerRaw: "PROJECT UNITED - INST B - SELF CONTAINED",
+        schoolName: "Project United",
+        groupName: "SELF CONTAINED",
+        groupDesignation: "SELF CONTAINED",
+        frequency: null,
+        instructorName: "INST B",
+        classTime: null,
+        serviceCode: null,
+        serviceLabel: null,
+        students: [
+          {
+            rowNumber: 3,
+            listOrder: 1,
+            studentName: "Three",
+            participantId: "333",
+            authNumber: "12345",
+            service: "",
+            serviceCode: "",
+            units: 1,
+            classTime: "",
+            invoiceNumber: "",
+            billed: "",
+            notApproved: false,
+            authType: "group",
+            issues: [],
+          },
+        ],
+      },
+    ];
 
-  const fair = findParsedWorksheetGroupForProgramGroup(groups, {
-    headerRaw: "APPLING COUNTY HIGH SCHOOL - DAY AT THE FAIR - FFA [10, 8740]",
-    headerKey: "appling county high school - day at the fair - ffa",
+    const matched = collectParsedWorksheetGroupsForProgramGroup(groups, {
+      headerRaw: "PROJECT UNITED - INST B - SELF CONTAINED",
+      headerKey: "project united inst b self contained",
+      groupName: "SELF CONTAINED",
+      schoolName: "Project United",
+    });
+
+    assert.equal(matched.length, 2);
+    const pids = new Set<string>();
+    for (const g of matched) {
+      for (const s of g.students) {
+        if (!s.notApproved && s.participantId.trim()) pids.add(s.participantId);
+      }
+    }
+    assert.deepEqual([...pids].sort(), ["111", "333"]);
   });
-  assert.ok(fair);
-  assert.equal(fair?.students.length, 1);
-  assert.equal(fair?.students[0]?.participantId, "20001");
 });
