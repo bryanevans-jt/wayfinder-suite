@@ -29,6 +29,31 @@ function normalizeSchoolName(name: string): string {
   return name.trim().replace(/\s+/g, " ");
 }
 
+/** Case-insensitive key for matching program groups within a school + month. */
+export function normalizeProgramGroupNameKey(name: string): string {
+  return normalizeSchoolName(name).toLowerCase();
+}
+
+export type ProgramGroupRowForMatch = {
+  id: string;
+  group_name: string;
+  created_at: string;
+};
+
+/** When several DB rows share a group name (e.g. instructor changed), use the oldest row as canonical. */
+export function pickCanonicalProgramGroupForName<T extends ProgramGroupRowForMatch>(
+  rows: T[],
+  groupName: string
+): T | null {
+  const key = normalizeProgramGroupNameKey(groupName);
+  if (!key) return null;
+  const matches = rows.filter(
+    (row) => normalizeProgramGroupNameKey(String(row.group_name ?? "")) === key
+  );
+  if (matches.length === 0) return null;
+  return [...matches].sort((a, b) => a.created_at.localeCompare(b.created_at))[0] ?? null;
+}
+
 export async function loadWorksheetGroupMappings(
   admin: SupabaseClient,
   input: { schoolYear: string; districtId: string }
@@ -149,7 +174,14 @@ export async function findProgramGroupForWorksheetImport(
     }
   }
 
-  return null;
+  const { data: byNameRows } = await admin
+    .from("pre_ets_program_groups")
+    .select("id, group_name, created_at")
+    .eq("school_id", input.schoolId)
+    .eq("service_month", input.serviceMonth);
+
+  const canonical = pickCanonicalProgramGroupForName(byNameRows ?? [], input.group.groupName);
+  return canonical?.id ?? null;
 }
 
 /** Reject a program group id when its saved header is a different spreadsheet line. */

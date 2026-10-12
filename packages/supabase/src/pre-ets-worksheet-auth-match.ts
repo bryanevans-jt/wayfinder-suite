@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PreEtsSettingsRow } from "./pre-ets-settings";
 import { resolvePreEtsWorksheetServiceFields } from "./pre-ets-settings";
 import type { ParsedWorksheetGroup, ParsedWorksheetStudent } from "./pre-ets-worksheet-parser";
+import { pickCanonicalProgramGroupForName } from "./pre-ets-worksheet-group-mapping";
 import { normalizeWorksheetHeaderKeyLoose } from "./pre-ets-worksheet-parser";
 
 export type AuthMatchStats = {
@@ -36,11 +37,11 @@ export async function findProgramGroupId(
 ): Promise<string | null> {
   const { data: rows } = await admin
     .from("pre_ets_program_groups")
-    .select("id, instructor_name")
+    .select("id, instructor_name, group_name, created_at")
     .eq("school_id", schoolId)
     .eq("service_month", serviceMonth)
     .eq("group_name", groupName)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: true });
 
   const matches = rows ?? [];
   if (matches.length === 0) return null;
@@ -57,7 +58,7 @@ export async function findProgramGroupId(
     if (byInstructor?.id) return byInstructor.id as string;
   }
 
-  return null;
+  return pickCanonicalProgramGroupForName(matches, groupName)?.id ?? null;
 }
 
 export async function findPendingGroupAuthorizationId(
@@ -85,7 +86,21 @@ export async function findPendingGroupAuthorizationId(
 
   const { data } = await query.maybeSingle();
 
-  return (data?.id as string) ?? null;
+  if (data?.id) return data.id as string;
+
+  const { data: anyPending } = await admin
+    .from("pre_ets_authorizations")
+    .select("id")
+    .eq("school_id", schoolId)
+    .eq("service_month", serviceMonth)
+    .eq("program_group_id", programGroupId)
+    .is("auth_number", null)
+    .eq("auth_type", "pending")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return (anyPending?.id as string) ?? null;
 }
 
 export async function findPendingIndividualAuthorizationId(
@@ -114,43 +129,37 @@ export async function findPendingIndividualAuthorizationId(
     )
     .eq("student_id", student.id as string);
 
+  type PendingAuth = {
+    id: string;
+    auth_number: string | null;
+    auth_type: string;
+    school_id: string;
+    service_month: string;
+    program_group_id: string | null;
+    worksheet_header_key: string | null;
+  };
+
+  const pendingMatches: PendingAuth[] = [];
   for (const row of rosterRows ?? []) {
-    const auth = relationOne(
-      row.pre_ets_authorizations as
-        | {
-            id: string;
-            auth_number: string | null;
-            auth_type: string;
-            school_id: string;
-            service_month: string;
-            program_group_id: string | null;
-            worksheet_header_key: string | null;
-          }
-        | {
-            id: string;
-            auth_number: string | null;
-            auth_type: string;
-            school_id: string;
-            service_month: string;
-            program_group_id: string | null;
-            worksheet_header_key: string | null;
-          }[]
-        | null
-    );
+    const auth = relationOne(row.pre_ets_authorizations as PendingAuth | PendingAuth[] | null);
     if (
       auth &&
       auth.school_id === schoolId &&
       auth.service_month === serviceMonth &&
       auth.program_group_id === programGroupId &&
-      (!headerKey || auth.worksheet_header_key === headerKey) &&
       !auth.auth_number &&
       (auth.auth_type === "pending" || auth.auth_type === "individual")
     ) {
-      return auth.id;
+      pendingMatches.push(auth);
     }
   }
 
-  return null;
+  if (headerKey) {
+    const exact = pendingMatches.find((auth) => auth.worksheet_header_key === headerKey);
+    if (exact) return exact.id;
+  }
+
+  return pendingMatches[0]?.id ?? null;
 }
 
 export async function countPendingAuthorizationsForDistrictMonth(

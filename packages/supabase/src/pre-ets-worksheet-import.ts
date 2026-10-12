@@ -26,7 +26,6 @@ import {
   findProgramGroupForWorksheetImport,
   loadWorksheetGroupMappings,
   normalizeWorksheetHeaderKey,
-  programGroupMatchesWorksheetHeader,
   resolveWorksheetGroupMapping,
   worksheetGroupMappingMatchesParsedSchool,
 } from "./pre-ets-worksheet-group-mapping";
@@ -93,31 +92,11 @@ async function upsertProgramGroup(
     input.settings
   );
   const headerKey = normalizeWorksheetHeaderKey(input.group.headerRaw);
-  let existingId = await findProgramGroupForWorksheetImport(admin, {
+  const existingId = await findProgramGroupForWorksheetImport(admin, {
     schoolId: input.schoolId,
     serviceMonth: input.serviceMonth,
     group: input.group,
   });
-
-  if (existingId) {
-    const { data: existingRow } = await admin
-      .from("pre_ets_program_groups")
-      .select("worksheet_header_key, header_raw")
-      .eq("id", existingId)
-      .maybeSingle();
-    if (
-      existingRow &&
-      !programGroupMatchesWorksheetHeader(
-        {
-          worksheet_header_key: (existingRow.worksheet_header_key as string | null) ?? null,
-          header_raw: (existingRow.header_raw as string | null) ?? null,
-        },
-        input.group.headerRaw
-      )
-    ) {
-      existingId = null;
-    }
-  }
 
   if (existingId) {
     await admin
