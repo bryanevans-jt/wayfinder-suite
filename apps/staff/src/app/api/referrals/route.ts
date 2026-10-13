@@ -24,6 +24,7 @@ import {
   type ReferralState,
 } from "@wayfinder/supabase/referral-intake";
 import { assignReferralFieldSpecialist } from "@wayfinder/supabase/referral-field-specialists";
+import { provisionCounselorLoginAfterReferral } from "@/lib/portal-staff-users";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -404,6 +405,11 @@ export async function POST(request: Request) {
 
   if ("error" in created) {
     return NextResponse.json({ error: created.error }, { status: created.status ?? 400 });
+  }
+
+  const counselorEmail = (payload.counselorEmail ?? "").trim().toLowerCase();
+  if (counselorEmail) {
+    await provisionCounselorLoginAfterReferral(admin, counselorEmail);
   }
 
   return NextResponse.json({

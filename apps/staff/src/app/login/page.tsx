@@ -100,7 +100,10 @@ export default async function StaffLoginPage({
           ) : null}
           {reason === "link_expired" ? (
             <p className="text-xs text-brand-black/70">
-              Magic links expire quickly — request a fresh one and use it within a few minutes.
+              Magic links expire quickly — request a fresh one and use it within a few minutes. On
+              the next email, open the link and tap <strong>Continue</strong> on the confirmation
+              screen (do not rely on a preview pane alone). Agency inboxes sometimes open links
+              automatically before you do.
             </p>
           ) : null}
           {reason &&

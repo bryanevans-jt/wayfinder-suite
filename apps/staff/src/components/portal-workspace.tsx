@@ -494,10 +494,10 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               <div>
                 <h2 className="text-lg font-semibold text-brand-black">Enable counselor logins</h2>
                 <p className="mt-1 text-sm text-brand-black/70">
-                  Referral emails become counselor login emails once a counselor is on an{" "}
-                  <strong>active</strong> office (not hidden). First magic-link sign-in on Wayfinder
-                  Pro can create access automatically—use bulk enable below to pre-provision an
-                  office roster without waiting for each counselor to sign in.
+                  Referral intake now links login access silently (no welcome email) when a counselor
+                  has a referral email and an <strong>active</strong> office (including from
+                  caseload). Magic-link sign-in also provisions access. Use bulk enable below only
+                  for directory rows that still show <strong>No login</strong>.
                 </p>
               </div>
               <div className="flex flex-wrap items-end gap-3">

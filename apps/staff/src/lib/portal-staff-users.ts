@@ -56,9 +56,18 @@ export async function ensureAuthUserConfirmedForLogin(
   }
 }
 
-export function staffInviteRedirectUrl(): string {
+function staffAppOrigin(): string {
   const raw = process.env.NEXT_PUBLIC_STAFF_APP_URL ?? "http://localhost:3000";
-  return `${raw.replace(/\/$/, "")}/auth/callback`;
+  return raw.replace(/\/$/, "");
+}
+
+export function staffInviteRedirectUrl(): string {
+  return `${staffAppOrigin()}/auth/callback`;
+}
+
+/** Landing page for magic-link emails (avoids mail-scanner OTP prefetch). */
+export function staffMagicLinkConfirmUrl(): string {
+  return `${staffAppOrigin()}/auth/confirm`;
 }
 
 export async function inviteStaffAuthUser(
@@ -137,7 +146,7 @@ export async function sendStaffLoginEmail(admin: AdminClient, email: string): Pr
     body: JSON.stringify({
       email: normalized,
       options: {
-        emailRedirectTo: staffInviteRedirectUrl(),
+        emailRedirectTo: staffMagicLinkConfirmUrl(),
         shouldCreateUser: false,
       },
     }),
@@ -477,6 +486,18 @@ export async function provisionCounselorLoginForMagicLink(
   email: string
 ): Promise<{ userId: string | null; notRegisteredMessage?: string }> {
   return syncCounselorPortalLoginForEmail(admin, email, { sendInvite: false });
+}
+
+/** Silent auth + profile link after referral intake (no invite email). */
+export async function provisionCounselorLoginAfterReferral(
+  admin: AdminClient,
+  email: string
+): Promise<void> {
+  try {
+    await provisionCounselorLoginForMagicLink(admin, email);
+  } catch (err) {
+    console.error("provisionCounselorLoginAfterReferral:", err);
+  }
 }
 
 export async function linkCounselorLogin(

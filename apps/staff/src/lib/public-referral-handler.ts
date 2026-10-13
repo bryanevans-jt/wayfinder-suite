@@ -9,6 +9,8 @@ import {
   type ReferralState,
 } from "@wayfinder/supabase/referral-intake";
 import { getGoogleAuth, sendEmail } from "@/lib/google-mail";
+import { provisionCounselorLoginAfterReferral } from "@/lib/portal-staff-users";
+import { shouldSendReferralCounselorConfirmationEmail } from "@/lib/referral-email-policy";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -90,6 +92,8 @@ export async function handlePublicReferralPost(request: Request, state: Referral
       );
     }
 
+    await provisionCounselorLoginAfterReferral(admin, payload.counselorEmail.trim().toLowerCase());
+
     const authFileName = payload.authorizations?.name || "None";
     const otherFileName = payload.otherDocs?.name || "None";
     const bodies = await buildReferralEmailBodies(admin, {
@@ -150,7 +154,10 @@ export async function handlePublicReferralPost(request: Request, state: Referral
         }
       }
 
-      if (payload.counselorEmail) {
+      if (
+        payload.counselorEmail &&
+        shouldSendReferralCounselorConfirmationEmail()
+      ) {
         await sendEmail(auth, {
           to: payload.counselorEmail.trim(),
           subject: bodies.counselorSubject,
