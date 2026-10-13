@@ -6,8 +6,16 @@ import {
 } from "@wayfinder/branding";
 import { createServerClient, isClientRole } from "@wayfinder/supabase";
 import { accountNotSetUpMessage } from "@wayfinder/supabase/error-log";
+import { redirect } from "next/navigation";
 
-type SearchParams = Promise<{ error?: string; reason?: string }>;
+type SearchParams = Promise<{
+  error?: string;
+  reason?: string;
+  token_hash?: string;
+  token?: string;
+  type?: string;
+  code?: string;
+}>;
 
 const clientAppUrl =
   process.env.NEXT_PUBLIC_CLIENT_APP_URL ?? "http://localhost:3001";
@@ -17,12 +25,25 @@ export default async function StaffLoginPage({
 }: {
   searchParams: SearchParams;
 }) {
-  const { error, reason } = await searchParams;
+  const params = await searchParams;
+  const { error, reason } = params;
 
   const supabase = await createServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  if (!user) {
+    const tokenHash = params.token_hash ?? params.token;
+    const type = params.type;
+    if (tokenHash && type && !error) {
+      const qs = new URLSearchParams({ token_hash: tokenHash, type });
+      redirect(`/auth/confirm?${qs.toString()}`);
+    }
+    if (params.code && !error) {
+      redirect(`/auth/callback?code=${encodeURIComponent(params.code)}`);
+    }
+  }
 
   let signedInAsClient = false;
   if (user) {

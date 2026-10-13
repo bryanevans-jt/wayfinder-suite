@@ -15,6 +15,9 @@
       with token_hash (no PKCE cookie required).
 
       Use {{ .RedirectTo }} (matches emailRedirectTo from the app), NOT {{ .SiteURL }}, for hrefs.
+      If links look like https://…/?token_hash=… (site root only), re-paste this template and set
+      Redirect URLs to …/auth/confirm — the app also reroutes root links, but the template should
+      point at {{ .RedirectTo }}?token_hash=… directly.
 
       Logo: {{ .SiteURL }}/wayfinder-logo.png
       Supabase → Authentication → URL Configuration → Site URL = Wayfinder Pro origin (HTTPS).

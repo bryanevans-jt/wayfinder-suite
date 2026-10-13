@@ -21,6 +21,49 @@ function clientAppOrigin(): string {
   return raw.replace(/\/$/, "");
 }
 
+const AUTH_CALLBACK_PATH = "/auth/callback";
+const AUTH_CONFIRM_PATH = "/auth/confirm";
+
+/**
+ * Supabase emails sometimes land on Site URL root (`/?token_hash=…`) when RedirectTo
+ * is the app origin or the dashboard template was not re-pasted. Route to confirm/callback.
+ */
+export function redirectStrayEmailAuthParams(
+  request: NextRequest,
+  context: { app: WayfinderAppKind }
+): NextResponse | null {
+  const { pathname } = request.nextUrl;
+  if (
+    pathname.startsWith(AUTH_CALLBACK_PATH) ||
+    pathname.startsWith(AUTH_CONFIRM_PATH) ||
+    pathname.startsWith("/api/auth")
+  ) {
+    return null;
+  }
+
+  const params = request.nextUrl.searchParams;
+  const tokenHash = params.get("token_hash") ?? params.get("token");
+  const type = params.get("type");
+  const code = params.get("code");
+
+  if (tokenHash && type) {
+    const url = request.nextUrl.clone();
+    url.pathname = context.app === "staff" ? AUTH_CONFIRM_PATH : AUTH_CALLBACK_PATH;
+    url.searchParams.set("token_hash", tokenHash);
+    url.searchParams.set("type", type);
+    url.searchParams.delete("token");
+    return NextResponse.redirect(url);
+  }
+
+  if (code) {
+    const url = request.nextUrl.clone();
+    url.pathname = AUTH_CALLBACK_PATH;
+    return NextResponse.redirect(url);
+  }
+
+  return null;
+}
+
 function redirectPreservingCookies(
   cookiesToSet: SupabaseCookieToSet[],
   redirectUrl: URL | string
@@ -87,9 +130,18 @@ export async function wayfinderAuthMiddleware(
   }
 
   if (!user) {
+    const authLanding = redirectStrayEmailAuthParams(request, context);
+    if (authLanding) {
+      return authLanding;
+    }
+
     if (pathname === "/" || pathname.startsWith("/dashboard")) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
+      url.searchParams.delete("token_hash");
+      url.searchParams.delete("token");
+      url.searchParams.delete("type");
+      url.searchParams.delete("code");
       return NextResponse.redirect(url);
     }
     return response;
