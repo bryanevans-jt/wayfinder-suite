@@ -40,6 +40,7 @@ function revalidateClientPaths(clientId: string) {
   revalidatePath(`/dashboard/clients/${clientId}`);
   revalidatePath("/dashboard/counselor");
   revalidatePath(`/dashboard/counselor/clients/${clientId}`);
+  revalidatePath("/dashboard/billable-hours");
   revalidatePath("/dashboard/timesheet");
   revalidatePath("/dashboard/supervisor");
 }

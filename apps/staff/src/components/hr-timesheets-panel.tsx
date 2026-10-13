@@ -247,7 +247,7 @@ export function HrTimesheetsPanel() {
           Clock payroll hours above.
         </p>
         <Link
-          href="/dashboard/timesheet"
+          href="/dashboard/billable-hours#weekly-timesheet"
           className="mt-4 inline-flex rounded-lg border border-brand-gold bg-brand-gold px-4 py-2 text-sm font-semibold text-white"
         >
           Open Weekly Timesheet

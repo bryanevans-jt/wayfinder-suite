@@ -1,30 +1,22 @@
-import { weekStartSunday } from "@wayfinder/supabase/es-time-tracking";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
-import {
-  isAdminTierRole,
-  isFieldSpecialistRole,
-  isHrRole,
-  isSupervisorRole,
-} from "@wayfinder/supabase/roles";
-import { canAccessBillableHoursPage } from "@wayfinder/supabase/staff-time-clock-shared";
 import { canUseStaffPto } from "@wayfinder/supabase/staff-pto-shared";
+import { canAccessBillableHoursPage } from "@wayfinder/supabase/staff-time-clock-shared";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { redirect } from "next/navigation";
 import { MyBillableHoursWorkspace } from "@/components/my-billable-hours-workspace";
 import { StaffPtoPanel } from "@/components/staff-pto-panel";
+import { TimesheetWorkspace } from "@/components/timesheet-workspace";
 import { loadMyBillableHoursSummary } from "@/lib/es-time-data";
+import {
+  canAccessWeeklyTimesheetSection,
+  loadTimesheetSection,
+} from "@/lib/load-timesheet-section";
 
-function canOpenWeeklyTimesheet(role: string | null | undefined): boolean {
-  return (
-    isFieldSpecialistRole(role) ||
-    isSupervisorRole(role) ||
-    role === "accountant" ||
-    isHrRole(role) ||
-    isAdminTierRole(role)
-  );
-}
+type PageProps = {
+  searchParams: Promise<{ week?: string; es?: string; client?: string }>;
+};
 
-export default async function MyBillableHoursPage() {
+export default async function MyBillableHoursPage({ searchParams }: PageProps) {
   const session = await getAppSession();
   if (!session) {
     redirect("/login");
@@ -42,13 +34,24 @@ export default async function MyBillableHoursPage() {
     redirect("/dashboard");
   }
 
+  const params = await searchParams;
   const esUserId = session.effectiveUserId;
   const summary = await loadMyBillableHoursSummary(admin, esUserId);
-  const weekStart = weekStartSunday(summary.today);
-  const timesheetHref = `/dashboard/timesheet?week=${encodeURIComponent(weekStart)}`;
-  const teamTimesheetHref = `/dashboard/timesheet?week=${encodeURIComponent(weekStart)}`;
-  const showTimesheet = canOpenWeeklyTimesheet(role);
+  const showTimesheet = canAccessWeeklyTimesheetSection(role);
   const showPto = canUseStaffPto(role);
+
+  const timesheetLoad = showTimesheet
+    ? await loadTimesheetSection(admin, {
+        role: role ?? "",
+        effectiveUserId: session.effectiveUserId,
+        isPreviewing: session.isPreviewing,
+        params,
+      })
+    : { kind: "hidden" as const };
+
+  if (timesheetLoad.kind === "redirect") {
+    redirect(timesheetLoad.url);
+  }
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
@@ -56,16 +59,24 @@ export default async function MyBillableHoursPage() {
       <p className="mt-2 max-w-2xl text-sm text-brand-black/75">
         Client service time totals for this week, last week, and month-to-date (America/New_York).
         Time is captured when you log contacts, applications, meetings, and related work on client
-        profiles. Payroll clock-in/out has been replaced by billable timesheets for all staff.
+        profiles. Use the weekly timesheet below for line-by-line review; PTO requests are at the
+        bottom of this page.
       </p>
       <MyBillableHoursWorkspace
         summary={summary}
-        timesheetHref={timesheetHref}
-        showTimesheetLink={showTimesheet}
-        showTeamTimesheetLink={isSupervisorRole(role) && showTimesheet}
-        teamTimesheetHref={teamTimesheetHref}
+        showTimesheetLink={false}
+        showTeamTimesheetLink={false}
       />
-      {showPto ? <StaffPtoPanel /> : null}
+      {timesheetLoad.kind === "ready" ? (
+        <div id="weekly-timesheet" className="scroll-mt-6">
+          <TimesheetWorkspace {...timesheetLoad.props} />
+        </div>
+      ) : null}
+      {showPto ? (
+        <div className="mt-10 border-t border-neutral-200 pt-8">
+          <StaffPtoPanel />
+        </div>
+      ) : null}
     </main>
   );
 }

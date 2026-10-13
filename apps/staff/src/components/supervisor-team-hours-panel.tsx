@@ -155,7 +155,7 @@ export function SupervisorTeamHoursPanel() {
                   </td>
                   <td className="px-3 py-3">
                     <Link
-                      href={`/dashboard/timesheet?es=${encodeURIComponent(row.esUserId)}&week=${encodeURIComponent(row.currentWeek.weekStart)}`}
+                      href={`/dashboard/billable-hours?es=${encodeURIComponent(row.esUserId)}&week=${encodeURIComponent(row.currentWeek.weekStart)}#weekly-timesheet`}
                       className="font-medium text-brand-green hover:underline"
                     >
                       Open timesheet

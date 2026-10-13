@@ -95,7 +95,8 @@ export type StaffNavOptions = {
 const billableHoursNav: StaffNavItem = {
   href: "/dashboard/billable-hours",
   label: "Billable Hours",
-  match: (p) => p.startsWith("/dashboard/billable-hours"),
+  match: (p) =>
+    p.startsWith("/dashboard/billable-hours") || p.startsWith("/dashboard/timesheet"),
 };
 
 const reportingNav: StaffNavItem = {
@@ -407,11 +408,6 @@ export function staffNavSectionsForRole(
               match: (p) => p === "/dashboard/messages",
             },
             billableHoursNav,
-            {
-              href: "/dashboard/timesheet",
-              label: "Weekly Timesheet",
-              match: (p) => p.startsWith("/dashboard/timesheet"),
-            },
           ],
         },
         {
@@ -438,16 +434,7 @@ export function staffNavSectionsForRole(
         {
           label: "Accounts",
           items: withPreEtsNav(
-            [
-              intakeBillingNav,
-              {
-                href: "/dashboard/timesheet",
-                label: "Weekly Timesheet",
-                match: (p) => p.startsWith("/dashboard/timesheet"),
-              },
-              billableHoursNav,
-              dataExportsNav,
-            ],
+            [intakeBillingNav, billableHoursNav, dataExportsNav],
             showPreEtsNav
           ),
         },
@@ -475,11 +462,6 @@ export function staffNavSectionsForRole(
               referralQueueNav,
               ...(hideIntake ? [] : [intakeCallsNav]),
               intakeBillingNav,
-              {
-                href: "/dashboard/timesheet",
-                label: "Weekly Timesheet",
-                match: (p) => p.startsWith("/dashboard/timesheet"),
-              },
               billableHoursNav,
               analyticsNav,
               dataExportsNav,
@@ -591,11 +573,6 @@ export function staffNavSectionsForRole(
                 match: (p) => p === "/dashboard/messages",
               },
               billableHoursNav,
-              {
-                href: "/dashboard/timesheet",
-                label: "My Time (Timesheet)",
-                match: (p) => p.startsWith("/dashboard/timesheet"),
-              },
               reportingNav,
             ],
             true
@@ -630,11 +607,6 @@ export function staffNavSectionsForRole(
               match: (p) => p === "/dashboard/messages",
             },
             billableHoursNav,
-            {
-              href: "/dashboard/timesheet",
-              label: "My Time (Timesheet)",
-              match: (p) => p.startsWith("/dashboard/timesheet"),
-            },
             reportingNav,
           ],
         },

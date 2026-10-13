@@ -112,10 +112,20 @@ export function findCounselorDuplicatePairs<
     email?: string | null;
     contact_email?: string | null;
   },
->(rows: T[]): CounselorDuplicatePair<T>[] {
+>(rows: T[], options?: { excludePairKeys?: ReadonlySet<string> | string[] }): CounselorDuplicatePair<T>[] {
+  const excluded = options?.excludePairKeys;
+  const skip = (leftId: string, rightId: string): boolean => {
+    if (!excluded) return false;
+    const key = counselorDuplicatePairKey(leftId, rightId);
+    if (excluded instanceof Set) return excluded.has(key);
+    return excluded.includes(key);
+  };
+
   const pairs: CounselorDuplicatePair<T>[] = [];
   for (let i = 0; i < rows.length; i++) {
     for (let j = i + 1; j < rows.length; j++) {
+      if (skip(rows[i].id, rows[j].id)) continue;
+
       const kind = counselorNameMatchKind(rows[i].full_name, rows[j].full_name);
       if (kind) {
         pairs.push({ left: rows[i], right: rows[j], kind });

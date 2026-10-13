@@ -1,6 +1,9 @@
 "use client";
 
-import { findCounselorDuplicatePairs } from "@wayfinder/supabase/counselor-name-match";
+import {
+  counselorDuplicatePairKey,
+  findCounselorDuplicatePairs,
+} from "@wayfinder/supabase/counselor-name-match";
 import { useEffect, useMemo, useState } from "react";
 
 export type MergeableCounselor = {
@@ -106,10 +109,66 @@ export function CounselorMergePanel({
     }
   }, [preselectSourceId, counselors]);
 
-  const pairs = useMemo(() => findCounselorDuplicatePairs(counselors), [counselors]);
+  const [dismissedPairKeys, setDismissedPairKeys] = useState<Set<string>>(() => new Set());
+  const [dismissLoading, setDismissLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/portal/counselors/dismiss-duplicate");
+        const data = (await res.json()) as { pairKeys?: string[] };
+        if (!cancelled && res.ok && Array.isArray(data.pairKeys)) {
+          setDismissedPairKeys(new Set(data.pairKeys));
+        }
+      } catch {
+        // ignore — panel still works without persisted dismissals
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const pairs = useMemo(
+    () => findCounselorDuplicatePairs(counselors, { excludePairKeys: dismissedPairKeys }),
+    [counselors, dismissedPairKeys]
+  );
 
   const keeper = counselors.find((c) => c.id === keeperId);
   const source = counselors.find((c) => c.id === sourceId);
+
+  async function dismissPair(leftId: string, rightId: string) {
+    const left = counselors.find((c) => c.id === leftId);
+    const right = counselors.find((c) => c.id === rightId);
+    const label = `${left?.full_name ?? "Counselor"} and ${right?.full_name ?? "counselor"}`;
+    if (
+      !confirm(
+        `Mark “${label}” as separate people? They will stay out of Possible matches and duplicate alerts unless you combine them later.`
+      )
+    ) {
+      return;
+    }
+    setDismissLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/portal/counselors/dismiss-duplicate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ counselorIdA: leftId, counselorIdB: rightId }),
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(data.error || "Could not save dismissal");
+      const key = counselorDuplicatePairKey(leftId, rightId);
+      setDismissedPairKeys((prev) => new Set([...prev, key]));
+      if (keeperId === leftId || keeperId === rightId) setKeeperId("");
+      if (sourceId === leftId || sourceId === rightId) setSourceId("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save dismissal");
+    } finally {
+      setDismissLoading(false);
+    }
+  }
 
   async function combine() {
     if (!keeperId || !sourceId || keeperId === sourceId) {
@@ -175,19 +234,30 @@ export function CounselorMergePanel({
                     {pair.kind === "exact" ? "same name" : "similar"}
                   </span>
                 </span>
-                <button
-                  type="button"
-                  className="font-medium text-brand-green hover:underline"
-                  onClick={() => {
-                    const keep =
-                      pair.left.client_count >= pair.right.client_count ? pair.left : pair.right;
-                    const extra = keep.id === pair.left.id ? pair.right : pair.left;
-                    setKeeperId(keep.id);
-                    setSourceId(extra.id);
-                  }}
-                >
-                  Review
-                </button>
+                <span className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    className="font-medium text-brand-green hover:underline"
+                    disabled={busy || saving || dismissLoading}
+                    onClick={() => {
+                      const keep =
+                        pair.left.client_count >= pair.right.client_count ? pair.left : pair.right;
+                      const extra = keep.id === pair.left.id ? pair.right : pair.left;
+                      setKeeperId(keep.id);
+                      setSourceId(extra.id);
+                    }}
+                  >
+                    Review
+                  </button>
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-brand-black/60 hover:text-brand-black hover:underline"
+                    disabled={busy || saving || dismissLoading}
+                    onClick={() => void dismissPair(pair.left.id, pair.right.id)}
+                  >
+                    Not the same person
+                  </button>
+                </span>
               </li>
             ))}
           </ul>

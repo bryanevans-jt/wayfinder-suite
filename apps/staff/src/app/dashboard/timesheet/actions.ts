@@ -153,7 +153,7 @@ export async function submitEsWeek(weekStartInput?: string) {
       kind: "timesheet_submitted",
       title: "Timesheet submitted for review",
       body: `${name} submitted their timesheet for the week of ${formatWeekLabel(weekStart)}.`,
-      link_path: "/dashboard/timesheet",
+      link_path: "/dashboard/billable-hours#weekly-timesheet",
       metadata: { week_submission_id: weekRow.id, es_user_id: esUserId, week_start: weekStart },
       app: "staff",
     });
@@ -161,6 +161,7 @@ export async function submitEsWeek(weekStartInput?: string) {
     console.error("submitEsWeek notify failed:", notifyErr);
   }
 
+  revalidatePath("/dashboard/billable-hours");
   revalidatePath("/dashboard/timesheet");
 }
 
@@ -223,7 +224,7 @@ export async function approveEsWeek(weekSubmissionId: string, notes?: string) {
       kind: "timesheet_approved",
       title: "Timesheet approved",
       body: `Your timesheet for the week of ${formatWeekLabel(week.week_start as string)} was approved.`,
-      link_path: "/dashboard/timesheet",
+      link_path: "/dashboard/billable-hours#weekly-timesheet",
       metadata: { week_submission_id: weekSubmissionId },
       app: "staff",
     });
@@ -231,6 +232,7 @@ export async function approveEsWeek(weekSubmissionId: string, notes?: string) {
     console.error("approveEsWeek notify failed:", notifyErr);
   }
 
+  revalidatePath("/dashboard/billable-hours");
   revalidatePath("/dashboard/timesheet");
 }
 
@@ -297,7 +299,7 @@ export async function returnEsWeek(weekSubmissionId: string, notes: string) {
       kind: "timesheet_returned",
       title: "Timesheet returned",
       body: `Your supervisor returned your timesheet for the week of ${formatWeekLabel(week.week_start as string)}. ${trimmed}`,
-      link_path: "/dashboard/timesheet",
+      link_path: "/dashboard/billable-hours#weekly-timesheet",
       metadata: { week_submission_id: weekSubmissionId },
       app: "staff",
     });
@@ -305,6 +307,7 @@ export async function returnEsWeek(weekSubmissionId: string, notes: string) {
     console.error("returnEsWeek notify failed:", notifyErr);
   }
 
+  revalidatePath("/dashboard/billable-hours");
   revalidatePath("/dashboard/timesheet");
 }
 
@@ -334,5 +337,6 @@ export async function addNonClientTimeEntry(
     linkedSourceId: null,
   });
 
+  revalidatePath("/dashboard/billable-hours");
   revalidatePath("/dashboard/timesheet");
 }

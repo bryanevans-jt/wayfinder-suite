@@ -54,7 +54,7 @@ const EXPORT_CARDS: ExportCard[] = [
     title: "My Timesheet",
     description:
       "Review hours worked and billable hours by pay week, submit for supervisor approval, and download CSV from the Timesheet page.",
-    href: "/dashboard/timesheet",
+    href: "/dashboard/billable-hours#weekly-timesheet",
     filename: "wayfinder-timesheet.csv",
     roles: ["es"],
   },
@@ -122,8 +122,11 @@ export function ExportsWorkspace({ role, readOnly = false }: Props) {
           <p className="text-sm text-brand-black/70">
             CSV downloads on this page are for <strong>Employment Specialists</strong> and{" "}
             <strong>supervisors</strong>. Open the{" "}
-            <a href="/dashboard/timesheet" className="font-medium text-brand-green hover:underline">
-              Timesheet
+            <a
+              href="/dashboard/billable-hours#weekly-timesheet"
+              className="font-medium text-brand-green hover:underline"
+            >
+              Billable Hours
             </a>{" "}
             page to download your time entries. For organization-wide data needs, email{" "}
             <a href={SUPPORT_CONTACT_MAILTO} className="font-medium text-brand-green hover:underline">

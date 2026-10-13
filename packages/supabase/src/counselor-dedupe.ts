@@ -81,6 +81,75 @@ async function alreadyNotified(
   return Boolean(data?.length);
 }
 
+async function isCounselorDuplicatePairDismissed(
+  admin: SupabaseClient,
+  pairKey: string
+): Promise<boolean> {
+  const { data, error } = await admin
+    .from("counselor_duplicate_dismissals")
+    .select("pair_key")
+    .eq("pair_key", pairKey)
+    .maybeSingle();
+  if (error?.message && /does not exist|Could not find the table/i.test(error.message)) {
+    return false;
+  }
+  return Boolean(data?.pair_key);
+}
+
+export async function loadDismissedCounselorDuplicatePairKeys(
+  admin: SupabaseClient
+): Promise<Set<string>> {
+  const { data, error } = await admin.from("counselor_duplicate_dismissals").select("pair_key");
+  if (error?.message && /does not exist|Could not find the table/i.test(error.message)) {
+    return new Set();
+  }
+  if (error) {
+    console.error("loadDismissedCounselorDuplicatePairKeys:", error.message);
+    return new Set();
+  }
+  return new Set((data ?? []).map((row) => row.pair_key as string));
+}
+
+export async function dismissCounselorDuplicatePair(
+  admin: SupabaseClient,
+  opts: { counselorIdA: string; counselorIdB: string; dismissedByUserId: string }
+): Promise<{ ok: true } | { error: string }> {
+  const idA = opts.counselorIdA.trim();
+  const idB = opts.counselorIdB.trim();
+  if (!idA || !idB || idA === idB) {
+    return { error: "Pick two different counselors" };
+  }
+
+  const pairKey = counselorDuplicatePairKey(idA, idB);
+  const [counselorIdA, counselorIdB] = [idA, idB].sort();
+
+  const { error: insertErr } = await admin.from("counselor_duplicate_dismissals").upsert(
+    {
+      pair_key: pairKey,
+      counselor_id_a: counselorIdA,
+      counselor_id_b: counselorIdB,
+      dismissed_by: opts.dismissedByUserId,
+      dismissed_at: new Date().toISOString(),
+    },
+    { onConflict: "pair_key" }
+  );
+  if (insertErr) {
+    if (/does not exist|Could not find the table/i.test(insertErr.message)) {
+      return { error: "Dismissals are not available until the latest database migration is applied." };
+    }
+    return { error: insertErr.message };
+  }
+
+  await admin
+    .from("in_app_notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("kind", DUPLICATE_KIND)
+    .contains("metadata", { pairKey })
+    .is("read_at", null);
+
+  return { ok: true };
+}
+
 export async function notifySuperAdminsOfCounselorNearMatch(
   admin: SupabaseClient,
   opts: {
@@ -103,6 +172,7 @@ export async function notifySuperAdminsOfCounselorNearMatch(
 
   for (const match of opts.matches) {
     const pairKey = counselorDuplicatePairKey(opts.newCounselorId, match.id);
+    if (await isCounselorDuplicatePairDismissed(admin, pairKey)) continue;
     if (await alreadyNotified(admin, pairKey)) continue;
 
     const keep = match.id;

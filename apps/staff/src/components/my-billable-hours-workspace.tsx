@@ -7,7 +7,7 @@ import type { MyBillableHoursSummary } from "@/lib/es-time-data";
 
 type Props = {
   summary: MyBillableHoursSummary;
-  timesheetHref: string;
+  timesheetHref?: string;
   showTimesheetLink?: boolean;
   showTeamTimesheetLink?: boolean;
   teamTimesheetHref?: string;

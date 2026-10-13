@@ -1,147 +1,17 @@
-import { weekEndSaturday, weekStartSunday } from "@wayfinder/supabase/es-time-tracking";
-import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
-import {
-  isAdminTierRole,
-  isFieldSpecialistRole,
-  isSupervisorRole,
-} from "@wayfinder/supabase/roles";
-import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { redirect } from "next/navigation";
-import { TimesheetWorkspace } from "@/components/timesheet-workspace";
-import {
-  loadEsCaseloadClientOptions,
-  loadEsTimeEntriesForWeek,
-  loadPendingWeekSubmissionsForSupervisor,
-  loadStaffClockMinutesForWeek,
-  loadStaffEsPickerOptions,
-  loadWeekSubmission,
-} from "@/lib/es-time-data";
-import { loadStaffNameById } from "@/lib/operations-data";
-import { esUserAllowedForSupervisor, loadSupervisorScope } from "@/lib/supervisor-client-scope";
+import { BILLABLE_HOURS_TIMESHEET_PATH } from "@/lib/load-timesheet-section";
 
 type PageProps = {
   searchParams: Promise<{ week?: string; es?: string; client?: string }>;
 };
 
-export default async function TimesheetPage({ searchParams }: PageProps) {
-  const session = await getAppSession();
-  if (!session) {
-    redirect("/login");
-  }
-
-  const role = session.effectiveRole;
-  const canAccess =
-    isFieldSpecialistRole(role) ||
-    isSupervisorRole(role) ||
-    role === "accountant" ||
-    role === "hr" ||
-    isAdminTierRole(role);
-
-  if (!canAccess) {
-    redirect("/dashboard");
-  }
-
+/** Legacy route — weekly timesheet lives on Billable Hours. */
+export default async function TimesheetRedirectPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const weekStart = weekStartSunday(params.week ?? new Date());
-  const weekEnd = weekEndSaturday(weekStart);
-
-  let admin;
-  try {
-    admin = createServiceRoleClient();
-  } catch {
-    redirect("/dashboard");
-  }
-
-  const canPickEs =
-    isSupervisorRole(role) ||
-    isAdminTierRole(role) ||
-    role === "accountant" ||
-    role === "hr";
-
-  const useOrgPayrollClock =
-    (role === "accountant" || role === "hr" || isAdminTierRole(role)) &&
-    canPickEs &&
-    !isFieldSpecialistRole(role);
-
-  const esPickerOptions =
-    canPickEs && !isFieldSpecialistRole(role)
-      ? await loadStaffEsPickerOptions(admin, role ?? "", session.effectiveUserId)
-      : [];
-
-  let esUserId = session.effectiveUserId;
-
-  if (canPickEs && !isFieldSpecialistRole(role)) {
-    if (params.es) {
-      const allowed = esPickerOptions.some((opt) => opt.id === params.es);
-      if (!allowed) {
-        const qs = new URLSearchParams({ week: weekStart });
-        if (esPickerOptions[0]) {
-          qs.set("es", esPickerOptions[0].id);
-        }
-        if (params.client) {
-          qs.set("client", params.client);
-        }
-        redirect(`/dashboard/timesheet?${qs.toString()}`);
-      }
-      esUserId = params.es;
-    } else if (esPickerOptions.length > 0) {
-      const qs = new URLSearchParams({ es: esPickerOptions[0]!.id, week: weekStart });
-      if (params.client) {
-        qs.set("client", params.client);
-      }
-      redirect(`/dashboard/timesheet?${qs.toString()}`);
-    }
-  }
-
-  if (isSupervisorRole(role) && !isAdminTierRole(role) && params.es) {
-    const scope = await loadSupervisorScope(admin, session.effectiveUserId);
-    if (!esUserAllowedForSupervisor(scope, esUserId)) {
-      redirect("/dashboard/timesheet");
-    }
-  }
-
-  const [esNames, entries, weekSubmission, pendingApprovals, caseloadClients, clockPayrollMinutes] =
-    await Promise.all([
-      loadStaffNameById(admin, [esUserId], "Team member"),
-      loadEsTimeEntriesForWeek(admin, esUserId, weekStart),
-      loadWeekSubmission(admin, esUserId, weekStart),
-      isSupervisorRole(role) || isAdminTierRole(role)
-        ? loadPendingWeekSubmissionsForSupervisor(admin, session.effectiveUserId)
-        : Promise.resolve([]),
-      canPickEs && !isFieldSpecialistRole(role)
-        ? loadEsCaseloadClientOptions(admin, esUserId)
-        : Promise.resolve([]),
-      useOrgPayrollClock
-        ? loadStaffClockMinutesForWeek(admin, esUserId, weekStart)
-        : Promise.resolve(null as number | null),
-    ]);
-
-  const esName = esNames.get(esUserId) ?? "Team member";
-
-  return (
-    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <h1 className="text-2xl font-bold text-brand-green">Timesheet</h1>
-      <p className="mt-2 max-w-2xl text-sm text-brand-black/75">
-        Track billable hours tied to client work. Time is captured when you log contacts,
-        applications, meetings, and stage updates. Pay weeks run Sunday through Saturday — data
-        appears here as it is entered (no timesheet submission required).
-      </p>
-      <TimesheetWorkspace
-        role={role ?? ""}
-        esUserId={esUserId}
-        esName={esName}
-        weekStart={weekStart}
-        weekEnd={weekEnd}
-        entries={entries}
-        weekSubmission={weekSubmission}
-        pendingApprovals={pendingApprovals}
-        readOnly={session.isPreviewing}
-        supervisedEsOptions={esPickerOptions}
-        caseloadClients={caseloadClients}
-        initialClientFilter={params.client ?? ""}
-        canPickEs={canPickEs && !isFieldSpecialistRole(role)}
-        payrollClockMinutes={clockPayrollMinutes}
-      />
-    </main>
-  );
+  const qs = new URLSearchParams();
+  if (params.week) qs.set("week", params.week);
+  if (params.es) qs.set("es", params.es);
+  if (params.client) qs.set("client", params.client);
+  const query = qs.toString();
+  redirect(`${BILLABLE_HOURS_TIMESHEET_PATH}${query ? `?${query}` : ""}#weekly-timesheet`);
 }

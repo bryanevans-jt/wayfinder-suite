@@ -29,6 +29,8 @@ type Props = {
   canPickEs?: boolean;
   /** When set (Accounts/HR/admin), Hours worked (payroll) uses Time Clock minutes. */
   payrollClockMinutes?: number | null;
+  /** Route used for week / ES / client query updates (default Billable Hours). */
+  basePath?: string;
 };
 
 function formatWeekLabel(start: string, end: string): string {
@@ -51,6 +53,7 @@ export function TimesheetWorkspace({
   initialClientFilter = "",
   canPickEs = false,
   payrollClockMinutes = null,
+  basePath = "/dashboard/billable-hours",
 }: Props) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -107,7 +110,8 @@ export function TimesheetWorkspace({
         params.delete(key);
       }
     }
-    router.push(`/dashboard/timesheet?${params.toString()}`);
+    const qs = params.toString();
+    router.push(`${basePath}${qs ? `?${qs}` : ""}#weekly-timesheet`);
   }
 
   function changeWeek(delta: number) {
