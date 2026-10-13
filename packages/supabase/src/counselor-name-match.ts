@@ -117,8 +117,8 @@ export function findCounselorDuplicatePairs<
   const skip = (leftId: string, rightId: string): boolean => {
     if (!excluded) return false;
     const key = counselorDuplicatePairKey(leftId, rightId);
-    if (excluded instanceof Set) return excluded.has(key);
-    return excluded.includes(key);
+    if (Array.isArray(excluded)) return excluded.includes(key);
+    return excluded.has(key);
   };
 
   const pairs: CounselorDuplicatePair<T>[] = [];
