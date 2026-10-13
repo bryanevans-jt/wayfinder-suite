@@ -23,9 +23,6 @@ export const CLIENT_APP_URL_SLUG = "wayfinder";
 /** Suggested production URL slug for the staff app (e.g. wayfinder-pro.thejoshuatree.org). */
 export const STAFF_APP_URL_SLUG = "wayfinder-pro";
 
-/** Legacy Firebase / vocationalreports entry (retired after Wayfinder integrated reports). */
-export const JT_VOCATIONAL_REPORTS_URL = "https://www.thejoshuatree.org/vocationalreports";
-
 /** Production URL for integrated formal reporting (`apps/reports`). */
 export const WAYFINDER_REPORTS_URL = "https://wayfinder-reports.thejoshuatree.org";
 

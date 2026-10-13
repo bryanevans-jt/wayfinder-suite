@@ -2,7 +2,7 @@ import { WAYFINDER_REPORTS_URL } from "./constants";
 
 export type JtReportPrefillType = "seMonthly" | "vpr" | "jtsgvmr" | "evf" | "jtsgtsvs";
 
-/** Base URL for the integrated reports app (Wayfinder monorepo). Falls back to legacy URL. */
+/** Base URL for the integrated reports app (Wayfinder monorepo). */
 export function reportsAppBaseUrl(): string {
   const configured = process.env.NEXT_PUBLIC_REPORTS_APP_URL?.trim();
   if (configured) {

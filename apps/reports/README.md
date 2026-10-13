@@ -1,6 +1,6 @@
 # Wayfinder Reports (`@wayfinder/reports`)
 
-Formal GVRA/Tennessee reporting for Wayfinder Pro. Ported from [jtsg-reports-v2](https://github.com/bryanevans-jt/jtsg-reports-v2) `/v2` (the standalone repo is unchanged).
+Formal GVRA/Tennessee reporting for Wayfinder Pro (`apps/reports` in this monorepo). Originally ported from legacy jtsg-reports-v2; **production does not depend on that repo or its Firebase/legacy Supabase project.** See [docs/reporting-integration.md](../../docs/reporting-integration.md).
 
 ## Local development
 
@@ -92,17 +92,9 @@ Both apps use the same Supabase project and PKCE auth. In production, configure 
 - [ ] Add report type with template IDs / tag schema
 - [ ] Confirm TN appears in state selector for TN-office caseload
 
-## Cutover from legacy v2 / Firebase
+## Legacy jtsg-reports-v2
 
-| Phase | Action |
-|-------|--------|
-| **Now** | Beta on integrated app (`NEXT_PUBLIC_REPORTS_APP_URL`) |
-| **Parallel** | Keep `jtsg-reports-v2.vercel.app` until beta passes |
-| **Cutover** | Point staff reporting launcher at production reports URL; update any bookmarks |
-| **Retire** | Disable Firebase hosting/functions after 2–4 weeks stable production use |
-| **Data** | Legacy Supabase (`xkhybcyiyjmghzevgmgm`) can be archived after migration verified |
-
-Do **not** modify the `jtsg-reports-v2` GitHub repo — it remains the reference until cutover.
+The standalone Firebase / legacy-Supabase app is **retired for operations**. This repo is the source of truth. One-off data tools may live under `scripts/` and `.tmp-jtsg-reports-v2/` (gitignored); they are not used at runtime.
 
 ## Support
 
