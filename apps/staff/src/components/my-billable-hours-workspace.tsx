@@ -66,7 +66,7 @@ export function MyBillableHoursWorkspace({
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {showTimesheetLink ? (
+            {showTimesheetLink && timesheetHref ? (
               <Link
                 href={timesheetHref}
                 className="rounded-lg border border-brand-green bg-brand-green px-4 py-2 text-sm font-semibold text-white hover:bg-brand-green/90"
