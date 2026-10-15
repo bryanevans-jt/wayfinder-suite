@@ -49,7 +49,8 @@ Without (2), reports API errors will fail to persist and users will still see fr
 
 Ensure all production origins are listed under **Authentication → URL Configuration → Redirect URLs**:
 
-- `https://wayfinder-pro.thejoshuatree.org/auth/confirm` (staff magic-link landing — required for GVRA mail scanners)
+- `https://wayfinder-pro.thejoshuatree.org/auth/confirm` (staff Supabase OTP magic-link landing)
+- `https://wayfinder-pro.thejoshuatree.org/auth/access` (staff multi-use counselor sign-in links)
 - `https://wayfinder-pro.thejoshuatree.org/auth/callback` (staff)
 - `https://wayfinder.thejoshuatree.org/auth/callback` (client — adjust to your live URL)
 - `https://wayfinder-reports.thejoshuatree.org/auth/callback` (reports)
@@ -68,6 +69,8 @@ After migrations and env changes, redeploy staff, client, and reports.
 
 - Staff, client, and reports share parent-domain Supabase cookies (`.thejoshuatree.org`) for seamless handoff between Wayfinder Pro and Official Reporting.
 - Before OAuth or magic link, the login form clears stale PKCE verifier cookies so cross-app sign-in does not fail.
+- **Counselor / external emails** (`@gvs.ga.gov`, etc.): Wayfinder Pro sends a **multi-use sign-in link** (default **7 days**, env `STAFF_REUSABLE_SIGNIN_DAYS`, max 30) via Google Workspace mail, not Supabase’s one-time OTP. Apply migration `20261015160000_staff_reusable_signin_tokens.sql`. Requires `GOOGLE_OAUTH_*` on staff Vercel (same as referral mail).
+- **Joshua Tree staff** (`@thejoshuatree.org`): still use Supabase one-time magic links. Optional: Supabase Dashboard → Authentication → Email → **Email OTP expiration** (seconds) — longer TTL only extends time until **first** use; it does not make OTP links reusable.
 - After deploy, test: sign in on Wayfinder Pro, open Reports in a new tab (should skip login), then sign out on one app and confirm the other behaves as expected.
 
 ### Error log (super admin)

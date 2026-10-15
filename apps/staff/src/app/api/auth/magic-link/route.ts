@@ -1,4 +1,8 @@
 import {
+  sendStaffReusableSignInEmail,
+  shouldUseReusableStaffSignIn,
+} from "@/lib/reusable-counselor-signin";
+import {
   findAuthUserIdByEmail,
   provisionCounselorLoginForMagicLink,
   sendStaffLoginEmail,
@@ -46,7 +50,16 @@ export async function POST(request: Request) {
       );
     }
 
-    await sendStaffLoginEmail(admin, email);
+    if (shouldUseReusableStaffSignIn(email)) {
+      try {
+        await sendStaffReusableSignInEmail(admin, { email, authUserId: userId });
+      } catch (reusableErr) {
+        console.error("reusable sign-in email failed, falling back to Supabase OTP:", reusableErr);
+        await sendStaffLoginEmail(admin, email);
+      }
+    } else {
+      await sendStaffLoginEmail(admin, email);
+    }
     return Response.json({ sent: true });
   } catch (err) {
     console.error("auth/magic-link failed:", err);
