@@ -33,7 +33,7 @@ Use this link to sign in to ${STAFF_APP_PRODUCT_NAME}:
 
 ${link}
 
-This link stays active for ${ttlDays} day${ttlDays === 1 ? "" : "s"} and can be used more than once (for example if your agency email scanner opens it, or you need to try again later). For your security, do not forward it to others.
+This link stays active for ${ttlDays} day${ttlDays === 1 ? "" : "s"} and can be used more than once. For your security, do not forward it to others.
 
 If you did not request this email, you can ignore it.
 
