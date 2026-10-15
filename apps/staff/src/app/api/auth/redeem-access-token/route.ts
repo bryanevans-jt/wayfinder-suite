@@ -1,5 +1,6 @@
 import { finishStaffSignInAfterAuth } from "@/lib/finish-staff-sign-in";
 import { mintStaffSessionCookiesForEmail } from "@/lib/staff-session-mint";
+import { type SupabaseCookieToSet } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { resolveReusableSignInToken } from "@wayfinder/supabase/reusable-signin-token";
 import { NextResponse } from "next/server";
@@ -11,12 +12,9 @@ function loginRedirect(origin: string, error: string, reason?: string) {
   return NextResponse.redirect(url);
 }
 
-function applyCookies(
-  response: NextResponse,
-  sessionCookies: { name: string; value: string; options?: Record<string, unknown> }[]
-) {
+function applyCookies(response: NextResponse, sessionCookies: SupabaseCookieToSet[]) {
   sessionCookies.forEach(({ name, value, options }) => {
-    response.cookies.set(name, value, options as Parameters<typeof response.cookies.set>[2]);
+    response.cookies.set(name, value, options);
   });
   return response;
 }
