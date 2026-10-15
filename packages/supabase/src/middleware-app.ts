@@ -23,6 +23,7 @@ function clientAppOrigin(): string {
 
 const AUTH_CALLBACK_PATH = "/auth/callback";
 const AUTH_CONFIRM_PATH = "/auth/confirm";
+const AUTH_ACCESS_PATH = "/auth/access";
 
 /**
  * Supabase emails sometimes land on Site URL root (`/?token_hash=…`) when RedirectTo
@@ -36,15 +37,25 @@ export function redirectStrayEmailAuthParams(
   if (
     pathname.startsWith(AUTH_CALLBACK_PATH) ||
     pathname.startsWith(AUTH_CONFIRM_PATH) ||
+    pathname.startsWith(AUTH_ACCESS_PATH) ||
     pathname.startsWith("/api/auth")
   ) {
     return null;
   }
 
   const params = request.nextUrl.searchParams;
-  const tokenHash = params.get("token_hash") ?? params.get("token");
   const type = params.get("type");
   const code = params.get("code");
+  const tokenHashParam = params.get("token_hash");
+  const tokenParam = params.get("token");
+
+  if (context.app === "staff" && tokenParam && !type && !tokenHashParam && pathname !== AUTH_ACCESS_PATH) {
+    const url = request.nextUrl.clone();
+    url.pathname = AUTH_ACCESS_PATH;
+    return NextResponse.redirect(url);
+  }
+
+  const tokenHash = tokenHashParam ?? (type ? tokenParam : null);
 
   if (tokenHash && type) {
     const url = request.nextUrl.clone();

@@ -49,7 +49,8 @@ Without (2), reports API errors will fail to persist and users will still see fr
 
 Ensure all production origins are listed under **Authentication → URL Configuration → Redirect URLs**:
 
-- `https://wayfinder-pro.thejoshuatree.org/auth/confirm` (staff magic-link landing — required for GVRA mail scanners)
+- `https://wayfinder-pro.thejoshuatree.org/auth/confirm` (staff Supabase OTP magic-link landing)
+- `https://wayfinder-pro.thejoshuatree.org/auth/access` (staff multi-use counselor sign-in links)
 - `https://wayfinder-pro.thejoshuatree.org/auth/callback` (staff)
 - `https://wayfinder.thejoshuatree.org/auth/callback` (client — adjust to your live URL)
 - `https://wayfinder-reports.thejoshuatree.org/auth/callback` (reports)

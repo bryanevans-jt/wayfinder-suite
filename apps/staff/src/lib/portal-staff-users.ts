@@ -56,7 +56,7 @@ export async function ensureAuthUserConfirmedForLogin(
   }
 }
 
-function staffAppOrigin(): string {
+export function staffAppOrigin(): string {
   const raw = process.env.NEXT_PUBLIC_STAFF_APP_URL ?? "http://localhost:3000";
   return raw.replace(/\/$/, "");
 }
