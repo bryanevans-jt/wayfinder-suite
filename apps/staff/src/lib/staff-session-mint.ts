@@ -3,9 +3,9 @@ import { createServerClient } from "@supabase/ssr";
 import {
   getSupabaseAnonKey,
   getSupabaseUrl,
+  type SupabaseCookieToSet,
   wayfinderServerAuthOptions,
 } from "@wayfinder/supabase";
-import type { SupabaseCookieToSet } from "@wayfinder/supabase/cookie-types";
 import { cookies } from "next/headers";
 
 type AdminClient = ReturnType<typeof createServiceRoleClient>;
