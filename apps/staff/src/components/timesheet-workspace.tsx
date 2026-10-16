@@ -1,5 +1,6 @@
 "use client";
 
+import { formatBillableHours } from "@wayfinder/supabase/client-billable";
 import { displayServiceTimes, minutesToDecimalHours } from "@wayfinder/supabase/es-time-tracking";
 import {
   canViewClientProfiles,
@@ -233,7 +234,7 @@ export function TimesheetWorkspace({
           ) : null}
           <Stat
             label="Billable hours (by client)"
-            value={minutesToDecimalHours(summary.billableMinutes)}
+            value={`${formatBillableHours(summary.clientBillableMinutes)} hrs`}
           />
           <Stat label="Entries" value={String(visibleEntries.length)} />
           <Stat
@@ -252,11 +253,17 @@ export function TimesheetWorkspace({
         {summary.byClient.length > 0 ? (
           <div className="mt-5">
             <h3 className="text-sm font-semibold text-brand-black">Billable by Client</h3>
+            <p className="mt-1 text-xs text-brand-black/55">
+              Client totals use billable hours counted toward each client (Case File Review and
+              similar admin time are logged but excluded). Active (in-person) % on the client
+              profile is in-person with client present ÷ that client&apos;s billable hours — not
+              expected or authorized hours.
+            </p>
             <ul className="mt-2 space-y-1 text-sm text-brand-black/80">
               {summary.byClient.map((c) => (
                 <li key={c.name} className="flex flex-wrap items-center gap-2">
                   <span>
-                    {c.name}: {minutesToDecimalHours(c.minutes)} hrs ({c.count} entries)
+                    {c.name}: {formatBillableHours(c.minutes)} billable hrs ({c.count} entries)
                   </span>
                   {canDownloadPdf && c.clientId ? (
                     <a
@@ -308,7 +315,7 @@ export function TimesheetWorkspace({
                   <th className="px-3 py-2">Date</th>
                   <th className="px-3 py-2">Client</th>
                   <th className="px-3 py-2">Activity</th>
-                  <th className="px-3 py-2">Min</th>
+                  <th className="px-3 py-2">Billable hrs</th>
                   <th className="px-3 py-2">Start</th>
                   <th className="px-3 py-2">End</th>
                   <th className="px-3 py-2">Status</th>
@@ -336,7 +343,12 @@ export function TimesheetWorkspace({
                       )}
                     </td>
                     <td className="px-3 py-2">{e.activity_name}</td>
-                    <td className="px-3 py-2">{e.duration_minutes}</td>
+                    <td className="px-3 py-2">
+                      {e.client_billable_hours}
+                      {!e.counts_toward_client_billable ? (
+                        <span className="ml-1 text-xs text-brand-black/50">(0 client)</span>
+                      ) : null}
+                    </td>
                     <td className="px-3 py-2 whitespace-nowrap">{times.start}</td>
                     <td className="px-3 py-2 whitespace-nowrap">{times.end}</td>
                     <td className="px-3 py-2 capitalize">{e.status}</td>

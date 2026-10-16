@@ -120,7 +120,7 @@ export async function PATCH(request: Request) {
 
   const body = (await request.json()) as {
     billingId?: string;
-    action?: "billed" | "paid" | "ready";
+    action?: "billed" | "paid" | "ready" | "revert_scheduled";
   };
   if (!body.billingId || !body.action) {
     return NextResponse.json({ error: "billingId and action required" }, { status: 400 });

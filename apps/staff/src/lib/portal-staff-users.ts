@@ -682,6 +682,66 @@ export async function bulkActivateCounselorLoginsForOffice(
   return { results, activated, reactivated, skipped };
 }
 
+/** Silent login provisioning for every counselor with a referral email (all offices). */
+export async function backfillAllEligibleCounselorLogins(
+  admin: AdminClient,
+  options: { sendInvite: boolean } = { sendInvite: false }
+): Promise<{
+  results: CounselorLoginActivationResult[];
+  activated: number;
+  reactivated: number;
+  skipped: number;
+}> {
+  const { data: counselors, error } = await admin
+    .from("counselors")
+    .select("id, full_name, contact_email, user_id");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const results: CounselorLoginActivationResult[] = [];
+  let activated = 0;
+  let reactivated = 0;
+  let skipped = 0;
+
+  for (const row of counselors ?? []) {
+    const email = (row.contact_email as string | null)?.trim().toLowerCase() ?? "";
+    if (!email.includes("@")) {
+      skipped++;
+      continue;
+    }
+    const gate = await evaluateCounselorPortalLoginGate(admin, row.id as string);
+    if (!gate.allowed) {
+      results.push({
+        counselorId: row.id as string,
+        fullName: row.full_name as string,
+        email,
+        outcome: "skipped",
+        reason: gate.message ?? "Office not active",
+      });
+      skipped++;
+      continue;
+    }
+    const result = await activateCounselorLoginFromContactEmail(
+      admin,
+      {
+        id: row.id as string,
+        full_name: row.full_name as string,
+        contact_email: (row.contact_email as string | null) ?? null,
+        user_id: (row.user_id as string | null) ?? null,
+      },
+      options
+    );
+    results.push(result);
+    if (result.outcome === "activated") activated++;
+    else if (result.outcome === "reactivated") reactivated++;
+    else skipped++;
+  }
+
+  return { results, activated, reactivated, skipped };
+}
+
 export async function replaceCounselorOfficeAssignments(
   admin: AdminClient,
   counselorId: string,

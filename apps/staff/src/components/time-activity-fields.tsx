@@ -28,6 +28,9 @@ type Props = {
   onEndTimeChange?: (value: string) => void;
   activityTypeLabel?: string;
   disabled?: boolean;
+  selectedCountsTowardClientBillable?: boolean;
+  /** Note-only contact logs: activity picker without duration/time. */
+  hideTimeFields?: boolean;
 };
 
 function addMinutesToTime(serviceDate: string, timeValue: string, minutes: number): string {
@@ -54,6 +57,8 @@ export function TimeActivityFields({
   onEndTimeChange,
   activityTypeLabel = "Activity type",
   disabled = false,
+  selectedCountsTowardClientBillable = true,
+  hideTimeFields = false,
 }: Props) {
   const grouped = useMemo(() => groupActivityTypesByCategory(activities), [activities]);
   const selected = activities.find((a) => a.id === activityTypeId) ?? null;
@@ -176,6 +181,17 @@ export function TimeActivityFields({
       <p className="text-xs font-semibold uppercase tracking-wide text-brand-green">
         Service time
       </p>
+      {hideTimeFields ? (
+        <p className="text-xs text-brand-black/65">
+          Saves your note on the timeline with date and time. No billable hours are attached.
+        </p>
+      ) : null}
+      {!hideTimeFields && !selectedCountsTowardClientBillable ? (
+        <p className="text-xs text-brand-black/65">
+          Time will be logged on your timesheet but counts as{" "}
+          <span className="font-medium">0 client billable hours</span> for this client.
+        </p>
+      ) : null}
       <label className="block text-sm font-medium text-brand-black">
         {activityTypeLabel}
         <select
@@ -196,6 +212,7 @@ export function TimeActivityFields({
           ))}
         </select>
       </label>
+      {hideTimeFields ? null : (
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block text-sm font-medium text-brand-black">
           Duration (minutes)
@@ -226,7 +243,8 @@ export function TimeActivityFields({
           </label>
         ) : null}
       </div>
-      {showTimeRange ? (
+      )}
+      {!hideTimeFields && showTimeRange ? (
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block text-sm font-medium text-brand-black">
             Start time
@@ -250,20 +268,20 @@ export function TimeActivityFields({
           </label>
         </div>
       ) : null}
-      {showTimeRange ? (
+      {!hideTimeFields && showTimeRange ? (
         <p className="text-xs text-brand-black/55">
           Duration is required. Enter a start time, an end time, or both — the blank time is filled
           from duration. If start and end disagree with duration, clock times win and duration is
           updated to match.
         </p>
       ) : null}
-      {clockMismatch ? (
+      {!hideTimeFields && clockMismatch ? (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
           Start and end times did not match the duration you entered. Duration was updated to match
           the clock times. You can still edit the times before saving.
         </p>
       ) : null}
-      {roundedUpFrom != null ? (
+      {!hideTimeFields && roundedUpFrom != null ? (
         <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-950">
           Service time logs have a {MIN_SERVICE_LOG_MINUTES}-minute minimum. Your entry of{" "}
           {roundedUpFrom} minutes was rounded up to {MIN_SERVICE_LOG_MINUTES}. You can still submit.

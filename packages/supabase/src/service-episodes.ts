@@ -279,18 +279,24 @@ export async function loadEpisodeActivitySummary(
   };
 }
 
-/** GVRA guidance: ≥25% of billable minutes in last 30 days with client present. */
+/** GVRA guidance: share of client billable hours that are Active (in-person). */
 export async function clientPresentRatioLast30Days(
   admin: SupabaseClient,
   clientId: string
 ): Promise<{ ratio: number; totalMinutes: number; presentMinutes: number }> {
+  const { entryCountsTowardClientBillable, entryIsActiveInPerson } = await import(
+    "./client-billable"
+  );
+
   const since = new Date();
   since.setDate(since.getDate() - 30);
   const sinceIso = since.toISOString().slice(0, 10);
 
   const { data, error } = await admin
     .from("es_time_entries")
-    .select("duration_minutes, client_present")
+    .select(
+      "duration_minutes, client_present, delivery_mode, flags, service_activity_types ( code, counts_toward_client_billable )"
+    )
     .eq("client_id", clientId)
     .gte("service_date", sinceIso)
     .neq("status", "rejected");
@@ -298,28 +304,46 @@ export async function clientPresentRatioLast30Days(
   if (error?.message && isMissingSchemaError(error.message)) {
     const { data: legacyRows } = await admin
       .from("es_time_entries")
-      .select("duration_minutes")
+      .select("duration_minutes, client_present, delivery_mode")
       .eq("client_id", clientId)
       .gte("service_date", sinceIso)
       .neq("status", "rejected");
     let total = 0;
+    let activeInPerson = 0;
     for (const row of legacyRows ?? []) {
-      total += Number(row.duration_minutes) || 0;
+      const mins = Number(row.duration_minutes) || 0;
+      total += mins;
+      if (row.client_present && (row.delivery_mode ?? "").toLowerCase() === "in_person") {
+        activeInPerson += mins;
+      }
     }
-    return { ratio: 1, totalMinutes: total, presentMinutes: total };
+    const ratio = total > 0 ? activeInPerson / total : 1;
+    return { ratio, totalMinutes: total, presentMinutes: activeInPerson };
   }
 
   let total = 0;
-  let present = 0;
+  let activeInPerson = 0;
   for (const row of data ?? []) {
-    const mins = Number(row.duration_minutes) || 0;
-    total += mins;
-    if (row.client_present) {
-      present += mins;
+    const embed = row.service_activity_types as
+      | { code?: string; counts_toward_client_billable?: boolean }
+      | { code?: string; counts_toward_client_billable?: boolean }[]
+      | null;
+    const activity = Array.isArray(embed) ? embed[0] : embed;
+    const entry = {
+      duration_minutes: Number(row.duration_minutes) || 0,
+      client_present: row.client_present as boolean | null,
+      delivery_mode: row.delivery_mode as string | null,
+      counts_toward_client_billable: activity?.counts_toward_client_billable ?? null,
+      flags: (row.flags as Record<string, boolean>) ?? {},
+    };
+    if (!entryCountsTowardClientBillable(entry)) continue;
+    total += entry.duration_minutes;
+    if (entryIsActiveInPerson(entry)) {
+      activeInPerson += entry.duration_minutes;
     }
   }
-  const ratio = total > 0 ? present / total : 1;
-  return { ratio, totalMinutes: total, presentMinutes: present };
+  const ratio = total > 0 ? activeInPerson / total : 1;
+  return { ratio, totalMinutes: total, presentMinutes: activeInPerson };
 }
 
 export function formatEpisodeHeading(ep: ServiceEpisodeRow): string {

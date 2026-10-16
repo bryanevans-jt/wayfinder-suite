@@ -19,6 +19,7 @@ export type ServiceActivityType = {
   requires_client: boolean;
   requires_narrative: boolean;
   is_billable: boolean;
+  counts_toward_client_billable?: boolean;
 };
 
 export type EsTimeLinkedSource =
@@ -160,12 +161,23 @@ export async function loadActiveActivityTypes(
   const { data, error } = await supabase
     .from("service_activity_types")
     .select(
-      "id, code, category, name, default_minutes, min_minutes, max_minutes, requires_client, requires_narrative, is_billable"
+      "id, code, category, name, default_minutes, min_minutes, max_minutes, requires_client, requires_narrative, is_billable, counts_toward_client_billable"
     )
     .eq("active", true)
     .order("sort_order", { ascending: true });
 
   if (error) {
+    if (isMissingSchemaError(error.message)) {
+      const fallback = await supabase
+        .from("service_activity_types")
+        .select(
+          "id, code, category, name, default_minutes, min_minutes, max_minutes, requires_client, requires_narrative, is_billable"
+        )
+        .eq("active", true)
+        .order("sort_order", { ascending: true });
+      if (fallback.error) throw new Error(fallback.error.message);
+      return (fallback.data ?? []) as ServiceActivityType[];
+    }
     throw new Error(error.message);
   }
 
@@ -420,7 +432,7 @@ export function groupActivityTypesByCategory(
 }
 
 export function minutesToDecimalHours(minutes: number): string {
-  return (minutes / 60).toFixed(2);
+  return (minutes / 60).toFixed(1);
 }
 
 function pad2(value: number): string {

@@ -3,6 +3,10 @@
  * (admin client, next/headers) so "use client" components can import here.
  */
 import {
+  entryCountsTowardClientBillable,
+  sumClientBillableMinutes,
+} from "@wayfinder/supabase/client-billable";
+import {
   parseLocalDate,
   sumBillableMinutes,
   weekStartSunday,
@@ -18,9 +22,11 @@ export type EsTimeEntryRow = {
   activity_code: string;
   activity_name: string;
   activity_category: string;
+  counts_toward_client_billable: boolean;
   service_date: string;
   duration_minutes: number;
   duration_hours: string;
+  client_billable_hours: string;
   service_start_at: string | null;
   service_end_at: string | null;
   created_at: string | null;
@@ -28,6 +34,8 @@ export type EsTimeEntryRow = {
   linked_source_type: string | null;
   status: string;
   flags: Record<string, boolean>;
+  client_present?: boolean | null;
+  delivery_mode?: string | null;
 };
 
 export type EsWeekSubmissionRow = {
@@ -54,6 +62,12 @@ export function summarizeTimeEntries(entries: EsTimeEntryRow[]) {
   >();
   const byActivity = new Map<string, { name: string; minutes: number; count: number }>();
   const billableMinutes = sumBillableMinutes(entries);
+  const clientBillableEntries = entries.map((e) => ({
+    duration_minutes: e.duration_minutes,
+    counts_toward_client_billable: e.counts_toward_client_billable,
+    flags: e.flags ?? {},
+  }));
+  const clientBillableMinutes = sumClientBillableMinutes(clientBillableEntries);
   const workedMinutes = workedMinutesFromEntries(entries);
 
   for (const e of entries) {
@@ -67,7 +81,9 @@ export function summarizeTimeEntries(entries: EsTimeEntryRow[]) {
       minutes: 0,
       count: 0,
     };
-    clientRow.minutes += e.duration_minutes;
+    if (entryCountsTowardClientBillable({ duration_minutes: e.duration_minutes, counts_toward_client_billable: e.counts_toward_client_billable })) {
+      clientRow.minutes += e.duration_minutes;
+    }
     clientRow.count += 1;
     byClient.set(clientKey, clientRow);
 
@@ -85,6 +101,8 @@ export function summarizeTimeEntries(entries: EsTimeEntryRow[]) {
     /** @deprecated Prefer billableMinutes — kept for older callers. */
     totalMinutes: billableMinutes,
     billableMinutes,
+    /** Per-client billable totals (excludes Case File Review, etc.). */
+    clientBillableMinutes,
     workedMinutes,
     byClient: [...byClient.values()].sort((a, b) => b.minutes - a.minutes),
     byActivity: [...byActivity.values()].sort((a, b) => b.minutes - a.minutes),

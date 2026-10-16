@@ -1,7 +1,6 @@
 "use client";
 
-import { minutesToDecimalHours } from "@wayfinder/supabase/es-time-tracking";
-import { minutesToClockLabel } from "@wayfinder/supabase/staff-time-clock-shared";
+import { formatBillableHours } from "@wayfinder/supabase/client-billable";
 import Link from "next/link";
 import type { MyBillableHoursSummary } from "@/lib/es-time-data";
 
@@ -35,11 +34,9 @@ function SummaryCard({
     <div className="rounded-lg border border-neutral-100 bg-neutral-50 px-3 py-2.5">
       <p className="text-xs font-medium uppercase tracking-wide text-brand-black/55">{title}</p>
       <p className="mt-0.5 text-lg font-semibold text-brand-black">
-        {minutesToClockLabel(minutes)}
+        {formatBillableHours(minutes)} hrs
       </p>
-      <p className="text-xs text-brand-black/55">
-        {minutesToDecimalHours(minutes)} hrs · {detail}
-      </p>
+      <p className="text-xs text-brand-black/55">{detail}</p>
     </div>
   );
 }

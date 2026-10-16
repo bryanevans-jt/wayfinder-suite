@@ -1,3 +1,4 @@
+import { formatBillableHours } from "@wayfinder/supabase/client-billable";
 import {
   minutesToDecimalHours,
   sumBillableMinutes,
@@ -56,7 +57,9 @@ export async function loadEsTimeEntriesForWeek(
       linked_source_type,
       status,
       flags,
-      service_activity_types ( code, name, category )
+      client_present,
+      delivery_mode,
+      service_activity_types ( code, name, category, counts_toward_client_billable )
     `
     )
     .eq("es_user_id", esUserId)
@@ -80,11 +83,23 @@ export async function loadEsTimeEntriesForWeek(
 
   return (data ?? []).map((row) => {
     const embed = row.service_activity_types as
-      | { code: string; name: string; category: string }
-      | { code: string; name: string; category: string }[]
+      | {
+          code: string;
+          name: string;
+          category: string;
+          counts_toward_client_billable?: boolean;
+        }
+      | {
+          code: string;
+          name: string;
+          category: string;
+          counts_toward_client_billable?: boolean;
+        }[]
       | null;
     const activity = Array.isArray(embed) ? embed[0] : embed;
     const minutes = row.duration_minutes as number;
+    const countsTowardClient =
+      activity?.counts_toward_client_billable !== false;
     return {
       id: row.id as string,
       es_user_id: row.es_user_id as string,
@@ -96,9 +111,11 @@ export async function loadEsTimeEntriesForWeek(
       activity_code: activity?.code ?? "",
       activity_name: activity?.name ?? "",
       activity_category: activity?.category ?? "",
+      counts_toward_client_billable: countsTowardClient,
       service_date: row.service_date as string,
       duration_minutes: minutes,
-      duration_hours: minutesToDecimalHours(minutes),
+      duration_hours: formatBillableHours(minutes),
+      client_billable_hours: countsTowardClient ? formatBillableHours(minutes) : "0.0",
       service_start_at: (row.service_start_at as string | null) ?? null,
       service_end_at: (row.service_end_at as string | null) ?? null,
       created_at: (row.created_at as string | null) ?? null,
@@ -106,6 +123,8 @@ export async function loadEsTimeEntriesForWeek(
       linked_source_type: (row.linked_source_type as string | null) ?? null,
       status: row.status as string,
       flags: (row.flags as Record<string, boolean>) ?? {},
+      client_present: (row.client_present as boolean | null) ?? null,
+      delivery_mode: (row.delivery_mode as string | null) ?? null,
     };
   });
 }

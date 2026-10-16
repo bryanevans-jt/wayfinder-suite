@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isIntakeQualifyingActivityCode } from "./client-billable";
 import {
   contactLogDisplayText,
   fetchContactLogsWithSchemaFallback,
@@ -295,7 +296,7 @@ async function notifyIntakeReadyRecipients(
     app: "staff" as const,
     kind: "referral_intake_billing" as const,
     title: `Bill intake: ${label}`,
-    body: "First casework contact was logged. Bill the state for intake, then mark payment received.",
+    body: "Intake is ready to bill. Bill the state for intake, then mark payment received.",
     link_path,
     metadata: { clientId },
   };
@@ -410,8 +411,71 @@ export async function markIntakeReadyToBill(
   }
   if (error) return { ready: false, error: error.message };
 
+  await admin
+    .from("clients")
+    .update({ intake_scheduling_needed: false })
+    .eq("id", opts.clientId);
+
   await notifyIntakeReadyRecipients(admin, opts.clientId, notify?.digest);
   return { ready: true };
+}
+
+/** Intake meeting logged without client present — keep billing scheduled and reopen scheduling. */
+export async function recordIntakeNoShowFromContactLog(
+  admin: SupabaseClient,
+  opts: { clientId: string; contactLogId: string }
+): Promise<void> {
+  const now = new Date().toISOString();
+  let row = await loadBilling(admin, opts.clientId);
+  if (!row) {
+    await ensureScheduledIntakeBilling(admin, { clientId: opts.clientId });
+    row = await loadBilling(admin, opts.clientId);
+  }
+  if (!row) return;
+
+  const patch: Record<string, unknown> = {
+    updated_at: now,
+    no_show_contact_log_id: opts.contactLogId,
+  };
+
+  if (row.status === "ready_to_bill") {
+    patch.status = "scheduled";
+    patch.ready_at = null;
+    patch.ready_reason = null;
+    patch.ready_contact_log_id = null;
+  }
+
+  await admin.from("intake_billings").update(patch).eq("id", row.id);
+
+  await admin
+    .from("clients")
+    .update({ intake_scheduling_needed: true })
+    .eq("id", opts.clientId);
+}
+
+export async function revertIntakeBillingToScheduled(
+  admin: SupabaseClient,
+  clientId: string
+): Promise<{ ok: true } | { error: string }> {
+  const row = await loadBilling(admin, clientId);
+  if (!row) return { error: "No intake billing record" };
+  if (row.status !== "ready_to_bill") {
+    return { error: "Only ready-to-bill intakes can be returned to scheduled" };
+  }
+  const now = new Date().toISOString();
+  const { error } = await admin
+    .from("intake_billings")
+    .update({
+      status: "scheduled",
+      ready_at: null,
+      ready_reason: null,
+      ready_contact_log_id: null,
+      updated_at: now,
+    })
+    .eq("id", row.id);
+  if (error) return { error: error.message };
+  await admin.from("clients").update({ intake_scheduling_needed: true }).eq("id", clientId);
+  return { ok: true };
 }
 
 /**
@@ -426,6 +490,9 @@ export async function markIntakeReadyAfterContactLog(
     reason?: IntakeReadyReason;
     loggedByUserId?: string | null;
     contactLogId?: string | null;
+    /** Activity code when contact included billable/intake time. */
+    activityCode?: string | null;
+    clientPresent?: boolean;
   }
 ): Promise<void> {
   if (opts.loggedByUserId) {
@@ -439,11 +506,26 @@ export async function markIntakeReadyAfterContactLog(
 
   const eligible = await isReferralPipelineClient(admin, opts.clientId);
   if (!eligible) return;
-  await markIntakeReadyToBill(admin, {
-    clientId: opts.clientId,
-    reason: opts.reason ?? "contact_log",
-    contactLogId: opts.contactLogId,
-  });
+
+  const code = opts.activityCode?.trim() ?? "";
+  if (!code) return;
+
+  if (isIntakeQualifyingActivityCode(code)) {
+    if (opts.clientPresent !== true) {
+      if (opts.contactLogId) {
+        await recordIntakeNoShowFromContactLog(admin, {
+          clientId: opts.clientId,
+          contactLogId: opts.contactLogId,
+        });
+      }
+      return;
+    }
+    await markIntakeReadyToBill(admin, {
+      clientId: opts.clientId,
+      reason: opts.reason ?? "contact_log",
+      contactLogId: opts.contactLogId,
+    });
+  }
 }
 
 /** @deprecated Use markIntakeReadyAfterContactLog. */
@@ -459,12 +541,49 @@ export async function markIntakeReadyIfContactLogsExist(
   admin: SupabaseClient,
   opts: { clientId: string; reason?: IntakeReadyReason }
 ): Promise<void> {
-  const hasCaseworkContact = await hasNonHospitalityContactLog(admin, opts.clientId);
-  if (!hasCaseworkContact) return;
+  const qualifying = await findQualifyingIntakeContactLogForBilling(admin, opts.clientId);
+  if (!qualifying) return;
   await markIntakeReadyToBill(admin, {
     clientId: opts.clientId,
     reason: opts.reason ?? "contact_log",
+    contactLogId: qualifying.id,
   });
+}
+
+/** Earliest casework intake activity with client present (for billing backfill). */
+export async function findQualifyingIntakeContactLogForBilling(
+  admin: SupabaseClient,
+  clientId: string
+): Promise<{ id: string } | null> {
+  const { data: logs, error } = await admin
+    .from("contact_logs")
+    .select("id, logged_by, created_at")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: true })
+    .limit(200);
+  if (error || !logs?.length) return null;
+
+  const intakeOpsIds = await intakeOpsUserIdsExcludedFromBillingContact(admin);
+
+  for (const log of logs) {
+    if (!isCaseworkContactLog(log, intakeOpsIds)) continue;
+    const logId = log.id as string;
+    const { data: timeRows } = await admin
+      .from("es_time_entries")
+      .select("client_present, service_activity_types ( code )")
+      .eq("linked_source_type", "contact_log")
+      .eq("linked_source_id", logId)
+      .limit(5);
+    for (const row of timeRows ?? []) {
+      const embed = row.service_activity_types as { code?: string } | { code?: string }[] | null;
+      const activity = Array.isArray(embed) ? embed[0] : embed;
+      const code = activity?.code ?? "";
+      if (!isIntakeQualifyingActivityCode(code)) continue;
+      if (row.client_present !== true) continue;
+      return { id: logId };
+    }
+  }
+  return null;
 }
 
 export async function markDueScheduledIntakeBillings(
@@ -597,14 +716,15 @@ export async function backfillReadyIntakeBillingsFromContactLogs(
     if (billing?.status === "billed" || billing?.status === "paid") continue;
     if (billing?.status === "ready_to_bill") continue;
 
-    const hasCaseworkContact = await hasNonHospitalityContactLog(admin, clientId);
-    if (!hasCaseworkContact) continue;
+    const qualifying = await findQualifyingIntakeContactLogForBilling(admin, clientId);
+    if (!qualifying) continue;
 
     const result = await markIntakeReadyToBill(
       admin,
       {
         clientId,
         reason: "contact_log",
+        contactLogId: qualifying.id,
       },
       { digest }
     );
@@ -619,7 +739,7 @@ export async function updateIntakeBillingStatus(
   admin: SupabaseClient,
   opts: {
     billingId: string;
-    action: "billed" | "paid" | "ready";
+    action: "billed" | "paid" | "ready" | "revert_scheduled";
     actorUserId: string;
   }
 ): Promise<{ ok: true } | { error: string }> {
@@ -631,6 +751,18 @@ export async function updateIntakeBillingStatus(
   if (loadErr || !row) return { error: loadErr?.message ?? "Billing record not found" };
 
   const now = new Date().toISOString();
+  if (opts.action === "revert_scheduled") {
+    const { data: full } = await admin
+      .from("intake_billings")
+      .select("client_id")
+      .eq("id", opts.billingId)
+      .maybeSingle();
+    if (!full?.client_id) return { error: "Client missing" };
+    const reverted = await revertIntakeBillingToScheduled(admin, full.client_id as string);
+    if ("error" in reverted) return { error: reverted.error };
+    return { ok: true };
+  }
+
   if (opts.action === "ready") {
     if (row.status !== "scheduled") return { error: "Only scheduled intakes can be marked ready" };
     const { data: full } = await admin

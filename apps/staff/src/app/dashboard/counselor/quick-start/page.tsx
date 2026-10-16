@@ -32,7 +32,8 @@ export default async function CounselorQuickStartPage() {
             registered with Joshua Tree
           </li>
           <li>
-            Tap <strong>Email me a magic link</strong> or <strong>Sign in with passkey</strong>
+            Tap <strong>Email me a sign-in link</strong> (stays active for several days) or{" "}
+            <strong>Sign in with passkey</strong>
           </li>
         </ol>
 

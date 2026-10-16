@@ -3,6 +3,7 @@ import { clientDisplayName } from "@wayfinder/branding";
 import Link from "next/link";
 import { Suspense } from "react";
 import { CounselorClientsGrid } from "@/components/counselor-clients-grid";
+import { CounselorSubmitReferralLink } from "@/components/counselor-submit-referral-link";
 import { StaffSupportNote } from "@/components/staff-support-note";
 import { ViewArchivedToggle } from "@/components/view-archived-toggle";
 import { STAFF_SUPPORT_EMAIL, STAFF_SUPPORT_MAILTO } from "@/lib/support-contact";
@@ -172,15 +173,18 @@ export default async function CounselorPortalPage({
         <Suspense fallback={null}>
           <ViewArchivedToggle className="mt-4" />
         </Suspense>
-        <p className="mt-3 text-sm">
-          <Link href="/dashboard/counselor/quick-start" className="font-medium text-brand-green hover:underline">
-            Quick Start Guide
-          </Link>
-          {" · "}
-          <Link href="/dashboard/help" className="font-medium text-brand-green hover:underline">
-            Help
-          </Link>
-        </p>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <CounselorSubmitReferralLink />
+          <p className="text-sm">
+            <Link href="/dashboard/counselor/quick-start" className="font-medium text-brand-green hover:underline">
+              Quick Start Guide
+            </Link>
+            {" · "}
+            <Link href="/dashboard/help" className="font-medium text-brand-green hover:underline">
+              Help
+            </Link>
+          </p>
+        </div>
       </header>
 
       {clientsLoadError ? (
@@ -189,17 +193,39 @@ export default async function CounselorPortalPage({
           <StaffSupportNote />
         </div>
       ) : clients.length === 0 ? (
-        <div className="mt-10 max-w-xl space-y-3 text-brand-black/75">
-          <p>
-            No clients are assigned to you yet. When an Employment Specialist assigns you on a
-            client record, they will appear here.
-          </p>
+        <div className="mt-10 max-w-2xl space-y-6">
+          <div className="rounded-xl border border-neutral-200 bg-white p-6">
+            <h2 className="text-lg font-semibold text-brand-black">No Clients Found</h2>
+            <p className="mt-3 text-sm text-brand-black/80">
+              Your Joshua Tree Service Group clients can be found here. Please make a referral at{" "}
+              <a
+                href="https://www.thejoshuatree.org/gvra"
+                className="font-medium text-brand-green underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                thejoshuatree.org/gvra
+              </a>{" "}
+              to add new clients, or contact Joshua Tree COO Bryan Evans at{" "}
+              <a href="mailto:bryan.evans@thejoshuatree.org" className="font-medium text-brand-green underline">
+                bryan.evans@thejoshuatree.org
+              </a>{" "}
+              if this is an error.
+            </p>
+            <p className="mt-4 text-sm text-brand-black/70">
+              When clients are assigned to you, this page lists each participant with activity
+              timeline summaries, application status, and milestone progress (view-only).
+            </p>
+          </div>
+          <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50/80 p-4 text-sm text-brand-black/60">
+            <p className="font-medium text-brand-black/75">Client cards will appear here</p>
+            <p className="mt-1">Name · status · last activity · applications — open a card for the full timeline.</p>
+          </div>
           {process.env.NODE_ENV === "development" && devHint ? (
             <p className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 font-mono text-xs text-brand-black/60">
               Dev: {devHint}
             </p>
           ) : null}
-          <StaffSupportNote />
         </div>
       ) : (
         <CounselorClientsGrid

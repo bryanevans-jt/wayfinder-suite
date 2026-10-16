@@ -16,11 +16,13 @@ export function ClientPresentGuidanceBanner({
 }: Props) {
   const targetPct = Math.round(targetRatio * 100);
 
+  const formatHrs = (mins: number) => (mins / 60).toFixed(1);
+
   if (totalMinutes === 0) {
     return (
       <p className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-brand-black/75">
-        {guidanceLabel}: at least {targetPct}% of billable activity in the last 30 days should
-        include direct client contact. No billable time has been logged in the last 30 days yet.
+        {guidanceLabel}: at least {targetPct}% of this client&apos;s billable hours (last 30 days)
+        should be Active (in-person). No client billable hours logged in the last 30 days yet.
       </p>
     );
   }
@@ -38,11 +40,13 @@ export function ClientPresentGuidanceBanner({
       role="status"
     >
       <p className="font-medium">
-        Client contact (last 30 days): {pct}% ({presentMinutes} of {totalMinutes} billable minutes)
+        Active (in-person), last 30 days: {pct}% ({formatHrs(presentMinutes)} of{" "}
+        {formatHrs(totalMinutes)} client billable hours)
       </p>
       <p className="mt-1 text-brand-black/70">
-        {guidanceLabel} suggests at least {targetPct}% of billable activity include direct client
-        contact. This is informational only — exceptions apply.
+        This percentage is in-person time with the client present divided by that client&apos;s
+        billable hours — not expected or authorized hours. {guidanceLabel} suggests at least{" "}
+        {targetPct}% Active (in-person). Informational only — exceptions apply.
       </p>
     </div>
   );

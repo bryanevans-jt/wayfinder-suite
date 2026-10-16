@@ -4,6 +4,10 @@ import {
   CONTACT_LOG_INTERNAL_NOTES_LABEL,
   CONTACT_LOG_NOTES_LABEL,
 } from "@wayfinder/branding/constants";
+import {
+  activityCountsTowardClientBillable,
+  isNoteOnlyActivityCode,
+} from "@wayfinder/supabase/client-billable";
 import { DEFAULT_ACTIVITY_CODES } from "@wayfinder/supabase/es-time-tracking";
 import type { ServiceActivityType } from "@wayfinder/supabase/es-time-tracking";
 import { defaultActivityMinutes } from "@wayfinder/supabase/es-time-tracking";
@@ -73,6 +77,7 @@ export function ClientContactLogForm({
   }, [activities, activityTypeId]);
 
   const selectedActivity = activities.find((a) => a.id === activityTypeId);
+  const noteOnlyActivity = isNoteOnlyActivityCode(selectedActivity?.code);
   const suggestions = useMemo(
     () =>
       suggestContactLogFollowUps({
@@ -87,7 +92,13 @@ export function ClientContactLogForm({
   function save() {
     setError(null);
     setNotice(null);
-    if (activityTypeId && durationMinutes > 0 && !startTime && !endTime) {
+    if (
+      !noteOnlyActivity &&
+      activityTypeId &&
+      durationMinutes > 0 &&
+      !startTime &&
+      !endTime
+    ) {
       setError("Enter a start time, an end time, or both when logging service time.");
       return;
     }
@@ -108,7 +119,7 @@ export function ClientContactLogForm({
             clientPresent,
             deliveryMode,
             time:
-              activityTypeId && durationMinutes > 0
+              !noteOnlyActivity && activityTypeId && durationMinutes > 0
                 ? {
                     activityTypeId,
                     durationMinutes,
@@ -231,6 +242,10 @@ export function ClientContactLogForm({
           onEndTimeChange={setEndTime}
           activityTypeLabel="Activity type"
           disabled={pending || readOnly}
+          hideTimeFields={noteOnlyActivity}
+          selectedCountsTowardClientBillable={
+            selectedActivity ? activityCountsTowardClientBillable(selectedActivity) : true
+          }
         />
         {suggestions.length > 0 ? (
           <div className="flex flex-wrap gap-2" aria-label="Suggestions">

@@ -57,6 +57,8 @@
     "./referral-labels": "./src/referral-labels.ts",
     "./counselor-dedupe": "./src/counselor-dedupe.ts",
     "./counselor-name-match": "./src/counselor-name-match.ts",
+    "./client-billable": "./src/client-billable.ts",
+    "./gvra-monthly-allowance": "./src/gvra-monthly-allowance.ts",
     "./intake-billing": "./src/intake-billing.ts",
     "./intake-scheduling": "./src/intake-scheduling.ts",
     "./coo-intake-snapshot": "./src/coo-intake-snapshot.ts",

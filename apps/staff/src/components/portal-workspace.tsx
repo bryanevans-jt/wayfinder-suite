@@ -118,7 +118,6 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
   const [newCounselorEmail, setNewCounselorEmail] = useState("");
   const [newCounselorOfficeIds, setNewCounselorOfficeIds] = useState<string[]>([]);
   const [newCounselorSilentAdd, setNewCounselorSilentAdd] = useState(true);
-  const [bulkLoginOfficeId, setBulkLoginOfficeId] = useState("");
   const [mergeSourceId, setMergeSourceId] = useState<string | null>(null);
   const [newSupervisorName, setNewSupervisorName] = useState("");
   const [newSupervisorEmail, setNewSupervisorEmail] = useState("");
@@ -260,28 +259,10 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
   }, [b]);
 
   useEffect(() => {
-    if (!b || bulkLoginOfficeId) return;
-    const valdosta = b.offices.find((o) => o.name.toLowerCase().includes("valdosta"));
-    if (valdosta) setBulkLoginOfficeId(valdosta.id);
-  }, [b, bulkLoginOfficeId]);
-
-  useEffect(() => {
     if (!b || newGvraSupervisorOfficeIds.length > 0) return;
     const valdosta = b.offices.find((o) => o.name.toLowerCase().includes("valdosta"));
     if (valdosta) setNewGvraSupervisorOfficeIds([valdosta.id]);
   }, [b, newGvraSupervisorOfficeIds.length]);
-
-  const bulkLoginEligible = useMemo(() => {
-    if (!b || !bulkLoginOfficeId) return [];
-    return b.counselorStaff.filter((c) => {
-      const inOffice =
-        c.office_ids.includes(bulkLoginOfficeId) || c.office_id === bulkLoginOfficeId;
-      if (!inOffice) return false;
-      if (c.has_login && !c.is_active) return true;
-      if (!c.has_login && (c.contact_email ?? "").includes("@")) return true;
-      return false;
-    });
-  }, [b, bulkLoginOfficeId]);
 
   const visibleEsStaff = useMemo(() => {
     if (!b) return [];
@@ -490,52 +471,28 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 Add counselor
               </button>
             </form>
-            <div className="space-y-3 rounded-xl border border-brand-green/25 bg-brand-green/5 p-4">
-              <div>
-                <h2 className="text-lg font-semibold text-brand-black">Enable counselor logins</h2>
-                <p className="mt-1 text-sm text-brand-black/70">
-                  Referral intake now links login access silently (no welcome email) when a counselor
-                  has a referral email and an <strong>active</strong> office (including from
-                  caseload). Magic-link sign-in also provisions access. Use bulk enable below only
-                  for directory rows that still show <strong>No login</strong>.
+            {isSuperAdminMode ? (
+              <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-brand-black/75">
+                <p>
+                  Counselor sign-in is provisioned silently when referrals are submitted or when a
+                  counselor requests a sign-in link. Revoke access per counselor below. Hidden
+                  offices stay blocked.
                 </p>
-              </div>
-              <div className="flex flex-wrap items-end gap-3">
-                <label className="text-sm">
-                  <span className="font-medium text-brand-black">Office</span>
-                  <select
-                    value={bulkLoginOfficeId}
-                    onChange={(e) => setBulkLoginOfficeId(e.target.value)}
-                    className="mt-1 block min-w-[220px] rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-                    disabled={busy}
-                  >
-                    <option value="">Select office…</option>
-                    {b.offices.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
                 <button
                   type="button"
-                  disabled={busy || !bulkLoginOfficeId || bulkLoginEligible.length === 0}
-                  className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  disabled={busy}
+                  className="mt-3 rounded-lg border border-brand-green bg-white px-3 py-1.5 text-sm font-semibold text-brand-green hover:bg-brand-green/5 disabled:opacity-60"
                   onClick={() =>
                     void run(async () => {
-                      const officeName =
-                        b.offices.find((o) => o.id === bulkLoginOfficeId)?.name ?? "this office";
                       if (
                         !confirm(
-                          `Enable login for ${bulkLoginEligible.length} counselor(s) in ${officeName}? No welcome email will be sent.`
+                          "Provision login for all eligible counselors now? No welcome email will be sent."
                         )
                       ) {
                         return;
                       }
-                      const res = await fetch("/api/portal/counselors/activate-login", {
+                      const res = await fetch("/api/portal/counselors/backfill-logins", {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ office_id: bulkLoginOfficeId, send_invite: false }),
                       });
                       const data = (await res.json()) as {
                         error?: string;
@@ -545,22 +502,16 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                       };
                       if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
                       alert(
-                        `Login enabled: ${data.activated ?? 0} new, ${data.reactivated ?? 0} reactivated, ${data.skipped ?? 0} skipped (missing email or blocked).`
+                        `Done: ${data.activated ?? 0} new, ${data.reactivated ?? 0} reactivated, ${data.skipped ?? 0} skipped.`
                       );
+                      await reload();
                     })
                   }
                 >
-                  Enable logins (no email)
+                  Provision all eligible counselor logins
                 </button>
               </div>
-              {bulkLoginOfficeId ? (
-                <p className="text-xs text-brand-black/65">
-                  {bulkLoginEligible.length} counselor(s) in this office can be enabled now (
-                  {bulkLoginEligible.filter((c) => !c.has_login).length} new logins,{" "}
-                  {bulkLoginEligible.filter((c) => c.has_login).length} reactivations).
-                </p>
-              ) : null}
-            </div>
+            ) : null}
             <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white">
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-neutral-50 text-brand-black/70">

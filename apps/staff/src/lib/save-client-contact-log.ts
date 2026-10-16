@@ -5,6 +5,8 @@ import {
   insertEsTimeEntry,
   todayLocalDate,
 } from "@wayfinder/supabase";
+import { isNoteOnlyActivityCode } from "@wayfinder/supabase/client-billable";
+import { loadActivityTypeById } from "@wayfinder/supabase/es-time-tracking";
 import type { ActionResult } from "@wayfinder/supabase/error-log";
 import { friendlyApplicationSaveError } from "@wayfinder/supabase/error-log";
 import { resolveEpisodeForActivity } from "@wayfinder/supabase/service-episodes";
@@ -108,8 +110,20 @@ export async function saveClientContactLog(
   });
 
   let warning: string | undefined;
+  let activityCode: string | null = null;
 
-  if (input.time?.activityTypeId && input.time.durationMinutes > 0) {
+  if (input.time?.activityTypeId) {
+    const activity = await loadActivityTypeById(admin, input.time.activityTypeId);
+    activityCode = activity?.code ?? null;
+  }
+
+  const skipTime =
+    (activityCode && isNoteOnlyActivityCode(activityCode)) ||
+    !input.time?.activityTypeId ||
+    !input.time.durationMinutes ||
+    input.time.durationMinutes <= 0;
+
+  if (!skipTime && input.time?.activityTypeId && input.time.durationMinutes > 0) {
     try {
       const narrative = narrativeForContactTime(outcome, input.internalNotes);
       await insertEsTimeEntry(admin, {
@@ -147,6 +161,8 @@ export async function saveClientContactLog(
     reason: "contact_log",
     loggedByUserId: userId,
     contactLogId,
+    activityCode,
+    clientPresent: input.clientPresent,
   });
 
   return warning ? { ok: true, warning } : { ok: true };

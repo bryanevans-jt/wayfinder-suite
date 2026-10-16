@@ -90,7 +90,7 @@ export function IntakeBillingWorkspace({ canManage = true }: { canManage?: boole
     focusRowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [focusClientId, loading, displayRows]);
 
-  async function act(id: string, action: "billed" | "paid" | "ready") {
+  async function act(id: string, action: "billed" | "paid" | "ready" | "revert_scheduled") {
     if (!canManage) return;
     const res = await fetch("/api/intake-billing", {
       method: "PATCH",
@@ -226,13 +226,22 @@ export function IntakeBillingWorkspace({ canManage = true }: { canManage?: boole
                         </button>
                       ) : null}
                       {canManage && row.status === "ready_to_bill" ? (
-                        <button
-                          type="button"
-                          onClick={() => void act(row.id, "billed")}
-                          className="rounded-lg bg-brand-green px-3 py-1.5 text-sm font-semibold text-white"
-                        >
-                          Mark billed
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void act(row.id, "billed")}
+                            className="rounded-lg bg-brand-green px-3 py-1.5 text-sm font-semibold text-white"
+                          >
+                            Mark billed
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void act(row.id, "revert_scheduled")}
+                            className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-950 hover:bg-amber-100"
+                          >
+                            Return to scheduled
+                          </button>
+                        </div>
                       ) : null}
                       {canManage && row.status === "billed" ? (
                         <button

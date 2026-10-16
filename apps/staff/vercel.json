@@ -43,6 +43,10 @@
     {
       "path": "/api/cron/team-celebrations",
       "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/gvra-monthly-allowance",
+      "schedule": "0 6 1 * *"
     }
   ]
 }

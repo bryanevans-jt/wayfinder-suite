@@ -34,6 +34,7 @@ import { supabaseEmbedName } from "@/lib/supabase-embed";
 import { ClientProfileForm, type ClientProfileData } from "@/components/client-profile-form";
 import { ClientEsAssignmentPanel } from "@/components/client-es-assignment-panel";
 import { ClientIntakeAppointmentPanel } from "@/components/client-intake-appointment-panel";
+import { ClientIntakeCompletedBanner } from "@/components/client-intake-completed-banner";
 import { ClientIntakeSchedulePanel } from "@/components/client-intake-schedule-panel";
 import { clientPresentGuidanceTarget } from "@/lib/client-present-guidance";
 import { EmployerMatchPanel } from "@/components/employer-match-panel";
@@ -81,11 +82,12 @@ type ClientDetailRow = {
   employment_goal_secondary_other: string | null;
   prior_client_id?: string | null;
   intake_status?: string | null;
+  intake_scheduling_needed?: boolean | null;
   disability_history?: string | null;
 };
 
 const CLIENT_SELECT_FULL =
-  "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, office_id, counselor_id, job_start_date, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other, prior_client_id, intake_status, disability_history";
+  "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, office_id, counselor_id, job_start_date, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other, prior_client_id, intake_status, intake_scheduling_needed, disability_history";
 
 const CLIENT_SELECT_CORE =
   "id, user_id, profile_id, contact_email, current_service_id, current_stage_id, office_id, counselor_id, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other";
@@ -261,8 +263,15 @@ export default async function EsClientDetailPage({ params }: PageProps) {
 
   const activityFkIds = buildClientActivityFkIds(client);
 
-  const [logs, { data: stageEvents }, { data: applications }, { data: meetings }, intakeMeetings, { data: intakeTaskRows }] =
-    await Promise.all([
+  const [
+    logs,
+    { data: stageEvents },
+    { data: applications },
+    { data: meetings },
+    intakeMeetings,
+    { data: intakeTaskRows },
+    { data: intakeBillingRow },
+  ] = await Promise.all([
       listContactLogsForClientIds(admin, activityFkIds, { orderAscending: true }).catch(() => []),
       admin
         .from("client_stage_events")
@@ -289,6 +298,11 @@ export default async function EsClientDetailPage({ params }: PageProps) {
         .not("appointment_starts_at", "is", null)
         .order("appointment_starts_at", { ascending: false })
         .limit(1),
+      admin
+        .from("intake_billings")
+        .select("status, ready_at")
+        .eq("client_id", client.id)
+        .maybeSingle(),
     ]);
 
   const intakeTask = intakeTaskRows?.[0] ?? null;
@@ -440,6 +454,15 @@ export default async function EsClientDetailPage({ params }: PageProps) {
   const episodeContext = await loadClientEpisodeContext(client.id as string);
   const exportEpisode = episodeContext.currentEpisode ?? episodeContext.activeEpisodes[0] ?? null;
 
+  const intakeBillingStatus = (intakeBillingRow?.status as string | null) ?? null;
+  const intakeReadyAt = (intakeBillingRow?.ready_at as string | null) ?? null;
+  const intakeBillingComplete =
+    intakeBillingStatus === "ready_to_bill" ||
+    intakeBillingStatus === "billed" ||
+    intakeBillingStatus === "paid";
+  const intakeSchedulingNeeded =
+    (client as ClientDetailRow).intake_scheduling_needed !== false && !intakeBillingComplete;
+
   return (
     <main className="px-6 py-10">
       <Link
@@ -529,13 +552,21 @@ export default async function EsClientDetailPage({ params }: PageProps) {
           />
         ) : null}
 
-        {!intakeAppointment &&
-        (client as ClientDetailRow).intake_status === "active" &&
+        {intakeBillingComplete && intakeReadyAt ? (
+          <ClientIntakeCompletedBanner completedAt={intakeReadyAt} />
+        ) : null}
+
+        {!intakeBillingComplete &&
+        intakeSchedulingNeeded &&
+        !intakeAppointment &&
         (canEditClientIntakeAppointment(role) || auditPreview) ? (
           <ClientIntakeSchedulePanel clientId={client.id as string} canWrite={canEditIntakeAppt} />
         ) : null}
 
-        {intakeAppointment && (canEditClientIntakeAppointment(role) || auditPreview) ? (
+        {!intakeBillingComplete &&
+        intakeSchedulingNeeded &&
+        intakeAppointment &&
+        (canEditClientIntakeAppointment(role) || auditPreview) ? (
           <ClientIntakeAppointmentPanel
             clientId={client.id}
             appointment={intakeAppointment}
