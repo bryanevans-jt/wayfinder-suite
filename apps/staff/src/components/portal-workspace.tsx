@@ -55,7 +55,7 @@ import {
 import { CounselorMergePanel } from "@/components/counselor-merge-panel";
 import { PortalSetupChecklist } from "@/components/portal-setup-checklist";
 import { friendlyClientError, USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
-import { clientRecordMatchesTextSearch } from "@wayfinder/supabase/referral-intake";
+import { clientRecordMatchesTextSearch } from "@wayfinder/supabase/prior-enrollment-search";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   clientPipelineWhere,
