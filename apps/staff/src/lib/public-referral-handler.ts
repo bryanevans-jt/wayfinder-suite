@@ -1,6 +1,5 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
-  buildReferralEmailBodies,
   createPublicReferral,
   GA_WEBSITE_REFERRAL_SERVICES,
   loadGaWebsiteReferralServices,
@@ -8,9 +7,8 @@ import {
   type PublicReferralPayload,
   type ReferralState,
 } from "@wayfinder/supabase/referral-intake";
-import { getGoogleAuth, sendEmail } from "@/lib/google-mail";
+import { deliverReferralEmails } from "@/lib/referral-notification-email";
 import { provisionCounselorLoginAfterReferral } from "@/lib/portal-staff-users";
-import { shouldSendReferralCounselorConfirmationEmail } from "@/lib/referral-email-policy";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -96,78 +94,17 @@ export async function handlePublicReferralPost(request: Request, state: Referral
 
     const authFileName = payload.authorizations?.name || "None";
     const otherFileName = payload.otherDocs?.name || "None";
-    const bodies = await buildReferralEmailBodies(admin, {
+
+    await deliverReferralEmails({
+      admin,
       state,
       payload,
       serviceName: created.serviceName,
       authFileName,
       otherFileName,
+      clientId: created.clientId,
+      route: `/api/public/referrals/${state.toLowerCase()}`,
     });
-
-    try {
-      const { data: cfg } = await admin
-        .from("admin_config")
-        .select("referral_notify_email, referral_training_phase")
-        .limit(1)
-        .maybeSingle();
-      const notifyEmail =
-        (process.env.REFERRAL_NOTIFY_EMAIL ?? "").trim() ||
-        (cfg?.referral_notify_email as string | null)?.trim() ||
-        "devon.poole@thejoshuatree.org";
-
-      const auth = await getGoogleAuth();
-      const attachments: { filename: string; content: string; encoding: "base64"; mimeType?: string }[] =
-        [];
-      if (payload.authorizations?.data) {
-        attachments.push({
-          filename: payload.authorizations.name || "authorizations.bin",
-          content: payload.authorizations.data,
-          encoding: "base64",
-          mimeType: payload.authorizations.mimeType,
-        });
-      }
-      if (payload.otherDocs?.data) {
-        attachments.push({
-          filename: payload.otherDocs.name || "other-docs.bin",
-          content: payload.otherDocs.data,
-          encoding: "base64",
-          mimeType: payload.otherDocs.mimeType,
-        });
-      }
-
-      await sendEmail(auth, {
-        to: notifyEmail,
-        subject: bodies.adminSubject,
-        text: bodies.adminBody,
-        attachments: attachments.length ? attachments : undefined,
-      });
-
-      // Training phase: also email admins if configured via comma list
-      if (cfg?.referral_training_phase !== false) {
-        const extra = (process.env.REFERRAL_TRAINING_CC ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-        for (const to of extra) {
-          await sendEmail(auth, {
-            to,
-            subject: `[Training] ${bodies.adminSubject}`,
-            text: bodies.adminBody,
-          });
-        }
-      }
-
-      if (
-        payload.counselorEmail &&
-        shouldSendReferralCounselorConfirmationEmail()
-      ) {
-        await sendEmail(auth, {
-          to: payload.counselorEmail.trim(),
-          subject: bodies.counselorSubject,
-          text: bodies.counselorBody,
-        });
-      }
-    } catch (mailErr) {
-      console.error("referral email failed:", mailErr);
-      // Referral is saved; still return success so counselor isn't stuck. HR sees in-app.
-    }
 
     await notifyHrOfNewReferral(admin, {
       clientId: created.clientId,
