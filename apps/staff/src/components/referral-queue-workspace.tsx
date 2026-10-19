@@ -547,18 +547,6 @@ export function ReferralQueueWorkspace() {
         </div>
       ) : null}
 
-      {searchForApi.length >= 2 &&
-      !priorSearching &&
-      priorMatches.length === 0 &&
-      !loading &&
-      filteredClients.length === 0 ? (
-        <p className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-brand-black/70">
-          No open referrals match this search. If the client completed services before, use{" "}
-          <strong>Begin New Service (returning client)</strong> or try last name only. In Super
-          Admin → Clients, check <strong>Closed</strong> (and try &quot;Morey&quot; / &quot;Cherry&quot;).
-        </p>
-      ) : null}
-
       <BeginNewServiceModal
         priorClientId={beginNewServicePriorId}
         onClose={() => setBeginNewServicePriorId(null)}

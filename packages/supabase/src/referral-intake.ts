@@ -744,6 +744,7 @@ export async function createPublicReferral(
       state,
       service: serviceName,
       counselorEmail,
+      counselorPhone: (payload.counselorPhone ?? "").trim() || null,
       source,
       possibleDuplicates: duplicates.map((d) => d.id),
     },
@@ -1358,22 +1359,6 @@ export async function searchPriorEnrollmentsForNewService(
   return closed.slice(0, 15).map(({ sortKey: _sortKey, ...rest }) => rest);
 }
 
-function formatPriorClientAddress(row: {
-  home_address_line1?: string | null;
-  home_address_line2?: string | null;
-  home_city?: string | null;
-  home_state?: string | null;
-  home_zip?: string | null;
-}): string {
-  const line1 = (row.home_address_line1 ?? "").trim();
-  const line2 = (row.home_address_line2 ?? "").trim();
-  const city = (row.home_city ?? "").trim();
-  const state = (row.home_state ?? "").trim();
-  const zip = (row.home_zip ?? "").trim();
-  const cityStateZip = [city, state].filter(Boolean).join(", ") + (zip ? ` ${zip}` : "");
-  return [line1, line2, cityStateZip.trim()].filter(Boolean).join(", ");
-}
-
 function normalizeReferralDobForInput(dob: string | null | undefined): string {
   const raw = (dob ?? "").trim();
   if (!raw) return "";
@@ -1399,18 +1384,28 @@ export async function loadPriorEnrollmentReferralDraft(
   const closure = await isPriorEnrollmentClosed(admin, priorClientId);
   if (!closure.closed) return { error: closure.error };
 
-  const { data: prior, error: priorErr } = await admin
+  const {
+    loadMergedPriorEnrollmentDemographics,
+    loadCounselorPhoneForPriorReferral,
+    priorDemographicsToReferralDraft,
+  } = await import("./prior-enrollment-copy");
+
+  const mergedPrior = await loadMergedPriorEnrollmentDemographics(admin, priorClientId);
+  if (!mergedPrior) return { error: "Previous enrollment not found." };
+
+  const { data: priorMeta, error: priorErr } = await admin
     .from("clients")
-    .select(`${PRIOR_ENROLLMENT_CLIENT_SELECT}, referred_at`)
+    .select("current_service_id, referral_state, referred_at, counselor_id")
     .eq("id", priorClientId)
     .maybeSingle();
   if (priorErr) return { error: priorErr.message };
-  if (!prior) return { error: "Previous enrollment not found." };
+  if (!priorMeta) return { error: "Previous enrollment not found." };
 
   let counselorName = "";
   let counselorEmail = "";
-  let counselorPhone = "";
-  const counselorId = (prior as { counselor_id?: string | null }).counselor_id;
+  const counselorId =
+    (mergedPrior.counselor_id as string | null) ??
+    ((priorMeta as { counselor_id?: string | null }).counselor_id ?? null);
   if (counselorId) {
     const { data: counselor } = await admin
       .from("counselors")
@@ -1421,8 +1416,10 @@ export async function loadPriorEnrollmentReferralDraft(
     counselorEmail = (counselor?.contact_email as string | null)?.trim() ?? "";
   }
 
+  const counselorPhone = (await loadCounselorPhoneForPriorReferral(admin, priorClientId)) ?? "";
+
   let serviceLabel = "";
-  const serviceId = (prior as { current_service_id?: string | null }).current_service_id;
+  const serviceId = (priorMeta as { current_service_id?: string | null }).current_service_id;
   if (serviceId) {
     const { data: service } = await admin.from("services").select("name").eq("id", serviceId).maybeSingle();
     const { gaServiceNameToReferralLabel } = await import("./referral-services");
@@ -1430,33 +1427,21 @@ export async function loadPriorEnrollmentReferralDraft(
   }
 
   const referralState =
-    ((prior as { referral_state?: string | null }).referral_state as ReferralState | null) ?? "GA";
+    ((priorMeta as { referral_state?: string | null }).referral_state as ReferralState | null) ?? "GA";
 
-  const draft: PublicReferralPayload = {
+  const draft = priorDemographicsToReferralDraft(mergedPrior, {
     counselorName,
     counselorEmail,
     counselorPhone,
-    service: serviceLabel,
-    clientName: ((prior as { full_name?: string }).full_name ?? "").trim(),
-    dob: normalizeReferralDobForInput((prior as { date_of_birth?: string | null }).date_of_birth),
-    clientPhone: (prior as { primary_phone?: string | null }).primary_phone?.trim() ?? "",
-    clientPhone2: (prior as { secondary_phone?: string | null }).secondary_phone?.trim() ?? "",
-    clientAddress: formatPriorClientAddress(prior as Record<string, string | null>),
-    clientEmail: (prior as { contact_email?: string | null }).contact_email?.trim() ?? "",
-    gender: (prior as { gender?: string | null }).gender?.trim() ?? "",
-    ethnicity: (prior as { ethnicity?: string | null }).ethnicity?.trim() ?? "",
-    disability: (prior as { disability_history?: string | null }).disability_history?.trim() ?? "",
-    workGoal: (prior as { employment_goal_primary?: string | null }).employment_goal_primary?.trim() ?? "",
-    meetingOption: (prior as { meeting_preference?: string | null }).meeting_preference?.trim() ?? "",
-    counselorAvailability:
-      (prior as { counselor_availability?: string | null }).counselor_availability?.trim() ?? "",
-  };
+    serviceLabel,
+    dobForInput: normalizeReferralDobForInput(mergedPrior.date_of_birth),
+  });
 
   return {
     ok: true,
     priorClientId,
     priorOutcomeLabel: closure.outcomeLabel,
-    priorReferredAt: (prior as { referred_at?: string | null }).referred_at ?? null,
+    priorReferredAt: (priorMeta as { referred_at?: string | null }).referred_at ?? null,
     state: referralState === "TN" ? "TN" : "GA",
     draft,
   };
@@ -1523,16 +1508,37 @@ export async function createReferralFromPriorEnrollment(
   const addr = parseAddress(payload.clientAddress);
   const nowIso = new Date().toISOString();
 
+  const { loadMergedPriorEnrollmentDemographics, clientPatchDemographicsFromPrior } =
+    await import("./prior-enrollment-copy");
+  const mergedPrior = await loadMergedPriorEnrollmentDemographics(admin, opts.priorClientId);
+
   const created = await insertRosterClientRecord(admin, {
     fullName: clientName,
     counselorId: counselor.counselorId,
     officeId,
     serviceId,
     stageId: null,
-    contactEmail: payload.clientEmail,
-    employmentGoalPrimary: payload.workGoal ?? null,
+    contactEmail: payload.clientEmail || mergedPrior?.contact_email || null,
+    employmentGoalPrimary: payload.workGoal?.trim() || mergedPrior?.employment_goal_primary || null,
   });
   if ("error" in created) return { error: created.error };
+
+  const demographicsPatch = mergedPrior
+    ? clientPatchDemographicsFromPrior(payload, mergedPrior, addr)
+    : {
+        date_of_birth: payload.dob?.trim() || null,
+        primary_phone: payload.clientPhone?.trim() || null,
+        secondary_phone: payload.clientPhone2?.trim() || null,
+        gender: payload.gender?.trim() || null,
+        ethnicity: payload.ethnicity?.trim() || null,
+        disability_history: payload.disability?.trim() || null,
+        meeting_preference: payload.meetingOption?.trim() || null,
+        counselor_availability: payload.counselorAvailability?.trim() || null,
+        home_address_line1: addr.line1,
+        home_city: addr.city,
+        home_state: addr.state ?? (state === "GA" || state === "TN" ? state : null),
+        home_zip: addr.zip,
+      };
 
   const patch: Record<string, unknown> = {
     intake_status: "new_referral",
@@ -1543,18 +1549,11 @@ export async function createReferralFromPriorEnrollment(
     prior_client_id: opts.priorClientId,
     authorization_number: null,
     authorization_override_reason: null,
-    date_of_birth: payload.dob?.trim() || null,
-    primary_phone: payload.clientPhone?.trim() || null,
-    secondary_phone: payload.clientPhone2?.trim() || null,
-    gender: payload.gender?.trim() || null,
-    ethnicity: payload.ethnicity?.trim() || null,
-    disability_history: payload.disability?.trim() || null,
-    meeting_preference: payload.meetingOption?.trim() || null,
-    counselor_availability: payload.counselorAvailability?.trim() || null,
-    home_address_line1: addr.line1,
-    home_city: addr.city,
-    home_state: addr.state ?? (state === "GA" || state === "TN" ? state : null),
-    home_zip: addr.zip,
+    ...demographicsPatch,
+    home_state:
+      (demographicsPatch.home_state as string | null) ??
+      addr.state ??
+      (state === "GA" || state === "TN" ? state : null),
   };
 
   let { error: patchErr } = await admin.from("clients").update(patch).eq("id", created.id);
@@ -1582,6 +1581,7 @@ export async function createReferralFromPriorEnrollment(
       priorClientId: opts.priorClientId,
       source: opts.source ?? "begin_new_service",
       service: serviceName,
+      counselorPhone: (payload.counselorPhone ?? "").trim() || null,
     },
   });
 
