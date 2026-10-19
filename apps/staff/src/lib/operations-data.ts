@@ -1,7 +1,8 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { isEsReplyOverdue } from "@wayfinder/supabase/business-hours";
 import { MIN_CONTACTS_PER_MONTH } from "@wayfinder/supabase/caseload-triage";
-import { isAdminTierRole, isGvraPartnerRole, isStaffRole } from "@wayfinder/supabase/roles";
+import { todayLocalDate } from "@wayfinder/supabase/es-time-tracking";
+import { isAdminTierRole, isGvraPartnerRole, isStaffRole, roleDisplayName } from "@wayfinder/supabase/roles";
 import { loadClientDisplayNameById } from "@/lib/client-display-names";
 import { formalReportLabel } from "@/lib/formal-report-labels";
 import { loadComplianceReportAlerts } from "@/lib/report-alerts-data";
@@ -56,23 +57,21 @@ export type EsCapacityRow = {
   billableMinutesAvgPerWeek4Weeks: number;
   /** Billable minutes in the last 7 days. */
   billableMinutesLast7Days: number;
+  /** Billable minutes from the first of the current month through today (staff clock TZ). */
+  billableMinutesCurrentMonth: number;
 };
 
-const CAPACITY_ROLE_LABELS: Record<string, string> = {
-  es: "Employment Specialist",
-  supervisor: "Supervisor",
-  accountant: "Accounts Specialist",
-  admin: "Admin",
-  counselor: "Counselor",
-  super_admin: "Super Admin",
-  hr: "HR",
-  hospitality_specialist: "Hospitality Specialist",
-  wrt_admin: "WRT Admin",
-  instructor: "Instructor",
-};
+function monthStartYmd(todayYmd: string): string {
+  const [y, m] = todayYmd.split("-");
+  return `${y}-${m}-01`;
+}
 
 function capacityRoleLabel(role: string): string {
-  return CAPACITY_ROLE_LABELS[role] ?? role;
+  const labeled = roleDisplayName(role);
+  if (role === "supervisor" && labeled === "Regional Supervisor") {
+    return "Supervisor";
+  }
+  return labeled;
 }
 
 async function scopedEsUserIds(
@@ -256,6 +255,9 @@ export async function loadEsCapacityRows(
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
   const since4Weeks = fourWeeksAgo.toISOString().slice(0, 10);
   const since7Days = sevenDaysAgo.toISOString().slice(0, 10);
+  const todayYmd = todayLocalDate();
+  const monthStartYmdValue = monthStartYmd(todayYmd);
+  const entriesSince = [since4Weeks, monthStartYmdValue].sort()[0]!;
 
   const targetIds = targets.map((t) => t.id);
   const esNameById = await loadStaffNameById(admin, targetIds);
@@ -272,19 +274,26 @@ export async function loadEsCapacityRows(
 
   const minutes4ByUser = new Map<string, number>();
   const minutes7ByUser = new Map<string, number>();
+  const minutesMonthByUser = new Map<string, number>();
   const { data: entries } = await admin
     .from("es_time_entries")
     .select("es_user_id, duration_minutes, service_date")
     .in("es_user_id", targetIds)
-    .gte("service_date", since4Weeks)
+    .gte("service_date", entriesSince)
     .in("status", ["draft", "submitted", "approved"]);
 
   for (const e of entries ?? []) {
     const id = e.es_user_id as string;
     const mins = Number(e.duration_minutes) || 0;
-    minutes4ByUser.set(id, (minutes4ByUser.get(id) ?? 0) + mins);
-    if ((e.service_date as string) >= since7Days) {
+    const serviceDate = e.service_date as string;
+    if (serviceDate >= since4Weeks) {
+      minutes4ByUser.set(id, (minutes4ByUser.get(id) ?? 0) + mins);
+    }
+    if (serviceDate >= since7Days) {
       minutes7ByUser.set(id, (minutes7ByUser.get(id) ?? 0) + mins);
+    }
+    if (serviceDate >= monthStartYmdValue && serviceDate <= todayYmd) {
+      minutesMonthByUser.set(id, (minutesMonthByUser.get(id) ?? 0) + mins);
     }
   }
 
@@ -298,6 +307,7 @@ export async function loadEsCapacityRows(
       caseloadCount: caseloadByUser.get(person.id) ?? 0,
       billableMinutesAvgPerWeek4Weeks: Math.round(minutesLast4Weeks / 4),
       billableMinutesLast7Days: minutes7ByUser.get(person.id) ?? 0,
+      billableMinutesCurrentMonth: minutesMonthByUser.get(person.id) ?? 0,
     };
   });
 

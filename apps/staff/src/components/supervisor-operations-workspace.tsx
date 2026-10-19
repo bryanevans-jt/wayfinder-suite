@@ -1,5 +1,6 @@
 import type { CoachingSlaRow, CoachingThinLogRow, EsCapacityRow } from "@/lib/operations-data";
 import { SOFT_ACTIVE_CASELOAD_GUIDANCE } from "@/lib/analytics/definitions";
+import { formatBillableHours } from "@wayfinder/supabase/client-billable";
 import { MIN_CONTACTS_PER_MONTH } from "@wayfinder/supabase/caseload-triage";
 import { formatPortalDateTime } from "@wayfinder/branding";
 import Link from "next/link";
@@ -17,6 +18,14 @@ function formatBillableMinutes(minutes: number): string {
   return `${Math.floor(safe / 60)}h ${safe % 60}m`;
 }
 
+function currentMonthBillableLabel(): string {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    year: "numeric",
+    timeZone: "America/New_York",
+  }).format(new Date());
+}
+
 export function SupervisorOperationsWorkspace({
   capacity,
   coaching,
@@ -29,8 +38,8 @@ export function SupervisorOperationsWorkspace({
         <h2 className="text-base font-semibold text-brand-black">Capacity View</h2>
         <p className="mt-1 text-sm text-brand-black/65">
           {showAllStaffRoles
-            ? "Active caseload and billable hours for all staff roles — average per week over the last 4 weeks, plus the last 7 days."
-            : "Active caseload and billable hours per Employment Specialist — average per week over the last 4 weeks, plus the last 7 days."}{" "}
+            ? "Active caseload and billable hours for all staff roles — month-to-date, average per week over the last 4 weeks, and the last 7 days."
+            : "Active caseload and billable hours per Employment Specialist — month-to-date, average per week over the last 4 weeks, and the last 7 days."}{" "}
           Soft guidance is {SOFT_ACTIVE_CASELOAD_GUIDANCE} active clients — overages are allowed; use
           judgment with supervisors/HR.
         </p>
@@ -50,6 +59,9 @@ export function SupervisorOperationsWorkspace({
                     <th className="py-2 pr-4 font-semibold">Role</th>
                   ) : null}
                   <th className="py-2 pr-4 font-semibold">Caseload</th>
+                  <th className="py-2 pr-4 font-semibold">
+                    Billable hrs ({currentMonthBillableLabel()})
+                  </th>
                   <th className="py-2 pr-4 font-semibold">Billable avg / wk (4 wk)</th>
                   <th className="py-2 font-semibold">Billable (last 7 days)</th>
                 </tr>
@@ -74,6 +86,9 @@ export function SupervisorOperationsWorkspace({
                           above soft guidance
                         </span>
                       ) : null}
+                    </td>
+                    <td className="py-2 pr-4 font-medium tabular-nums">
+                      {formatBillableHours(row.billableMinutesCurrentMonth)}
                     </td>
                     <td className="py-2 pr-4">
                       {formatBillableMinutes(row.billableMinutesAvgPerWeek4Weeks)}
