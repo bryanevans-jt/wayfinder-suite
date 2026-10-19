@@ -57,7 +57,9 @@ export function ReferralReturningClientPanel({ onOpenBeginNewService }: Props) {
         </p>
         <p className="mt-1 text-brand-black/70">
           Search a previous Complete, Dismissed, or Closed enrollment, review their information, pick
-          the new service, and add them to the queue for authorization and ES/TS assignment.
+          the new service, and add them to the queue for authorization and ES/TS assignment. Try last
+          name only if the full name does not appear. To view an old profile on a caseload list, turn
+          on View archived clients.
         </p>
         <button
           type="button"

@@ -1238,42 +1238,120 @@ export async function searchPriorEnrollmentsForNewService(
     outcomeLabel: string | null;
   }>
 > {
-  const q = query.trim();
-  if (q.length < 2) return [];
+  const {
+    sanitizeClientSearchQuery,
+    clientRecordMatchesTextSearch,
+    isClosedPriorEnrollmentForNewService,
+    priorEnrollmentSearchSortKey,
+  } = await import("./prior-enrollment-search");
 
-  const { data: rows, error } = await admin
-    .from("clients")
-    .select("id, full_name, archived_at, current_stage_id")
-    .ilike("full_name", `%${q.replace(/%/g, "")}%`)
-    .not("archived_at", "is", null)
-    .neq("intake_status", "discarded")
-    .order("archived_at", { ascending: false })
-    .limit(15);
+  const sanitized = sanitizeClientSearchQuery(query);
+  if (sanitized.length < 2) return [];
 
-  if (error?.message.includes("archived_at")) {
-    return [];
+  const pattern = `%${sanitized.replace(/%/g, "")}%`;
+  const firstToken = sanitized.split(/\s+/)[0] ?? sanitized;
+  const broadPattern = `%${firstToken.replace(/%/g, "")}%`;
+
+  const selectCols =
+    "id, full_name, contact_email, archived_at, current_stage_id, intake_status, referred_at, created_at";
+
+  type CandidateRow = {
+    id: string;
+    full_name: string | null;
+    contact_email: string | null;
+    archived_at: string | null;
+    current_stage_id: string | null;
+    intake_status: string | null;
+    referred_at: string | null;
+    created_at: string | null;
+  };
+
+  const fetches = [
+    admin.from("clients").select(selectCols).ilike("full_name", pattern).neq("intake_status", "discarded").limit(50),
+    admin
+      .from("clients")
+      .select(selectCols)
+      .ilike("contact_email", pattern)
+      .neq("intake_status", "discarded")
+      .limit(50),
+  ];
+  if (firstToken.length >= 2 && firstToken !== sanitized) {
+    fetches.push(
+      admin
+        .from("clients")
+        .select(selectCols)
+        .ilike("full_name", broadPattern)
+        .neq("intake_status", "discarded")
+        .limit(80)
+    );
   }
 
-  const out: Array<{
+  const merged = new Map<string, CandidateRow>();
+  for (const fetch of await Promise.all(fetches)) {
+    if (fetch.error) {
+      if (fetch.error.message.includes("archived_at")) {
+        return [];
+      }
+      continue;
+    }
+    for (const row of (fetch.data ?? []) as CandidateRow[]) {
+      if (!clientRecordMatchesTextSearch(row.full_name, row.contact_email, sanitized)) continue;
+      merged.set(row.id, row);
+    }
+  }
+
+  const candidates = [...merged.values()];
+  if (candidates.length === 0) return [];
+
+  const stageIds = [
+    ...new Set(candidates.map((c) => c.current_stage_id).filter(Boolean)),
+  ] as string[];
+  const stageTitleById = new Map<string, string | null>();
+  if (stageIds.length > 0) {
+    const { data: milestones } = await admin
+      .from("service_milestones")
+      .select("id, title, name")
+      .in("id", stageIds);
+    for (const m of milestones ?? []) {
+      const title =
+        ((m.title as string | null) || (m.name as string | null) || "").trim() || null;
+      stageTitleById.set(m.id as string, title);
+    }
+  }
+
+  const closed = candidates
+    .map((row) => {
+      const stageTitle = row.current_stage_id
+        ? stageTitleById.get(row.current_stage_id) ?? null
+        : null;
+      if (
+        !isClosedPriorEnrollmentForNewService({
+          intakeStatus: row.intake_status,
+          archivedAt: row.archived_at,
+          stageTitle,
+        })
+      ) {
+        return null;
+      }
+      return {
+        id: row.id,
+        full_name: row.full_name,
+        archived_at: row.archived_at,
+        outcomeLabel: priorEnrollmentOutcomeLabel(stageTitle),
+        sortKey: priorEnrollmentSearchSortKey(row),
+      };
+    })
+    .filter(Boolean) as Array<{
     id: string;
     full_name: string | null;
     archived_at: string | null;
     outcomeLabel: string | null;
-  }> = [];
+    sortKey: number;
+  }>;
 
-  for (const row of rows ?? []) {
-    const stageTitle = await loadMilestoneTitle(
-      admin,
-      (row as { current_stage_id?: string | null }).current_stage_id ?? null
-    );
-    out.push({
-      id: row.id as string,
-      full_name: (row as { full_name?: string | null }).full_name ?? null,
-      archived_at: (row as { archived_at?: string | null }).archived_at ?? null,
-      outcomeLabel: priorEnrollmentOutcomeLabel(stageTitle),
-    });
-  }
-  return out;
+  closed.sort((a, b) => b.sortKey - a.sortKey);
+
+  return closed.slice(0, 15).map(({ sortKey: _sortKey, ...rest }) => rest);
 }
 
 function formatPriorClientAddress(row: {
