@@ -7,6 +7,7 @@ import {
 import { createServerClient, isAdminTierRole, isSuperAdminRole, buildClientActivityFkIds } from "@wayfinder/supabase";
 import { fetchContactLogsWithSchemaFallback, contactLogDisplayText } from "@wayfinder/supabase/contact-logs-query";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { fetchAllPostgrestRows } from "@wayfinder/supabase/postgrest-fetch-all";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import type { PortalTier } from "@wayfinder/supabase/roles";
 import { redirect } from "next/navigation";
@@ -200,26 +201,50 @@ export async function loadPortalBootstrap(
 ): Promise<PortalBootstrap> {
   let officesRows: OfficeRecord[] = await queryAllOffices(admin);
 
-  let clientsQuery = await admin
-    .from("clients")
-    .select(
-      "id, contact_email, office_id, user_id, profile_id, full_name, current_service_id, current_stage_id, counselor_id, archived_at, intake_status"
-    );
-  if (clientsQuery.error?.message.includes("full_name")) {
-    clientsQuery = await admin.from("clients").select(
-      "id, contact_email, office_id, user_id, profile_id, current_service_id, current_stage_id, counselor_id, archived_at"
-    );
+  const CLIENT_SELECT_FULL =
+    "id, contact_email, office_id, user_id, profile_id, full_name, current_service_id, current_stage_id, counselor_id, archived_at, intake_status, referral_state";
+  const CLIENT_SELECT_NO_FULL_NAME =
+    "id, contact_email, office_id, user_id, profile_id, current_service_id, current_stage_id, counselor_id, archived_at, intake_status, referral_state";
+  const CLIENT_SELECT_NO_ARCHIVED =
+    "id, contact_email, office_id, user_id, profile_id, full_name, current_service_id, current_stage_id, counselor_id, intake_status, referral_state";
+
+  async function loadAllClientRows(): Promise<Array<Record<string, unknown>>> {
+    try {
+      return await fetchAllPostgrestRows<Record<string, unknown>>(admin, "clients", CLIENT_SELECT_FULL, {
+        order: { column: "full_name", ascending: true },
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("full_name")) {
+        return fetchAllPostgrestRows(admin, "clients", CLIENT_SELECT_NO_FULL_NAME, {
+          order: { column: "created_at", ascending: true },
+        });
+      }
+      if (msg.includes("archived_at")) {
+        return fetchAllPostgrestRows(admin, "clients", CLIENT_SELECT_NO_ARCHIVED, {
+          order: { column: "full_name", ascending: true },
+        });
+      }
+      if (msg.includes("referral_state")) {
+        const withoutState = CLIENT_SELECT_FULL.replace(", referral_state", "");
+        return fetchAllPostgrestRows(admin, "clients", withoutState, {
+          order: { column: "full_name", ascending: true },
+        });
+      }
+      throw err;
+    }
   }
-  if (clientsQuery.error?.message.includes("archived_at")) {
-    clientsQuery = await admin
-      .from("clients")
-      .select(
-        "id, contact_email, office_id, user_id, profile_id, current_service_id, current_stage_id, counselor_id"
-      );
+
+  let clientRowsLoaded: Array<Record<string, unknown>> = [];
+  try {
+    clientRowsLoaded = await loadAllClientRows();
+  } catch {
+    clientRowsLoaded = await fetchAllPostgrestRows(admin, "clients", "id, contact_email, office_id", {
+      order: { column: "id", ascending: true },
+    });
   }
-  if (clientsQuery.error) {
-    clientsQuery = await admin.from("clients").select("id, contact_email, office_id");
-  }
+
+  const clientsQuery = { data: clientRowsLoaded, error: null as { message: string } | null };
 
   let servicesQuery = await admin.from("services").select("id, name, state").order("name");
   type ServiceRowLoaded = { id: string; name: string; state?: string | null };

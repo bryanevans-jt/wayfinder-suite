@@ -14,9 +14,11 @@ export default async function ReferralsPage() {
     <main className="px-6 py-10">
       <h1 className="text-2xl font-semibold text-brand-black">Referral Queue</h1>
       <p className="mt-2 max-w-3xl text-sm text-brand-black/75">
-        New and pending referrals from the Georgia website form, plus active clients assigned to
-        an ES or TS when you turn on Include Active Referrals. Review details, set authorization,
-        then activate to the first service stage.
+        This queue is for <strong>open referrals only</strong> (new, pending authorization, and
+        optionally active pipeline rows when you turn on Include Active Referrals). Completed or
+        closed clients do not appear here — use{" "}
+        <strong>Begin New Service (returning client)</strong> below to start a new enrollment for
+        someone who finished a prior service.
       </p>
       <ReferralQueueWorkspace />
     </main>

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { intakeStatusLabel, referralStageLabel } from "@wayfinder/supabase/referral-labels";
 import { ManualReferralModal } from "@/components/manual-referral-modal";
 import { ReferralFieldSpecialistSelect } from "@/components/referral-field-specialist-select";
@@ -163,7 +164,15 @@ function CounselorFilter({
   );
 }
 
+type PriorEnrollmentMatch = {
+  id: string;
+  full_name: string | null;
+  archived_at: string | null;
+  outcomeLabel: string | null;
+};
+
 export function ReferralQueueWorkspace() {
+  const searchParams = useSearchParams();
   const [clients, setClients] = useState<ReferralRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -185,6 +194,15 @@ export function ReferralQueueWorkspace() {
   const [beginNewServicePriorId, setBeginNewServicePriorId] = useState<string | null>(null);
 
   const [searchForApi, setSearchForApi] = useState("");
+  const [priorMatches, setPriorMatches] = useState<PriorEnrollmentMatch[]>([]);
+  const [priorSearching, setPriorSearching] = useState(false);
+
+  useEffect(() => {
+    const priorId = (searchParams.get("priorClientId") ?? "").trim();
+    if (priorId) {
+      setBeginNewServicePriorId(priorId);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const trimmed = clientQuery.trim();
@@ -233,6 +251,33 @@ export function ReferralQueueWorkspace() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (searchForApi.length < 2) {
+      setPriorMatches([]);
+      return;
+    }
+    let cancelled = false;
+    setPriorSearching(true);
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/referrals/returning-clients?q=${encodeURIComponent(searchForApi)}`
+        );
+        const data = (await res.json()) as { clients?: PriorEnrollmentMatch[] };
+        if (!cancelled) {
+          setPriorMatches(res.ok ? (data.clients ?? []) : []);
+        }
+      } catch {
+        if (!cancelled) setPriorMatches([]);
+      } finally {
+        if (!cancelled) setPriorSearching(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchForApi]);
 
   const counselorOptions = useMemo(() => {
     const map = new Map<string, string>();
@@ -421,13 +466,17 @@ export function ReferralQueueWorkspace() {
   return (
     <div className="mt-6 space-y-4">
       <div className="flex flex-wrap items-center gap-4 text-sm">
-        <label className="inline-flex items-center gap-2">
+        <label className="inline-flex max-w-xl items-start gap-2">
           <input
             type="checkbox"
+            className="mt-0.5"
             checked={includeActive}
             onChange={(e) => setIncludeActive(e.target.checked)}
           />
-          Include Active Referrals
+          <span>
+            Include active pipeline referrals (authorized / assigned ES·TS). Does not include closed
+            or completed prior enrollments.
+          </span>
         </label>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <button
@@ -466,6 +515,49 @@ export function ReferralQueueWorkspace() {
       <ReferralReturningClientPanel
         onOpenBeginNewService={(priorClientId) => setBeginNewServicePriorId(priorClientId)}
       />
+
+      {searchForApi.length >= 2 && priorSearching ? (
+        <p className="text-sm text-brand-black/60">Searching prior enrollments…</p>
+      ) : null}
+
+      {searchForApi.length >= 2 && !priorSearching && priorMatches.length > 0 ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-brand-black">
+          <p className="font-semibold">Prior enrollments (not in this queue)</p>
+          <p className="mt-1 text-brand-black/70">
+            These clients finished or closed a prior service. Choose one to start{" "}
+            <strong>Begin New Service</strong> — the queue search above only lists open referrals.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {priorMatches.map((row) => (
+              <li key={row.id} className="flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  {row.full_name || row.id}
+                  {row.outcomeLabel ? ` · ${row.outcomeLabel}` : ""}
+                </span>
+                <button
+                  type="button"
+                  className="rounded-lg bg-brand-green px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-green/90"
+                  onClick={() => setBeginNewServicePriorId(row.id)}
+                >
+                  Begin New Service
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {searchForApi.length >= 2 &&
+      !priorSearching &&
+      priorMatches.length === 0 &&
+      !loading &&
+      filteredClients.length === 0 ? (
+        <p className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-brand-black/70">
+          No open referrals match this search. If the client completed services before, use{" "}
+          <strong>Begin New Service (returning client)</strong> or try last name only. In Super
+          Admin → Clients, check <strong>Closed</strong> (and try &quot;Morey&quot; / &quot;Cherry&quot;).
+        </p>
+      ) : null}
 
       <BeginNewServiceModal
         priorClientId={beginNewServicePriorId}

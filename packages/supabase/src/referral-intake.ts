@@ -32,6 +32,10 @@ import {
 } from "./referral-services";
 
 export { loadDirectReferralAssignEnabled } from "./referral-field-specialists";
+export {
+  clientRecordMatchesTextSearch,
+  sanitizeClientSearchQuery,
+} from "./prior-enrollment-search";
 
 export type ReferralState = "GA" | "TN";
 export type IntakeStatus = "new_referral" | "pending_authorization" | "active" | "discarded";

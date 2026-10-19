@@ -55,6 +55,7 @@ import {
 import { CounselorMergePanel } from "@/components/counselor-merge-panel";
 import { PortalSetupChecklist } from "@/components/portal-setup-checklist";
 import { friendlyClientError, USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
+import { clientRecordMatchesTextSearch } from "@wayfinder/supabase/referral-intake";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   clientPipelineWhere,
@@ -300,13 +301,10 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
       if (clientFilterCounselor && c.counselor_id !== clientFilterCounselor) return false;
       if (supervisorEsIds && !c.es_user_ids.some((id) => supervisorEsIds.has(id))) return false;
       if (!q) return true;
-      const hay = [
-        c.full_name,
-        c.contact_email,
-        c.service_name,
-        c.stage_title,
-        c.counselor_name,
-      ]
+      if (clientRecordMatchesTextSearch(c.full_name, c.contact_email, clientSearch)) {
+        return true;
+      }
+      const hay = [c.service_name, c.stage_title, c.counselor_name]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();

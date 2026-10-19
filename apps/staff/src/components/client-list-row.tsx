@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { PortalBootstrap } from "@/lib/portal-data";
 import { clientDisplayName } from "@wayfinder/branding";
 import {
@@ -47,14 +48,24 @@ export function ClientListRow({ client, busy, officeName, esLabel, onManage }: P
       <td className="px-3 py-3">{client.stage_title ?? "—"}</td>
       <td className="px-3 py-3">{CLIENT_PIPELINE_WHERE_LABELS[where]}</td>
       <td className="px-3 py-3">
-        <button
-          type="button"
-          disabled={busy}
-          className="rounded-lg bg-brand-green/10 px-3 py-1.5 text-sm font-semibold text-brand-green hover:bg-brand-green/15 disabled:opacity-60"
-          onClick={onManage}
-        >
-          Manage
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            className="rounded-lg bg-brand-green/10 px-3 py-1.5 text-sm font-semibold text-brand-green hover:bg-brand-green/15 disabled:opacity-60"
+            onClick={onManage}
+          >
+            Manage
+          </button>
+          {where === "closed" ? (
+            <Link
+              href={`/dashboard/referrals?priorClientId=${encodeURIComponent(client.id)}`}
+              className="rounded-lg border border-brand-green/40 px-3 py-1.5 text-sm font-semibold text-brand-green hover:bg-brand-green/5"
+            >
+              New service referral
+            </Link>
+          ) : null}
+        </div>
       </td>
     </tr>
   );

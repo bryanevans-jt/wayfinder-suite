@@ -1,3 +1,5 @@
+import { isTerminalStageTitle } from "@wayfinder/supabase/client-archive";
+
 export type ClientPipelineWhere =
   | "awaiting_authorization"
   | "intake"
@@ -16,8 +18,10 @@ export function clientPipelineWhere(client: {
   intake_status?: string | null;
   open_intake?: boolean;
   current_stage_id?: string | null;
+  stage_title?: string | null;
 }): ClientPipelineWhere {
   if (client.archived_at) return "closed";
+  if (isTerminalStageTitle(client.stage_title)) return "closed";
   const intake = (client.intake_status ?? "").trim();
   if (intake === "new_referral" || intake === "pending_authorization") {
     return "awaiting_authorization";
