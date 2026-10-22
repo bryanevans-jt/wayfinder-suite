@@ -1,8 +1,13 @@
 import { SupervisorOperationsWorkspace } from "@/components/supervisor-operations-workspace";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
-import { isAdminTierRole, isSupervisorRole } from "@wayfinder/supabase/roles";
+import {
+  isAdminTierRole,
+  isSuperAdminRole,
+  isSupervisorRole,
+} from "@wayfinder/supabase/roles";
 import { redirect } from "next/navigation";
 import { loadCoachingQueue, loadEsCapacityRows } from "@/lib/operations-data";
+import { loadOfficeCaseCounts } from "@/lib/office-case-counts";
 
 export default async function OperationsPage() {
   const session = await getAppSession();
@@ -12,12 +17,18 @@ export default async function OperationsPage() {
     redirect("/dashboard");
   }
 
-  const [capacity, coaching] = await Promise.all([
+  const adminTier = isAdminTierRole(role);
+  const [capacity, coaching, officeCaseCounts] = await Promise.all([
     loadEsCapacityRows(role!, session.effectiveUserId),
     isSupervisorRole(role)
       ? loadCoachingQueue(session.effectiveUserId)
       : Promise.resolve({ sla: [], thinLogs: [] }),
+    adminTier ? loadOfficeCaseCounts() : Promise.resolve([]),
   ]);
+
+  const clientsPortalBasePath = isSuperAdminRole(role)
+    ? "/dashboard/super-admin"
+    : "/dashboard/admin";
 
   return (
     <main className="px-4 py-8 sm:px-6 sm:py-10">
@@ -29,7 +40,9 @@ export default async function OperationsPage() {
         capacity={capacity}
         coaching={coaching}
         showCoaching={isSupervisorRole(role)}
-        showAllStaffRoles={isAdminTierRole(role)}
+        showAllStaffRoles={adminTier}
+        officeCaseCounts={officeCaseCounts}
+        clientsPortalBasePath={clientsPortalBasePath}
       />
     </main>
   );

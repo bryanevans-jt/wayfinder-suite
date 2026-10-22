@@ -1,4 +1,4 @@
-import { isTerminalStageTitle } from "@wayfinder/supabase/client-archive";
+import { isArchivedClient, isTerminalStageTitle } from "@wayfinder/supabase/client-archive";
 
 export type ClientPipelineWhere =
   | "awaiting_authorization"
@@ -28,4 +28,11 @@ export function clientPipelineWhere(client: {
   }
   if (client.open_intake || !client.current_stage_id) return "intake";
   return "in_service";
+}
+
+/** Admin / Super Admin portal Clients tab with default filters (not “View archived”). */
+export function isDefaultPortalClientsListRow(client: {
+  archived_at?: string | null;
+}): boolean {
+  return !isArchivedClient(client.archived_at);
 }

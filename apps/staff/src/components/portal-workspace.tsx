@@ -195,6 +195,13 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
     if (params.get("offices") === "counselors") {
       setNav({ primary: "offices", offices: "counselors" });
     }
+    const officeFromUrl = params.get("clientOffice")?.trim();
+    if (officeFromUrl) {
+      setClientFilterOffice(officeFromUrl);
+      setClientWhere("");
+      setShowArchivedClients(false);
+      setNav({ primary: "clients" });
+    }
   }, []);
 
   useEffect(() => {
@@ -357,10 +364,12 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
     esId?: string;
     counselorId?: string;
     supervisorId?: string;
+    officeId?: string;
   }) {
     setClientFilterEs(opts.esId ?? "");
     setClientFilterCounselor(opts.counselorId ?? "");
     setClientFilterSupervisorId(opts.supervisorId ?? "");
+    setClientFilterOffice(opts.officeId ?? "");
     setClientWhere("");
     setShowArchivedClients(false);
     setNav({ primary: "clients" });

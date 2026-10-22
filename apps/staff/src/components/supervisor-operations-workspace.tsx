@@ -1,4 +1,5 @@
 import type { CoachingSlaRow, CoachingThinLogRow, EsCapacityRow } from "@/lib/operations-data";
+import type { OfficeCaseCountRow } from "@/lib/office-case-counts";
 import { SOFT_ACTIVE_CASELOAD_GUIDANCE } from "@/lib/analytics/definitions";
 import { formatBillableHours } from "@wayfinder/supabase/client-billable";
 import { MIN_CONTACTS_PER_MONTH } from "@wayfinder/supabase/caseload-triage";
@@ -11,6 +12,8 @@ type Props = {
   showCoaching: boolean;
   /** Admin / Super Admin see all staff roles; supervisors see ES only. */
   showAllStaffRoles: boolean;
+  officeCaseCounts?: OfficeCaseCountRow[];
+  clientsPortalBasePath?: string;
 };
 
 function formatBillableMinutes(minutes: number): string {
@@ -31,6 +34,8 @@ export function SupervisorOperationsWorkspace({
   coaching,
   showCoaching,
   showAllStaffRoles,
+  officeCaseCounts = [],
+  clientsPortalBasePath = "/dashboard/admin",
 }: Props) {
   return (
     <div className="mt-8 max-w-5xl space-y-8">
@@ -103,6 +108,41 @@ export function SupervisorOperationsWorkspace({
           </div>
         )}
       </section>
+
+      {showAllStaffRoles && officeCaseCounts.length > 0 ? (
+        <section className="rounded-xl border border-neutral-200 bg-white p-5">
+          <h2 className="text-base font-semibold text-brand-black">Cases by office</h2>
+          <p className="mt-1 text-sm text-brand-black/65">
+            Active clients per GVRA office (same list as the Admin portal Clients tab, excluding
+            archived). Click a count to open Clients with that office selected.
+          </p>
+          <div className="mt-4 overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-neutral-200 text-left">
+                  <th className="py-2 pr-4 font-semibold">Office</th>
+                  <th className="py-2 font-semibold">Cases</th>
+                </tr>
+              </thead>
+              <tbody>
+                {officeCaseCounts.map((row) => (
+                  <tr key={row.officeId} className="border-b border-neutral-100">
+                    <td className="py-2 pr-4">{row.officeName}</td>
+                    <td className="py-2">
+                      <Link
+                        href={`${clientsPortalBasePath}?clientOffice=${encodeURIComponent(row.officeId)}`}
+                        className="font-semibold tabular-nums text-brand-green hover:underline"
+                      >
+                        {row.caseCount}
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
       {showCoaching ? (
         <>
