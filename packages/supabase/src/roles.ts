@@ -284,7 +284,7 @@ export function roleDisplayName(role: string | null | undefined): string {
     hr: "HR Director",
     hospitality_specialist: "Hospitality Specialist",
     wrt_admin: "WRT Admin",
-    instructor: "Instructor",
+    instructor: "Transition Instructor",
   };
   const key = normalizeRole(role);
   return labels[key] ?? key;

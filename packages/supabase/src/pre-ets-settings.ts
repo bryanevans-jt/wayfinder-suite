@@ -240,7 +240,11 @@ export function canAccessPreEts(
   if (isSuperAdminRole(r)) return true;
   if (settings && !settings.module_enabled) return false;
   const enabled = settings?.enabled_roles ?? DEFAULT_PRE_ETS_SETTINGS.enabled_roles;
-  return enabled.map(normalizeRole).includes(r);
+  const enabledSet = new Set(enabled.map(normalizeRole));
+  if (enabledSet.has(r)) return true;
+  // Transition Instructor uses the same Pre-ETS rollout as Transition Specialist.
+  if (isInstructorRole(r) && enabledSet.has("transition_specialist")) return true;
+  return false;
 }
 
 /** GVRA service code on an authorization roster — Accounts, Admin, Super Admin only. */

@@ -1392,6 +1392,43 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                               })
                           : undefined
                       }
+                      onSetAsTransitionInstructor={
+                        isSuperAdminMode && es.role === "transition_specialist"
+                          ? () =>
+                              run(async () => {
+                                const clientNote =
+                                  es.client_count > 0
+                                    ? ` Their ${es.client_count} vocational client(s) will leave this assignee (reassigned to supervisors when possible).`
+                                    : "";
+                                if (
+                                  !confirm(
+                                    `Move ${es.display_name} to Transition Instructor? They will only see Pre-ETS (no Vocational Clients).${clientNote}`
+                                  )
+                                ) {
+                                  return;
+                                }
+                                const res = await fetch("/api/portal/staff-role", {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ user_id: es.id, role: "instructor" }),
+                                });
+                                const data = (await res.json()) as {
+                                  error?: string;
+                                  caseloadRelease?: {
+                                    reassignedToSupervisor?: number;
+                                    leftUnassigned?: number;
+                                  };
+                                };
+                                if (!res.ok) throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                                const rel = data.caseloadRelease;
+                                if (rel && (rel.reassignedToSupervisor || rel.leftUnassigned)) {
+                                  alert(
+                                    `Transition Instructor role saved. ${rel.reassignedToSupervisor ?? 0} client(s) moved to supervisors; ${rel.leftUnassigned ?? 0} left unassigned.`
+                                  );
+                                }
+                              })
+                          : undefined
+                      }
                       onPromote={
                         isSuperAdminMode
                           ? () =>
@@ -1537,6 +1574,100 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
               </tbody>
             </table>
           </div>
+
+          {isSuperAdminMode ? (
+            <div className="mt-8 overflow-x-auto rounded-xl border border-neutral-200 bg-white">
+              <div className="border-b border-neutral-100 px-4 py-3">
+                <h3 className="text-sm font-semibold text-brand-black">Transition Instructors</h3>
+                <p className="mt-1 text-xs text-brand-black/65">
+                  Pre-ETS only — no vocational client caseload. Move someone here from Transition
+                  Specialist using Edit → Set as Transition Instructor on that row.
+                </p>
+              </div>
+              <table className="min-w-full text-left text-sm">
+                <thead className="bg-neutral-50 text-brand-black/70">
+                  <tr>
+                    <th className="px-3 py-2">Name</th>
+                    <th className="px-3 py-2">Position</th>
+                    <th className="px-3 py-2">Offices</th>
+                    <th className="px-3 py-2">Status</th>
+                    <th className="px-3 py-2">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {b.instructorStaff.filter((i) => !i.is_removed).length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-3 py-6 text-center text-brand-black/60">
+                        No Transition Instructors yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    b.instructorStaff
+                      .filter((i) => !i.is_removed)
+                      .map((inst) => {
+                        const officeLabels =
+                          inst.office_ids.map((id) => officeName(id)).join(", ") || "—";
+                        return (
+                          <tr key={inst.id} className="border-t border-neutral-100">
+                            <td className="px-3 py-3">
+                              <p className="font-medium text-brand-black">{inst.display_name}</p>
+                              {inst.email && inst.display_name !== inst.email ? (
+                                <p className="text-xs text-brand-black/60">{inst.email}</p>
+                              ) : null}
+                            </td>
+                            <td className="px-3 py-3">Transition Instructor</td>
+                            <td className="px-3 py-3">{officeLabels}</td>
+                            <td className="px-3 py-3">
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                                  inst.is_active
+                                    ? "bg-brand-green/10 text-brand-green"
+                                    : "bg-neutral-200 text-brand-black/60"
+                                }`}
+                              >
+                                {inst.is_active ? "Active" : "Inactive"}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3">
+                              <button
+                                type="button"
+                                disabled={busy}
+                                className="font-medium text-brand-green hover:underline disabled:opacity-60"
+                                onClick={() =>
+                                  void run(async () => {
+                                    if (
+                                      !confirm(
+                                        `Set ${inst.display_name} as Transition Specialist again? They will regain vocational caseload access (assign clients as needed).`
+                                      )
+                                    ) {
+                                      return;
+                                    }
+                                    const res = await fetch("/api/portal/staff-role", {
+                                      method: "PATCH",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({
+                                        user_id: inst.id,
+                                        role: "transition_specialist",
+                                      }),
+                                    });
+                                    const data = (await res.json()) as { error?: string };
+                                    if (!res.ok) {
+                                      throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+                                    }
+                                  })
+                                }
+                              >
+                                Set as Transition Specialist
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
         </section>
       ) : isTeamSupervisorsNav(nav) && canManageOrg ? (
         <section className="mt-6 max-w-4xl space-y-6">
@@ -2848,6 +2979,7 @@ function EsStaffListItem({
   onSendLoginEmail,
   onSetAsTransitionSpecialist,
   onSetAsEmploymentSpecialist,
+  onSetAsTransitionInstructor,
   onPromote,
   onRestore,
   onDelete,
@@ -2868,6 +3000,7 @@ function EsStaffListItem({
   onSendLoginEmail?: () => Promise<void>;
   onSetAsTransitionSpecialist?: () => Promise<void>;
   onSetAsEmploymentSpecialist?: () => Promise<void>;
+  onSetAsTransitionInstructor?: () => Promise<void>;
   onPromote?: () => Promise<void>;
   onRestore?: () => Promise<void>;
   onDelete: () => Promise<void>;
@@ -2984,6 +3117,16 @@ function EsStaffListItem({
                   onClick={() => void onSetAsEmploymentSpecialist()}
                 >
                   Set as Employment Specialist
+                </button>
+              ) : null}
+              {onSetAsTransitionInstructor ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-brand-black hover:bg-white disabled:opacity-60"
+                  onClick={() => void onSetAsTransitionInstructor()}
+                >
+                  Set as Transition Instructor
                 </button>
               ) : null}
               {onPromote ? (
