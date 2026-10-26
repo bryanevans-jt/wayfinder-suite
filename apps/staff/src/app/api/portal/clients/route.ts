@@ -141,16 +141,12 @@ async function resolveEsUserId(
 
 export async function POST(request: NextRequest) {
   try {
-    const { admin, user, role } = await assertPortalMutation("supervisor");
+    const { admin } = await assertPortalMutation("admin");
     const body = (await request.json()) as CreateBody;
-    const scope = await supervisorScopeForSession(admin, role, user.id);
 
     const officeId = body.officeId?.trim() ?? "";
-    if (scope && officeId && !officeAllowedForSupervisor(scope, officeId)) {
-      return Response.json({ error: "That office is outside your supervisor scope." }, { status: 403 });
-    }
 
-    const esResolved = await resolveEsUserId(admin, scope, body.esUserId, body.esEmail);
+    const esResolved = await resolveEsUserId(admin, null, body.esUserId, body.esEmail);
     if (esResolved.error) {
       return Response.json({ error: esResolved.error }, { status: 400 });
     }

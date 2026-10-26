@@ -26,14 +26,7 @@ import { EsClientsTable } from "@/components/es-clients-table";
 import { EsClientsTodayStrip } from "@/components/es-clients-today-strip";
 import { loadCaseloadTriageFlags } from "@/lib/caseload-operations";
 import { fetchEsCaseloadClients, getEsCaseloadAdmin } from "@/lib/es-caseload-data";
-import { fetchOfficesForPicker } from "@/lib/office-visibility";
-import {
-  filterSunsetCounselors,
-  filterSunsetServices,
-  loadSunsetKeepIds,
-} from "@/lib/sunset-tn";
-import { loadServiceOfferings, toServiceSelectOptions } from "@/lib/service-offerings";
-import { AddClientLauncher } from "./add-client-launcher";
+import { filterSunsetServices, loadSunsetKeepIds } from "@/lib/sunset-tn";
 
 type PageProps = {
   searchParams: Promise<{ archived?: string }>;
@@ -62,13 +55,8 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
   const caseload = await fetchEsCaseloadClients(effectiveUserId, { includeArchived });
   const pinServiceIds = (caseload.clients ?? []).map((c) => c.current_service_id);
 
-  const [servicesQuery, offices, { data: counselorsRaw }, sunset] = await Promise.all([
+  const [servicesQuery, sunset] = await Promise.all([
     lookupClient.from("services").select("id, name, state").order("name", { ascending: true }),
-    fetchOfficesForPicker(lookupClient),
-    lookupClient
-      .from("counselors")
-      .select("id, full_name, office_id, offices(name)")
-      .order("full_name", { ascending: true }),
     loadSunsetKeepIds(lookupClient),
   ]);
 
@@ -164,28 +152,7 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
     }
   }
 
-  const counselors =
-    filterSunsetCounselors(
-      (counselorsRaw ?? []).map((c) => {
-        const rawOffices = (c as { offices?: { name: string } | { name: string }[] | null })
-          .offices;
-        const officesEmbed = Array.isArray(rawOffices)
-          ? (rawOffices[0] ?? null)
-          : (rawOffices ?? null);
-        return {
-          id: c.id as string,
-          full_name: c.full_name as string,
-          office_id: c.office_id as string,
-          office_ids: c.office_id ? [c.office_id as string] : [],
-          offices: officesEmbed,
-        };
-      }),
-      sunset
-    ) ?? [];
-
   servicesRaw = filterSunsetServices(servicesRaw, sunset.keepServiceIds, pinServiceIds);
-  const serviceOfferings = await loadServiceOfferings(lookupClient);
-  const serviceSelectOptions = toServiceSelectOptions(serviceOfferings);
 
   const clientRows = clients.map((c) => {
     const profileId = c.user_id ?? c.profile_id;
@@ -296,18 +263,6 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
           <Suspense fallback={null}>
             <ViewArchivedToggle />
           </Suspense>
-          {!session.isPreviewing ? (
-            <AddClientLauncher
-              serviceCatalog={servicesRaw}
-              serviceSelectOptions={serviceSelectOptions}
-              offices={offices.map((office) => ({
-                id: office.id,
-                name: office.name,
-                state: office.state ?? null,
-              }))}
-              counselors={counselors}
-            />
-          ) : null}
         </div>
       </div>
 

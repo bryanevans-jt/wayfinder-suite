@@ -145,7 +145,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
   } | null>(null);
 
   const canManageOrg = mode !== "supervisor";
-  const canEditClients = true;
+  const canEditClients = canManageOrg;
   const canDeleteClients = canManageOrg;
   const [showArchivedClients, setShowArchivedClients] = useState(false);
   const [showRemovedEs, setShowRemovedEs] = useState(false);
