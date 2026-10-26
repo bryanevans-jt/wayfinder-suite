@@ -94,7 +94,7 @@ export function EsClientsTable({ clients, includeArchived, canManageSupport }: P
                 >
                   {includeArchived
                     ? "No closed or archived clients assigned to you."
-                    : "No active clients assigned yet. Use Add client to create one, or turn on View archived."}
+                    : "No active clients assigned yet. New clients are added by your program administrator, or turn on View archived."}
                 </td>
               </tr>
             ) : (
