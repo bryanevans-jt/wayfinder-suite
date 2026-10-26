@@ -1122,7 +1122,6 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                 id: e.id,
                 label: e.display_name,
               }))}
-              allowEsEmail={mode === "supervisor"}
               onCreated={() => void run(async () => {})}
             />
           ) : null}
