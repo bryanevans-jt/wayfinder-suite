@@ -75,37 +75,37 @@ export async function middleware(request: NextRequest) {
   if (isPortalPath(pathname) && !portalPathAllowedForRole(pathname, role)) {
     const url = request.nextUrl.clone();
     url.pathname = staffHomePath(role);
-    return NextResponse.redirect(url);
+    return withDeployHeaders(NextResponse.redirect(url));
   }
 
   if (isPreEtsStaffPath(pathname) || isPreEtsApiPath(pathname)) {
     const allowed = await preEtsAccessAllowedForRole(role);
     if (!allowed) {
       if (isPreEtsApiPath(pathname)) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        return withDeployHeaders(NextResponse.json({ error: "Forbidden" }, { status: 403 }));
       }
       const url = request.nextUrl.clone();
       url.pathname = staffHomePath(role);
-      return NextResponse.redirect(url);
+      return withDeployHeaders(NextResponse.redirect(url));
     }
   }
 
   if (isInstructorRole(role) && isPreEtsInstructorBlockedStaffPath(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = staffHomePath(role);
-    return NextResponse.redirect(url);
+    return withDeployHeaders(NextResponse.redirect(url));
   }
 
   if (isGvraSupervisorOnlyStaffPath(pathname) && !isGvraSupervisorRole(role)) {
     const url = request.nextUrl.clone();
     url.pathname = staffHomePath(role);
-    return NextResponse.redirect(url);
+    return withDeployHeaders(NextResponse.redirect(url));
   }
 
   if (isGvraSupervisorRole(role) && isGvraSupervisorBlockedStaffPath(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = staffHomePath(role);
-    return NextResponse.redirect(url);
+    return withDeployHeaders(NextResponse.redirect(url));
   }
 
   if (!isCounselorBlockedStaffPath(pathname)) {
@@ -118,7 +118,7 @@ export async function middleware(request: NextRequest) {
 
   const url = request.nextUrl.clone();
   url.pathname = "/dashboard/counselor";
-  return NextResponse.redirect(url);
+  return withDeployHeaders(NextResponse.redirect(url));
 }
 
 export const config = {

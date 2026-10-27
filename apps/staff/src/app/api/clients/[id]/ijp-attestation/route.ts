@@ -24,7 +24,10 @@ async function fieldSession() {
     .eq("id", session.actorUserId)
     .maybeSingle();
   if (!profile?.is_active) return null;
-  const role = session.isPreviewing ? session.effectiveRole : (profile.role as string);
+  const role = session.isPreviewing
+    ? session.effectiveRole
+    : (profile.role as string | null);
+  if (!role) return null;
   return { session, role, userId: session.effectiveUserId, profile };
 }
 
