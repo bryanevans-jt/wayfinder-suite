@@ -64,6 +64,7 @@ import {
   type ClientPipelineWhere,
 } from "@/lib/client-pipeline-where";
 import { portalServiceSelectOptions } from "@/lib/service-offerings";
+import { SuperAdminIntegrationsStrip } from "@/components/super-admin-integrations-strip";
 
 type PortalMode = "super_admin" | "admin" | "supervisor";
 
@@ -71,6 +72,7 @@ type Props = {
   mode: PortalMode;
   title: string;
   subtitle: string;
+  initialNav?: PortalNavState;
 };
 
 type ConfigResponse = {
@@ -81,8 +83,8 @@ type ConfigResponse = {
   role: string;
 };
 
-export function PortalWorkspace({ mode, title, subtitle }: Props) {
-  const [nav, setNav] = useState<PortalNavState>({ primary: "clients" });
+export function PortalWorkspace({ mode, title, subtitle, initialNav }: Props) {
+  const [nav, setNav] = useState<PortalNavState>(initialNav ?? { primary: "clients" });
   const [config, setConfig] = useState<ConfigResponse | null>(null);
   const [logs, setLogs] = useState<ActivityLogRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -406,6 +408,10 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
         <h1 className="mt-1 text-3xl font-semibold text-brand-black">{title}</h1>
         <p className="mt-2 max-w-3xl text-sm text-brand-black/75">{subtitle}</p>
       </header>
+
+      {mode === "super_admin" ? (
+        <SuperAdminIntegrationsStrip onNavigate={setNav} />
+      ) : null}
 
       <PortalNav mode={mode} canManage={canManageOrg} nav={nav} onChange={setNav} />
 
