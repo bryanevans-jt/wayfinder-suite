@@ -279,7 +279,7 @@ export async function regenerateIjpAttestationPdfIfStored(
     .eq("is_test", opts.isTest)
     .maybeSingle();
 
-  if (!att || att.capture_method !== "digital" || !att.signature_data_url) {
+  if (!att || att.capture_method !== "digital" || !att.signature_data_url || !att.captured_by) {
     return false;
   }
 
@@ -289,7 +289,7 @@ export async function regenerateIjpAttestationPdfIfStored(
     isTest: opts.isTest,
     settings: opts.settings,
     signatureDataUrl: att.signature_data_url as string,
-    capturedBy: (att.captured_by as string) ?? "00000000-0000-0000-0000-000000000000",
+    capturedBy: att.captured_by as string,
     facilitatorName: opts.facilitatorName,
     captureMethod: "digital",
     skipResolveAlerts: true,
