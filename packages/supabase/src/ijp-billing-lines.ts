@@ -2,10 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ClientActivityFeedItem } from "@wayfinder/branding";
 import { buildClientActivityFeed } from "@wayfinder/branding";
 import {
-  entryCountsTowardClientBillable,
+  entryCountsTowardClientBillableWithActivity,
   formatBillableHours,
   type ClientBillableEntry,
 } from "./client-billable";
+import { serviceMonthStartFromYmd } from "./ijp-billing-eligibility";
 import { formatServiceTimeOfDay } from "./es-time-tracking";
 import { serviceMonthEndYmd } from "./ijp-billing-eligibility";
 import { formatIjpInvoiceAmount, formatIjpRateDollars } from "./ijp-billing-settings";
@@ -46,6 +47,24 @@ function findFeedItemForContact(
   return feed.find((f) => f.kind === "contact" && f.id === contactLogId) ?? null;
 }
 
+export type IjpInvoiceLineBuildResult = {
+  lines: IjpInvoiceLineItem[];
+  /** Non-rejected ES time entries in the service month (matches timesheet visibility). */
+  entryCount: number;
+  /** Entries that count toward client billable hours (activity + flags). */
+  billableEntryCount: number;
+};
+
+function parseActivityEmbed(
+  embed:
+    | { code?: string; counts_toward_client_billable?: boolean }
+    | { code?: string; counts_toward_client_billable?: boolean }[]
+    | null
+): { code?: string; counts_toward_client_billable?: boolean } | null {
+  if (!embed) return null;
+  return Array.isArray(embed) ? embed[0] ?? null : embed;
+}
+
 export async function buildIjpInvoiceLineItems(
   admin: SupabaseClient,
   opts: {
@@ -55,19 +74,26 @@ export async function buildIjpInvoiceLineItems(
     hourlyRateCents: number;
     esNameByUserId: Map<string, string>;
   }
-): Promise<IjpInvoiceLineItem[]> {
-  const monthEnd = serviceMonthEndYmd(opts.monthStart);
-  const { data: entries } = await admin
+): Promise<IjpInvoiceLineBuildResult> {
+  const monthStart = serviceMonthStartFromYmd(opts.monthStart);
+  const monthEnd = serviceMonthEndYmd(monthStart);
+  const { data: entries, error } = await admin
     .from("es_time_entries")
     .select(
-      "id, es_user_id, service_date, duration_minutes, narrative, service_start_at, service_end_at, linked_source_type, linked_source_id, flags, counts_toward_client_billable, client_present, delivery_mode, status"
+      `id, es_user_id, service_date, duration_minutes, narrative, service_start_at, service_end_at,
+       linked_source_type, linked_source_id, flags, client_present, delivery_mode, status,
+       service_activity_types ( code, counts_toward_client_billable )`
     )
     .eq("client_id", opts.clientId)
-    .eq("status", "approved")
-    .gte("service_date", opts.monthStart)
+    .neq("status", "rejected")
+    .gte("service_date", monthStart)
     .lte("service_date", monthEnd)
     .order("service_date", { ascending: true })
     .order("service_start_at", { ascending: true, nullsFirst: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
 
   const contactIds = (entries ?? [])
     .filter((e) => e.linked_source_type === "contact_log" && e.linked_source_id)
@@ -85,10 +111,18 @@ export async function buildIjpInvoiceLineItems(
   }
 
   const lines: IjpInvoiceLineItem[] = [];
+  let billableEntryCount = 0;
 
   for (const row of entries ?? []) {
-    const billable = entryCountsTowardClientBillable(row as ClientBillableEntry);
+    const activity = parseActivityEmbed(
+      row.service_activity_types as Parameters<typeof parseActivityEmbed>[0]
+    );
+    const billable = entryCountsTowardClientBillableWithActivity(
+      row as ClientBillableEntry,
+      activity
+    );
     const minutes = billable ? (row.duration_minutes as number) || 0 : 0;
+    if (billable && minutes > 0) billableEntryCount += 1;
     const hours = minutes / 60;
     const amountCents = Math.round(hours * opts.hourlyRateCents);
 
@@ -127,7 +161,11 @@ export async function buildIjpInvoiceLineItems(
     });
   }
 
-  return lines;
+  return {
+    lines,
+    entryCount: entries?.length ?? 0,
+    billableEntryCount,
+  };
 }
 
 export function sumIjpLineItems(lines: IjpInvoiceLineItem[]): {

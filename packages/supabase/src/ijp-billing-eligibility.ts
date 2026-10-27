@@ -1,5 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { entryCountsTowardClientBillable, type ClientBillableEntry } from "./client-billable";
+import {
+  entryCountsTowardClientBillableWithActivity,
+  type ClientBillableEntry,
+} from "./client-billable";
 import { localDateStringInTz, STAFF_CLOCK_TIMEZONE } from "./staff-time-clock-shared";
 import { resolveGaIjpServiceId } from "./ijp-billing-settings";
 import { isIndividualJobPlacementServiceName } from "./ijp-stages";
@@ -92,20 +95,26 @@ export async function clientHasBillableTimeInMonth(
   clientId: string,
   monthStart: string
 ): Promise<boolean> {
-  const monthEnd = serviceMonthEndYmd(monthStart);
+  const month = serviceMonthStartFromYmd(monthStart);
+  const monthEnd = serviceMonthEndYmd(month);
   const { data: rows } = await admin
     .from("es_time_entries")
     .select(
-      "duration_minutes, flags, counts_toward_client_billable, client_present, delivery_mode, service_date, status"
+      "duration_minutes, flags, client_present, delivery_mode, service_date, status, service_activity_types ( code, counts_toward_client_billable )"
     )
     .eq("client_id", clientId)
-    .eq("status", "approved")
-    .gte("service_date", monthStart)
+    .neq("status", "rejected")
+    .gte("service_date", month)
     .lte("service_date", monthEnd);
 
   for (const row of rows ?? []) {
+    const embed = row.service_activity_types as
+      | { code?: string; counts_toward_client_billable?: boolean }
+      | { code?: string; counts_toward_client_billable?: boolean }[]
+      | null;
+    const activity = Array.isArray(embed) ? embed[0] : embed;
     if (
-      entryCountsTowardClientBillable(row as ClientBillableEntry) &&
+      entryCountsTowardClientBillableWithActivity(row as ClientBillableEntry, activity) &&
       (row.duration_minutes as number) > 0
     ) {
       return true;

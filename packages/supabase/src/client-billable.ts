@@ -40,6 +40,31 @@ export function entryCountsTowardClientBillable(entry: ClientBillableEntry): boo
   return true;
 }
 
+/** Same rules as ES timesheet client billable hours (activity type + entry flags). */
+export function entryCountsTowardClientBillableWithActivity(
+  entry: ClientBillableEntry,
+  activity:
+    | Pick<ServiceActivityType, "counts_toward_client_billable" | "code">
+    | { code?: string | null; counts_toward_client_billable?: boolean | null }
+    | null
+    | undefined
+): boolean {
+  if (isGvraMonthlyAllowanceEntry(entry)) return true;
+  const normalized =
+    activity == null
+      ? null
+      : {
+          code: activity.code ?? "",
+          counts_toward_client_billable:
+            activity.counts_toward_client_billable === null
+              ? undefined
+              : activity.counts_toward_client_billable,
+        };
+  if (!activityCountsTowardClientBillable(normalized)) return false;
+  if (entry.counts_toward_client_billable === false) return false;
+  return true;
+}
+
 /** Active (in-person): client present and in-person delivery; excludes GVRA allowance. */
 export function entryIsActiveInPerson(entry: ClientBillableEntry): boolean {
   if (isGvraMonthlyAllowanceEntry(entry)) return false;

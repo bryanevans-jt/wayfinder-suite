@@ -115,16 +115,23 @@ export function IjpBillingTestPreview({ clientId, serviceMonth, disabled = false
         {preview ? (
           <>
             <p className="mt-2 text-xs text-amber-900/80">
-              {preview.approvedEntryCount} approved ES time{" "}
-              {preview.approvedEntryCount === 1 ? "entry" : "entries"} in month ·{" "}
-              {preview.billableEntryCount} billable · {preview.lineItems.length} invoice{" "}
+              {preview.approvedEntryCount} ES time{" "}
+              {preview.approvedEntryCount === 1 ? "entry" : "entries"} in{" "}
+              {serviceMonth.slice(0, 7)} (non-rejected) · {preview.billableEntryCount} client
+              billable · {preview.lineItems.length} invoice{" "}
               {preview.lineItems.length === 1 ? "line" : "lines"} ·{" "}
               {preview.totalHours.toFixed(2)} h · {formatIjpInvoiceAmount(preview.totalAmountCents)}
             </p>
             {preview.approvedEntryCount === 0 ? (
               <p className="mt-2 text-sm text-amber-900">
-                No approved time entries for this client and month. Approve ES time on the caseload
-                first, then refresh.
+                No time entries for this client in the selected service month (default is the prior
+                calendar month). Change the month to match the client&apos;s timesheet, or log time
+                on the caseload, then refresh.
+              </p>
+            ) : preview.billableEntryCount === 0 ? (
+              <p className="mt-2 text-sm text-amber-900">
+                Entries exist but none count as client billable for this month (activity type or
+                note-only contact). Check the weekly timesheet billable column for the same dates.
               </p>
             ) : null}
             {preview.lineItems.length > 0 ? (

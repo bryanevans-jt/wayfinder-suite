@@ -11,10 +11,7 @@ import {
   sumIjpLineItems,
   type IjpInvoiceLineItem,
 } from "@wayfinder/supabase/ijp-billing-lines";
-import {
-  entryCountsTowardClientBillable,
-  type ClientBillableEntry,
-} from "@wayfinder/supabase/client-billable";
+import { serviceMonthStartFromYmd } from "@wayfinder/supabase/ijp-billing-eligibility";
 import {
   serviceMonthLabel,
   serviceMonthEndYmd,
@@ -137,31 +134,7 @@ async function loadEsNameMapForClientMonth(
   return loadStaffNameById(admin, [...esIds], "ES");
 }
 
-async function countApprovedBillableEntries(
-  admin: SupabaseClient,
-  clientId: string,
-  serviceMonth: string
-): Promise<{ approvedEntryCount: number; billableEntryCount: number }> {
-  const { data: entries } = await admin
-    .from("es_time_entries")
-    .select(
-      "duration_minutes, flags, counts_toward_client_billable, client_present, delivery_mode, status"
-    )
-    .eq("client_id", clientId)
-    .eq("status", "approved")
-    .gte("service_date", serviceMonth)
-    .lte("service_date", serviceMonthEndYmd(serviceMonth));
-
-  let billableEntryCount = 0;
-  for (const row of entries ?? []) {
-    if (entryCountsTowardClientBillable(row as ClientBillableEntry)) {
-      billableEntryCount += 1;
-    }
-  }
-  return { approvedEntryCount: entries?.length ?? 0, billableEntryCount };
-}
-
-/** Rebuild invoice line items from approved ES time entries and persist on the invoice row. */
+/** Rebuild invoice line items from ES time entries (same billable rules as timesheet) and persist. */
 export async function syncIjpInvoiceLineItemsFromBillable(
   admin: SupabaseClient,
   opts: {
@@ -171,31 +144,28 @@ export async function syncIjpInvoiceLineItemsFromBillable(
     settings: IjpBillingSettingsRow;
   }
 ): Promise<IjpInvoiceLineSyncResult> {
+  const monthStart = serviceMonthStartFromYmd(opts.serviceMonth);
   const authNumber = await loadClientAuthNumber(admin, opts.clientId);
-  const entryCounts = await countApprovedBillableEntries(
-    admin,
-    opts.clientId,
-    opts.serviceMonth
-  );
   const esNameByUserId = await loadEsNameMapForClientMonth(
     admin,
     opts.clientId,
-    opts.serviceMonth
+    monthStart
   );
-  const lines = await buildIjpInvoiceLineItems(admin, {
+  const built = await buildIjpInvoiceLineItems(admin, {
     clientId: opts.clientId,
-    monthStart: opts.serviceMonth,
+    monthStart,
     authorizationNumber: authNumber,
     hourlyRateCents: opts.settings.hourly_rate_cents,
     esNameByUserId,
   });
+  const lines = built.lines;
   const totals = sumIjpLineItems(lines);
 
   const { data: existing } = await admin
     .from("ijp_billing_invoices")
     .select("id")
     .eq("client_id", opts.clientId)
-    .eq("service_month", opts.serviceMonth)
+    .eq("service_month", monthStart)
     .eq("is_test", opts.isTest)
     .maybeSingle();
 
@@ -216,7 +186,8 @@ export async function syncIjpInvoiceLineItemsFromBillable(
       line_items: lines,
       total_hours: totals.totalHours,
       total_amount_cents: totals.totalAmountCents,
-      ...entryCounts,
+      approvedEntryCount: built.entryCount,
+      billableEntryCount: built.billableEntryCount,
     };
   }
 
@@ -224,7 +195,7 @@ export async function syncIjpInvoiceLineItemsFromBillable(
     .from("ijp_billing_invoices")
     .insert({
       client_id: opts.clientId,
-      service_month: opts.serviceMonth,
+      service_month: monthStart,
       is_test: opts.isTest,
       authorization_number: authNumber || null,
       line_items: lines,
@@ -244,7 +215,8 @@ export async function syncIjpInvoiceLineItemsFromBillable(
     line_items: lines,
     total_hours: totals.totalHours,
     total_amount_cents: totals.totalAmountCents,
-    ...entryCounts,
+    approvedEntryCount: built.entryCount,
+    billableEntryCount: built.billableEntryCount,
   };
 }
 
@@ -263,11 +235,12 @@ export async function ensureIjpInvoiceRow(
     return { id: synced.id, line_items: synced.line_items };
   }
 
+  const monthStart = serviceMonthStartFromYmd(opts.serviceMonth);
   const { data: existing } = await admin
     .from("ijp_billing_invoices")
     .select("id, line_items")
     .eq("client_id", opts.clientId)
-    .eq("service_month", opts.serviceMonth)
+    .eq("service_month", monthStart)
     .eq("is_test", opts.isTest)
     .maybeSingle();
 
