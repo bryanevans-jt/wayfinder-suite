@@ -23,9 +23,17 @@ import {
 } from "@/lib/staff-nav";
 import { isPreEtsApiPath, preEtsAccessAllowedForRole } from "@/lib/pre-ets-access";
 import { isInstructorRole } from "@wayfinder/supabase/roles";
+import { APP_VERSION } from "@wayfinder/branding";
+
+function withDeployHeaders(response: NextResponse): NextResponse {
+  response.headers.set("X-Wayfinder-Version", APP_VERSION);
+  const sha = process.env.VERCEL_GIT_COMMIT_SHA;
+  if (sha) response.headers.set("X-Wayfinder-Commit", sha.slice(0, 12));
+  return response;
+}
 
 export async function middleware(request: NextRequest) {
-  const response = await wayfinderAuthMiddleware(request, { app: "staff" });
+  const response = withDeployHeaders(await wayfinderAuthMiddleware(request, { app: "staff" }));
 
   const { pathname } = request.nextUrl;
 
@@ -48,7 +56,7 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return response;
+    return withDeployHeaders(response);
   }
 
   const { data: profile } = await supabase
