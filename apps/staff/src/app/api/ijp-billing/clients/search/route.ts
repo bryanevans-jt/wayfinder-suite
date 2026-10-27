@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     .limit(30);
 
   if (q.length >= 2) {
-    const escaped = q.replace(/[%_,]/g, "");
+    const escaped = q.replace(/[%_',]/g, "").slice(0, 80);
     builder = builder.or(
       `full_name.ilike.%${escaped}%,contact_email.ilike.%${escaped}%`
     );

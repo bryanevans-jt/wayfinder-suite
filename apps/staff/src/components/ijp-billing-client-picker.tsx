@@ -17,6 +17,7 @@ export function IjpBillingClientPicker({ value, onChange, disabled, label }: Pro
   const listId = useId();
   const [query, setQuery] = useState("");
   const [options, setOptions] = useState<ClientOption[]>([]);
+  const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async (q: string) => {
@@ -35,7 +36,13 @@ export function IjpBillingClientPicker({ value, onChange, disabled, label }: Pro
     );
   }, [load]);
 
-  const selectedName = options.find((c) => c.id === value)?.name;
+  const selectedName =
+    options.find((c) => c.id === value)?.name ?? selectedLabel ?? null;
+
+  const listOptions =
+    value && !options.some((c) => c.id === value) && selectedName
+      ? [{ id: value, name: selectedName }, ...options]
+      : options;
 
   return (
     <div className="min-w-[280px] flex-1 space-y-2">
@@ -60,10 +67,15 @@ export function IjpBillingClientPicker({ value, onChange, disabled, label }: Pro
         disabled={disabled}
         className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => {
+          const id = e.target.value;
+          const name = listOptions.find((c) => c.id === id)?.name ?? null;
+          setSelectedLabel(name);
+          onChange(id);
+        }}
       >
         <option value="">Select client…</option>
-        {options.map((c) => (
+        {listOptions.map((c) => (
           <option key={c.id} value={c.id}>
             {c.name}
           </option>
