@@ -26,7 +26,7 @@ export type AppSession = {
   actorUserId: string;
   actorRole: string;
   effectiveUserId: string;
-  effectiveRole: string | null;
+  effectiveRole: string;
   preview: PreviewSession | null;
 };
 

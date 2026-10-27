@@ -314,7 +314,7 @@ export async function saveIjpAttestation(
     skipResolveAlerts?: boolean;
   }
 ): Promise<{ attestationFileId: string; fileName: string }> {
-  const folders = driveFoldersForRun(settings, opts.isTest);
+  const folders = driveFoldersForRun(opts.settings, opts.isTest);
   if (!folders.attestationRoot) {
     throw new Error("Attestation Drive folder is not configured.");
   }
@@ -340,7 +340,7 @@ export async function saveIjpAttestation(
     localDateStringInTz(new Date(), STAFF_CLOCK_TIMEZONE);
 
   const attestationTemplateId =
-    settings.template_attestation_doc_id?.trim() ||
+    opts.settings.template_attestation_doc_id?.trim() ||
     "1r8ekYATmXRbfAxNOQJd_sWJwbprUU9A17Gou7fKvVHE";
 
   let pdf: Uint8Array;
@@ -362,7 +362,7 @@ export async function saveIjpAttestation(
         attestationDate: formatInvoiceDateLabel(invoiceDate),
       }),
       signatureDataUrl: opts.signatureDataUrl,
-      signatureFolderId: settings.drive_signature_temp_folder_id,
+      signatureFolderId: opts.settings.drive_signature_temp_folder_id,
     });
   }
 
