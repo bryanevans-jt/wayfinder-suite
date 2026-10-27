@@ -11,30 +11,53 @@ import { formatServiceTimeOfDay } from "./es-time-tracking";
 import { serviceMonthEndYmd } from "./ijp-billing-eligibility";
 import { formatIjpInvoiceAmount, formatIjpRateDollars } from "./ijp-billing-settings";
 
-const IJP_LINE_DESCRIPTION_MAX_LINES = 5;
-/** Approx. characters per line in the invoice table description column (Google Doc). */
-const IJP_LINE_DESCRIPTION_CHARS_PER_LINE = 52;
+const IJP_INVOICE_DESCRIPTION_MAX_LINES = 5;
+/** Width of the invoice table description column in the default IJP Google Doc template. */
+const IJP_INVOICE_DESCRIPTION_CHARS_PER_LINE = 30;
 
+/**
+ * Formats service description for the invoice PDF table only (max five visible lines + "...").
+ * Inserts explicit line breaks so Google Docs does not wrap one long paragraph past five lines.
+ */
 export function truncateIjpLineDescription(
   text: string,
-  maxLines = IJP_LINE_DESCRIPTION_MAX_LINES
+  maxLines = IJP_INVOICE_DESCRIPTION_MAX_LINES,
+  charsPerLine = IJP_INVOICE_DESCRIPTION_CHARS_PER_LINE
 ): string {
-  const trimmed = text.replace(/\r\n/g, "\n").trim();
-  if (!trimmed) return trimmed;
+  const normalized = text
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  if (!normalized) return "";
 
-  const parts = trimmed.split("\n");
-  if (parts.length > maxLines) {
-    return `${parts.slice(0, maxLines).join("\n")}\n...`;
-  }
+  const lines: string[] = [];
+  let remaining = normalized;
 
-  if (parts.length === 1) {
-    const maxChars = IJP_LINE_DESCRIPTION_CHARS_PER_LINE * maxLines;
-    if (parts[0].length > maxChars) {
-      return `${parts[0].slice(0, maxChars).trimEnd()}...`;
+  while (remaining && lines.length < maxLines) {
+    if (remaining.length <= charsPerLine) {
+      lines.push(remaining);
+      remaining = "";
+      break;
     }
+    let breakAt = remaining.lastIndexOf(" ", charsPerLine + 1);
+    if (breakAt <= 0) {
+      breakAt = charsPerLine;
+    }
+    lines.push(remaining.slice(0, breakAt).trimEnd());
+    remaining = remaining.slice(breakAt).trimStart();
   }
 
-  return trimmed;
+  if (remaining) {
+    const lastIndex = maxLines - 1;
+    const last = lines[lastIndex] ?? "";
+    const room = Math.max(1, charsPerLine - 3);
+    lines[lastIndex] = `${(last.length > room ? last.slice(0, room).trimEnd() : last)}...`;
+  }
+
+  return lines.join("\n");
 }
 
 export type IjpInvoiceLineItem = {
@@ -160,8 +183,6 @@ export async function buildIjpInvoiceLineItems(
     if (!description) {
       description = "Billable service";
     }
-    description = truncateIjpLineDescription(description);
-
     let startTime = "";
     let endTime = "";
     if (row.service_start_at && row.service_end_at) {

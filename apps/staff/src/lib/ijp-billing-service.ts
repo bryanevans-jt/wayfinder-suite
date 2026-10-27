@@ -9,7 +9,6 @@ import {
   buildIjpInvoiceLineItems,
   recalcLineAmount,
   sumIjpLineItems,
-  truncateIjpLineDescription,
   type IjpInvoiceLineItem,
 } from "@wayfinder/supabase/ijp-billing-lines";
 import { serviceMonthStartFromYmd } from "@wayfinder/supabase/ijp-billing-eligibility";
@@ -336,13 +335,7 @@ export async function compileIjpInvoicePdf(
     localDateStringInTz(new Date(), STAFF_CLOCK_TIMEZONE);
 
   const lines = ((invoice.line_items as IjpInvoiceLineItem[]) ?? []).map((line) =>
-    recalcLineAmount(
-      {
-        ...line,
-        description: truncateIjpLineDescription(line.description),
-      },
-      settings.hourly_rate_cents
-    )
+    recalcLineAmount(line, settings.hourly_rate_cents)
   );
   const totals = sumIjpLineItems(lines);
   const instructors = [...new Set(lines.map((l) => l.instructorName).filter(Boolean))].join(", ");

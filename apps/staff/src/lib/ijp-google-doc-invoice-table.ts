@@ -1,5 +1,8 @@
 import type { docs_v1 } from "googleapis";
-import type { IjpInvoiceLineItem } from "@wayfinder/supabase/ijp-billing-lines";
+import {
+  truncateIjpLineDescription,
+  type IjpInvoiceLineItem,
+} from "@wayfinder/supabase/ijp-billing-lines";
 import { formatIjpInvoiceAmount } from "@wayfinder/supabase/ijp-billing-settings";
 
 type StructuralElement = docs_v1.Schema$StructuralElement;
@@ -154,7 +157,12 @@ export async function expandIjpInvoiceTableInDoc(
     const values: { col: number; text: string }[] = [];
     if (columns.authorization >= 0) values.push({ col: columns.authorization, text: line.authorization });
     if (columns.serviceCode >= 0) values.push({ col: columns.serviceCode, text: line.serviceCode });
-    if (columns.description >= 0) values.push({ col: columns.description, text: line.description });
+    if (columns.description >= 0) {
+      values.push({
+        col: columns.description,
+        text: truncateIjpLineDescription(line.description),
+      });
+    }
     if (columns.serviceDate >= 0) values.push({ col: columns.serviceDate, text: line.serviceDate });
     if (columns.startTime >= 0) values.push({ col: columns.startTime, text: line.startTime });
     if (columns.endTime >= 0) values.push({ col: columns.endTime, text: line.endTime });
