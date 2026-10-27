@@ -11,6 +11,32 @@ import { formatServiceTimeOfDay } from "./es-time-tracking";
 import { serviceMonthEndYmd } from "./ijp-billing-eligibility";
 import { formatIjpInvoiceAmount, formatIjpRateDollars } from "./ijp-billing-settings";
 
+const IJP_LINE_DESCRIPTION_MAX_LINES = 5;
+/** Approx. characters per line in the invoice table description column (Google Doc). */
+const IJP_LINE_DESCRIPTION_CHARS_PER_LINE = 52;
+
+export function truncateIjpLineDescription(
+  text: string,
+  maxLines = IJP_LINE_DESCRIPTION_MAX_LINES
+): string {
+  const trimmed = text.replace(/\r\n/g, "\n").trim();
+  if (!trimmed) return trimmed;
+
+  const parts = trimmed.split("\n");
+  if (parts.length > maxLines) {
+    return `${parts.slice(0, maxLines).join("\n")}\n...`;
+  }
+
+  if (parts.length === 1) {
+    const maxChars = IJP_LINE_DESCRIPTION_CHARS_PER_LINE * maxLines;
+    if (parts[0].length > maxChars) {
+      return `${parts[0].slice(0, maxChars).trimEnd()}...`;
+    }
+  }
+
+  return trimmed;
+}
+
 export type IjpInvoiceLineItem = {
   entryId: string;
   authorization: string;
@@ -134,6 +160,7 @@ export async function buildIjpInvoiceLineItems(
     if (!description) {
       description = "Billable service";
     }
+    description = truncateIjpLineDescription(description);
 
     let startTime = "";
     let endTime = "";

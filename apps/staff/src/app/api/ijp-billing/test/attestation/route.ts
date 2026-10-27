@@ -3,10 +3,6 @@ import { ensureIjpInvoiceRow, saveIjpAttestation } from "@/lib/ijp-billing-servi
 import { isAdminTierRole } from "@wayfinder/supabase/roles";
 import { NextResponse } from "next/server";
 
-/** Minimal PNG for sandbox attestation tests only. */
-const TEST_SIG =
-  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
-
 export async function POST(request: Request) {
   const auth = await requireIjpBillingApi();
   if ("error" in auth) return auth.error;
@@ -18,11 +14,19 @@ export async function POST(request: Request) {
   const body = (await request.json()) as {
     clientId?: string;
     serviceMonth?: string;
+    signatureDataUrl?: string;
   };
   const clientId = body.clientId?.trim();
   const serviceMonth = body.serviceMonth?.trim();
+  const signatureDataUrl = body.signatureDataUrl?.trim();
   if (!clientId || !serviceMonth) {
     return NextResponse.json({ error: "clientId and serviceMonth are required." }, { status: 400 });
+  }
+  if (!signatureDataUrl?.startsWith("data:image/")) {
+    return NextResponse.json(
+      { error: "Draw the client signature in the preview section before running test attestation." },
+      { status: 400 }
+    );
   }
 
   try {
@@ -39,7 +43,7 @@ export async function POST(request: Request) {
       serviceMonth,
       isTest: true,
       settings: auth.settings,
-      signatureDataUrl: TEST_SIG,
+      signatureDataUrl,
       capturedBy: auth.userId,
       facilitatorName: "IJP Test Run",
       captureMethod: "digital",

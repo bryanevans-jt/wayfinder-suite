@@ -2,6 +2,7 @@ import { google } from "googleapis";
 import { PDFDocument } from "pdf-lib";
 import { fillGoogleDocTemplatePdf, type GoogleDocInlineImage } from "@/lib/pre-ets-google-doc";
 import { expandIjpInvoiceTableInDoc } from "@/lib/ijp-google-doc-invoice-table";
+import { embedIjpAttestationParticipantSignature } from "@/lib/ijp-attestation-signature-pdf";
 import { getGoogleAuth } from "@/lib/google-mail";
 import type { IjpInvoiceLineItem } from "@wayfinder/supabase/ijp-billing-lines";
 
@@ -80,20 +81,21 @@ export async function exportIjpAttestationPdf(opts: {
   signatureDataUrl?: string | null;
   signatureFolderId?: string | null;
 }): Promise<Uint8Array> {
-  const images: GoogleDocInlineImage[] = [];
-  if (opts.signatureDataUrl) {
-    images.push({
-      tag: "ParticipantSignature",
-      dataUrl: opts.signatureDataUrl,
-      widthPt: 180,
-      heightPt: 48,
-    });
-  }
+  const pdfFromDoc = await fillGoogleDocTemplatePdf(
+    opts.templateDocId,
+    opts.placeholders,
+    opts.tempName,
+    {
+      images: [],
+      signatureFolderId: opts.signatureFolderId,
+    }
+  );
 
-  return fillGoogleDocTemplatePdf(opts.templateDocId, opts.placeholders, opts.tempName, {
-    images,
-    signatureFolderId: opts.signatureFolderId,
-  });
+  const sig = opts.signatureDataUrl?.trim();
+  if (sig?.startsWith("data:image/")) {
+    return embedIjpAttestationParticipantSignature(pdfFromDoc, sig);
+  }
+  return pdfFromDoc;
 }
 
 export async function mergePdfBuffers(first: Uint8Array, second: Uint8Array): Promise<Uint8Array> {

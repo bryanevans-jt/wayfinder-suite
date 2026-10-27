@@ -162,6 +162,7 @@ export async function fillGoogleDocTemplatePdf(
       "Signature",
       "AccountsSignature",
       "ProviderSignature",
+      "ParticipantSignature",
     ] as const) {
       if (!imageTags.has(tag) && textPlaceholders[tag] === undefined) {
         textPlaceholders[tag] = "";

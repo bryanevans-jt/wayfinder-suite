@@ -11,6 +11,8 @@ type Props = {
   clientId: string;
   serviceMonth: string;
   disabled?: boolean;
+  signature: string;
+  onSignatureChange: (dataUrl: string) => void;
 };
 
 type BillablePreview = {
@@ -21,11 +23,16 @@ type BillablePreview = {
   billableEntryCount: number;
 };
 
-export function IjpBillingTestPreview({ clientId, serviceMonth, disabled = false }: Props) {
+export function IjpBillingTestPreview({
+  clientId,
+  serviceMonth,
+  disabled = false,
+  signature,
+  onSignatureChange,
+}: Props) {
   const [preview, setPreview] = useState<BillablePreview | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [signature, setSignature] = useState("");
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
 
@@ -181,16 +188,16 @@ export function IjpBillingTestPreview({ clientId, serviceMonth, disabled = false
       <div>
         <h3 className="text-sm font-semibold text-amber-950">Client signing preview (attestation)</h3>
         <p className="mt-1 text-xs text-amber-900/80">
-          Same attestation text and signature pad clients see in the profile. Preview PDF uses the{" "}
-          <code className="rounded bg-white px-1">ParticipantSignature</code> placeholder — does not
-          upload to Drive or change production flags.
+          Same attestation text and signature pad clients see in the profile. Preview matches the
+          embedded signature on Drive PDFs (not a temporary Drive image link). Run test attestation
+          uses this signature.
         </p>
         <div className="mt-4 rounded-lg border border-amber-200 bg-white p-4">
           <p className="text-sm leading-relaxed text-brand-black/85">{IJP_ATTESTATION_TEXT}</p>
           <div className="mt-4">
             <SignaturePad
               value={signature}
-              onChange={setSignature}
+              onChange={onSignatureChange}
               disabled={disabled || pdfBusy}
               label="Client signature (preview)"
             />

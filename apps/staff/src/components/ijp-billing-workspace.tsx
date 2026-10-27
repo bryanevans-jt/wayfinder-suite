@@ -32,6 +32,7 @@ export function IjpBillingWorkspace() {
   const [canTest, setCanTest] = useState(false);
   const [testClientId, setTestClientId] = useState("");
   const [testMonth, setTestMonth] = useState(priorServiceMonthStart());
+  const [testSignature, setTestSignature] = useState("");
   const [addClientId, setAddClientId] = useState("");
   const [detailProviderInvoice, setDetailProviderInvoice] = useState("");
   const [detailAuth, setDetailAuth] = useState("");
@@ -457,6 +458,10 @@ export function IjpBillingWorkspace() {
                   setError("Select a client for the test run.");
                   return;
                 }
+                if (!testSignature.startsWith("data:image/")) {
+                  setError("Draw the client signature in the preview section first.");
+                  return;
+                }
                 setBusy(true);
                 const res = await fetch("/api/ijp-billing/test/attestation", {
                   method: "POST",
@@ -464,6 +469,7 @@ export function IjpBillingWorkspace() {
                   body: JSON.stringify({
                     clientId: testClientId.trim(),
                     serviceMonth: testMonth,
+                    signatureDataUrl: testSignature,
                   }),
                 });
                 setBusy(false);
@@ -489,6 +495,8 @@ export function IjpBillingWorkspace() {
               clientId={testClientId.trim()}
               serviceMonth={testMonth}
               disabled={busy}
+              signature={testSignature}
+              onSignatureChange={setTestSignature}
             />
           ) : (
             <p className="mt-4 text-sm text-amber-900/75">
