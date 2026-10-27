@@ -3,6 +3,8 @@
 import {
   DEFAULT_IJP_ATTESTATION_DOC_ID,
   DEFAULT_IJP_INVOICE_DOC_ID,
+} from "@wayfinder/supabase/ijp-billing-settings";
+import {
   IJP_ATTESTATION_PLACEHOLDERS,
   IJP_INVOICE_PLACEHOLDERS,
 } from "@wayfinder/supabase/ijp-template-placeholders";

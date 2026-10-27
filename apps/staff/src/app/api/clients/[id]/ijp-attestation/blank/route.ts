@@ -29,7 +29,12 @@ export async function GET(request: NextRequest, ctx: Ctx) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const role = session.isPreviewing ? session.effectiveRole : (profile.role as string);
+  const role = session.isPreviewing
+    ? session.effectiveRole
+    : (profile.role as string | null);
+  if (!role) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const admin = createServiceRoleClient();
   const allowed = await canAccessIjpClientSignature(admin, {
     role,
