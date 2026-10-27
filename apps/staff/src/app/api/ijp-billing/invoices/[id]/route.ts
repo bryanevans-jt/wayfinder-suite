@@ -1,5 +1,10 @@
 import { recalcLineAmount, sumIjpLineItems, type IjpInvoiceLineItem } from "@wayfinder/supabase/ijp-billing-lines";
 import { requireIjpBillingApi } from "@/lib/ijp-billing-access";
+import {
+  compileIjpInvoicePdf,
+  regenerateIjpAttestationPdfIfStored,
+} from "@/lib/ijp-billing-service";
+import { loadStaffNameById } from "@/lib/staff-names";
 import { NextResponse } from "next/server";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -61,5 +66,39 @@ export async function PATCH(request: Request, ctx: Ctx) {
     .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  const invoiceNumberChanged =
+    body.provider_invoice_number !== undefined &&
+    (body.provider_invoice_number.trim() || null) !==
+      ((existing.provider_invoice_number as string | null) ?? null);
+
+  if (invoiceNumberChanged && data && !data.is_test) {
+    try {
+      await compileIjpInvoicePdf(auth.admin, id, auth.settings);
+      const { data: att } = await auth.admin
+        .from("ijp_monthly_attestations")
+        .select("facilitator_name, captured_by")
+        .eq("client_id", data.client_id)
+        .eq("service_month", data.service_month)
+        .eq("is_test", false)
+        .maybeSingle();
+      let facilitator = (att?.facilitator_name as string)?.trim() || "";
+      if (!facilitator && att?.captured_by) {
+        const names = await loadStaffNameById(auth.admin, [att.captured_by as string], "Staff");
+        facilitator = names.get(att.captured_by as string) ?? "Staff";
+      }
+      if (!facilitator) facilitator = "Staff";
+      await regenerateIjpAttestationPdfIfStored(auth.admin, {
+        clientId: data.client_id as string,
+        serviceMonth: data.service_month as string,
+        isTest: false,
+        settings: auth.settings,
+        facilitatorName: facilitator,
+      });
+    } catch (e) {
+      console.error("ijp invoice patch follow-up:", e);
+    }
+  }
+
   return NextResponse.json({ invoice: data });
 }

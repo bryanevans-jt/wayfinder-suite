@@ -1,4 +1,10 @@
-import type { CoachingSlaRow, CoachingThinLogRow, EsCapacityRow } from "@/lib/operations-data";
+import type {
+  CoachingSlaRow,
+  CoachingThinLogRow,
+  EsCapacityRow,
+  IjpAttestationSlaRow,
+} from "@/lib/operations-data";
+import { IjpAttestationSlaPanel } from "@/components/ijp-attestation-sla-panel";
 import type { OfficeCaseCountRow } from "@/lib/office-case-counts";
 import { SOFT_ACTIVE_CASELOAD_GUIDANCE } from "@/lib/analytics/definitions";
 import { formatBillableHours } from "@wayfinder/supabase/client-billable";
@@ -14,6 +20,7 @@ type Props = {
   showAllStaffRoles: boolean;
   officeCaseCounts?: OfficeCaseCountRow[];
   clientsPortalBasePath?: string;
+  ijpAttestationSla?: IjpAttestationSlaRow[];
 };
 
 function formatBillableMinutes(minutes: number): string {
@@ -36,6 +43,7 @@ export function SupervisorOperationsWorkspace({
   showAllStaffRoles,
   officeCaseCounts = [],
   clientsPortalBasePath = "/dashboard/admin",
+  ijpAttestationSla = [],
 }: Props) {
   return (
     <div className="mt-8 max-w-5xl space-y-8">
@@ -143,6 +151,8 @@ export function SupervisorOperationsWorkspace({
           </div>
         </section>
       ) : null}
+
+      <IjpAttestationSlaPanel initialRows={ijpAttestationSla} />
 
       {showCoaching ? (
         <>

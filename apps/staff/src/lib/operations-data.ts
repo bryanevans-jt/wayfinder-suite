@@ -6,6 +6,7 @@ import { isAdminTierRole, isGvraPartnerRole, isStaffRole, roleDisplayName } from
 import { loadClientDisplayNameById } from "@/lib/client-display-names";
 import { formalReportLabel } from "@/lib/formal-report-labels";
 import { loadComplianceReportAlerts } from "@/lib/report-alerts-data";
+import { loadIjpAttestationSlaRows, type IjpAttestationSlaRow } from "@/lib/ijp-operations-alerts";
 import { loadStaffNameById } from "@/lib/staff-names";
 
 export { loadStaffNameById } from "@/lib/staff-names";
@@ -86,6 +87,16 @@ async function scopedEsUserIds(
     return [...new Set(scope.esUserIds)];
   }
   return [userId];
+}
+
+export type { IjpAttestationSlaRow };
+
+export async function loadIjpAttestationSlaForRole(
+  role: string,
+  userId: string
+): Promise<IjpAttestationSlaRow[]> {
+  const admin = createServiceRoleClient();
+  return loadIjpAttestationSlaRows(admin, role, userId);
 }
 
 export async function loadComplianceCalendar(

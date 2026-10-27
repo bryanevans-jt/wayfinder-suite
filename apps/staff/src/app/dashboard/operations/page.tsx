@@ -6,7 +6,11 @@ import {
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
 import { redirect } from "next/navigation";
-import { loadCoachingQueue, loadEsCapacityRows } from "@/lib/operations-data";
+import {
+  loadCoachingQueue,
+  loadEsCapacityRows,
+  loadIjpAttestationSlaForRole,
+} from "@/lib/operations-data";
 import { loadOfficeCaseCounts } from "@/lib/office-case-counts";
 
 export default async function OperationsPage() {
@@ -18,12 +22,13 @@ export default async function OperationsPage() {
   }
 
   const adminTier = isAdminTierRole(role);
-  const [capacity, coaching, officeCaseCounts] = await Promise.all([
+  const [capacity, coaching, officeCaseCounts, ijpSla] = await Promise.all([
     loadEsCapacityRows(role!, session.effectiveUserId),
     isSupervisorRole(role)
       ? loadCoachingQueue(session.effectiveUserId)
       : Promise.resolve({ sla: [], thinLogs: [] }),
     adminTier ? loadOfficeCaseCounts() : Promise.resolve([]),
+    loadIjpAttestationSlaForRole(role!, session.effectiveUserId),
   ]);
 
   const clientsPortalBasePath = isSuperAdminRole(role)
@@ -43,6 +48,7 @@ export default async function OperationsPage() {
         showAllStaffRoles={adminTier}
         officeCaseCounts={officeCaseCounts}
         clientsPortalBasePath={clientsPortalBasePath}
+        ijpAttestationSla={ijpSla}
       />
     </main>
   );

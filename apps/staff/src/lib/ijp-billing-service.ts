@@ -261,6 +261,42 @@ export async function compileIjpInvoicePdf(
   return { invoiceOnlyFileId: uploaded.fileId, fileName: uploaded.fileName };
 }
 
+export async function regenerateIjpAttestationPdfIfStored(
+  admin: SupabaseClient,
+  opts: {
+    clientId: string;
+    serviceMonth: string;
+    isTest: boolean;
+    settings: IjpBillingSettingsRow;
+    facilitatorName: string;
+  }
+): Promise<boolean> {
+  const { data: att } = await admin
+    .from("ijp_monthly_attestations")
+    .select("capture_method, signature_data_url, captured_by")
+    .eq("client_id", opts.clientId)
+    .eq("service_month", opts.serviceMonth)
+    .eq("is_test", opts.isTest)
+    .maybeSingle();
+
+  if (!att || att.capture_method !== "digital" || !att.signature_data_url) {
+    return false;
+  }
+
+  await saveIjpAttestation(admin, {
+    clientId: opts.clientId,
+    serviceMonth: opts.serviceMonth,
+    isTest: opts.isTest,
+    settings: opts.settings,
+    signatureDataUrl: att.signature_data_url as string,
+    capturedBy: (att.captured_by as string) ?? "00000000-0000-0000-0000-000000000000",
+    facilitatorName: opts.facilitatorName,
+    captureMethod: "digital",
+    skipResolveAlerts: true,
+  });
+  return true;
+}
+
 export async function saveIjpAttestation(
   admin: SupabaseClient,
   opts: {
@@ -270,9 +306,12 @@ export async function saveIjpAttestation(
     settings: IjpBillingSettingsRow;
     signatureDataUrl?: string | null;
     uploadPdfBase64?: string | null;
+    uploadImageBase64?: string | null;
+    uploadMimeType?: string | null;
     capturedBy: string;
     facilitatorName: string;
     captureMethod: "digital" | "upload";
+    skipResolveAlerts?: boolean;
   }
 ): Promise<{ attestationFileId: string; fileName: string }> {
   const folders = driveFoldersForRun(settings, opts.isTest);
@@ -305,8 +344,13 @@ export async function saveIjpAttestation(
     "1r8ekYATmXRbfAxNOQJd_sWJwbprUU9A17Gou7fKvVHE";
 
   let pdf: Uint8Array;
-  if (opts.uploadPdfBase64) {
-    pdf = Uint8Array.from(Buffer.from(opts.uploadPdfBase64, "base64"));
+  if (opts.uploadPdfBase64 || opts.uploadImageBase64) {
+    const { decodeUploadPayload } = await import("@/lib/ijp-image-pdf");
+    pdf = await decodeUploadPayload({
+      uploadPdfBase64: opts.uploadPdfBase64,
+      uploadImageBase64: opts.uploadImageBase64,
+      uploadMimeType: opts.uploadMimeType,
+    });
   } else {
     pdf = await exportIjpAttestationPdf({
       templateDocId: attestationTemplateId,
@@ -341,13 +385,15 @@ export async function saveIjpAttestation(
       captured_by: opts.capturedBy,
       facilitator_name: opts.facilitatorName,
       capture_method: opts.captureMethod,
+      signature_data_url:
+        opts.captureMethod === "digital" && opts.signatureDataUrl ? opts.signatureDataUrl : null,
       captured_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
     { onConflict: "client_id,service_month,is_test" }
   );
 
-  if (!opts.isTest) {
+  if (!opts.isTest && !opts.skipResolveAlerts) {
     await admin
       .from("ijp_billing_invoices")
       .update({ missing_attestation: false, updated_at: new Date().toISOString() })

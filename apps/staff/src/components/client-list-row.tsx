@@ -16,23 +16,41 @@ type Props = {
   officeName: (id: string | null) => string;
   esLabel: (id: string | null) => string;
   onManage: () => void;
+  ijpSignatureMonthLabel?: string | null;
 };
 
-export function ClientListRow({ client, busy, officeName, esLabel, onManage }: Props) {
+export function ClientListRow({
+  client,
+  busy,
+  officeName,
+  esLabel,
+  onManage,
+  ijpSignatureMonthLabel,
+}: Props) {
   const displayName = clientDisplayName(client);
   const where = clientPipelineWhere(client);
 
   return (
     <tr className="border-t border-neutral-100 hover:bg-neutral-50/50">
       <td className="px-3 py-3">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onManage}
-          className="text-left font-medium text-brand-green hover:underline disabled:opacity-60"
-        >
-          {displayName}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onManage}
+            className="text-left font-medium text-brand-green hover:underline disabled:opacity-60"
+          >
+            {displayName}
+          </button>
+          {ijpSignatureMonthLabel ? (
+            <span
+              className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900"
+              title={ijpSignatureMonthLabel}
+            >
+              Signature needed
+            </span>
+          ) : null}
+        </div>
         {client.contact_email ? (
           <p className="text-xs text-brand-black/60">{client.contact_email}</p>
         ) : null}

@@ -340,6 +340,29 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
     totalCount: clientTotalCount,
   } = useClientListPagination(filteredClients);
 
+  const [ijpSignatureFlags, setIjpSignatureFlags] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const ids = pagedClients.map((c) => c.id);
+    if (ids.length === 0) {
+      setIjpSignatureFlags({});
+      return;
+    }
+    void (async () => {
+      try {
+        const res = await fetch("/api/ijp-attestation/signature-flags", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clientIds: ids }),
+        });
+        const data = (await res.json()) as { flags?: Record<string, string> };
+        if (res.ok) setIjpSignatureFlags(data.flags ?? {});
+      } catch {
+        // Non-blocking — list still renders without IJP badges.
+      }
+    })();
+  }, [pagedClients]);
+
   useEffect(() => {
     setDrawerClient((current) => {
       if (!current || !b) return current;
@@ -1092,6 +1115,7 @@ export function PortalWorkspace({ mode, title, subtitle }: Props) {
                       officeName={officeName}
                       esLabel={esLabel}
                       onManage={() => setDrawerClient(c)}
+                      ijpSignatureMonthLabel={ijpSignatureFlags[c.id] ?? null}
                     />
                   ))
                 )}

@@ -71,6 +71,8 @@ export async function POST(request: Request, ctx: Ctx) {
     serviceMonth?: string;
     signatureDataUrl?: string;
     uploadPdfBase64?: string;
+    uploadImageBase64?: string;
+    uploadMimeType?: string;
     isTest?: boolean;
   };
 
@@ -95,7 +97,7 @@ export async function POST(request: Request, ctx: Ctx) {
   const settings = await loadIjpBillingSettings(admin);
 
   try {
-    if (!body.signatureDataUrl && !body.uploadPdfBase64) {
+    if (!body.signatureDataUrl && !body.uploadPdfBase64 && !body.uploadImageBase64) {
       return NextResponse.json({ error: "Signature or upload is required." }, { status: 400 });
     }
 
@@ -113,9 +115,12 @@ export async function POST(request: Request, ctx: Ctx) {
       settings,
       signatureDataUrl: body.signatureDataUrl,
       uploadPdfBase64: body.uploadPdfBase64,
+      uploadImageBase64: body.uploadImageBase64,
+      uploadMimeType: body.uploadMimeType,
       capturedBy: auth.userId,
       facilitatorName,
-      captureMethod: body.uploadPdfBase64 ? "upload" : "digital",
+      captureMethod:
+        body.uploadPdfBase64 || body.uploadImageBase64 ? "upload" : "digital",
     });
 
     return NextResponse.json({ ok: true, ...result, isTest });

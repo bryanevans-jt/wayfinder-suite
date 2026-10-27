@@ -85,13 +85,23 @@ export function IjpClientSignatureSection({ clientId }: Props) {
     let binary = "";
     for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]!);
     const base64 = btoa(binary);
+    const isPdf =
+      file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
     const res = await fetch(`/api/clients/${clientId}/ijp-attestation`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        serviceMonth: status.serviceMonth,
-        uploadPdfBase64: base64,
-      }),
+      body: JSON.stringify(
+        isPdf
+          ? {
+              serviceMonth: status.serviceMonth,
+              uploadPdfBase64: base64,
+            }
+          : {
+              serviceMonth: status.serviceMonth,
+              uploadImageBase64: base64,
+              uploadMimeType: file.type || "image/jpeg",
+            }
+      ),
     });
     const data = (await res.json()) as { error?: string };
     setBusy(false);

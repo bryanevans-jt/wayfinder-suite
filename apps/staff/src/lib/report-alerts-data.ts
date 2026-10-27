@@ -50,7 +50,7 @@ async function loadOpenGaReportAlertRecords(
     .limit(opts.limit);
 
   if (!opts.allReportTypes) {
-    query = query.eq("report_type_slug", "seMonthly");
+    query = query.in("report_type_slug", ["seMonthly", "ijp_attestation"]);
   }
 
   const { data, error } = await query;

@@ -18,6 +18,7 @@ type ReportAlert = {
   esUserId: string;
   dueAt: string | null;
   createdAt: string;
+  reportTypeSlug?: string;
 };
 
 type Props = {
@@ -107,9 +108,9 @@ export function ReportAlertsBanner({ staffRole }: Props) {
     <div className={`mx-4 mt-3 rounded-lg border px-4 py-3 lg:mx-6 ${tone}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold">SE Monthly report alerts</p>
+          <p className="text-sm font-semibold">GVRA report alerts</p>
           <p className="text-sm opacity-90">
-            {`${summaryParts.join(", ")} GVRA report${alerts.length === 1 ? "" : "s"} need attention.`}
+            {`${summaryParts.join(", ")} open report alert${alerts.length === 1 ? "" : "s"} need attention.`}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -146,18 +147,27 @@ export function ReportAlertsBanner({ staffRole }: Props) {
                 {alert.clientName}
                 <span className="opacity-75"> ({alert.reportingMonth})</span>
               </span>
-              <a
-                href={buildJtReportsPrefillUrl({
-                  clientName: alert.clientName,
-                  wayfinderClientId: alert.clientId,
-                  report: "seMonthly",
-                })}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium underline underline-offset-2"
-              >
-                Submit report
-              </a>
+              {alert.reportTypeSlug === "ijp_attestation" ? (
+                <Link
+                  href={`/dashboard/clients/${encodeURIComponent(alert.clientId)}`}
+                  className="font-medium underline underline-offset-2"
+                >
+                  Client signature
+                </Link>
+              ) : (
+                <a
+                  href={buildJtReportsPrefillUrl({
+                    clientName: alert.clientName,
+                    wayfinderClientId: alert.clientId,
+                    report: "seMonthly",
+                  })}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium underline underline-offset-2"
+                >
+                  Submit report
+                </a>
+              )}
             </li>
           ))}
           {alerts.length > 20 ? (
