@@ -1,6 +1,6 @@
 {
   "name": "wayfinder-pro-mobile",
-  "version": "1.0.6",
+  "version": "1.2.5",
   "private": true,
   "description": "Capacitor shell for Wayfinder Pro (staff)",
   "scripts": {
