@@ -4,8 +4,7 @@ import { SignaturePad } from "@/components/signature-pad";
 import { USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
 import { useCallback, useEffect, useState } from "react";
 
-const ATTESTATION_TEXT =
-  "I hereby attest that this information is true, accurate, and complete and understand that any falsification, omission, or concealment of material fact may subject me or the represented organization to administrative, civil, or criminal liability. Furthermore, I am a duly authorized representative to sign such an agreement for the party I represent. I understand that in order to be reimbursed for the rendering of services, I must submit an invoice packet(s) in accordance with the approved written authorizations, rate schedule, and the GVRA/VR Provider Guidelines Manual within 30 days of the completion of the services being provided. I understand that all invoices must match or be less than the written service authorization.";
+import { IJP_ATTESTATION_TEXT } from "@/lib/ijp-attestation-text";
 
 type Status = {
   serviceMonth: string;
@@ -144,7 +143,7 @@ export function IjpClientSignatureSection({ clientId }: Props) {
 
       {status.signatureNeeded && status.captureOpen ? (
         <div className="mt-4 space-y-4">
-          <p className="text-sm leading-relaxed text-brand-black/85">{ATTESTATION_TEXT}</p>
+          <p className="text-sm leading-relaxed text-brand-black/85">{IJP_ATTESTATION_TEXT}</p>
           <SignaturePad value={signature} onChange={setSignature} disabled={busy} />
           <div className="flex flex-wrap gap-2">
             <button

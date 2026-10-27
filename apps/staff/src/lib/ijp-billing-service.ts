@@ -12,6 +12,10 @@ import {
   type IjpInvoiceLineItem,
 } from "@wayfinder/supabase/ijp-billing-lines";
 import {
+  entryCountsTowardClientBillable,
+  type ClientBillableEntry,
+} from "@wayfinder/supabase/client-billable";
+import {
   serviceMonthLabel,
   serviceMonthEndYmd,
 } from "@wayfinder/supabase/ijp-billing-eligibility";
@@ -98,7 +102,67 @@ export async function loadClientAuthNumber(admin: SupabaseClient, clientId: stri
   return ((data?.authorization_number as string) ?? "").trim();
 }
 
-export async function ensureIjpInvoiceRow(
+export type IjpInvoiceLineSyncResult = {
+  id: string;
+  line_items: IjpInvoiceLineItem[];
+  total_hours: number;
+  total_amount_cents: number;
+  approvedEntryCount: number;
+  billableEntryCount: number;
+};
+
+async function loadEsNameMapForClientMonth(
+  admin: SupabaseClient,
+  clientId: string,
+  serviceMonth: string
+): Promise<Map<string, string>> {
+  const { data: client } = await admin
+    .from("clients")
+    .select("es_user_id")
+    .eq("id", clientId)
+    .maybeSingle();
+  const esIds = new Set<string>();
+  if (client?.es_user_id) esIds.add(client.es_user_id as string);
+
+  const { data: entries } = await admin
+    .from("es_time_entries")
+    .select("es_user_id")
+    .eq("client_id", clientId)
+    .gte("service_date", serviceMonth)
+    .lte("service_date", serviceMonthEndYmd(serviceMonth));
+  for (const e of entries ?? []) {
+    if (e.es_user_id) esIds.add(e.es_user_id as string);
+  }
+
+  return loadStaffNameById(admin, [...esIds], "ES");
+}
+
+async function countApprovedBillableEntries(
+  admin: SupabaseClient,
+  clientId: string,
+  serviceMonth: string
+): Promise<{ approvedEntryCount: number; billableEntryCount: number }> {
+  const { data: entries } = await admin
+    .from("es_time_entries")
+    .select(
+      "duration_minutes, flags, counts_toward_client_billable, client_present, delivery_mode, status"
+    )
+    .eq("client_id", clientId)
+    .eq("status", "approved")
+    .gte("service_date", serviceMonth)
+    .lte("service_date", serviceMonthEndYmd(serviceMonth));
+
+  let billableEntryCount = 0;
+  for (const row of entries ?? []) {
+    if (entryCountsTowardClientBillable(row as ClientBillableEntry)) {
+      billableEntryCount += 1;
+    }
+  }
+  return { approvedEntryCount: entries?.length ?? 0, billableEntryCount };
+}
+
+/** Rebuild invoice line items from approved ES time entries and persist on the invoice row. */
+export async function syncIjpInvoiceLineItemsFromBillable(
   admin: SupabaseClient,
   opts: {
     clientId: string;
@@ -106,8 +170,99 @@ export async function ensureIjpInvoiceRow(
     isTest: boolean;
     settings: IjpBillingSettingsRow;
   }
-): Promise<{ id: string; line_items: IjpInvoiceLineItem[] }> {
+): Promise<IjpInvoiceLineSyncResult> {
   const authNumber = await loadClientAuthNumber(admin, opts.clientId);
+  const entryCounts = await countApprovedBillableEntries(
+    admin,
+    opts.clientId,
+    opts.serviceMonth
+  );
+  const esNameByUserId = await loadEsNameMapForClientMonth(
+    admin,
+    opts.clientId,
+    opts.serviceMonth
+  );
+  const lines = await buildIjpInvoiceLineItems(admin, {
+    clientId: opts.clientId,
+    monthStart: opts.serviceMonth,
+    authorizationNumber: authNumber,
+    hourlyRateCents: opts.settings.hourly_rate_cents,
+    esNameByUserId,
+  });
+  const totals = sumIjpLineItems(lines);
+
+  const { data: existing } = await admin
+    .from("ijp_billing_invoices")
+    .select("id")
+    .eq("client_id", opts.clientId)
+    .eq("service_month", opts.serviceMonth)
+    .eq("is_test", opts.isTest)
+    .maybeSingle();
+
+  if (existing?.id) {
+    const { error } = await admin
+      .from("ijp_billing_invoices")
+      .update({
+        authorization_number: authNumber || null,
+        line_items: lines,
+        total_hours: totals.totalHours,
+        total_amount_cents: totals.totalAmountCents,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existing.id);
+    if (error) throw new Error(error.message);
+    return {
+      id: existing.id as string,
+      line_items: lines,
+      total_hours: totals.totalHours,
+      total_amount_cents: totals.totalAmountCents,
+      ...entryCounts,
+    };
+  }
+
+  const { data: inserted, error } = await admin
+    .from("ijp_billing_invoices")
+    .insert({
+      client_id: opts.clientId,
+      service_month: opts.serviceMonth,
+      is_test: opts.isTest,
+      authorization_number: authNumber || null,
+      line_items: lines,
+      total_hours: totals.totalHours,
+      total_amount_cents: totals.totalAmountCents,
+      missing_attestation: true,
+    })
+    .select("id")
+    .maybeSingle();
+
+  if (error || !inserted?.id) {
+    throw new Error(error?.message ?? "Could not create IJP invoice row.");
+  }
+
+  return {
+    id: inserted.id as string,
+    line_items: lines,
+    total_hours: totals.totalHours,
+    total_amount_cents: totals.totalAmountCents,
+    ...entryCounts,
+  };
+}
+
+export async function ensureIjpInvoiceRow(
+  admin: SupabaseClient,
+  opts: {
+    clientId: string;
+    serviceMonth: string;
+    isTest: boolean;
+    settings: IjpBillingSettingsRow;
+    forceRefresh?: boolean;
+  }
+): Promise<{ id: string; line_items: IjpInvoiceLineItem[] }> {
+  if (opts.forceRefresh) {
+    const synced = await syncIjpInvoiceLineItemsFromBillable(admin, opts);
+    return { id: synced.id, line_items: synced.line_items };
+  }
+
   const { data: existing } = await admin
     .from("ijp_billing_invoices")
     .select("id, line_items")
@@ -123,57 +278,57 @@ export async function ensureIjpInvoiceRow(
     };
   }
 
+  const synced = await syncIjpInvoiceLineItemsFromBillable(admin, opts);
+  return { id: synced.id, line_items: synced.line_items };
+}
+
+export async function previewIjpAttestationPdf(
+  admin: SupabaseClient,
+  opts: {
+    clientId: string;
+    serviceMonth: string;
+    settings: IjpBillingSettingsRow;
+    signatureDataUrl?: string | null;
+    facilitatorName?: string;
+    isTest?: boolean;
+  }
+): Promise<Uint8Array> {
+  const authNumber = await loadClientAuthNumber(admin, opts.clientId);
+  const { data: invoice } = await admin
+    .from("ijp_billing_invoices")
+    .select("provider_invoice_number, invoice_date")
+    .eq("client_id", opts.clientId)
+    .eq("service_month", opts.serviceMonth)
+    .eq("is_test", Boolean(opts.isTest))
+    .maybeSingle();
+
+  const invoiceDate =
+    (invoice?.invoice_date as string) ??
+    localDateStringInTz(new Date(), STAFF_CLOCK_TIMEZONE);
+
+  const attestationTemplateId =
+    opts.settings.template_attestation_doc_id?.trim() ||
+    "1r8ekYATmXRbfAxNOQJd_sWJwbprUU9A17Gou7fKvVHE";
+
   const { data: client } = await admin
     .from("clients")
-    .select("es_user_id")
+    .select("full_name, contact_email, id")
     .eq("id", opts.clientId)
     .maybeSingle();
-  const esIds = new Set<string>();
-  if (client?.es_user_id) esIds.add(client.es_user_id as string);
+  const name = clientDisplayName(client ?? { id: opts.clientId });
 
-  const { data: entries } = await admin
-    .from("es_time_entries")
-    .select("es_user_id")
-    .eq("client_id", opts.clientId)
-    .gte("service_date", opts.serviceMonth)
-    .lte("service_date", serviceMonthEndYmd(opts.serviceMonth));
-  for (const e of entries ?? []) {
-    if (e.es_user_id) esIds.add(e.es_user_id as string);
-  }
-
-  const esNameByUserId = await loadStaffNameById(admin, [...esIds], "ES");
-  const lines = await buildIjpInvoiceLineItems(admin, {
-    clientId: opts.clientId,
-    monthStart: opts.serviceMonth,
-    authorizationNumber: authNumber,
-    hourlyRateCents: opts.settings.hourly_rate_cents,
-    esNameByUserId,
+  return exportIjpAttestationPdf({
+    templateDocId: attestationTemplateId,
+    tempName: `IJP Attestation Preview ${name} ${opts.serviceMonth}`,
+    placeholders: buildIjpAttestationPlaceholders({
+      attestationProviderName: opts.facilitatorName?.trim() || "Preview facilitator",
+      providerInvoiceNumber: (invoice?.provider_invoice_number as string) ?? "",
+      authorizationNumber: authNumber,
+      attestationDate: formatInvoiceDateLabel(invoiceDate),
+    }),
+    signatureDataUrl: opts.signatureDataUrl,
+    signatureFolderId: opts.settings.drive_signature_temp_folder_id,
   });
-  const totals = sumIjpLineItems(lines);
-
-  const { data: inserted, error } = await admin
-    .from("ijp_billing_invoices")
-    .insert({
-      client_id: opts.clientId,
-      service_month: opts.serviceMonth,
-      is_test: opts.isTest,
-      authorization_number: authNumber || null,
-      line_items: lines,
-      total_hours: totals.totalHours,
-      total_amount_cents: totals.totalAmountCents,
-      missing_attestation: true,
-    })
-    .select("id, line_items")
-    .maybeSingle();
-
-  if (error || !inserted?.id) {
-    throw new Error(error?.message ?? "Could not create IJP invoice row.");
-  }
-
-  return {
-    id: inserted.id as string,
-    line_items: (inserted.line_items as IjpInvoiceLineItem[]) ?? lines,
-  };
 }
 
 export async function compileIjpInvoicePdf(

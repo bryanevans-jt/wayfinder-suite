@@ -31,6 +31,7 @@ export async function POST(request: Request) {
       serviceMonth,
       isTest: true,
       settings: auth.settings,
+      forceRefresh: true,
     });
 
     const result = await saveIjpAttestation(auth.admin, {

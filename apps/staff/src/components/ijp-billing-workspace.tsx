@@ -5,6 +5,7 @@ import { priorServiceMonthStart } from "@wayfinder/supabase/ijp-billing-eligibil
 import { USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
 import { useCallback, useEffect, useState } from "react";
 import { IjpBillingClientPicker } from "@/components/ijp-billing-client-picker";
+import { IjpBillingTestPreview } from "@/components/ijp-billing-test-preview";
 
 type InvoiceRow = {
   id: string;
@@ -138,6 +139,7 @@ export function IjpBillingWorkspace() {
         clientId: testClientId.trim(),
         serviceMonth: testMonth,
         isTest: true,
+        refreshLines: true,
       }),
     });
     const created = (await create.json()) as { invoiceId?: string; error?: string };
@@ -479,8 +481,21 @@ export function IjpBillingWorkspace() {
           <p className="mt-2 text-xs text-amber-900/70">
             Production Client Signature in the profile modal always writes real attestations. Test
             buttons here use <code className="rounded bg-white px-1">is_test</code> rows and test
-            folders only.
+            folders only. Run test compile refreshes lines from approved billable ES time before
+            generating the test invoice PDF.
           </p>
+          {testClientId.trim() ? (
+            <IjpBillingTestPreview
+              clientId={testClientId.trim()}
+              serviceMonth={testMonth}
+              disabled={busy}
+            />
+          ) : (
+            <p className="mt-4 text-sm text-amber-900/75">
+              Select a test client to preview billable invoice lines and the attestation signing
+              experience.
+            </p>
+          )}
         </section>
       ) : null}
     </div>

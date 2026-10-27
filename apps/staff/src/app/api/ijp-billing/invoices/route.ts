@@ -67,6 +67,7 @@ export async function POST(request: Request) {
     clientId?: string;
     serviceMonth?: string;
     isTest?: boolean;
+    refreshLines?: boolean;
   };
   const clientId = body.clientId?.trim();
   if (!clientId) {
@@ -81,6 +82,7 @@ export async function POST(request: Request) {
       serviceMonth,
       isTest,
       settings: auth.settings,
+      forceRefresh: Boolean(body.refreshLines),
     });
     return NextResponse.json({ ok: true, invoiceId: row.id });
   } catch (e) {
