@@ -28,6 +28,7 @@ import { EsClientsTodayStrip } from "@/components/es-clients-today-strip";
 import { loadCaseloadTriageFlags } from "@/lib/caseload-operations";
 import { fetchEsCaseloadClients, getEsCaseloadAdmin } from "@/lib/es-caseload-data";
 import { filterSunsetServices, loadSunsetKeepIds } from "@/lib/sunset-tn";
+import { loadIjpSignatureUiStatus } from "@/lib/ijp-attestation-status";
 
 type PageProps = {
   searchParams: Promise<{ archived?: string }>;
@@ -240,6 +241,19 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
 
   const needsReply = [...overdueByClient.keys()].filter((id) => clientIds.includes(id)).length;
 
+  const ijpAdmin = getEsCaseloadAdmin();
+  const ijpSignatureByClient = new Map<string, string>();
+  if (ijpAdmin && !includeArchived) {
+    await Promise.all(
+      sortedClients.map(async (c) => {
+        const status = await loadIjpSignatureUiStatus(ijpAdmin, c.id);
+        if (status?.showListFlag) {
+          ijpSignatureByClient.set(c.id, status.serviceMonthLabel);
+        }
+      })
+    );
+  }
+
   return (
     <main className="px-4 py-8 sm:px-6 sm:py-10">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -309,6 +323,7 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
             archived: isArchivedClient(c.archived_at),
             pendingArchive: isPendingArchive(c.archived_at),
             triageFlags: triageFlagsByClient.get(c.id) ?? [],
+            ijpSignatureMonthLabel: ijpSignatureByClient.get(c.id) ?? null,
           }))}
         />
       </div>

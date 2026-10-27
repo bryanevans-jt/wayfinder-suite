@@ -47,6 +47,14 @@
     {
       "path": "/api/cron/gvra-monthly-allowance",
       "schedule": "0 6 1 * *"
+    },
+    {
+      "path": "/api/cron/ijp-attestation-sla",
+      "schedule": "0 9 25 * *"
+    },
+    {
+      "path": "/api/cron/ijp-invoice-generation",
+      "schedule": "0 6 1 * *"
     }
   ]
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { EmployerMatchPanel } from "@/components/employer-match-panel";
+import { IjpClientSignatureSection } from "@/components/ijp-client-signature-section";
 import { USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
 import { useEffect, useState } from "react";
 import { ClientProfileForm, type ClientProfileData } from "@/components/client-profile-form";
@@ -82,6 +83,7 @@ export function ClientProfileModal({ clientId, clientLabel, open, onClose }: Pro
           ) : profile ? (
             <>
               <ClientProfileForm clientId={clientId} initial={profile} readOnly={readOnly} />
+              {!readOnly ? <IjpClientSignatureSection clientId={clientId} /> : null}
               <EmployerMatchPanel
                 matches={employerMatches}
                 missingGoals={missingGoals}

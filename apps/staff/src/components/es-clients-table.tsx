@@ -26,6 +26,7 @@ export type EsClientListRow = {
   archived: boolean;
   pendingArchive: boolean;
   triageFlags: CaseloadTriageFlag[];
+  ijpSignatureMonthLabel?: string | null;
 };
 
 type Props = {
@@ -111,6 +112,14 @@ export function EsClientsTable({ clients, includeArchived, canManageSupport }: P
                       {c.displayName}
                     </Link>
                     <CaseloadTriageIcons flags={c.triageFlags} />
+                    {c.ijpSignatureMonthLabel ? (
+                      <span
+                        className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900"
+                        title={c.ijpSignatureMonthLabel}
+                      >
+                        Signature needed
+                      </span>
+                    ) : null}
                     {c.archived ? (
                       <span className="ml-2 rounded-full bg-neutral-200 px-2 py-0.5 text-xs font-semibold uppercase text-brand-black/60">
                         Archived

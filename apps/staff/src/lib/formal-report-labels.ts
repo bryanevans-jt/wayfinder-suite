@@ -4,6 +4,7 @@ export const FORMAL_REPORT_LABELS: Record<string, string> = {
   jtsgvmr: "JTSG Vocational Monthly Report",
   evf: "Employment Verification Form",
   jtsgtsvs: "JTSG Time Sheet",
+  ijp_attestation: "IJP Client Attestation",
 };
 
 export function formalReportLabel(slug: string): string {

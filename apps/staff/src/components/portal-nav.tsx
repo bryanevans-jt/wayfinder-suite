@@ -21,6 +21,7 @@ export type PortalSettingsSubNav =
   | "demos"
   | "referrals"
   | "pre_ets"
+  | "ijp_billing"
   | "features"
   | "services"
   | "emails";
@@ -69,6 +70,7 @@ const SETTINGS_LABELS: Record<PortalSettingsSubNav, string> = {
   demos: "Demo Training",
   referrals: "Referral Settings",
   pre_ets: "Pre-ETS",
+  ijp_billing: "IJP Billing",
   features: "Feature Toggles",
   services: "Service Offerings",
   emails: "Email Templates",
@@ -133,6 +135,7 @@ export function PortalNav({ mode, canManage, nav, onChange }: Props) {
           "demos",
           "referrals",
           "pre_ets",
+          "ijp_billing",
           "features",
           "services",
           "emails",

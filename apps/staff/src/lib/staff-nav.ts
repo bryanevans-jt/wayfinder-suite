@@ -118,6 +118,12 @@ const intakeBillingNav: StaffNavItem = {
   match: (p) => p.startsWith("/dashboard/intake-billing"),
 };
 
+const ijpBillingNav: StaffNavItem = {
+  href: "/dashboard/ijp-billing",
+  label: "IJP Billing",
+  match: (p) => p.startsWith("/dashboard/ijp-billing"),
+};
+
 const communityPartnersNav: StaffNavItem = {
   href: COMMUNITY_PARTNERS_PATH,
   label: "Community Partners",
@@ -335,6 +341,7 @@ export function staffNavSectionsForRole(
                 referralQueueNav,
                 ...(hideIntake ? [] : [intakeCallsNav]),
                 intakeBillingNav,
+                ijpBillingNav,
                 ...(showPreEtsNav ? [preEtsNav] : []),
                 communityPartnersNav,
               ],
@@ -379,6 +386,7 @@ export function staffNavSectionsForRole(
                 referralQueueNav,
                 ...(hideIntake ? [] : [intakeCallsNav]),
                 intakeBillingNav,
+                ijpBillingNav,
                 ...(showPreEtsNav ? [preEtsNav] : []),
                 communityPartnersNav,
               ],
@@ -434,7 +442,7 @@ export function staffNavSectionsForRole(
         {
           label: "Accounts",
           items: withPreEtsNav(
-            [intakeBillingNav, billableHoursNav, dataExportsNav],
+            [intakeBillingNav, ijpBillingNav, billableHoursNav, dataExportsNav],
             showPreEtsNav
           ),
         },
