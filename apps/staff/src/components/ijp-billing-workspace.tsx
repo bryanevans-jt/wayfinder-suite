@@ -4,6 +4,7 @@ import type { IjpInvoiceLineItem } from "@wayfinder/supabase/ijp-billing-lines";
 import { priorServiceMonthStart } from "@wayfinder/supabase/ijp-billing-eligibility";
 import { USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
 import { useCallback, useEffect, useState } from "react";
+import { IjpBillingClientPicker } from "@/components/ijp-billing-client-picker";
 
 type InvoiceRow = {
   id: string;
@@ -125,7 +126,7 @@ export function IjpBillingWorkspace() {
 
   async function runTest() {
     if (!testClientId.trim()) {
-      setError("Enter a client ID for the test run.");
+      setError("Select a client for the test run.");
       return;
     }
     setBusy(true);
@@ -218,22 +219,19 @@ export function IjpBillingWorkspace() {
       </div>
 
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-50/80 p-4">
-        <label className="text-sm">
-          Add invoice row
-          <input
-            placeholder="Client UUID"
-            className="mt-1 block min-w-[280px] rounded-lg border border-neutral-300 px-3 py-2 font-mono text-xs"
-            value={addClientId}
-            onChange={(e) => setAddClientId(e.target.value)}
-          />
-        </label>
+        <IjpBillingClientPicker
+          label="Add invoice row"
+          value={addClientId}
+          onChange={setAddClientId}
+          disabled={busy}
+        />
         <button
           type="button"
           disabled={busy}
           className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           onClick={async () => {
             if (!addClientId.trim()) {
-              setError("Enter a client ID.");
+              setError("Select a client.");
               return;
             }
             setBusy(true);
@@ -424,19 +422,22 @@ export function IjpBillingWorkspace() {
             Uses <strong>test Drive folders</strong> and <strong>is_test</strong> rows only. Does not
             change Signature needed, SLA alerts, or production attestations.
           </p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <input
-              placeholder="Client UUID"
-              className="min-w-[280px] flex-1 rounded-lg border border-neutral-300 px-3 py-2 font-mono text-xs"
+          <div className="mt-4 flex flex-wrap items-end gap-3">
+            <IjpBillingClientPicker
+              label="Test client"
               value={testClientId}
-              onChange={(e) => setTestClientId(e.target.value)}
+              onChange={setTestClientId}
+              disabled={busy}
             />
-            <input
-              type="month"
-              className="rounded-lg border border-neutral-300 px-3 py-2"
-              value={testMonth.slice(0, 7)}
-              onChange={(e) => setTestMonth(`${e.target.value}-01`)}
-            />
+            <label className="text-sm">
+              Service month
+              <input
+                type="month"
+                className="mt-1 block rounded-lg border border-neutral-300 px-3 py-2"
+                value={testMonth.slice(0, 7)}
+                onChange={(e) => setTestMonth(`${e.target.value}-01`)}
+              />
+            </label>
             <button
               type="button"
               disabled={busy}
@@ -451,7 +452,7 @@ export function IjpBillingWorkspace() {
               className="rounded-lg border border-amber-800 px-4 py-2 text-sm font-semibold text-amber-950"
               onClick={async () => {
                 if (!testClientId.trim()) {
-                  setError("Enter a client ID for the test run.");
+                  setError("Select a client for the test run.");
                   return;
                 }
                 setBusy(true);
