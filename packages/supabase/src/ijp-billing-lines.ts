@@ -12,8 +12,8 @@ import { serviceMonthEndYmd } from "./ijp-billing-eligibility";
 import { formatIjpInvoiceAmount, formatIjpRateDollars } from "./ijp-billing-settings";
 
 const IJP_INVOICE_DESCRIPTION_MAX_LINES = 5;
-/** Width of the invoice table description column in the default IJP Google Doc template. */
-const IJP_INVOICE_DESCRIPTION_CHARS_PER_LINE = 30;
+/** Target characters per line for the invoice table description column (Google Doc PDF). */
+const IJP_INVOICE_DESCRIPTION_CHARS_PER_LINE = 46;
 
 /**
  * Formats service description for the invoice PDF table only (max five visible lines + "...").
@@ -35,6 +35,8 @@ export function truncateIjpLineDescription(
 
   const lines: string[] = [];
   let remaining = normalized;
+  /** Do not break on a space too early (e.g. lone "Contact" before a long clause). */
+  const minBreakAtSpace = Math.max(12, Math.floor(charsPerLine * 0.55));
 
   while (remaining && lines.length < maxLines) {
     if (remaining.length <= charsPerLine) {
@@ -42,9 +44,10 @@ export function truncateIjpLineDescription(
       remaining = "";
       break;
     }
-    let breakAt = remaining.lastIndexOf(" ", charsPerLine + 1);
-    if (breakAt <= 0) {
-      breakAt = charsPerLine;
+    const windowEnd = Math.min(charsPerLine, remaining.length);
+    let breakAt = remaining.lastIndexOf(" ", windowEnd);
+    if (breakAt <= 0 || breakAt < minBreakAtSpace) {
+      breakAt = windowEnd;
     }
     lines.push(remaining.slice(0, breakAt).trimEnd());
     remaining = remaining.slice(breakAt).trimStart();
