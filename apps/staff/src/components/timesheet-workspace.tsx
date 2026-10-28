@@ -233,8 +233,8 @@ export function TimesheetWorkspace({
             />
           ) : null}
           <Stat
-            label="Billable hours (by client)"
-            value={`${formatBillableHours(summary.clientBillableMinutes)} hrs`}
+            label="Billable hours"
+            value={`${formatBillableHours(summary.billableMinutes)} hrs`}
           />
           <Stat label="Entries" value={String(visibleEntries.length)} />
           <Stat
@@ -244,18 +244,19 @@ export function TimesheetWorkspace({
         </div>
         <p className="mt-2 text-xs text-brand-black/55">
           {showPayrollHours && payrollFromClock
-            ? "Hours worked come from staff Time Clock shifts (America/New_York) for this week. Billable hours sum each client line from the timesheet and may differ."
+            ? "Hours worked come from staff Time Clock shifts (America/New_York) for this week. Billable hours count logged service time (excluding Case File Review and note-only contact) and may differ from hours worked."
             : showPayrollHours
-              ? "Hours worked merges overlapping clock times so the same canvass billed to multiple clients counts once for payroll. Billable hours sum each client line (may be higher)."
-              : "Billable hours sum each client service line for this week (Sun–Sat, Eastern). See My Billable Hours for this week, last week, and month-to-date totals."}
+              ? "Hours worked merges overlapping clock times so the same canvass billed to multiple clients counts once for payroll. Billable hours sum qualifying service lines (may be higher)."
+              : "Billable hours count logged service time for this week (Sun–Sat, Eastern), whether or not the client was marked present. Case File Review and note-only contact are excluded."}
         </p>
 
         {summary.byClient.length > 0 ? (
           <div className="mt-5">
             <h3 className="text-sm font-semibold text-brand-black">Billable by Client</h3>
             <p className="mt-1 text-xs text-brand-black/55">
-              Client totals use billable hours counted toward each client (Case File Review and
-              similar admin time are logged but excluded). Active (in-person) % on the client
+              Client totals exclude Case File Review and note-only contact only. Unchecking
+              &quot;Client was present&quot; does not remove hours from billable totals. Active
+              (in-person) % on the client
               profile is in-person with client present ÷ that client&apos;s billable hours — not
               expected or authorized hours.
             </p>
@@ -343,10 +344,10 @@ export function TimesheetWorkspace({
                       )}
                     </td>
                     <td className="px-3 py-2">{e.activity_name}</td>
-                    <td className="px-3 py-2">
-                      {e.client_billable_hours}
+                    <td className="px-3 py-2 tabular-nums">
+                      {e.client_billable_hours} hrs
                       {!e.counts_toward_client_billable ? (
-                        <span className="ml-1 text-xs text-brand-black/50">(0 client)</span>
+                        <span className="ml-1 text-xs text-brand-black/50">(excluded)</span>
                       ) : null}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">{times.start}</td>

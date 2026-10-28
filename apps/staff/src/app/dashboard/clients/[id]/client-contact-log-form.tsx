@@ -212,6 +212,10 @@ export function ClientContactLogForm({
               className="h-4 w-4 rounded border-neutral-300 text-brand-green focus:ring-brand-green"
             />
             Client was present
+            <span className="ml-1 block text-xs font-normal text-brand-black/55">
+              Used for Active (in-person) guidance and intake billing — not for your billable hours
+              total (only Case File Review and note-only contact are excluded).
+            </span>
           </label>
           <label className="text-sm text-brand-black">
             <span className="mr-2 font-medium">Delivery</span>

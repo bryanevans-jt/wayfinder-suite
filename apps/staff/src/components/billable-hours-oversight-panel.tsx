@@ -63,7 +63,9 @@ export function BillableHoursOversightPanel() {
               {rows.map((r) => (
                 <tr key={r.esUserId} className="border-b border-neutral-100">
                   <td className="py-2 pr-4 text-brand-black">{r.esName}</td>
-                  <td className="py-2 font-medium text-brand-green">{r.billableHours}</td>
+                  <td className="py-2 font-medium tabular-nums text-brand-green">
+                    {r.billableHours} hrs
+                  </td>
                 </tr>
               ))}
             </tbody>

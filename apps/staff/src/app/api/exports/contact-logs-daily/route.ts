@@ -7,7 +7,7 @@ import {
 } from "@/lib/contact-log-daily-copy";
 import { requireStaffClientAccess } from "@/lib/app-session";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
-import { minutesToDecimalHours } from "@wayfinder/supabase/es-time-tracking";
+import { formatBillableHours } from "@wayfinder/supabase/client-billable";
 import {
   respondWithLoggedError,
   USER_FACING_FORBIDDEN,
@@ -58,7 +58,7 @@ export async function GET(request: Request) {
       text,
       count: rows.length,
       totalBillableMinutes,
-      totalBillableHours: minutesToDecimalHours(totalBillableMinutes),
+      totalBillableHours: formatBillableHours(totalBillableMinutes),
       nearbyDays: nearbyDays.filter((d) => d !== date).slice(0, 8),
     });
   } catch (err) {

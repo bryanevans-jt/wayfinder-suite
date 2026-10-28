@@ -23,11 +23,6 @@ type Props = {
   ijpAttestationSla?: IjpAttestationSlaRow[];
 };
 
-function formatBillableMinutes(minutes: number): string {
-  const safe = Math.max(0, Math.round(minutes));
-  return `${Math.floor(safe / 60)}h ${safe % 60}m`;
-}
-
 function currentMonthBillableLabel(): string {
   return new Intl.DateTimeFormat("en-US", {
     month: "long",
@@ -101,13 +96,13 @@ export function SupervisorOperationsWorkspace({
                       ) : null}
                     </td>
                     <td className="py-2 pr-4 font-medium tabular-nums">
-                      {formatBillableHours(row.billableMinutesCurrentMonth)}
+                      {formatBillableHours(row.billableMinutesCurrentMonth)} hrs
                     </td>
-                    <td className="py-2 pr-4">
-                      {formatBillableMinutes(row.billableMinutesAvgPerWeek4Weeks)}
+                    <td className="py-2 pr-4 tabular-nums">
+                      {formatBillableHours(row.billableMinutesAvgPerWeek4Weeks)} hrs
                     </td>
-                    <td className="py-2">
-                      {formatBillableMinutes(row.billableMinutesLast7Days)}
+                    <td className="py-2 tabular-nums">
+                      {formatBillableHours(row.billableMinutesLast7Days)} hrs
                     </td>
                   </tr>
                 ))}

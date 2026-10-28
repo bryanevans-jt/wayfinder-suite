@@ -80,6 +80,46 @@ export function sumClientBillableMinutes(entries: ClientBillableEntry[]): number
   );
 }
 
+type ActivityBillableEmbed = Pick<
+  ServiceActivityType,
+  "code" | "counts_toward_client_billable"
+> | null;
+
+export function parseServiceActivityTypeEmbed(
+  embed:
+    | ActivityBillableEmbed
+    | ActivityBillableEmbed[]
+    | undefined
+    | null
+): ActivityBillableEmbed {
+  if (!embed) return null;
+  return Array.isArray(embed) ? embed[0] ?? null : embed;
+}
+
+/** Billable hours totals — excludes Case File Review, note-only Other, and legacy case-file codes only. */
+export function minutesCountedTowardBillableHours(
+  entry: ClientBillableEntry,
+  activity?: ActivityBillableEmbed
+): number {
+  if (!entryCountsTowardClientBillableWithActivity(entry, activity ?? null)) {
+    return 0;
+  }
+  return entry.duration_minutes || 0;
+}
+
+export function sumBillableMinutesFromTimeEntryRows(
+  rows: Array<
+    ClientBillableEntry & {
+      service_activity_types?: ActivityBillableEmbed | ActivityBillableEmbed[];
+    }
+  >
+): number {
+  return rows.reduce((sum, row) => {
+    const activity = parseServiceActivityTypeEmbed(row.service_activity_types);
+    return sum + minutesCountedTowardBillableHours(row, activity);
+  }, 0);
+}
+
 export function isIntakeQualifyingActivityCode(code: string | null | undefined): boolean {
   if (!code) return false;
   return INTAKE_BILLING_QUALIFYING_ACTIVITY_CODES.has(code.trim());

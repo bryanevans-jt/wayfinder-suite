@@ -9,7 +9,10 @@ import {
   contactLogDisplayText,
   fetchContactLogsWithSchemaFallback,
 } from "@wayfinder/supabase/contact-logs-query";
-import { minutesToDecimalHours } from "@wayfinder/supabase/es-time-tracking";
+import {
+  formatBillableHours,
+  sumBillableMinutesFromTimeEntryRows,
+} from "@wayfinder/supabase/client-billable";
 import type { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 
 export type ContactLogDailyRow = {
@@ -24,7 +27,7 @@ const BILLABLE_HOURS_FOOTER_RE = /\n\nTotal billable hours:\s*[\d.]+$/i;
 
 /** Line appended at the bottom of compiled VPR notes. */
 export function formatBillableHoursFooter(totalMinutes: number): string {
-  return `Total billable hours: ${minutesToDecimalHours(Math.max(0, totalMinutes))}`;
+  return `Total billable hours: ${formatBillableHours(Math.max(0, totalMinutes))}`;
 }
 
 export function appendBillableHoursFooter(notes: string, totalMinutes: number): string {
@@ -72,23 +75,26 @@ export async function loadBillableMinutesForClientDay(
   try {
     const { startIso, endIso } = easternDayUtcSearchWindow(dateYmd);
 
+    const entrySelect =
+      "id, duration_minutes, service_date, service_start_at, created_at, flags, service_activity_types ( code, counts_toward_client_billable )";
+
     const [byServiceDate, byStartWindow, byCreatedWindow] = await Promise.all([
       admin
         .from("es_time_entries")
-        .select("id, duration_minutes, service_date, service_start_at, created_at")
+        .select(entrySelect)
         .eq("client_id", clientId)
         .eq("service_date", dateYmd)
         .neq("status", "rejected"),
       admin
         .from("es_time_entries")
-        .select("id, duration_minutes, service_date, service_start_at, created_at")
+        .select(entrySelect)
         .eq("client_id", clientId)
         .gte("service_start_at", startIso)
         .lt("service_start_at", endIso)
         .neq("status", "rejected"),
       admin
         .from("es_time_entries")
-        .select("id, duration_minutes, service_date, service_start_at, created_at")
+        .select(entrySelect)
         .eq("client_id", clientId)
         .gte("created_at", startIso)
         .lt("created_at", endIso)
@@ -100,7 +106,20 @@ export async function loadBillableMinutesForClientDay(
       return 0;
     }
 
-    const byId = new Map<string, { duration_minutes: number; service_date: string; service_start_at: string | null; created_at: string }>();
+    const byId = new Map<
+      string,
+      {
+        duration_minutes: number;
+        service_date: string;
+        service_start_at: string | null;
+        created_at: string;
+        flags: Record<string, boolean>;
+        service_activity_types:
+          | { code: string; counts_toward_client_billable?: boolean }
+          | { code: string; counts_toward_client_billable?: boolean }[]
+          | null;
+      }
+    >();
     for (const row of [
       ...(byServiceDate.data ?? []),
       ...(byStartWindow.data ?? []),
@@ -111,6 +130,11 @@ export async function loadBillableMinutesForClientDay(
         service_date: row.service_date as string,
         service_start_at: (row.service_start_at as string | null) ?? null,
         created_at: row.created_at as string,
+        flags: (row.flags as Record<string, boolean>) ?? {},
+        service_activity_types: row.service_activity_types as
+          | { code: string; counts_toward_client_billable?: boolean }
+          | { code: string; counts_toward_client_billable?: boolean }[]
+          | null,
       });
     }
 
@@ -122,7 +146,7 @@ export async function loadBillableMinutesForClientDay(
         (startAt ? easternDateKey(startAt) === dateYmd : false) ||
         easternDateKey(row.created_at) === dateYmd;
       if (matchesDay) {
-        total += Math.max(0, row.duration_minutes);
+        total += sumBillableMinutesFromTimeEntryRows([row]);
       }
     }
 

@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { isEsReplyOverdue } from "@wayfinder/supabase/business-hours";
 import { MIN_CONTACTS_PER_MONTH } from "@wayfinder/supabase/caseload-triage";
+import { sumBillableMinutesFromTimeEntryRows } from "@wayfinder/supabase/client-billable";
 import { todayLocalDate } from "@wayfinder/supabase/es-time-tracking";
 import { isAdminTierRole, isGvraPartnerRole, isStaffRole, roleDisplayName } from "@wayfinder/supabase/roles";
 import { loadClientDisplayNameById } from "@/lib/client-display-names";
@@ -288,14 +289,25 @@ export async function loadEsCapacityRows(
   const minutesMonthByUser = new Map<string, number>();
   const { data: entries } = await admin
     .from("es_time_entries")
-    .select("es_user_id, duration_minutes, service_date")
+    .select(
+      "es_user_id, duration_minutes, service_date, flags, service_activity_types ( code, counts_toward_client_billable )"
+    )
     .in("es_user_id", targetIds)
     .gte("service_date", entriesSince)
-    .in("status", ["draft", "submitted", "approved"]);
+    .neq("status", "rejected");
 
   for (const e of entries ?? []) {
     const id = e.es_user_id as string;
-    const mins = Number(e.duration_minutes) || 0;
+    const mins = sumBillableMinutesFromTimeEntryRows([
+      {
+        duration_minutes: Number(e.duration_minutes) || 0,
+        flags: (e.flags as Record<string, boolean>) ?? {},
+        service_activity_types: e.service_activity_types as
+          | { code: string; counts_toward_client_billable?: boolean }
+          | { code: string; counts_toward_client_billable?: boolean }[]
+          | null,
+      },
+    ]);
     const serviceDate = e.service_date as string;
     if (serviceDate >= since4Weeks) {
       minutes4ByUser.set(id, (minutes4ByUser.get(id) ?? 0) + mins);

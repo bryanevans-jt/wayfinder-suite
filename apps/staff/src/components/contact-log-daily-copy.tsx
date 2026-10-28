@@ -85,7 +85,7 @@ export function ContactLogDailyCopy({
         totalBillableMinutes?: number;
       };
       const minutes = Math.max(0, Number(data.totalBillableMinutes) || 0);
-      const hours = data.totalBillableHours ?? (minutes / 60).toFixed(2);
+      const hours = data.totalBillableHours ?? (minutes / 60).toFixed(1);
       setBillableMinutes(minutes);
       setBillableHours(hours);
       setNotes(data.text ?? "");
@@ -239,7 +239,9 @@ export function ContactLogDailyCopy({
           </label>
           <p className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-brand-black">
             <span className="font-medium text-brand-black/70">Total billable hours for this day</span>
-            <span className="mt-0.5 block text-lg font-semibold tabular-nums">{billableHours}</span>
+            <span className="mt-0.5 block text-lg font-semibold tabular-nums">
+              {billableHours} hrs
+            </span>
             <span className="text-xs text-brand-black/55">
               Included at the bottom of the Progress Report notes when you submit.
             </span>

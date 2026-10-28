@@ -8,7 +8,6 @@ import {
 } from "@wayfinder/supabase/client-billable";
 import {
   parseLocalDate,
-  sumBillableMinutes,
   weekStartSunday,
   workedMinutesFromEntries,
 } from "@wayfinder/supabase/es-time-tracking";
@@ -61,13 +60,14 @@ export function summarizeTimeEntries(entries: EsTimeEntryRow[]) {
     { clientId: string | null; name: string; minutes: number; count: number }
   >();
   const byActivity = new Map<string, { name: string; minutes: number; count: number }>();
-  const billableMinutes = sumBillableMinutes(entries);
   const clientBillableEntries = entries.map((e) => ({
     duration_minutes: e.duration_minutes,
     counts_toward_client_billable: e.counts_toward_client_billable,
     flags: e.flags ?? {},
   }));
   const clientBillableMinutes = sumClientBillableMinutes(clientBillableEntries);
+  /** Same rules as My Billable Hours — activity exceptions only; client present does not matter. */
+  const billableMinutes = clientBillableMinutes;
   const workedMinutes = workedMinutesFromEntries(entries);
 
   for (const e of entries) {

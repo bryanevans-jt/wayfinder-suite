@@ -1,7 +1,9 @@
-import { formatBillableHours } from "@wayfinder/supabase/client-billable";
+import {
+  formatBillableHours,
+  sumBillableMinutesFromTimeEntryRows,
+} from "@wayfinder/supabase/client-billable";
 import {
   minutesToDecimalHours,
-  sumBillableMinutes,
   weekEndSaturday,
   weekStartSunday,
   displayServiceTimes,
@@ -137,17 +139,27 @@ export async function loadBillableMinutesForDateRange(
 ): Promise<number> {
   const { data, error } = await admin
     .from("es_time_entries")
-    .select("duration_minutes")
+    .select(
+      "duration_minutes, flags, service_activity_types ( code, counts_toward_client_billable )"
+    )
     .eq("es_user_id", esUserId)
     .gte("service_date", rangeStart)
-    .lte("service_date", rangeEnd);
+    .lte("service_date", rangeEnd)
+    .neq("status", "rejected");
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return sumBillableMinutes(
-    (data ?? []).map((row) => ({ duration_minutes: row.duration_minutes as number }))
+  return sumBillableMinutesFromTimeEntryRows(
+    (data ?? []).map((row) => ({
+      duration_minutes: row.duration_minutes as number,
+      flags: (row.flags as Record<string, boolean>) ?? {},
+      service_activity_types: row.service_activity_types as
+        | { code: string; counts_toward_client_billable?: boolean }
+        | { code: string; counts_toward_client_billable?: boolean }[]
+        | null,
+    }))
   );
 }
 
@@ -205,7 +217,7 @@ export type OrgMonthlyBillableHoursRow = {
   billableHours: string;
 };
 
-/** Logged service minutes by staff for a calendar month (non-rejected entries). */
+/** Billable minutes by staff for a calendar month (non-rejected; excludes note-only / case file review). */
 export async function loadOrgMonthlyBillableHoursRollup(
   admin: ReturnType<typeof createServiceRoleClient>,
   monthKey: string
@@ -216,7 +228,9 @@ export async function loadOrgMonthlyBillableHoursRollup(
 
   let query = admin
     .from("es_time_entries")
-    .select("es_user_id, duration_minutes")
+    .select(
+      "es_user_id, duration_minutes, flags, service_activity_types ( code, counts_toward_client_billable )"
+    )
     .gte("service_date", start)
     .lte("service_date", end)
     .neq("status", "rejected");
@@ -236,7 +250,17 @@ export async function loadOrgMonthlyBillableHoursRollup(
   }
   for (const row of entries ?? []) {
     const id = row.es_user_id as string;
-    minutesById.set(id, (minutesById.get(id) ?? 0) + (Number(row.duration_minutes) || 0));
+    const add = sumBillableMinutesFromTimeEntryRows([
+      {
+        duration_minutes: Number(row.duration_minutes) || 0,
+        flags: (row.flags as Record<string, boolean>) ?? {},
+        service_activity_types: row.service_activity_types as
+          | { code: string; counts_toward_client_billable?: boolean }
+          | { code: string; counts_toward_client_billable?: boolean }[]
+          | null,
+      },
+    ]);
+    minutesById.set(id, (minutesById.get(id) ?? 0) + add);
   }
 
   const nameById = await loadStaffNameById(admin, [...minutesById.keys()], "Team member");

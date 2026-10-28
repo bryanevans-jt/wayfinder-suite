@@ -1,5 +1,8 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
-import { minutesToDecimalHours } from "@wayfinder/supabase/es-time-tracking";
+import {
+  formatBillableHours,
+  sumBillableMinutesFromTimeEntryRows,
+} from "@wayfinder/supabase/client-billable";
 import { resolvePayPeriod, type PayrollSettingsRow } from "@wayfinder/supabase/payroll-period";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import {
@@ -54,7 +57,9 @@ export async function GET(request: Request) {
 
   let query = admin
     .from("es_time_entries")
-    .select("es_user_id, duration_minutes")
+    .select(
+      "es_user_id, duration_minutes, flags, service_activity_types ( code, counts_toward_client_billable )"
+    )
     .gte("service_date", period.start)
     .lte("service_date", period.end)
     .neq("status", "rejected");
@@ -71,7 +76,17 @@ export async function GET(request: Request) {
   const byEs = new Map<string, number>();
   for (const e of entries ?? []) {
     const id = e.es_user_id as string;
-    byEs.set(id, (byEs.get(id) ?? 0) + (Number(e.duration_minutes) || 0));
+    const add = sumBillableMinutesFromTimeEntryRows([
+      {
+        duration_minutes: Number(e.duration_minutes) || 0,
+        flags: (e.flags as Record<string, boolean>) ?? {},
+        service_activity_types: e.service_activity_types as
+          | { code: string; counts_toward_client_billable?: boolean }
+          | { code: string; counts_toward_client_billable?: boolean }[]
+          | null,
+      },
+    ]);
+    byEs.set(id, (byEs.get(id) ?? 0) + add);
   }
 
   const names = await loadStaffNameById(admin, [...byEs.keys()], "ES");
@@ -80,7 +95,7 @@ export async function GET(request: Request) {
       esUserId,
       esName: names.get(esUserId) ?? "ES",
       billableMinutes: minutes,
-      billableHours: minutesToDecimalHours(minutes),
+      billableHours: formatBillableHours(minutes),
     }))
     .sort((a, b) => a.esName.localeCompare(b.esName));
 

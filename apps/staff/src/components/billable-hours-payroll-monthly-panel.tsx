@@ -1,5 +1,6 @@
 "use client";
 
+import { formatBillableHours } from "@wayfinder/supabase/client-billable";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Row = {
@@ -55,7 +56,7 @@ export function BillableHoursPayrollMonthlyPanel({
   const totalHours = useMemo(() => {
     if (!payload?.rows.length) return "0.0";
     const minutes = payload.rows.reduce((s, r) => s + r.billableMinutes, 0);
-    return (minutes / 60).toFixed(1);
+    return formatBillableHours(minutes);
   }, [payload]);
 
   return (
@@ -64,8 +65,9 @@ export function BillableHoursPayrollMonthlyPanel({
         <div>
           <h2 className="text-lg font-semibold text-brand-green">Monthly billable hours (payroll)</h2>
           <p className="mt-1 max-w-2xl text-sm text-brand-black/70">
-            Logged service time by team member for a full calendar month (America/New_York). On the
-            1st, this defaults to the previous month for payroll review.
+            Billable service time by team member for a full calendar month (America/New_York).
+            Excludes Case File Review and note-only contact only — client present does not affect
+            totals. On the 1st, defaults to the previous month for payroll review.
           </p>
         </div>
         <label className="flex flex-col gap-1 text-sm">
@@ -81,7 +83,7 @@ export function BillableHoursPayrollMonthlyPanel({
       {payload ? (
         <p className="mt-3 text-xs text-brand-black/55">
           {payload.monthLabel}: {payload.range.start} – {payload.range.end} · Org total{" "}
-          <span className="font-medium text-brand-green">{totalHours}</span> hours
+          <span className="font-medium text-brand-green">{totalHours}</span> hrs
         </p>
       ) : null}
       {error ? (
@@ -103,7 +105,9 @@ export function BillableHoursPayrollMonthlyPanel({
               {payload.rows.map((r) => (
                 <tr key={r.staffUserId} className="border-b border-neutral-100">
                   <td className="py-2 pr-4 text-brand-black">{r.staffName}</td>
-                  <td className="py-2 font-medium text-brand-green">{r.billableHours}</td>
+                  <td className="py-2 font-medium tabular-nums text-brand-green">
+                    {r.billableHours} hrs
+                  </td>
                 </tr>
               ))}
             </tbody>

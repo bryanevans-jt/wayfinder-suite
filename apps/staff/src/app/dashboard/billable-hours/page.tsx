@@ -62,10 +62,10 @@ export default async function MyBillableHoursPage({ searchParams }: PageProps) {
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
       <h1 className="text-2xl font-bold text-brand-green">Billable Hours</h1>
       <p className="mt-2 max-w-2xl text-sm text-brand-black/75">
-        Client service time totals for this week, last week, and month-to-date (America/New_York).
-        Time is captured when you log contacts, applications, meetings, and related work on client
-        profiles. Use the weekly timesheet below for line-by-line review; PTO requests are at the
-        bottom of this page.
+        Billable service time for this week, last week, and month-to-date (America/New_York), shown
+        in hours to one decimal. Totals include logged time whether or not the client was marked
+        present; only Case File Review and note-only contact are excluded. Use the weekly timesheet
+        below for line-by-line review; PTO requests are at the bottom of this page.
       </p>
       <MyBillableHoursWorkspace
         summary={summary}
