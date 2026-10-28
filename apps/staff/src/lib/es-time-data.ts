@@ -502,8 +502,17 @@ export async function loadEsCaseloadClientOptions(
     return [];
   }
 
-  const nameById = await loadClientDisplayNameById(admin, clientIds);
-  return clientIds
+  const { data: clientRows } = await admin
+    .from("clients")
+    .select("id, is_demo")
+    .in("id", clientIds);
+
+  const productionIds = (clientRows ?? [])
+    .filter((c) => c.is_demo !== true)
+    .map((c) => c.id as string);
+
+  const nameById = await loadClientDisplayNameById(admin, productionIds);
+  return productionIds
     .map((id) => ({
       id,
       name: nameById.get(id) ?? "Unknown client",

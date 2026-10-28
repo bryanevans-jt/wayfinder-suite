@@ -17,11 +17,24 @@ export type EsCaseloadClientRow = {
   archived_at: string | null;
   intake_status?: string | null;
   job_start_date?: string | null;
+  is_demo?: boolean | null;
 };
 
 export type FetchEsCaseloadOptions = {
   includeArchived?: boolean;
+  /** Super Admin ES training demo handoff — show only demo clients on the caseload. */
+  trainingDemoHandoff?: boolean;
 };
+
+function filterCaseloadDemoClients<T extends { is_demo?: boolean | null }>(
+  rows: T[],
+  trainingDemoHandoff: boolean
+): T[] {
+  if (trainingDemoHandoff) {
+    return rows.filter((c) => c.is_demo === true);
+  }
+  return rows.filter((c) => c.is_demo !== true);
+}
 
 export function getEsCaseloadAdmin() {
   try {
@@ -83,7 +96,7 @@ export async function fetchEsCaseloadClients(
   esUserId: string,
   options: FetchEsCaseloadOptions = {}
 ): Promise<{ clients: EsCaseloadClientRow[]; error: string | null }> {
-  const { includeArchived = false } = options;
+  const { includeArchived = false, trainingDemoHandoff = false } = options;
   const admin = getEsCaseloadAdmin();
   if (!admin) {
     return { clients: [], error: "Server configuration error" };
@@ -106,7 +119,7 @@ export async function fetchEsCaseloadClients(
   const { data: clientRows, error: clientsErr } = await admin
     .from("clients")
     .select(
-      "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, archived_at, intake_status, job_start_date, office_id, referral_state"
+      "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, archived_at, intake_status, job_start_date, office_id, referral_state, is_demo"
     )
     .in("id", clientIds);
 
@@ -129,12 +142,35 @@ export async function fetchEsCaseloadClients(
       archived_at: null,
       job_start_date: null,
     })) as EsCaseloadClientRow[];
+    let clients = filterCaseloadDemoClients(rows, trainingDemoHandoff);
+    clients = includeArchived
+      ? clients
+      : clients.filter(
+          (c) =>
+            !isRemovedFromEsCaseload(c.archived_at) &&
+            intakeVisibleToFieldStaff((c as EsCaseloadClientRow).intake_status)
+        );
+    clients = await dropRetiredMarketClients(admin, clients);
+    return { clients, error: null };
+  }
+
+  if (clientsErr?.message.includes("is_demo")) {
+    const fallback = await admin
+      .from("clients")
+      .select(
+        "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, archived_at, intake_status, job_start_date, office_id, referral_state"
+      )
+      .in("id", clientIds);
+    if (fallback.error) {
+      return { clients: [], error: fallback.error.message };
+    }
+    const rows = (fallback.data ?? []) as EsCaseloadClientRow[];
     let clients = includeArchived
       ? rows
       : rows.filter(
           (c) =>
             !isRemovedFromEsCaseload(c.archived_at) &&
-            intakeVisibleToFieldStaff((c as EsCaseloadClientRow).intake_status)
+            intakeVisibleToFieldStaff(c.intake_status)
         );
     clients = await dropRetiredMarketClients(admin, clients);
     return { clients, error: null };
@@ -145,9 +181,10 @@ export async function fetchEsCaseloadClients(
   }
 
   const rows = (clientRows ?? []) as EsCaseloadClientRow[];
-  let clients = includeArchived
-    ? rows
-    : rows.filter(
+  let clients = filterCaseloadDemoClients(rows, trainingDemoHandoff);
+  clients = includeArchived
+    ? clients
+    : clients.filter(
         (c) =>
           !isRemovedFromEsCaseload(c.archived_at) &&
           intakeVisibleToFieldStaff(c.intake_status)

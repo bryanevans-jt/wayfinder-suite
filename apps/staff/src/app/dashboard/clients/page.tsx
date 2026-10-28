@@ -54,7 +54,10 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
   const supabase = await createServerClient();
   const lookupClient = admin ?? supabase;
 
-  const caseload = await fetchEsCaseloadClients(effectiveUserId, { includeArchived });
+  const caseload = await fetchEsCaseloadClients(effectiveUserId, {
+    includeArchived,
+    trainingDemoHandoff: session.isTrainingDemoHandoff === true,
+  });
   const pinServiceIds = (caseload.clients ?? []).map((c) => c.current_service_id);
 
   const [servicesQuery, sunset] = await Promise.all([

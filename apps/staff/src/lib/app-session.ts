@@ -110,7 +110,30 @@ export async function requireEsClientAccess(session: AppSession, clientId: strin
     return false;
   }
 
-  return esIsAssignedToClient(session.effectiveUserId, clientId);
+  if (session.isTrainingDemoHandoff) {
+    return trainingHandoffMayAccessDemoClient(session, clientId);
+  }
+
+  const assigned = await esIsAssignedToClient(session.effectiveUserId, clientId);
+  if (!assigned) {
+    return false;
+  }
+
+  let admin;
+  try {
+    admin = createServiceRoleClient();
+  } catch {
+    return false;
+  }
+  const { data: client } = await admin
+    .from("clients")
+    .select("is_demo")
+    .eq("id", clientId)
+    .maybeSingle();
+  if (client?.is_demo) {
+    return false;
+  }
+  return true;
 }
 
 export async function requireSupervisorClientAccess(session: AppSession, clientId: string) {

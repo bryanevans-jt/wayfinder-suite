@@ -43,7 +43,28 @@ export async function assertStaffClientWriteAccess(
   let allowed = false;
 
   if (isFieldSpecialistRole(session.effectiveRole)) {
-    allowed = await esIsAssignedToClient(session.effectiveUserId, clientId);
+    if (session.isTrainingDemoHandoff) {
+      const { data: client } = await admin
+        .from("clients")
+        .select("is_demo")
+        .eq("id", clientId)
+        .maybeSingle();
+      allowed =
+        client?.is_demo === true &&
+        (await esIsAssignedToClient(session.effectiveUserId, clientId));
+    } else {
+      allowed = await esIsAssignedToClient(session.effectiveUserId, clientId);
+      if (allowed) {
+        const { data: client } = await admin
+          .from("clients")
+          .select("is_demo")
+          .eq("id", clientId)
+          .maybeSingle();
+        if (client?.is_demo) {
+          allowed = false;
+        }
+      }
+    }
   } else if (isSupervisorRole(session.effectiveRole)) {
     if (options.esOnly) {
       allowed = await esIsAssignedToClient(session.effectiveUserId, clientId);

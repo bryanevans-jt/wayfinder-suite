@@ -202,11 +202,11 @@ export async function loadPortalBootstrap(
   let officesRows: OfficeRecord[] = await queryAllOffices(admin);
 
   const CLIENT_SELECT_FULL =
-    "id, contact_email, office_id, user_id, profile_id, full_name, current_service_id, current_stage_id, counselor_id, archived_at, intake_status, referral_state";
+    "id, contact_email, office_id, user_id, profile_id, full_name, current_service_id, current_stage_id, counselor_id, archived_at, intake_status, referral_state, is_demo";
   const CLIENT_SELECT_NO_FULL_NAME =
-    "id, contact_email, office_id, user_id, profile_id, current_service_id, current_stage_id, counselor_id, archived_at, intake_status, referral_state";
+    "id, contact_email, office_id, user_id, profile_id, current_service_id, current_stage_id, counselor_id, archived_at, intake_status, referral_state, is_demo";
   const CLIENT_SELECT_NO_ARCHIVED =
-    "id, contact_email, office_id, user_id, profile_id, full_name, current_service_id, current_stage_id, counselor_id, intake_status, referral_state";
+    "id, contact_email, office_id, user_id, profile_id, full_name, current_service_id, current_stage_id, counselor_id, intake_status, referral_state, is_demo";
 
   async function loadAllClientRows(): Promise<Array<Record<string, unknown>>> {
     try {
@@ -243,6 +243,10 @@ export async function loadPortalBootstrap(
       order: { column: "id", ascending: true },
     });
   }
+
+  clientRowsLoaded = clientRowsLoaded.filter(
+    (row) => (row as { is_demo?: boolean }).is_demo !== true
+  );
 
   const clientsQuery = { data: clientRowsLoaded, error: null as { message: string } | null };
 
