@@ -170,6 +170,95 @@ function monthStartYmd(todayYmd: string): string {
   return `${y}-${m}-01`;
 }
 
+const MONTH_KEY_RE = /^(\d{4})-(0[1-9]|1[0-2])$/;
+
+/** Inclusive calendar-month bounds (YYYY-MM-DD) for a `YYYY-MM` key. */
+export function calendarMonthBoundsFromKey(monthKey: string): { start: string; end: string } {
+  const match = MONTH_KEY_RE.exec(monthKey.trim());
+  if (!match) {
+    throw new Error("Invalid month (expected YYYY-MM)");
+  }
+  const [y, m] = monthKey.split("-").map(Number);
+  const start = `${monthKey}-01`;
+  const lastDayUtc = new Date(Date.UTC(y, m, 0, 12, 0, 0));
+  const end = `${lastDayUtc.getUTCFullYear()}-${String(lastDayUtc.getUTCMonth() + 1).padStart(2, "0")}-${String(lastDayUtc.getUTCDate()).padStart(2, "0")}`;
+  return { start, end };
+}
+
+/** Prior calendar month in America/New_York (for payroll on the 1st). */
+export function defaultPayrollMonthKey(now: Date = new Date()): string {
+  const today = localDateStringInTz(now, STAFF_CLOCK_TIMEZONE);
+  const thisMonthStart = monthStartYmd(today);
+  const lastDayPrev = addCalendarDaysYmd(thisMonthStart, -1);
+  return lastDayPrev.slice(0, 7);
+}
+
+export function monthLabelFromKey(monthKey: string): string {
+  const { start } = calendarMonthBoundsFromKey(monthKey);
+  return monthLabelFromYmd(start);
+}
+
+export type OrgMonthlyBillableHoursRow = {
+  staffUserId: string;
+  staffName: string;
+  billableMinutes: number;
+  billableHours: string;
+};
+
+/** Logged service minutes by staff for a calendar month (non-rejected entries). */
+export async function loadOrgMonthlyBillableHoursRollup(
+  admin: ReturnType<typeof createServiceRoleClient>,
+  monthKey: string
+): Promise<{ monthKey: string; monthLabel: string; range: { start: string; end: string }; rows: OrgMonthlyBillableHoursRow[] }> {
+  const { start, end } = calendarMonthBoundsFromKey(monthKey);
+  const staff = await loadOrgBillableHoursStaffPicker(admin);
+  const staffIds = staff.map((s) => s.id);
+
+  let query = admin
+    .from("es_time_entries")
+    .select("es_user_id, duration_minutes")
+    .gte("service_date", start)
+    .lte("service_date", end)
+    .neq("status", "rejected");
+
+  if (staffIds.length > 0) {
+    query = query.in("es_user_id", staffIds);
+  }
+
+  const { data: entries, error } = await query;
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const minutesById = new Map<string, number>();
+  for (const s of staff) {
+    minutesById.set(s.id, 0);
+  }
+  for (const row of entries ?? []) {
+    const id = row.es_user_id as string;
+    minutesById.set(id, (minutesById.get(id) ?? 0) + (Number(row.duration_minutes) || 0));
+  }
+
+  const nameById = await loadStaffNameById(admin, [...minutesById.keys()], "Team member");
+  const staffNameById = new Map(staff.map((s) => [s.id, s.name]));
+
+  const rows: OrgMonthlyBillableHoursRow[] = [...minutesById.entries()]
+    .map(([staffUserId, billableMinutes]) => ({
+      staffUserId,
+      staffName: staffNameById.get(staffUserId) ?? nameById.get(staffUserId) ?? "Team member",
+      billableMinutes,
+      billableHours: formatBillableHours(billableMinutes),
+    }))
+    .sort((a, b) => a.staffName.localeCompare(b.staffName, undefined, { sensitivity: "base" }));
+
+  return {
+    monthKey,
+    monthLabel: monthLabelFromKey(monthKey),
+    range: { start, end },
+    rows,
+  };
+}
+
 function monthLabelFromYmd(monthStart: string): string {
   const [y, m, d] = monthStart.split("-").map(Number);
   if (!y || !m || !d) return monthStart;
@@ -433,7 +522,7 @@ function roleSuffixLabel(role: string | null | undefined): string {
   return "";
 }
 
-async function loadOrgBillableHoursStaffPicker(
+export async function loadOrgBillableHoursStaffPicker(
   admin: ReturnType<typeof createServiceRoleClient>
 ): Promise<SupervisedEsOption[]> {
   const fieldRoles = ["es", "transition_specialist", "supervisor"] as const;

@@ -3,7 +3,10 @@ import { canUseStaffPto } from "@wayfinder/supabase/staff-pto-shared";
 import { canAccessBillableHoursPage } from "@wayfinder/supabase/staff-time-clock-shared";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { redirect } from "next/navigation";
+import { BillableHoursPayrollMonthlyPanel } from "@/components/billable-hours-payroll-monthly-panel";
 import { MyBillableHoursWorkspace } from "@/components/my-billable-hours-workspace";
+import { canViewPayrollMonthlyBillableHours } from "@/lib/billable-hours-payroll-access";
+import { defaultPayrollMonthKey } from "@/lib/es-time-data";
 import { StaffPtoPanel } from "@/components/staff-pto-panel";
 import { TimesheetWorkspace } from "@/components/timesheet-workspace";
 import { loadMyBillableHoursSummary } from "@/lib/es-time-data";
@@ -39,6 +42,8 @@ export default async function MyBillableHoursPage({ searchParams }: PageProps) {
   const summary = await loadMyBillableHoursSummary(admin, esUserId);
   const showTimesheet = canAccessWeeklyTimesheetSection(role);
   const showPto = canUseStaffPto(role);
+  const showPayrollMonthly = canViewPayrollMonthlyBillableHours(role);
+  const payrollMonthKey = defaultPayrollMonthKey();
 
   const timesheetLoad = showTimesheet
     ? await loadTimesheetSection(admin, {
@@ -67,6 +72,9 @@ export default async function MyBillableHoursPage({ searchParams }: PageProps) {
         showTimesheetLink={false}
         showTeamTimesheetLink={false}
       />
+      {showPayrollMonthly ? (
+        <BillableHoursPayrollMonthlyPanel initialMonthKey={payrollMonthKey} />
+      ) : null}
       {timesheetLoad.kind === "ready" ? (
         <div id="weekly-timesheet" className="scroll-mt-6">
           <TimesheetWorkspace {...timesheetLoad.props} />
