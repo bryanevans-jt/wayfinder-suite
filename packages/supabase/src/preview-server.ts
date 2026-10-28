@@ -7,6 +7,7 @@ import {
   PREVIEW_TARGET_COOKIE,
   readPreviewCookies,
 } from "./preview-cookies";
+import { readTrainingDemoCookies } from "./training-demo-cookies";
 import { loadAuthUserProfile } from "./auth-profile";
 import { isKnownRole, isSuperAdminRole, staffHomePath } from "./roles";
 
@@ -23,6 +24,9 @@ export type PreviewSession = {
 export type AppSession = {
   isPreviewing: boolean;
   isReadOnly: boolean;
+  /** Super Admin writable handoff into the ES training demo account. */
+  isTrainingDemoHandoff?: boolean;
+  trainingTargetName?: string | null;
   actorUserId: string;
   actorRole: string;
   effectiveUserId: string;
@@ -47,7 +51,29 @@ export async function getAppSession(): Promise<AppSession | null> {
   }
 
   const cookieStore = await cookies();
-  const previewCookies = readPreviewCookies((name) => cookieStore.get(name)?.value);
+  const getCookie = (name: string) => cookieStore.get(name)?.value;
+
+  const trainingCookies = readTrainingDemoCookies(getCookie);
+  if (
+    trainingCookies &&
+    isSuperAdminRole(actorProfile.role) &&
+    trainingCookies.actorUserId === user.id &&
+    isKnownRole(trainingCookies.targetRole)
+  ) {
+    return {
+      isPreviewing: false,
+      isReadOnly: false,
+      isTrainingDemoHandoff: true,
+      trainingTargetName: trainingCookies.targetName,
+      actorUserId: user.id,
+      actorRole: actorProfile.role,
+      effectiveUserId: trainingCookies.targetUserId,
+      effectiveRole: trainingCookies.targetRole,
+      preview: null,
+    };
+  }
+
+  const previewCookies = readPreviewCookies(getCookie);
 
   if (
     previewCookies &&

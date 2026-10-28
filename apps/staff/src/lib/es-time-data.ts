@@ -413,9 +413,9 @@ export async function loadSupervisedEsOptions(
       .from("profiles")
       .select("id, is_active, role")
       .in("id", esIds)
-      .eq("role", "es")
+      .in("role", ["es", "transition_specialist", "supervisor"])
       .neq("is_active", false),
-    loadStaffNameById(admin, esIds, "Employment Specialist"),
+    loadStaffNameById(admin, esIds, "Team member"),
   ]);
 
   return (profiles ?? [])
@@ -428,7 +428,58 @@ export async function loadSupervisedEsOptions(
 
 function roleSuffixLabel(role: string | null | undefined): string {
   if (role === "supervisor") return " (Supervisor)";
+  if (role === "transition_specialist") return " (TS)";
+  if (role === "admin" || role === "super_admin") return " (Admin)";
   return "";
+}
+
+async function loadOrgBillableHoursStaffPicker(
+  admin: ReturnType<typeof createServiceRoleClient>
+): Promise<SupervisedEsOption[]> {
+  const fieldRoles = ["es", "transition_specialist", "supervisor"] as const;
+
+  const [{ data: fieldProfiles }, { data: assignmentRows }] = await Promise.all([
+    admin
+      .from("profiles")
+      .select("id, is_active, role")
+      .in("role", [...fieldRoles])
+      .neq("is_active", false),
+    admin.from("es_client_assignments").select("es_user_id"),
+  ]);
+
+  const assignedStaffIds = [
+    ...new Set((assignmentRows ?? []).map((r) => r.es_user_id as string).filter(Boolean)),
+  ];
+
+  let adminAssignees: { id: string; is_active: boolean | null; role: string | null }[] = [];
+  if (assignedStaffIds.length > 0) {
+    const { data } = await admin
+      .from("profiles")
+      .select("id, is_active, role")
+      .in("id", assignedStaffIds)
+      .in("role", ["admin", "super_admin"])
+      .neq("is_active", false);
+    adminAssignees = data ?? [];
+  }
+
+  const byId = new Map<string, { id: string; role: string | null }>();
+  for (const p of fieldProfiles ?? []) {
+    byId.set(p.id as string, { id: p.id as string, role: p.role as string | null });
+  }
+  for (const p of adminAssignees) {
+    byId.set(p.id as string, { id: p.id as string, role: p.role as string | null });
+  }
+
+  const ids = [...byId.keys()];
+  const nameById = await loadStaffNameById(admin, ids, "Team member");
+
+  return ids
+    .map((id) => {
+      const role = byId.get(id)?.role ?? null;
+      const name = nameById.get(id) ?? "Team member";
+      return { id, name: `${name}${roleSuffixLabel(role)}` };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
 }
 
 export async function loadStaffEsPickerOptions(
@@ -441,24 +492,7 @@ export async function loadStaffEsPickerOptions(
   }
 
   if (isAdminTierRole(role) || role === "accountant" || role === "hr") {
-    const { data: profiles } = await admin
-      .from("profiles")
-      .select("id, is_active, role")
-      .in("role", ["es", "supervisor"])
-      .neq("is_active", false);
-
-    const ids = (profiles ?? []).map((p) => p.id as string);
-    const nameById = await loadStaffNameById(admin, ids, "Team member");
-
-    return (profiles ?? [])
-      .map((p) => {
-        const name = nameById.get(p.id as string) ?? "Team member";
-        return {
-          id: p.id as string,
-          name: `${name}${roleSuffixLabel(p.role as string | null)}`,
-        };
-      })
-      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+    return loadOrgBillableHoursStaffPicker(admin);
   }
 
   return [];

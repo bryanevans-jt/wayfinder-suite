@@ -243,12 +243,16 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
 
   const ijpAdmin = getEsCaseloadAdmin();
   const ijpSignatureByClient = new Map<string, string>();
+  const ijpCollectByClient = new Set<string>();
   if (ijpAdmin && !includeArchived) {
     await Promise.all(
       sortedClients.map(async (c) => {
         const status = await loadIjpSignatureUiStatus(ijpAdmin, c.id);
         if (status?.showListFlag) {
           ijpSignatureByClient.set(c.id, status.serviceMonthLabel);
+        }
+        if (status?.showCollectSignature) {
+          ijpCollectByClient.add(c.id);
         }
       })
     );
@@ -324,6 +328,7 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
             pendingArchive: isPendingArchive(c.archived_at),
             triageFlags: triageFlagsByClient.get(c.id) ?? [],
             ijpSignatureMonthLabel: ijpSignatureByClient.get(c.id) ?? null,
+            ijpCollectSignatureOpen: ijpCollectByClient.has(c.id),
           }))}
         />
       </div>

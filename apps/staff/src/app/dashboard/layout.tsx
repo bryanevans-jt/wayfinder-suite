@@ -1,5 +1,6 @@
 import { StaffDashboardShell } from "@/components/staff-dashboard-shell";
 import { PreviewBanner } from "@/components/preview-banner";
+import { TrainingDemoBanner } from "@/components/training-demo-banner";
 import { loadFeatureToggles } from "@/lib/feature-toggles";
 import { preEtsAccessAllowedForRole } from "@/lib/pre-ets-access";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
@@ -39,6 +40,9 @@ export default async function DashboardLayout({
           targetRole={session.preview.effectiveRole}
           staffAppUrl={staffAppOrigin()}
         />
+      ) : null}
+      {session?.isTrainingDemoHandoff ? (
+        <TrainingDemoBanner targetName={session.trainingTargetName ?? "ES Training Demo"} />
       ) : null}
       <StaffDashboardShell
         staffRole={navRole}

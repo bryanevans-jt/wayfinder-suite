@@ -4,6 +4,7 @@ import {
   isFieldSpecialistRole,
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
+import { esIsAssignedToClient } from "@/lib/es-caseload-data";
 import { clientInSupervisorScope, loadSupervisorScope } from "@/lib/supervisor-client-scope";
 
 export async function canAccessIjpClientSignature(
@@ -20,10 +21,12 @@ export async function canAccessIjpClientSignature(
   if (!client) return false;
 
   if (isFieldSpecialistRole(opts.role)) {
-    return (client.es_user_id as string) === opts.userId;
+    if ((client.es_user_id as string) === opts.userId) return true;
+    return esIsAssignedToClient(opts.userId, opts.clientId);
   }
 
   if (isSupervisorRole(opts.role)) {
+    if (await esIsAssignedToClient(opts.userId, opts.clientId)) return true;
     const scope = await loadSupervisorScope(admin, opts.userId);
     return clientInSupervisorScope(admin, scope, opts.clientId);
   }

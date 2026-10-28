@@ -123,7 +123,7 @@ export function IjpClientSignatureSection({ clientId }: Props) {
   return (
     <section className="rounded-xl border border-neutral-200 bg-neutral-50/80 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-brand-black">Client Signature (IJP)</h3>
+        <h3 className="text-sm font-semibold text-brand-black">IJP monthly attestation</h3>
         {status.signatureNeeded ? (
           <span
             className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900"
@@ -144,7 +144,12 @@ export function IjpClientSignatureSection({ clientId }: Props) {
       {status.signatureNeeded && status.captureOpen ? (
         <div className="mt-4 space-y-4">
           <p className="text-sm leading-relaxed text-brand-black/85">{IJP_ATTESTATION_TEXT}</p>
-          <SignaturePad value={signature} onChange={setSignature} disabled={busy} />
+            <SignaturePad
+              value={signature}
+              onChange={setSignature}
+              disabled={busy}
+              label="Client signature"
+            />
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -152,7 +157,7 @@ export function IjpClientSignatureSection({ clientId }: Props) {
               onClick={() => void submitDigital()}
               className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
-              Submit client signature
+              Save IJP signature
             </button>
             <a
               href={`/api/clients/${clientId}/ijp-attestation/blank?month=${encodeURIComponent(status.serviceMonth)}`}

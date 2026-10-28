@@ -13,6 +13,7 @@ import { EsNaturalSupportButton } from "@/app/dashboard/clients/es-natural-suppo
 import { restoreArchivedClient } from "@/app/dashboard/clients/[id]/actions";
 import type { CaseloadTriageFlag } from "@wayfinder/supabase/caseload-triage";
 import { friendlyClientError } from "@wayfinder/supabase/error-log";
+import { IjpCollectSignatureModal } from "@/components/ijp-collect-signature-modal";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -27,6 +28,7 @@ export type EsClientListRow = {
   pendingArchive: boolean;
   triageFlags: CaseloadTriageFlag[];
   ijpSignatureMonthLabel?: string | null;
+  ijpCollectSignatureOpen?: boolean;
 };
 
 type Props = {
@@ -39,6 +41,7 @@ export function EsClientsTable({ clients, includeArchived, canManageSupport }: P
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [ijpModal, setIjpModal] = useState<{ clientId: string; label: string } | null>(null);
   const { pageSize, setPageSize, page, setPage, totalPages, pageItems, totalCount } =
     useClientListPagination(clients);
 
@@ -81,6 +84,7 @@ export function EsClientsTable({ clients, includeArchived, canManageSupport }: P
               <th className="px-4 py-3 font-semibold text-brand-black">Current stage</th>
               <th className="px-4 py-3 font-semibold text-brand-black">Messages</th>
               <th className="px-4 py-3 font-semibold text-brand-black">Support</th>
+              <th className="px-4 py-3 font-semibold text-brand-black">IJP</th>
               {includeArchived ? (
                 <th className="px-4 py-3 font-semibold text-brand-black">Actions</th>
               ) : null}
@@ -90,7 +94,7 @@ export function EsClientsTable({ clients, includeArchived, canManageSupport }: P
             {clients.length === 0 ? (
               <tr>
                 <td
-                  colSpan={includeArchived ? 6 : 5}
+                  colSpan={includeArchived ? 7 : 6}
                   className="px-4 py-8 text-center text-brand-black/70"
                 >
                   {includeArchived
@@ -148,6 +152,21 @@ export function EsClientsTable({ clients, includeArchived, canManageSupport }: P
                       <span className="text-brand-black/45">—</span>
                     )}
                   </td>
+                  <td className="px-4 py-3">
+                    {c.ijpCollectSignatureOpen ? (
+                      <button
+                        type="button"
+                        className="rounded-lg bg-brand-green px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
+                        onClick={() =>
+                          setIjpModal({ clientId: c.id, label: c.displayName })
+                        }
+                      >
+                        Collect IJP signature
+                      </button>
+                    ) : (
+                      <span className="text-brand-black/45">—</span>
+                    )}
+                  </td>
                   {includeArchived ? (
                     <td className="px-4 py-3">
                       {c.archived || c.pendingArchive ? (
@@ -178,6 +197,14 @@ export function EsClientsTable({ clients, includeArchived, canManageSupport }: P
         totalCount={totalCount}
         onPageChange={setPage}
       />
+      {ijpModal ? (
+        <IjpCollectSignatureModal
+          clientId={ijpModal.clientId}
+          clientLabel={ijpModal.label}
+          open
+          onClose={() => setIjpModal(null)}
+        />
+      ) : null}
     </div>
   );
 }

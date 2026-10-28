@@ -16,6 +16,8 @@ export type IjpSignatureUiStatus = {
   signatureNeeded: boolean;
   hasAttestation: boolean;
   showListFlag: boolean;
+  /** Show Collect IJP signature on caseload / client pages for GA IJP clients in the capture window. */
+  showCollectSignature: boolean;
   captureOpen: boolean;
   isTest: false;
 };
@@ -89,13 +91,16 @@ async function loadForMonth(
   const signatureNeeded = hasBillable && !hasAttestation;
   const showListFlag = signatureNeeded && isOnOrAfter25thForMonth(monthStart, now);
 
+  const captureOpen = attestationCaptureWindowOpen(monthStart, now);
+
   return {
     serviceMonth: monthStart,
     serviceMonthLabel: serviceMonthLabel(monthStart),
     signatureNeeded,
     hasAttestation,
     showListFlag,
-    captureOpen: attestationCaptureWindowOpen(monthStart, now),
+    showCollectSignature: captureOpen,
+    captureOpen,
     isTest: false,
   };
 }

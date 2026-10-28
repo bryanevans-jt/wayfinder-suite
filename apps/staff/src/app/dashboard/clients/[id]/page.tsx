@@ -50,6 +50,9 @@ import { NaturalSupportPanel } from "./natural-support-panel";
 import { ClientActivityReportPanel } from "@/components/client-activity-report-panel";
 import { SubmittedFormalReportsPanel } from "@/components/submitted-formal-reports-panel";
 import { ClientPresentGuidanceBanner } from "@/components/client-present-guidance-banner";
+import { IjpClientSignatureSection } from "@/components/ijp-client-signature-section";
+import { canAccessIjpClientSignature } from "@/lib/ijp-field-access";
+import { loadIjpSignatureUiStatus } from "@/lib/ijp-attestation-status";
 import { ServiceEpisodeBadges } from "@/components/service-episode-badges";
 import { VocationalServiceRenderedExportPanel } from "@/components/vocational-service-rendered-export-panel";
 import { loadClientEpisodeContext } from "@/lib/client-episode-data";
@@ -152,6 +155,17 @@ export default async function EsClientDetailPage({ params }: PageProps) {
   if (!client) {
     notFound();
   }
+
+  const ijpSignatureAccess = await canAccessIjpClientSignature(admin, {
+    role,
+    userId: session.effectiveUserId,
+    clientId: client.id as string,
+  });
+  const ijpCanCollect =
+    ijpSignatureAccess && (canWriteCasework || isAdminTierRole(role)) && !auditPreview;
+  const ijpSignatureStatus = ijpCanCollect
+    ? await loadIjpSignatureUiStatus(admin, client.id as string)
+    : null;
 
   const profileData: ClientProfileData = {
     contact_email: client.contact_email as string | null,
@@ -575,6 +589,12 @@ export default async function EsClientDetailPage({ params }: PageProps) {
         ) : null}
 
         <ClientProfileForm clientId={client.id} initial={profileData} readOnly={readOnly} />
+
+        {ijpSignatureStatus?.showCollectSignature ? (
+          <div id="ijp-signature">
+            <IjpClientSignatureSection clientId={client.id as string} />
+          </div>
+        ) : null}
 
         <EmployerMatchPanel
           matches={matches}

@@ -19,6 +19,7 @@
     "./natural-support-invite": "./src/natural-support-invite.ts",
     "./preview-server": "./src/preview-server.ts",
     "./preview-cookies": "./src/preview-cookies.ts",
+    "./training-demo-cookies": "./src/training-demo-cookies.ts",
     "./preview-handoff": "./src/preview-handoff.ts",
     "./preview-middleware": "./src/preview-middleware.ts",
     "./preview-stop": "./src/preview-stop.ts",

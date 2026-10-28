@@ -85,7 +85,7 @@ async function queryAssignedClientRows(
   const fullSelect = admin
     .from("clients")
     .select(
-      "id, user_id, profile_id, full_name, current_stage_id, counselor_id, contact_email, archived_at, intake_status, referral_state"
+      "id, user_id, profile_id, full_name, current_stage_id, counselor_id, contact_email, archived_at, intake_status, referral_state, is_demo"
     );
   const { data, error } = await (useLoginOr
     ? fullSelect.or(orFilter)
@@ -142,6 +142,7 @@ export async function fetchCounselorAssignedClients(
 
   const rawRows = data ?? [];
   const clients = rawRows
+    .filter((row) => !(row as { is_demo?: boolean }).is_demo)
     .map((row) => normalizeClient(row))
     .filter(Boolean)
     .filter((c) => isCounselorVisibleClient(c!))

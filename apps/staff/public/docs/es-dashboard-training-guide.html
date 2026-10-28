@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Wayfinder Pro — Employment Specialist Dashboard Guide</title>
+    <style>
+      :root {
+        --wf-green: #2d6a4f;
+        --wf-green-light: #d8f3dc;
+        --wf-black: #1a1a1a;
+        --wf-muted: #4a4a4a;
+        --wf-border: #d4d4d4;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        color: var(--wf-black);
+        line-height: 1.55;
+        font-size: 11pt;
+      }
+      header {
+        background: linear-gradient(135deg, var(--wf-green) 0%, #1b4332 100%);
+        color: #fff;
+        padding: 2rem 2.5rem;
+      }
+      header h1 {
+        margin: 0 0 0.35rem;
+        font-size: 1.75rem;
+        font-weight: 700;
+      }
+      header p {
+        margin: 0;
+        opacity: 0.92;
+        max-width: 42rem;
+      }
+      main {
+        max-width: 8.5in;
+        margin: 0 auto;
+        padding: 1.5rem 2rem 3rem;
+      }
+      h2 {
+        color: var(--wf-green);
+        font-size: 1.25rem;
+        margin-top: 2rem;
+        border-bottom: 2px solid var(--wf-green-light);
+        padding-bottom: 0.35rem;
+        page-break-after: avoid;
+      }
+      h3 {
+        font-size: 1rem;
+        margin-top: 1.25rem;
+        page-break-after: avoid;
+      }
+      p,
+      li {
+        color: var(--wf-muted);
+      }
+      .screenshot {
+        border: 1px solid var(--wf-border);
+        border-radius: 8px;
+        background: #f8f9fa;
+        min-height: 180px;
+        margin: 1rem 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 1rem;
+        font-size: 0.9rem;
+        color: #666;
+        page-break-inside: avoid;
+      }
+      .callout {
+        background: var(--wf-green-light);
+        border-left: 4px solid var(--wf-green);
+        padding: 0.75rem 1rem;
+        margin: 1rem 0;
+        border-radius: 0 6px 6px 0;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1rem 0;
+        font-size: 10pt;
+      }
+      th,
+      td {
+        border: 1px solid var(--wf-border);
+        padding: 0.45rem 0.6rem;
+        text-align: left;
+      }
+      th {
+        background: var(--wf-green-light);
+      }
+      footer {
+        margin-top: 2rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--wf-border);
+        font-size: 9pt;
+        color: #777;
+      }
+      @media print {
+        header {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        main {
+          padding: 0.5in;
+        }
+        a[href]:after {
+          content: "";
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Wayfinder Pro — Employment Specialist Dashboard</h1>
+      <p>
+        Companion reference for ES training videos and hands-on onboarding. Use the ES training
+        demo (Portal → Settings → Demos → Launch ES training demo) for screenshots and practice.
+      </p>
+    </header>
+    <main>
+      <h2>1. Getting started</h2>
+      <p>
+        Employment Specialists work primarily in <strong>Clients</strong>, <strong>Messages</strong>,
+        and <strong>Billable Hours</strong>. Navigation matches production for your organization’s
+        enabled features (community partners, analytics, exports, and so on).
+      </p>
+      <div class="callout">
+        Training demo clients are anonymized, flagged <code>is_demo</code>, and excluded from
+        counselor dashboards, analytics, and compliance metrics.
+      </div>
+      <div class="screenshot">
+        Screenshot: ES training demo — Clients home with Today strip and application pipeline
+      </div>
+
+      <h2>2. Clients caseload</h2>
+      <h3>Today strip &amp; pipeline</h3>
+      <p>
+        The top strip summarizes clients needing a message reply, upcoming meetings, stale
+        applications, and clients without recent contact. The application pipeline board lets you
+        drag cards to update application status without opening each record.
+      </p>
+      <div class="screenshot">Screenshot: Application pipeline and Today metrics</div>
+
+      <h3>Caseload table</h3>
+      <p>
+        Each row shows service, stage, message status, natural supports, and IJP actions when
+        applicable. Clients who need follow-up sort toward the top.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Column</th>
+            <th>Purpose</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Name</td>
+            <td>Open client detail; triage icons show alerts (no contact, etc.)</td>
+          </tr>
+          <tr>
+            <td>Messages</td>
+            <td>“Needs reply” when the client is waiting on you</td>
+          </tr>
+          <tr>
+            <td>Support</td>
+            <td>Natural supports workflow</td>
+          </tr>
+          <tr>
+            <td>IJP</td>
+            <td>
+              <strong>Collect IJP signature</strong> for GA Individual Job Placement clients during
+              the monthly capture window
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>3. Client detail page</h2>
+      <p>
+        From a client name, you manage stage, job start date, applications, contact logs,
+        meetings, activity timeline, vocational exports (when enabled), and staff-only notes (role
+        permitting).
+      </p>
+      <h3>Contact &amp; employment goals (client profile)</h3>
+      <p>
+        Update address, phones, and employment goals. Employer match suggestions appear when goals
+        and location are complete.
+      </p>
+      <div class="screenshot">Screenshot: Client profile form and employer matches</div>
+
+      <h3>IJP monthly attestation</h3>
+      <p>
+        For IJP clients in the capture window, use <strong>Collect IJP signature</strong> on the
+        caseload or the <strong>IJP monthly attestation</strong> section on the client page. Have
+        the client sign on the pad (or upload a signed scan / blank PDF workflow). Saved
+        attestations flow to billing; demo clients do not affect production billing flags.
+      </p>
+      <div class="screenshot">Screenshot: IJP signature pad and Save IJP signature</div>
+
+      <h2>4. Messages</h2>
+      <p>
+        Secure messaging with assigned clients. Reply promptly when the caseload shows “Needs
+        reply.”
+      </p>
+
+      <h2>5. Billable hours (weekly timesheet)</h2>
+      <p>
+        Log client billable time by activity type, client, and duration. This is separate from the
+        staff Time Clock (payroll). Supervisors and admins with caseload assignments can appear in
+        the team member picker when viewing others’ timesheets.
+      </p>
+      <div class="screenshot">Screenshot: Weekly timesheet with client and activity rows</div>
+
+      <h2>6. Resources (when enabled)</h2>
+      <ul>
+        <li><strong>Community Partners</strong> — partner network lookup</li>
+        <li><strong>Explore Analytics</strong> — caseload and activity metrics</li>
+        <li><strong>Download Exports</strong> — CSV and report exports</li>
+        <li><strong>Submit Reports</strong> — external reporting portal link</li>
+      </ul>
+
+      <h2>7. Training demo checklist</h2>
+      <ol>
+        <li>Portal → Settings → Demos → <strong>Launch ES training demo</strong></li>
+        <li>Review Today strip and pipeline on Clients</li>
+        <li>Open a demo client — update profile fields and save</li>
+        <li>Log a contact and a billable time entry</li>
+        <li>Practice IJP signature capture on an IJP demo client (if seeded on GA IJP service)</li>
+        <li>Exit demo from the green banner when finished</li>
+      </ol>
+
+      <footer>
+        Wayfinder Pro · Joshua Tree · Generated for print/PDF (use browser Print → Save as PDF).
+        Replace gray screenshot placeholders with captures from the ES training demo before
+        distributing.
+      </footer>
+    </main>
+  </body>
+</html>

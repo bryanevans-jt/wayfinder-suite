@@ -129,7 +129,30 @@ export async function requireSupervisorClientAccess(session: AppSession, clientI
   return clientInSupervisorScope(admin, scope, clientId);
 }
 
+async function trainingHandoffMayAccessDemoClient(
+  session: AppSession,
+  clientId: string
+): Promise<boolean> {
+  if (!session.isTrainingDemoHandoff) return true;
+  let admin;
+  try {
+    admin = createServiceRoleClient();
+  } catch {
+    return false;
+  }
+  const { data: client } = await admin
+    .from("clients")
+    .select("is_demo")
+    .eq("id", clientId)
+    .maybeSingle();
+  if (!client?.is_demo) return false;
+  return esIsAssignedToClient(session.effectiveUserId, clientId);
+}
+
 export async function requireStaffClientAccess(session: AppSession, clientId: string) {
+  if (session.isTrainingDemoHandoff) {
+    return trainingHandoffMayAccessDemoClient(session, clientId);
+  }
   if (isFieldSpecialistRole(session.effectiveRole)) {
     return requireEsClientAccess(session, clientId);
   }

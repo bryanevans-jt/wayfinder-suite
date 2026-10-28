@@ -169,8 +169,52 @@ export function DemoTrainingWorkspace() {
     return <p className="text-sm text-brand-black/60">Loading demo training tools…</p>;
   }
 
+  async function launchEsTrainingDemo() {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/training/es-demo/enter", { method: "POST" });
+      const data = (await res.json()) as { redirectUrl?: string; error?: string };
+      if (!res.ok) {
+        throw new Error(data.error ?? USER_FACING_SYSTEM_ERROR);
+      }
+      window.location.href = data.redirectUrl ?? "/dashboard/clients";
+    } catch (e) {
+      setError(friendlyClientError(e));
+      setBusy(false);
+    }
+  }
+
   return (
     <section className="mt-8 max-w-3xl space-y-6 rounded-xl border border-neutral-200 bg-white p-5">
+      <div className="rounded-xl border border-brand-green/35 bg-brand-green/5 p-4">
+        <h2 className="text-lg font-semibold text-brand-black">ES dashboard training demo</h2>
+        <p className="mt-1 text-sm text-brand-black/75">
+          Opens the live Employment Specialist dashboard with anonymized demo clients only. You can
+          log contact, use client profile, billable hours, and IJP signature capture without
+          affecting production data. Demo clients do not appear on counselor caseloads.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-3">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void launchEsTrainingDemo()}
+            className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            Launch ES training demo
+          </button>
+          <a
+            href="/docs/es-dashboard-training-guide.html"
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-lg border border-brand-green px-4 py-2 text-sm font-semibold text-brand-green"
+          >
+            Training guide (print/PDF)
+          </a>
+        </div>
+      </div>
+
       <div>
         <h2 className="text-lg font-semibold text-brand-black">Demo Training Clients</h2>
         <p className="mt-1 text-sm text-brand-black/75">

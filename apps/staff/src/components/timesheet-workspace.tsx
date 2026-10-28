@@ -174,7 +174,7 @@ export function TimesheetWorkspace({
               <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
                 {isSupervisorRole(role) && !isAdminTierRole(role)
                   ? "No Employment Specialists are linked to you yet. Ask an admin to add Supervisor ↔ ES links on the Connections tab, then refresh this page."
-                  : "No active Employment Specialists or Supervisors are available yet. Once staff profiles are set up with those roles, their timesheets will appear here."}
+                  : "No billable-hours team members are available yet. Active ES, Transition Specialist, and Supervisor profiles appear here, along with admins who have client assignments."}
               </p>
             ) : null}
           </div>
