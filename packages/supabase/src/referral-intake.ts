@@ -103,23 +103,17 @@ export function isAllowedReferralCounselorEmail(state: ReferralState, email: str
   return e.endsWith("@tn.gov") || e.endsWith(".tn.gov");
 }
 
-/** Map public form service labels → services.name */
+/** Map public form service labels → services.name (Georgia catalog only). */
 export function mapReferralServiceName(state: ReferralState, serviceLabel: string): string | null {
-  const s = serviceLabel.trim();
-  if (state === "GA") {
-    const map: Record<string, string> = {
-      "Traditional Supported Employment": "Traditional Supported Employment (GA)",
-      "Job Coaching": "Job Coaching (GA)",
-      "Individual Job Placement": "Individual Job Placement (GA)",
-      "Workplace Readiness Training": "Workplace Readiness Training (GA)",
-    };
-    return map[s] ?? null;
+  if (state !== "GA") {
+    return null;
   }
+  const s = serviceLabel.trim();
   const map: Record<string, string> = {
-    "Traditional Supported Employment": "Supported Employment (TN)",
-    "Individual Job Placement": "Individual Job Placement (TN)",
-    "Job Coaching": "Job Coaching (TN)",
-    "Job Readiness Training": "Job Readiness Training (TN)",
+    "Traditional Supported Employment": "Traditional Supported Employment (GA)",
+    "Job Coaching": "Job Coaching (GA)",
+    "Individual Job Placement": "Individual Job Placement (GA)",
+    "Workplace Readiness Training": "Workplace Readiness Training (GA)",
   };
   return map[s] ?? null;
 }
@@ -612,6 +606,12 @@ export async function createPublicReferral(
     }
   | { error: string; status?: number }
 > {
+  if (state !== "GA") {
+    return {
+      error: "Joshua Tree is no longer accepting new Tennessee VR referrals.",
+      status: 410,
+    };
+  }
   const counselorEmail = (payload.counselorEmail ?? "").toLowerCase().trim();
   const source = opts?.source ?? "website";
   if (!counselorEmail.includes("@")) {
@@ -1442,7 +1442,7 @@ export async function loadPriorEnrollmentReferralDraft(
     priorClientId,
     priorOutcomeLabel: closure.outcomeLabel,
     priorReferredAt: (priorMeta as { referred_at?: string | null }).referred_at ?? null,
-    state: referralState === "TN" ? "TN" : "GA",
+    state: "GA",
     draft,
   };
 }
@@ -1787,10 +1787,7 @@ export async function updateReferralClientInfo(
     return { error: "Client name is required" };
   }
 
-  const referralState =
-    p.referralState === "GA" || p.referralState === "TN"
-      ? p.referralState
-      : ((existing.referral_state as ReferralState | null) ?? null);
+  const referralState: ReferralState = "GA";
 
   const update: Record<string, unknown> = {
     last_activity_at: new Date().toISOString(),
@@ -1836,8 +1833,8 @@ export async function updateReferralClientInfo(
     update.authorization_number = (p.authorizationNumber ?? "").trim() || null;
   }
   if (p.referralState !== undefined) {
-    if (p.referralState !== "GA" && p.referralState !== "TN" && p.referralState !== null) {
-      return { error: "Referral state must be GA or TN" };
+    if (p.referralState !== "GA" && p.referralState !== null) {
+      return { error: "Referral state must be GA" };
     }
     update.referral_state = p.referralState;
   }
@@ -1924,10 +1921,7 @@ export async function updateReferralClientInfo(
   if (p.serviceLabel !== undefined && (p.serviceLabel ?? "").trim()) {
     const label = (p.serviceLabel ?? "").trim();
     const stateForMap = (update.referral_state as ReferralState | null) ?? referralState;
-    let serviceName =
-      stateForMap === "GA" || stateForMap === "TN"
-        ? mapReferralServiceName(stateForMap, label)
-        : null;
+    let serviceName = mapReferralServiceName("GA", label);
     if (!serviceName) {
       // Allow passing the full services.name directly
       serviceName = label;

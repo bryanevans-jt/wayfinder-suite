@@ -217,7 +217,11 @@ export type OrgMonthlyBillableHoursRow = {
   billableHours: string;
 };
 
-/** Billable minutes by staff for a calendar month (non-rejected; excludes note-only / case file review). */
+/**
+ * Billable minutes by staff for a calendar month (non-rejected; excludes note-only / case file review).
+ * Intentionally not filtered by client archive, terminal stage, or service line — any logged time
+ * in the month counts toward the ES/TS payroll rollup.
+ */
 export async function loadOrgMonthlyBillableHoursRollup(
   admin: ReturnType<typeof createServiceRoleClient>,
   monthKey: string
