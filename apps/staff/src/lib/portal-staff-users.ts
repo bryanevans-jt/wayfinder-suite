@@ -1,4 +1,5 @@
 import type { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { recordEsClientAssignmentEvent } from "@wayfinder/supabase/es-client-assignment-events";
 import { getSupabaseUrl, resolveAuthUserIdByEmail } from "@wayfinder/supabase";
 import {
   COUNSELOR_NO_REFERRAL_EMAIL_MESSAGE,
@@ -798,7 +799,8 @@ async function isActiveSupervisor(admin: AdminClient, userId: string): Promise<b
 export async function assignClientCaseload(
   admin: AdminClient,
   clientId: string,
-  esUserId: string
+  esUserId: string,
+  options: { actorUserId?: string | null; source?: string } = {}
 ): Promise<void> {
   const { error: clearErr } = await admin
     .from("es_client_assignments")
@@ -811,6 +813,13 @@ export async function assignClientCaseload(
     client_id: clientId,
   });
   if (assignErr) throw new Error(assignErr.message);
+
+  await recordEsClientAssignmentEvent(admin, {
+    clientId,
+    esUserId,
+    actorUserId: options.actorUserId,
+    source: options.source ?? "assignClientCaseload",
+  });
 
   const { error: threadErr } = await admin
     .from("client_message_threads")

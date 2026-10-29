@@ -11,6 +11,7 @@ const SETTINGS_KEYS = new Set<string>([
   "referrals",
   "pre_ets",
   "ijp_billing",
+  "kra_billable",
   "features",
   "services",
   "emails",

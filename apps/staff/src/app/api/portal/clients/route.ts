@@ -15,6 +15,7 @@ import {
   updateClientRecord,
 } from "@wayfinder/supabase";
 import { isAdminTierRole } from "@wayfinder/supabase/roles";
+import { recordEsClientAssignmentEvent } from "@wayfinder/supabase/es-client-assignment-events";
 import { isCaseloadAssigneeRole } from "@/lib/caseload-assignee";
 import { NextRequest } from "next/server";
 
@@ -431,6 +432,12 @@ export async function PATCH(request: NextRequest) {
             client_id: id,
           });
           if (assignErr) throw new Error(assignErr.message);
+          await recordEsClientAssignmentEvent(admin, {
+            clientId: id,
+            esUserId: esResolved.esUserId,
+            actorUserId: user.id,
+            source: "portal_clients",
+          });
         }
 
         const nextEsId = esResolved.esUserId ?? null;

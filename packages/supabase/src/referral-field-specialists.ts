@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { recordEsClientAssignmentEvent } from "./es-client-assignment-events";
 import { isFieldSpecialistRole, isSupervisorRole } from "./roles";
 
 function isCaseloadAssigneeRole(role: string): boolean {
@@ -198,6 +199,13 @@ export async function assignReferralFieldSpecialist(
     client_id: opts.clientId,
   });
   if (assignErr) return { error: assignErr.message };
+
+  await recordEsClientAssignmentEvent(admin, {
+    clientId: opts.clientId,
+    esUserId: specialistId,
+    actorUserId: opts.actorUserId,
+    source: "referral_field_specialist",
+  });
 
   await admin
     .from("client_message_threads")

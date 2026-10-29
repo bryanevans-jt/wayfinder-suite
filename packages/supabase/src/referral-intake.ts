@@ -25,6 +25,7 @@ import {
   loadDirectReferralAssignEnabled,
   resolveSupervisorUserIdForFieldSpecialist,
 } from "./referral-field-specialists";
+import { recordEsClientAssignmentEvent } from "./es-client-assignment-events";
 import {
   filterGaReferralServiceLabels,
   GA_REFERRAL_SERVICE_LABELS,
@@ -1988,6 +1989,12 @@ export async function updateReferralClientInfo(
           client_id: opts.clientId,
         });
         if (assignErr) return { error: assignErr.message };
+        await recordEsClientAssignmentEvent(admin, {
+          clientId: opts.clientId,
+          esUserId,
+          actorUserId: opts.actorUserId,
+          source: "referral_intake",
+        });
       }
 
       await admin

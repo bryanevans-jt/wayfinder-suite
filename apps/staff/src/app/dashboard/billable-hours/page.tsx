@@ -5,7 +5,9 @@ import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { redirect } from "next/navigation";
 import { BillableHoursPayrollMonthlyPanel } from "@/components/billable-hours-payroll-monthly-panel";
 import { MyBillableHoursWorkspace } from "@/components/my-billable-hours-workspace";
+import { BillableHoursKraCompliancePanel } from "@/components/billable-hours-kra-compliance-panel";
 import { canViewPayrollMonthlyBillableHours } from "@/lib/billable-hours-payroll-access";
+import { isSuperAdminRole } from "@wayfinder/supabase/roles";
 import { defaultPayrollMonthKey } from "@/lib/es-time-data";
 import { StaffPtoPanel } from "@/components/staff-pto-panel";
 import { TimesheetWorkspace } from "@/components/timesheet-workspace";
@@ -43,6 +45,8 @@ export default async function MyBillableHoursPage({ searchParams }: PageProps) {
   const showTimesheet = canAccessWeeklyTimesheetSection(role);
   const showPto = canUseStaffPto(role);
   const showPayrollMonthly = canViewPayrollMonthlyBillableHours(role);
+  const showKraCompliance = showPayrollMonthly;
+  const canCloseKraMonth = isSuperAdminRole(role);
   const payrollMonthKey = defaultPayrollMonthKey();
 
   const timesheetLoad = showTimesheet
@@ -74,6 +78,12 @@ export default async function MyBillableHoursPage({ searchParams }: PageProps) {
       />
       {showPayrollMonthly ? (
         <BillableHoursPayrollMonthlyPanel initialMonthKey={payrollMonthKey} />
+      ) : null}
+      {showKraCompliance ? (
+        <BillableHoursKraCompliancePanel
+          initialMonthKey={payrollMonthKey}
+          canCloseMonth={canCloseKraMonth}
+        />
       ) : null}
       {timesheetLoad.kind === "ready" ? (
         <div id="weekly-timesheet" className="scroll-mt-6">

@@ -32,6 +32,7 @@ import { DemoTrainingWorkspace } from "@/components/demo-training-workspace";
 import { PayrollSettingsPanel } from "@/components/payroll-settings-panel";
 import { PreEtsSettingsPanel } from "@/components/pre-ets-settings-panel";
 import { IjpBillingSettingsPanel } from "@/components/ijp-billing-settings-panel";
+import { KraBillableSettingsPanel } from "@/components/kra-billable-settings-panel";
 import { ReferralTrainingPhasePanel } from "@/components/referral-training-phase-panel";
 import { FeatureTogglesPanel } from "@/components/feature-toggles-panel";
 import { ServiceOfferingsPanel } from "@/components/service-offerings-panel";
@@ -2497,6 +2498,10 @@ export function PortalWorkspace({ mode, title, subtitle, initialNav }: Props) {
       ) : nav.primary === "settings" && nav.settings === "ijp_billing" && mode === "super_admin" ? (
         <div className="mt-6">
           <IjpBillingSettingsPanel />
+        </div>
+      ) : nav.primary === "settings" && nav.settings === "kra_billable" && mode === "super_admin" ? (
+        <div className="mt-6">
+          <KraBillableSettingsPanel />
         </div>
       ) : nav.primary === "settings" && nav.settings === "features" && mode === "super_admin" ? (
         <div className="mt-6">

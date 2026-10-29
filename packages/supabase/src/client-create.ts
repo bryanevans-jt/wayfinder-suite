@@ -7,6 +7,7 @@ import {
   loadClientIdByContactEmail,
 } from "./client-name-dedupe";
 import { resolveAuthUserIdByEmail } from "./link-client-auth";
+import { recordEsClientAssignmentEvent } from "./es-client-assignment-events";
 
 export type CreateClientParams = {
   name: string;
@@ -129,8 +130,9 @@ export async function createClientAccount(
     }
 
     if (params.esUserId?.trim()) {
+      const esId = params.esUserId.trim();
       const { error: assignErr } = await admin.from("es_client_assignments").insert({
-        es_user_id: params.esUserId.trim(),
+        es_user_id: esId,
         client_id: clientResult.id,
       });
 
@@ -138,6 +140,11 @@ export async function createClientAccount(
         await admin.from("clients").delete().eq("id", clientResult.id);
         return { error: assignErr.message ?? "Could not assign client to ES" };
       }
+      await recordEsClientAssignmentEvent(admin, {
+        clientId: clientResult.id,
+        esUserId: esId,
+        source: "client_create",
+      });
     }
 
     return { clientId: clientResult.id };
@@ -168,8 +175,9 @@ export async function createClientAccount(
   }
 
   if (params.esUserId?.trim()) {
+    const esId = params.esUserId.trim();
     const { error: assignErr } = await admin.from("es_client_assignments").insert({
-      es_user_id: params.esUserId.trim(),
+      es_user_id: esId,
       client_id: clientResult.id,
     });
 
@@ -180,6 +188,11 @@ export async function createClientAccount(
       }
       return { error: assignErr.message ?? "Could not assign client to ES" };
     }
+    await recordEsClientAssignmentEvent(admin, {
+      clientId: clientResult.id,
+      esUserId: esId,
+      source: "client_create",
+    });
   }
 
   return { clientId: clientResult.id };

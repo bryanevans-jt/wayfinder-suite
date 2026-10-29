@@ -1,4 +1,5 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { recordEsClientAssignmentEvent } from "@wayfinder/supabase/es-client-assignment-events";
 import { getAppSession, assertNotPreviewMutation } from "@wayfinder/supabase/preview-server";
 import { canAssignClientEs, isFieldSpecialistRole } from "@wayfinder/supabase/roles";
 import { NextResponse } from "next/server";
@@ -91,6 +92,11 @@ export async function PATCH(request: Request) {
     if (assignErr) {
       return NextResponse.json({ error: assignErr.message }, { status: 500 });
     }
+    await recordEsClientAssignmentEvent(admin, {
+      clientId,
+      esUserId,
+      source: "hospitality_client_es",
+    });
   }
 
   // Keep message routing in sync when a thread already exists.

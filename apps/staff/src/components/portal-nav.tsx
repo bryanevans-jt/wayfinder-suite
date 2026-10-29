@@ -22,6 +22,7 @@ export type PortalSettingsSubNav =
   | "referrals"
   | "pre_ets"
   | "ijp_billing"
+  | "kra_billable"
   | "features"
   | "services"
   | "emails";
@@ -71,6 +72,7 @@ const SETTINGS_LABELS: Record<PortalSettingsSubNav, string> = {
   referrals: "Referral Settings",
   pre_ets: "Pre-ETS",
   ijp_billing: "IJP Billing",
+  kra_billable: "KRA Billable Hours",
   features: "Feature Toggles",
   services: "Service Offerings",
   emails: "Email Templates",
@@ -136,6 +138,7 @@ export function PortalNav({ mode, canManage, nav, onChange }: Props) {
           "referrals",
           "pre_ets",
           "ijp_billing",
+          "kra_billable",
           "features",
           "services",
           "emails",
