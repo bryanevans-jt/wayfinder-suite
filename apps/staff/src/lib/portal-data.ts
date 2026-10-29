@@ -965,6 +965,27 @@ function inDateRange(iso: string, from?: string, to?: string): boolean {
   return true;
 }
 
+type ActivityLogQueryFilters = {
+  esUserId?: string;
+  clientId?: string;
+  officeId?: string;
+};
+
+function matchesClientOfficeFilters(
+  filters: ActivityLogQueryFilters,
+  clientId: string,
+  officeId: string | null | undefined,
+  aliasToCanonical?: Map<string, string>
+): boolean {
+  if (filters.clientId) {
+    const filterCanonical = aliasToCanonical?.get(filters.clientId) ?? filters.clientId;
+    const rowCanonical = aliasToCanonical?.get(clientId) ?? clientId;
+    if (rowCanonical !== filterCanonical) return false;
+  }
+  if (filters.officeId && officeId !== filters.officeId) return false;
+  return true;
+}
+
 export async function loadActivityLogs(
   admin: ReturnType<typeof createServiceRoleClient>,
   filters: {
@@ -1087,19 +1108,21 @@ export async function loadActivityLogs(
     esByClient.set(canonicalId, list);
   }
 
-  function inScope(rawClientId: string): boolean {
+  function inScope(rawClientId: string, opts?: { esCaseload?: boolean }): boolean {
     const clientId = aliasToCanonical.get(rawClientId) ?? rawClientId;
     const client = clientMap.get(rawClientId) ?? clientMap.get(clientId);
     if (!client) return false;
 
-    if (filters.clientId) {
-      const filterCanonical = aliasToCanonical.get(filters.clientId) ?? filters.clientId;
-      if (clientId !== filterCanonical) return false;
+    if (
+      !matchesClientOfficeFilters(filters, clientId, client.office_id, aliasToCanonical)
+    ) {
+      return false;
     }
-    if (filters.officeId && client.office_id !== filters.officeId) return false;
 
     const esIds = esByClient.get(clientId) ?? [];
-    if (filters.esUserId && !esIds.includes(filters.esUserId)) return false;
+    if (opts?.esCaseload !== false && filters.esUserId && !esIds.includes(filters.esUserId)) {
+      return false;
+    }
 
     if (scope?.officeIds?.length) {
       const officeOk =
@@ -1115,7 +1138,11 @@ export async function loadActivityLogs(
 
   for (const log of contacts) {
     const clientId = log.client_id as string;
-    if (!inScope(clientId)) continue;
+    if (!inScope(clientId, { esCaseload: false })) continue;
+    if (filters.esUserId) {
+      const loggedBy = (log.logged_by as string | null | undefined) ?? null;
+      if (loggedBy !== filters.esUserId) continue;
+    }
     const createdAt = log.created_at as string;
     if (!inDateRange(createdAt, filters.dateFrom, filters.dateTo)) continue;
     const client = clientMap.get(clientId);
@@ -1219,6 +1246,7 @@ const CHANGE_KIND_LABELS: Record<string, string> = {
 /** Change log entries for Audit Activity (contact log create/edit/delete). */
 export async function loadContactLogChangeRows(
   admin: ReturnType<typeof createServiceRoleClient>,
+  filters: ActivityLogQueryFilters,
   scope: { officeIds?: string[]; esUserIds?: string[] } | undefined,
   limit = 500
 ): Promise<ActivityLogRow[]> {
@@ -1283,7 +1311,7 @@ export async function loadContactLogChangeRows(
     esByClient.set(cid, list);
   }
 
-  function inScope(clientId: string, officeId: string | null, esIds: string[]): boolean {
+  function inSupervisorScope(clientId: string, officeId: string | null, esIds: string[]): boolean {
     if (!scope?.officeIds?.length) return true;
     const officeOk = officeId != null && scope.officeIds.includes(officeId);
     const esOk = esIds.some((id) => scope.esUserIds?.includes(id));
@@ -1295,7 +1323,11 @@ export async function loadContactLogChangeRows(
     const clientId = event.client_id as string;
     const client = clientById.get(clientId);
     const esIds = esByClient.get(clientId) ?? [];
-    if (!inScope(clientId, client?.office_id ?? null, esIds)) continue;
+    if (!matchesClientOfficeFilters(filters, clientId, client?.office_id ?? null)) continue;
+    if (filters.esUserId && (event.actor_user_id as string | null) !== filters.esUserId) {
+      continue;
+    }
+    if (!inSupervisorScope(clientId, client?.office_id ?? null, esIds)) continue;
 
     const kind = event.event_kind as string;
     const actorName = actorNames.get(event.actor_user_id as string) ?? "Staff";

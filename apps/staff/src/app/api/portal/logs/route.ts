@@ -56,18 +56,21 @@ export async function GET(request: NextRequest) {
       };
     }
 
+    const logFilters = {
+      esUserId: sp.get("es")?.trim() || undefined,
+      clientId: sp.get("client")?.trim() || undefined,
+      officeId: sp.get("office")?.trim() || undefined,
+      limit: Number(sp.get("limit") ?? "500"),
+    };
+
     const [rows, changeRows] = await Promise.all([
-      loadActivityLogs(
+      loadActivityLogs(admin, logFilters, scope),
+      loadContactLogChangeRows(
         admin,
-        {
-          esUserId: sp.get("es") ?? undefined,
-          clientId: sp.get("client") ?? undefined,
-          officeId: sp.get("office") ?? undefined,
-          limit: Number(sp.get("limit") ?? "500"),
-        },
-        scope
+        logFilters,
+        scope,
+        logFilters.limit
       ),
-      loadContactLogChangeRows(admin, scope, Number(sp.get("limit") ?? "500")),
     ]);
 
     const merged = [...rows, ...changeRows].sort((a, b) =>
