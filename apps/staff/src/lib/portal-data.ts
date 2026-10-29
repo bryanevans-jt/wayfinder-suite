@@ -1151,6 +1151,7 @@ export async function loadActivityLogs(
       notes: null,
       outcome: log.outcome as string | null | undefined,
     });
+    const notes = ((log.notes as string | null) ?? "").trim();
     rows.push({
       id: log.id as string,
       kind: "contact",
@@ -1161,7 +1162,7 @@ export async function loadActivityLogs(
       es_user_ids: esByClient.get(aliasToCanonical.get(clientId) ?? clientId) ?? [],
       office_id: client?.office_id ?? null,
       summary: outcome || "Contact log",
-      detail: (log.notes as string | null) ?? null,
+      detail: notes ? `Notes: ${notes}` : null,
     });
   }
 
@@ -1181,7 +1182,9 @@ export async function loadActivityLogs(
       es_user_ids: esByClient.get(aliasToCanonical.get(clientId) ?? clientId) ?? [],
       office_id: client?.office_id ?? null,
       summary: `${app.company_name ?? "Application"} · ${app.status ?? ""}`,
-      detail: (app.notes as string | null) ?? null,
+      detail: ((app.notes as string | null) ?? "").trim()
+        ? `Notes: ${((app.notes as string | null) ?? "").trim()}`
+        : null,
     });
   }
 
@@ -1225,7 +1228,9 @@ export async function loadActivityLogs(
       es_user_ids: esByClient.get(aliasToCanonical.get(clientId) ?? clientId) ?? [],
       office_id: client?.office_id ?? null,
       summary: `Meeting ${mtg.status ?? "pending"}${when ? ` · ${when}` : ""}`,
-      detail: (mtg.location as string | null) ?? null,
+      detail: ((mtg.location as string | null) ?? "").trim()
+        ? `Location: ${((mtg.location as string | null) ?? "").trim()}`
+        : null,
     });
   }
 
@@ -1243,6 +1248,80 @@ const CHANGE_KIND_LABELS: Record<string, string> = {
   deleted: "Contact log deleted",
 };
 
+function formatTimeAuditSnapshot(label: string, snap: Record<string, unknown>): string {
+  const date = String(snap.service_date ?? "—");
+  const mins = Number(snap.duration_minutes) || 0;
+  const hours = Math.round((mins / 60) * 10) / 10;
+  const start = snap.start_time ? String(snap.start_time) : "";
+  const end = snap.end_time ? String(snap.end_time) : "";
+  const timeRange =
+    start && end ? `${start}–${end}` : start || end ? String(start || end) : "";
+  return `${label}: ${date}, ${hours} hr${hours === 1 ? "" : "s"}${timeRange ? ` (${timeRange})` : ""}`;
+}
+
+function buildContactLogChangeDetail(event: {
+  event_kind: string;
+  before_public_outcome: string | null;
+  after_public_outcome: string | null;
+  before_notes: string | null;
+  after_notes: string | null;
+  metadata: Record<string, unknown> | null | undefined;
+}): string | null {
+  const lines: string[] = [];
+  const kind = event.event_kind;
+  const meta = (event.metadata ?? {}) as Record<string, unknown>;
+
+  if (meta.field === "service_time") {
+    const before = meta.before as Record<string, unknown> | undefined;
+    const after = meta.after as Record<string, unknown> | undefined;
+    if (before && after) {
+      lines.push(formatTimeAuditSnapshot("Service time before", before));
+      lines.push(formatTimeAuditSnapshot("Service time after", after));
+    }
+  }
+
+  const beforeOutcome = (event.before_public_outcome ?? "").trim();
+  const afterOutcome = (event.after_public_outcome ?? "").trim();
+  const beforeNotes = (event.before_notes ?? "").trim();
+  const afterNotes = (event.after_notes ?? "").trim();
+
+  if (kind === "created") {
+    if (afterOutcome) lines.push(`Outcome added: ${afterOutcome}`);
+    if (afterNotes) lines.push(`Notes added: ${afterNotes}`);
+  } else if (kind === "deleted") {
+    if (beforeOutcome) lines.push(`Outcome removed: ${beforeOutcome}`);
+    if (beforeNotes) lines.push(`Notes removed: ${beforeNotes}`);
+  } else {
+    if (beforeOutcome !== afterOutcome) {
+      lines.push(
+        `Outcome: ${beforeOutcome || "(empty)"} → ${afterOutcome || "(empty)"}`
+      );
+    }
+    if (beforeNotes !== afterNotes) {
+      lines.push(`Notes: ${beforeNotes || "(empty)"} → ${afterNotes || "(empty)"}`);
+    }
+  }
+
+  return lines.length > 0 ? lines.join("\n") : null;
+}
+
+/** Human-readable detail line(s) for Audit Activity UI and exports. */
+export function activityLogDetailText(row: ActivityLogRow): string {
+  const detail = row.detail?.trim();
+  if (detail) return detail;
+
+  switch (row.kind) {
+    case "stage":
+      return "Stage milestone recorded.";
+    case "application":
+      return "Application record.";
+    case "meeting":
+      return "Meeting request.";
+    default:
+      return "";
+  }
+}
+
 /** Change log entries for Audit Activity (contact log create/edit/delete). */
 export async function loadContactLogChangeRows(
   admin: ReturnType<typeof createServiceRoleClient>,
@@ -1253,7 +1332,7 @@ export async function loadContactLogChangeRows(
   const { data: events, error } = await admin
     .from("contact_log_events")
     .select(
-      "id, contact_log_id, client_id, actor_user_id, event_kind, before_public_outcome, after_public_outcome, before_notes, after_notes, created_at"
+      "id, contact_log_id, client_id, actor_user_id, event_kind, before_public_outcome, after_public_outcome, before_notes, after_notes, metadata, created_at"
     )
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -1332,17 +1411,14 @@ export async function loadContactLogChangeRows(
     const kind = event.event_kind as string;
     const actorName = actorNames.get(event.actor_user_id as string) ?? "Staff";
     const label = CHANGE_KIND_LABELS[kind] ?? "Contact log change";
-    const beforeText = (event.before_public_outcome as string | null) ?? "";
-    const afterText = (event.after_public_outcome as string | null) ?? "";
-
-    let detail: string | null = null;
-    if (kind === "deleted") {
-      detail = beforeText || (event.before_notes as string | null) || null;
-    } else if (kind === "created") {
-      detail = afterText || (event.after_notes as string | null) || null;
-    } else if (beforeText || afterText) {
-      detail = beforeText && afterText ? `${beforeText} → ${afterText}` : afterText || beforeText;
-    }
+    const detail = buildContactLogChangeDetail({
+      event_kind: kind,
+      before_public_outcome: event.before_public_outcome as string | null,
+      after_public_outcome: event.after_public_outcome as string | null,
+      before_notes: event.before_notes as string | null,
+      after_notes: event.after_notes as string | null,
+      metadata: event.metadata as Record<string, unknown> | null,
+    });
 
     rows.push({
       id: event.id as string,

@@ -1,6 +1,10 @@
 "use client";
 
-import type { PortalBootstrap, ActivityLogRow } from "@/lib/portal-data";
+import {
+  activityLogDetailText,
+  type PortalBootstrap,
+  type ActivityLogRow,
+} from "@/lib/portal-data";
 import { formatPortalDateTime } from "@/lib/portal-datetime";
 import {
   clientDisplayName,
@@ -2312,13 +2316,14 @@ export function PortalWorkspace({ mode, title, subtitle, initialNav }: Props) {
                   <th className="px-3 py-2">Client</th>
                   <th className="px-3 py-2">Office</th>
                   <th className="px-3 py-2">Summary</th>
+                  <th className="px-3 py-2 min-w-[14rem]">Details</th>
                   <th className="px-3 py-2">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {logs.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-3 py-8 text-center text-brand-black/60">
+                    <td colSpan={7} className="px-3 py-8 text-center text-brand-black/60">
                       No activity for these filters.
                     </td>
                   </tr>
@@ -2347,6 +2352,18 @@ export function PortalWorkspace({ mode, title, subtitle, initialNav }: Props) {
                       </td>
                       <td className="px-3 py-2">{officeName(row.office_id)}</td>
                       <td className="px-3 py-2">{row.summary}</td>
+                      <td className="max-w-md px-3 py-2 text-brand-black/80">
+                        {(() => {
+                          const detail = activityLogDetailText(row);
+                          return detail ? (
+                            <span className="whitespace-pre-wrap break-words text-xs leading-relaxed">
+                              {detail}
+                            </span>
+                          ) : (
+                            <span className="text-brand-black/40">—</span>
+                          );
+                        })()}
+                      </td>
                       <td className="px-3 py-2">
                         {row.kind === "contact" && (canEditLogs || canDeleteContactLogs) ? (
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
