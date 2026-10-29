@@ -1,8 +1,5 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
-import {
-  loadKraBillableComplianceRollup,
-  saveKraBillableMonthSnapshot,
-} from "@wayfinder/supabase/kra-billable-compliance";
+import { saveKraBillableMonthSnapshot } from "@wayfinder/supabase/kra-billable-compliance";
 import { canManageKraBillableSettings } from "@wayfinder/supabase/kra-billable-settings";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
