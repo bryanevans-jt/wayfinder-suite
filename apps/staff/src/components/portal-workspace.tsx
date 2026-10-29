@@ -1,10 +1,7 @@
 "use client";
 
-import {
-  activityLogDetailText,
-  type PortalBootstrap,
-  type ActivityLogRow,
-} from "@/lib/portal-data";
+import type { PortalBootstrap } from "@/lib/portal-data";
+import { activityLogDetailText, type ActivityLogRow } from "@/lib/portal-activity-log";
 import { formatPortalDateTime } from "@/lib/portal-datetime";
 import {
   clientDisplayName,
