@@ -7,6 +7,7 @@ import {
   parseDistrictWorksheet,
   parseGroupHeader,
   parseWorksheetSupervisorInstructorLine,
+  qualifyWorksheetGroupHeaderWithSchoolContext,
   validateWorksheetHeaderColumns,
 } from "./pre-ets-worksheet-parser";
 
@@ -369,6 +370,45 @@ describe("pre-ets-worksheet-parser", () => {
     assert.ok(group);
     assert.equal(group?.schoolName, "Coffe County Wiregrass");
     assert.equal(group?.students[0]?.participantId, "55555");
+  });
+
+  it("does not prefix Transitional Learning Center onto Lee County 9th Grade Center", () => {
+    assert.equal(
+      qualifyWorksheetGroupHeaderWithSchoolContext(
+        "Transitional Learning Center",
+        "Lee County 9th Grade Center"
+      ),
+      "Transitional Learning Center"
+    );
+  });
+
+  it("keeps Lee County 9th Grade Inclusion and Transitional Learning Center as separate rosters", () => {
+    const csv = [
+      "JOSHUA TREE NOVEMBER PRE-ETS BILLING 2026-27,,,,,,,,,,,",
+      "DISTRICT 5 SCHOOLS,,,,,,,,,,,,",
+      "COLUMBUS OFFICE SCHOOLS,,,,,,,,,,,,",
+      "Lee County 9th Grade Center - INCLUSION -,,,,,,,,,,,,",
+      "Gracie Williams / Instructor: Example,,,,,,,,,,,,",
+      "#,STUDENT NAME,PID #,A&I,SERVICE,CODE,UNITS,Class Time,Invoice #,Billed",
+      "1,Lee Inclusion Student,11111,,PRE,PRE-1,1,,,",
+      "Transitional Learning Center,,,,,,,,,,,,",
+      "1,TLC Student,22222,,PRE,PRE-1,1,,,",
+    ].join("\n");
+
+    const parsed = parseDistrictWorksheet(csv);
+    assert.equal(parsed.stats.groupCount, 2);
+    const lee = parsed.offices[0]?.groups.find(
+      (g) => /9th/i.test(g.schoolName) && /inclusion/i.test(String(g.groupName))
+    );
+    const tlc = parsed.offices[0]?.groups.find((g) =>
+      /transitional/i.test(g.schoolName)
+    );
+    assert.ok(lee, "expected Lee County 9th Grade Inclusion group");
+    assert.ok(tlc, "expected Transitional Learning Center group");
+    assert.equal(lee?.students.length, 1);
+    assert.equal(lee?.students[0]?.participantId, "11111");
+    assert.equal(tlc?.students.length, 1);
+    assert.equal(tlc?.students[0]?.participantId, "22222");
   });
 
   it("starts Thomas County Central without High School on the billing row", () => {

@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   canonicalizeWorksheetSchoolName,
   fixWorksheetSchoolNameTypos,
+  isStandaloneWorksheetSchoolSite,
   looksLikeKnownWorksheetSchoolLabel,
 } from "./pre-ets-worksheet-known-schools";
 
@@ -54,6 +55,14 @@ test("Coffee County Wiregrass is recognized and Coffe typo is corrected", () => 
     canonicalizeWorksheetSchoolName("Coffe County Wiregrass"),
     "Coffee County Wiregrass"
   );
+});
+
+test("Transitional Learning Center and TLC map to class setup TLC", () => {
+  assert.ok(isStandaloneWorksheetSchoolSite("Transitional Learning Center"));
+  assert.ok(isStandaloneWorksheetSchoolSite("TLC"));
+  assert.ok(!isStandaloneWorksheetSchoolSite("INCLUSION"));
+  assert.equal(canonicalizeWorksheetSchoolName("Transitional Learning Center"), "TLC");
+  assert.equal(canonicalizeWorksheetSchoolName("TLC"), "TLC");
 });
 
 test("Thomas County Central maps to Thomas County Central High School", () => {
