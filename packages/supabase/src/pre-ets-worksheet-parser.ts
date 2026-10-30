@@ -385,10 +385,21 @@ export function applyWorksheetTabDistrictHints(
 const GROUP_DESIGNATION_HINT =
   /^(inclusion|self\s*contained|resource|co-?teach|main|n\/a)$/i;
 
+/** Elective / event program lines (not instructor names) on billing group headers. */
+export function looksLikeWorksheetElectiveGroupLabel(label: string): boolean {
+  const t = label.replace(/\u00a0/g, " ").trim();
+  if (!t) return false;
+  if (/\btransportation\s+exploration\b/i.test(t)) return true;
+  if (/\bday at the fair\b/i.test(t)) return true;
+  if (/\belective\b/i.test(t)) return true;
+  return false;
+}
+
 /** Billing sheets sometimes repeat only the event or group segment on the next line (same school). */
 export function looksLikeWorksheetSchoolContinuationHeader(label: string): boolean {
   const t = label.replace(/\u00a0/g, " ").trim();
   if (!t) return false;
+  if (looksLikeWorksheetElectiveGroupLabel(t)) return true;
   if (/\bday at the fair\b/i.test(t)) return true;
   if (/^pre[-\s]?(9000|5000|7000|7200)\b/i.test(t)) return true;
   if (GROUP_DESIGNATION_HINT.test(t)) return true;
@@ -472,6 +483,7 @@ function isWeekdayPart(part: string): boolean {
 function isGroupDesignationPart(part: string): boolean {
   const lower = part.trim().toLowerCase();
   if (!lower) return false;
+  if (looksLikeWorksheetElectiveGroupLabel(part)) return true;
   if (/\bday at the fair\b/.test(lower)) return true;
   if (/^inclusion group \d+$/i.test(part.trim())) return true;
   if (GROUP_DESIGNATION_HINT.test(lower)) return true;
@@ -491,6 +503,7 @@ function looksLikeClassTimePart(part: string): boolean {
 function looksLikePersonName(part: string): boolean {
   const p = part.trim();
   if (!p) return false;
+  if (looksLikeWorksheetElectiveGroupLabel(p)) return false;
   if (isGroupDesignationPart(p) || normalizeFrequencyToken(p) || isWeekdayPart(p)) return false;
   if (looksLikeClassTimePart(p)) return false;
   if (/\([a-z\s]+county\)/i.test(p)) return true;
@@ -599,6 +612,9 @@ export function parseGroupHeader(headerRaw: string): {
   if (onlySchoolAndGroup && segments[0]) {
     const groupPart = segments[0].part;
     let groupDesignation = groupPart.trim();
+    if (/^main$/i.test(groupDesignation)) {
+      groupDesignation = "Main";
+    }
     let frequency: string | null = null;
     if (segments[0].kind === "freq") {
       frequency = normalizeFrequencyToken(groupPart) ?? null;
