@@ -117,8 +117,21 @@ export function IjpClientSignatureSection({ clientId }: Props) {
   }
 
   if (!status) {
-    return null;
+    return (
+      <div className="rounded-xl border border-neutral-200 bg-neutral-50/80 p-4">
+        {error ? (
+          <p className="text-sm text-red-700">{error}</p>
+        ) : (
+          <p className="text-sm text-brand-black/70">
+            IJP attestation is not available for this client right now. Refresh the page and try
+            again, or open the client profile.
+          </p>
+        )}
+      </div>
+    );
   }
+
+  const canCollectSignature = status.captureOpen && !status.hasAttestation;
 
   return (
     <section className="rounded-xl border border-neutral-200 bg-neutral-50/80 p-4">
@@ -141,15 +154,21 @@ export function IjpClientSignatureSection({ clientId }: Props) {
       {message ? <p className="mt-2 text-sm text-emerald-800">{message}</p> : null}
       {error ? <p className="mt-2 text-sm text-red-700">{error}</p> : null}
 
-      {status.signatureNeeded && status.captureOpen ? (
+      {canCollectSignature ? (
         <div className="mt-4 space-y-4">
           <p className="text-sm leading-relaxed text-brand-black/85">{IJP_ATTESTATION_TEXT}</p>
-            <SignaturePad
-              value={signature}
-              onChange={setSignature}
-              disabled={busy}
-              label="Client signature"
-            />
+          {!status.signatureNeeded ? (
+            <p className="text-sm text-brand-black/65">
+              Billable time for {status.serviceMonthLabel} may not be logged yet. You can still
+              collect the client&apos;s signature during the attestation window.
+            </p>
+          ) : null}
+          <SignaturePad
+            value={signature}
+            onChange={setSignature}
+            disabled={busy}
+            label="Client signature"
+          />
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -185,9 +204,14 @@ export function IjpClientSignatureSection({ clientId }: Props) {
         <p className="mt-2 text-sm text-brand-black/70">
           Attestation on file for {status.serviceMonthLabel}.
         </p>
+      ) : status.signatureNeeded ? (
+        <p className="mt-2 text-sm text-brand-black/70">
+          Capture window closed for {status.serviceMonthLabel}. Signature is still needed for
+          billing.
+        </p>
       ) : (
         <p className="mt-2 text-sm text-brand-black/70">
-          Capture window closed for {status.serviceMonthLabel}.
+          No attestation required for {status.serviceMonthLabel}.
         </p>
       )}
     </section>
