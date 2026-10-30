@@ -45,3 +45,13 @@ test("Scintilla Charter School Valdosta maps to class setup name", () => {
     "Scintilla Charter School"
   );
 });
+
+test("Harrell Learning Center and HLC billing shorthand are recognized", () => {
+  assert.ok(looksLikeKnownWorksheetSchoolLabel("Harrell Learning Center"));
+  assert.ok(looksLikeKnownWorksheetSchoolLabel("HLC WARE"));
+  assert.equal(canonicalizeWorksheetSchoolName("HLC"), "Harrell Learning Center");
+  assert.equal(
+    canonicalizeWorksheetSchoolName("Harrell Learning Center"),
+    "Harrell Learning Center"
+  );
+});

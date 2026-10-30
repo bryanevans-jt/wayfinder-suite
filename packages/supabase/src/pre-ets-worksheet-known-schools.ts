@@ -30,6 +30,11 @@ const WORKSHEET_SCHOOL_CANONICAL: Array<{ pattern: RegExp; canonical: string }> 
     pattern: /^scintilla\s+charter\s+school(\s+[a-z][a-z\s.'-]+)?$/i,
     canonical: "Scintilla Charter School",
   },
+  {
+    pattern: /^harrell\s+learning\s+center$/i,
+    canonical: "Harrell Learning Center",
+  },
+  { pattern: /^hlc(\s+ware)?$/i, canonical: "Harrell Learning Center" },
 ];
 
 const KNOWN_SCHOOL_LABEL_PATTERNS: RegExp[] = [
@@ -43,6 +48,9 @@ const KNOWN_SCHOOL_LABEL_PATTERNS: RegExp[] = [
   /\bshowcase\s+transition\b/i,
   /\bshowcase\s+academy\b/i,
   /\bscintilla\s+charter\s+school\b/i,
+  /\bharrell\s+learning\s+center\b/i,
+  /\bhlc(\s+ware)?\b/i,
+  /\blearning\s+center\b/i,
   /\bcharter\s+school\b/i,
   /** Alternate Pre-ETS sites billed like schools but not named “___ High School”. */
   /^project\s+[a-z0-9]/i,
