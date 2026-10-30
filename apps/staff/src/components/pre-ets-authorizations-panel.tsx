@@ -39,8 +39,10 @@ export function PreEtsAuthorizationsPanel() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [roster, setRoster] = useState<RosterRow[]>([]);
   const [canFinalize, setCanFinalize] = useState(false);
+  const [canEditRosterAfterAuthorization, setCanEditRosterAfterAuthorization] = useState(false);
   const [canEditServiceCode, setCanEditServiceCode] = useState(false);
   const [finalizeTarget, setFinalizeTarget] = useState<Authorization | null>(null);
+  const [editTarget, setEditTarget] = useState<Authorization | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -56,10 +58,17 @@ export function PreEtsAuthorizationsPanel() {
     void (async () => {
       const res = await fetch("/api/pre-ets/access");
       const data = (await res.json()) as {
-        access?: { canFinalizeAuthorizations?: boolean; canEditAuthorizationServiceCode?: boolean };
+        access?: {
+          canFinalizeAuthorizations?: boolean;
+          canEditRosterAfterAuthorization?: boolean;
+          canEditAuthorizationServiceCode?: boolean;
+        };
       };
       if (res.ok) {
         setCanFinalize(data.access?.canFinalizeAuthorizations ?? false);
+        setCanEditRosterAfterAuthorization(
+          data.access?.canEditRosterAfterAuthorization ?? false
+        );
         setCanEditServiceCode(data.access?.canEditAuthorizationServiceCode ?? false);
       }
     })();
@@ -188,6 +197,16 @@ export function PreEtsAuthorizationsPanel() {
                             Enter authorization
                           </button>
                         ) : null}
+                        {(canFinalize && a.auth_type === "pending" && !a.auth_number) ||
+                        (canEditRosterAfterAuthorization && a.auth_number) ? (
+                          <button
+                            type="button"
+                            className="text-xs text-brand-green hover:underline"
+                            onClick={() => setEditTarget(a)}
+                          >
+                            Edit roster
+                          </button>
+                        ) : null}
                         {a.auth_number ? (
                           <a
                             href={`/api/pre-ets/authorizations/${a.id}/roster-pdf`}
@@ -244,6 +263,21 @@ export function PreEtsAuthorizationsPanel() {
           }`}
           canEditServiceCode={canEditServiceCode}
           onClose={() => setFinalizeTarget(null)}
+          onSaved={() => void load()}
+        />
+      ) : null}
+
+      {editTarget ? (
+        <PreEtsAuthorizationFinalizeModal
+          mode="edit"
+          authorizationId={editTarget.id}
+          schoolLabel={`${schoolName(editTarget)}${
+            editTarget.pre_ets_program_groups?.group_name
+              ? ` · ${editTarget.pre_ets_program_groups.group_name}`
+              : ""
+          }`}
+          canEditServiceCode={canEditServiceCode}
+          onClose={() => setEditTarget(null)}
           onSaved={() => void load()}
         />
       ) : null}

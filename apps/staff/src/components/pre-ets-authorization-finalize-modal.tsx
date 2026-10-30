@@ -163,7 +163,7 @@ export function PreEtsAuthorizationFinalizeModal({
         <p className="mt-1 text-sm text-brand-black/70">{schoolLabel}</p>
         <p className="mt-2 text-xs text-brand-black/60">
           {isEdit
-            ? "Update students imported from the spreadsheet. Changes apply to the pending authorization only."
+            ? "Add, remove, or update students on this roster. Authorization number (A&I) is not changed here."
             : "Add or remove students as needed. Saving finalizes this roster and notifies the assigned TS/TI and supervisor that it is ready."}
         </p>
 

@@ -12,12 +12,14 @@ function relationOne<T>(raw: T | T[] | null | undefined): T | null {
   return Array.isArray(raw) ? (raw[0] ?? null) : raw;
 }
 
-/** Edit roster lines on a pending authorization (no auth number change). */
+/** Edit roster lines on an authorization (no auth number change). */
 export async function updatePendingPreEtsRoster(
   admin: SupabaseClient,
   input: {
     authorizationId: string;
     roster: FinalizeRosterStudentInput[];
+    /** Admin/Super Admin — allow edits after A&I / finalized auth type. */
+    allowAfterAuthorization?: boolean;
   }
 ): Promise<UpdatePendingRosterResult> {
   const { data: authRow, error: authErr } = await admin
@@ -32,8 +34,12 @@ export async function updatePendingPreEtsRoster(
     return { ok: false, error: authErr?.message ?? "Authorization not found." };
   }
 
-  if (authRow.auth_number || authRow.auth_type !== "pending") {
-    return { ok: false, error: "Only pending authorizations can be edited this way." };
+  const hasAuthorizationNumber = Boolean((authRow.auth_number as string | null)?.trim());
+  const isPending = authRow.auth_type === "pending";
+  if (!input.allowAfterAuthorization) {
+    if (hasAuthorizationNumber || !isPending) {
+      return { ok: false, error: "Only pending authorizations can be edited this way." };
+    }
   }
 
   if (input.roster.length === 0) {

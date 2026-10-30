@@ -72,6 +72,7 @@ export function PreEtsPipelinePanel() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [canFinalize, setCanFinalize] = useState(false);
+  const [canEditRosterAfterAuthorization, setCanEditRosterAfterAuthorization] = useState(false);
   const [canEditServiceCode, setCanEditServiceCode] = useState(false);
   const [includeHidden, setIncludeHidden] = useState(false);
   const [editTarget, setEditTarget] = useState<PipelineRow | null>(null);
@@ -99,6 +100,7 @@ export function PreEtsPipelinePanel() {
       const data = (await res.json()) as {
         access?: {
           canFinalizeAuthorizations?: boolean;
+          canEditRosterAfterAuthorization?: boolean;
           canEditAuthorizationServiceCode?: boolean;
           canManageSetup?: boolean;
           canSupervise?: boolean;
@@ -110,6 +112,9 @@ export function PreEtsPipelinePanel() {
       if (res.ok) {
         setServiceCodes(data.settings?.service_codes ?? []);
         setCanFinalize(data.access?.canFinalizeAuthorizations ?? false);
+        setCanEditRosterAfterAuthorization(
+          data.access?.canEditRosterAfterAuthorization ?? false
+        );
         setCanEditServiceCode(data.access?.canEditAuthorizationServiceCode ?? false);
         setCanEditGroupLabels(
           Boolean(
@@ -432,25 +437,32 @@ export function PreEtsPipelinePanel() {
                           Restore
                         </button>
                       ) : null}
-                      {row.authorizationId && row.status === "pending_authorization" ? (
+                      {row.authorizationId &&
+                      ((canFinalize && row.status === "pending_authorization" && !row.authNumber) ||
+                        (canEditRosterAfterAuthorization && row.authNumber)) ? (
                         <>
-                          {canFinalize ? (
-                            <>
-                              <button
-                                type="button"
-                                className="text-brand-green hover:underline"
-                                onClick={() => setEditTarget(row)}
-                              >
-                                Edit roster
-                              </button>
-                              <button
-                                type="button"
-                                className="font-semibold text-brand-gold hover:underline"
-                                onClick={() => setFinalizeTarget(row)}
-                              >
-                                Enter authorization
-                              </button>
-                            </>
+                          {canFinalize &&
+                          row.status === "pending_authorization" &&
+                          !row.authNumber ? (
+                            <button
+                              type="button"
+                              className="font-semibold text-brand-gold hover:underline"
+                              onClick={() => setFinalizeTarget(row)}
+                            >
+                              Enter authorization
+                            </button>
+                          ) : null}
+                          {(canFinalize &&
+                            row.status === "pending_authorization" &&
+                            !row.authNumber) ||
+                          (canEditRosterAfterAuthorization && row.authNumber) ? (
+                            <button
+                              type="button"
+                              className="text-brand-green hover:underline"
+                              onClick={() => setEditTarget(row)}
+                            >
+                              Edit roster
+                            </button>
                           ) : null}
                         </>
                       ) : null}
