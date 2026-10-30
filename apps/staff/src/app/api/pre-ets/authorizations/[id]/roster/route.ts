@@ -1,7 +1,11 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
+import { updatePreEtsAuthorizationAuthNumber } from "@wayfinder/supabase/pre-ets-authorization-auth-number";
 import { updatePendingPreEtsRoster } from "@wayfinder/supabase/pre-ets-roster-update";
-import { canEditPreEtsRosterAfterAuthorization } from "@wayfinder/supabase/pre-ets-settings";
+import {
+  canEditPreEtsAuthorizationNumber,
+  canEditPreEtsRosterAfterAuthorization,
+} from "@wayfinder/supabase/pre-ets-settings";
 import { isPreEtsAuthorizationVisibleToRole } from "@/lib/pre-ets-field-gate";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
@@ -123,6 +127,7 @@ export async function PATCH(
 
   const { id } = await context.params;
   const allowAfterAuthorization = canEditPreEtsRosterAfterAuthorization(auth.role);
+  const allowEditAuthorizationNumber = canEditPreEtsAuthorizationNumber(auth.role);
 
   try {
     const admin = createServiceRoleClient();
@@ -149,6 +154,7 @@ export async function PATCH(
     }
 
     const body = (await request.json()) as {
+      authNumber?: string;
       roster?: Array<{
         participantId?: string;
         fullName?: string;
@@ -172,6 +178,22 @@ export async function PATCH(
 
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: 400 });
+    }
+
+    if (body.authNumber !== undefined) {
+      if (!allowEditAuthorizationNumber) {
+        return NextResponse.json(
+          { error: "Only Admin or Super Admin can change the authorization number (A&I)." },
+          { status: 403 }
+        );
+      }
+      const authNumberResult = await updatePreEtsAuthorizationAuthNumber(admin, {
+        authorizationId: id,
+        authNumber: body.authNumber,
+      });
+      if (!authNumberResult.ok) {
+        return NextResponse.json({ error: authNumberResult.error }, { status: 400 });
+      }
     }
 
     return NextResponse.json({ ok: true, ytdWarnings: result.ytdWarnings });

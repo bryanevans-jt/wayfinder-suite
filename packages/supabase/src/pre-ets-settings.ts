@@ -286,6 +286,13 @@ export function canEditPreEtsRosterAfterAuthorization(
   return isSuperAdminRole(r) || isAdminRole(r);
 }
 
+/** Admin / Super Admin — change GVRA authorization number (A&I) on an existing roster. */
+export function canEditPreEtsAuthorizationNumber(
+  role: string | null | undefined
+): boolean {
+  return canEditPreEtsRosterAfterAuthorization(role);
+}
+
 export function preEtsWorksheetTestingOverrideActive(
   settings: Pick<PreEtsSettingsRow, "worksheet_testing_override_enabled">
 ): boolean {

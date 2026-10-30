@@ -18,6 +18,8 @@ type Props = {
   schoolLabel: string;
   mode?: "finalize" | "edit";
   canEditServiceCode?: boolean;
+  /** Admin / Super Admin — change GVRA authorization number (A&I) in Edit roster. */
+  canEditAuthorizationNumber?: boolean;
   onClose: () => void;
   onSaved: () => void;
 };
@@ -27,6 +29,7 @@ export function PreEtsAuthorizationFinalizeModal({
   schoolLabel,
   mode = "finalize",
   canEditServiceCode = false,
+  canEditAuthorizationNumber = false,
   onClose,
   onSaved,
 }: Props) {
@@ -56,6 +59,7 @@ export function PreEtsAuthorizationFinalizeModal({
           unitsApproved: number | null;
         }>;
         authorization?: {
+          authNumber?: string | null;
           serviceCode: string;
           serviceLabel: string | null;
         } | null;
@@ -67,6 +71,7 @@ export function PreEtsAuthorizationFinalizeModal({
         setLoading(false);
         return;
       }
+      setAuthNumber(data.authorization?.authNumber ?? "");
       setServiceCode(data.authorization?.serviceCode ?? "");
       setServiceLabel(data.authorization?.serviceLabel ?? null);
       setRows(
@@ -150,6 +155,9 @@ export function PreEtsAuthorizationFinalizeModal({
         body: JSON.stringify(
           isEdit
             ? {
+                ...(canEditAuthorizationNumber && authNumber.trim()
+                  ? { authNumber: authNumber.trim() }
+                  : {}),
                 roster: rows.map((row, index) => ({
                   participantId:
                     row.participantId.trim() ||
@@ -189,7 +197,9 @@ export function PreEtsAuthorizationFinalizeModal({
         <p className="mt-1 text-sm text-brand-black/70">{schoolLabel}</p>
         <p className="mt-2 text-xs text-brand-black/60">
           {isEdit
-            ? "Add, remove, or update students on this roster. Authorization number (A&I) is not changed here."
+            ? canEditAuthorizationNumber
+              ? "Add, remove, or update students and correct the GVRA authorization number (A&I) when needed."
+              : "Add, remove, or update students on this roster. Authorization number (A&I) is not changed here."
             : "Add or remove students as needed. Saving finalizes this roster and notifies the assigned TS/TI and supervisor that it is ready."}
         </p>
 
@@ -236,14 +246,14 @@ export function PreEtsAuthorizationFinalizeModal({
           ) : null}
         </div>
 
-        {!isEdit ? (
+        {!isEdit || canEditAuthorizationNumber ? (
           <label className="mt-4 block text-sm">
-            <span className="font-medium">GVRA authorization number</span>
+            <span className="font-medium">GVRA authorization number (A&I)</span>
             <input
               className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 font-mono text-sm"
               value={authNumber}
               onChange={(e) => setAuthNumber(e.target.value)}
-              disabled={saving}
+              disabled={saving || loading || (isEdit && !canEditAuthorizationNumber)}
             />
           </label>
         ) : null}
@@ -333,7 +343,11 @@ export function PreEtsAuthorizationFinalizeModal({
             className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
             onClick={() => void save()}
             disabled={
-              saving || loading || rows.length === 0 || (!isEdit && !authNumber.trim())
+              saving ||
+              loading ||
+              rows.length === 0 ||
+              (!isEdit && !authNumber.trim()) ||
+              (isEdit && canEditAuthorizationNumber && !authNumber.trim())
             }
           >
             {saving ? "Saving…" : isEdit ? "Save roster" : "Finalize roster"}

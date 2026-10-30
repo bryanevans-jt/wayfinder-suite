@@ -108,6 +108,7 @@
     "./pre-ets-auth-request-notify": "./src/pre-ets-auth-request-notify.ts",
     "./pre-ets-roster-released-notify": "./src/pre-ets-roster-released-notify.ts",
     "./pre-ets-authorization-finalize": "./src/pre-ets-authorization-finalize.ts",
+    "./pre-ets-authorization-auth-number": "./src/pre-ets-authorization-auth-number.ts",
     "./pre-ets-list-format": "./src/pre-ets-list-format.ts",
     "./participants": "./src/participants.ts",
     "./service-episodes": "./src/service-episodes.ts",
