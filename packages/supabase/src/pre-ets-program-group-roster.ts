@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isPreEtsPendingParticipantId } from "./pre-ets-pending-participant-id";
 import { fetchAllPostgrestRows } from "./postgrest-fetch-all";
 import { loadWorksheetParticipantAllowlistForProgramGroup } from "./pre-ets-program-group-worksheet-roster";
 import { worksheetHeaderKeysMatch } from "./pre-ets-worksheet-parser";
@@ -13,6 +14,12 @@ export type ProgramGroupRosterStudent = {
   fullName: string;
   listOrder: number;
 };
+
+/** GVRA billing / PDF export requires a real PID, not a worksheet placeholder. */
+export function isBillableRosterParticipantId(participantId: string | null | undefined): boolean {
+  const pid = (participantId ?? "").trim();
+  return pid.length > 0 && !isPreEtsPendingParticipantId(pid);
+}
 
 type ProgramGroupHeaderMeta = {
   worksheet_header_key: string | null;
@@ -120,7 +127,7 @@ export async function loadEligibleRosterStudentsForProgramGroup(
     if (row.not_approved) continue;
     const st = relationOne(row.pre_ets_students);
     const pid = st?.participant_id?.trim() ?? "";
-    if (!pid) continue;
+    if (!isBillableRosterParticipantId(pid)) continue;
     if (byPid.has(pid)) continue;
     byPid.set(pid, {
       participantId: pid,
@@ -163,7 +170,7 @@ export async function loadEligibleRosterStudentsForAuthorization(
     if (row.not_approved) continue;
     const st = relationOne(row.pre_ets_students);
     const pid = st?.participant_id?.trim() ?? "";
-    if (!pid) continue;
+    if (!isBillableRosterParticipantId(pid)) continue;
     students.push({
       participantId: pid,
       fullName: st?.full_name?.trim() ?? "",
@@ -174,6 +181,21 @@ export async function loadEligibleRosterStudentsForAuthorization(
   return students.sort(
     (a, b) => a.listOrder - b.listOrder || a.fullName.localeCompare(b.fullName)
   );
+}
+
+/** Roster rows on an authorization, including placeholder PIDs awaiting entry. */
+export async function countRosterStudentsForAuthorization(
+  admin: SupabaseClient,
+  authorizationId: string
+): Promise<number> {
+  const { count, error } = await admin
+    .from("pre_ets_roster_entries")
+    .select("id", { count: "exact", head: true })
+    .eq("authorization_id", authorizationId)
+    .eq("not_approved", false);
+
+  if (error) return 0;
+  return count ?? 0;
 }
 
 export async function countEligibleRosterStudentsForAuthorization(

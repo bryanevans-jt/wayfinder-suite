@@ -5,6 +5,7 @@ import { loadPreEtsAssignedSchoolIds } from "./pre-ets-upload-scope";
 import {
   countEligibleRosterStudentsForAuthorization,
   countEligibleRosterStudentsForProgramGroup,
+  countRosterStudentsForAuthorization,
 } from "./pre-ets-program-group-roster";
 
 export type PreEtsPipelineStatus =
@@ -164,7 +165,7 @@ export async function loadPreEtsSchoolPipeline(
 
       const programGroupId = group.id as string;
       const studentCount = auth?.id
-        ? await countEligibleRosterStudentsForAuthorization(admin, auth.id as string)
+        ? await countRosterStudentsForAuthorization(admin, auth.id as string)
         : await countEligibleRosterStudentsForProgramGroup(admin, programGroupId);
 
       const mergedIntoId = (group.merged_into_program_group_id as string | null) ?? null;

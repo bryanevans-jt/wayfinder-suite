@@ -411,6 +411,34 @@ describe("pre-ets-worksheet-parser", () => {
     assert.deepEqual(fair?.students.map((s) => s.participantId), ["20001", "20002"]);
   });
 
+  it("keeps students with authorization but no PID using a placeholder", () => {
+    const csv = [
+      "Joshua Tree November Pre-ETS Billing 2026-27",
+      "District 5 Schools",
+      "Columbus Office Schools",
+      "EMANUEL COUNTY INSTITUTE - INCLUSION -",
+      "Supervisor / Instructor: Jane Instructor",
+      "#,Student Name,PID #,A & I,Service,Code,Units",
+      "1,Student With Auth,,12345678,PRE,PRE-1,1",
+    ].join("\n");
+
+    const parsed = parseDistrictWorksheet(csv);
+    const group = parsed.offices[0]?.groups[0];
+    assert.ok(group);
+    assert.equal(group?.schoolName, "EMANUEL COUNTY INSTITUTE");
+    assert.equal(group?.students.length, 1);
+    assert.ok(group?.students[0]?.participantId.startsWith("PENDING-PID-"));
+    assert.ok(
+      parsed.issues.some((i) => i.includes("add PID in Edit roster") && i.includes("Student With Auth"))
+    );
+  });
+
+  it("recognizes Emanuel County Institute as a standalone header row", () => {
+    assert.ok(
+      looksLikeWorksheetGroupHeaderLine("Emanuel County Institute,,,", ["Emanuel County Institute"])
+    );
+  });
+
   it("skips student rows without PID", () => {
     const csv = [
       "Joshua Tree Service Group March Pre-ETS Worksheet 2025-2026",
@@ -423,8 +451,11 @@ describe("pre-ets-worksheet-parser", () => {
     ].join("\n");
 
     const parsed = parseDistrictWorksheet(csv);
-    assert.equal(parsed.stats.studentCount, 1);
-    assert.ok(parsed.stats.skippedMissingPidCount >= 1);
-    assert.ok(parsed.issues.some((i) => i.includes("missing PID")));
+    assert.equal(parsed.stats.studentCount, 2);
+    assert.ok(
+      parsed.issues.some(
+        (i) => i.includes("add PID in Edit roster") && i.includes("Jane Doe")
+      )
+    );
   });
 });

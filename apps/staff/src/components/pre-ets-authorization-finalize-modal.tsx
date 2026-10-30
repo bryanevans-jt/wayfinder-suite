@@ -1,6 +1,7 @@
 "use client";
 
 import { PreEtsServiceCodeDisplay } from "@/components/pre-ets-service-code-display";
+import { isPreEtsPendingParticipantId } from "@wayfinder/supabase/pre-ets-pending-participant-id";
 import type { PreEtsServiceCodeRow } from "@wayfinder/supabase/pre-ets-settings";
 import { useEffect, useState } from "react";
 
@@ -8,6 +9,8 @@ type RosterRow = {
   participantId: string;
   fullName: string;
   unitsApproved: number;
+  needsPid?: boolean;
+  placeholderParticipantId?: string;
 };
 
 type Props = {
@@ -67,11 +70,17 @@ export function PreEtsAuthorizationFinalizeModal({
       setServiceCode(data.authorization?.serviceCode ?? "");
       setServiceLabel(data.authorization?.serviceLabel ?? null);
       setRows(
-        (data.roster ?? []).map((r) => ({
-          participantId: r.participantId ?? "",
-          fullName: r.fullName ?? "",
-          unitsApproved: r.unitsApproved ?? 0,
-        }))
+        (data.roster ?? []).map((r) => {
+          const rawPid = r.participantId ?? "";
+          const needsPid = isPreEtsPendingParticipantId(rawPid);
+          return {
+            participantId: needsPid ? "" : rawPid,
+            fullName: r.fullName ?? "",
+            unitsApproved: r.unitsApproved ?? 0,
+            needsPid,
+            placeholderParticipantId: needsPid ? rawPid : undefined,
+          };
+        })
       );
       if (accessRes?.ok) {
         const accessData = (await accessRes.json()) as {
@@ -88,7 +97,14 @@ export function PreEtsAuthorizationFinalizeModal({
 
   function updateRow(index: number, patch: Partial<RosterRow>) {
     setRows((current) =>
-      current.map((row, i) => (i === index ? { ...row, ...patch } : row))
+      current.map((row, i) => {
+        if (i !== index) return row;
+        const next = { ...row, ...patch };
+        if (patch.participantId !== undefined && patch.participantId.trim()) {
+          next.needsPid = false;
+        }
+        return next;
+      })
     );
   }
 
@@ -133,7 +149,17 @@ export function PreEtsAuthorizationFinalizeModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
           isEdit
-            ? { roster: rows }
+            ? {
+                roster: rows.map((row, index) => ({
+                  participantId:
+                    row.participantId.trim() ||
+                    row.placeholderParticipantId?.trim() ||
+                    "",
+                  fullName: row.fullName,
+                  unitsApproved: row.unitsApproved,
+                  listOrder: index + 1,
+                })),
+              }
             : {
                 authNumber,
                 roster: rows,
@@ -226,6 +252,12 @@ export function PreEtsAuthorizationFinalizeModal({
           <p className="mt-6 text-sm text-brand-black/60">Loading roster…</p>
         ) : (
           <div className="mt-4 space-y-2">
+            {rows.some((r) => r.needsPid) ? (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+                One or more students were imported with an authorization number but no PID on the
+                spreadsheet. Enter their PID # below before billing or printing rosters.
+              </p>
+            ) : null}
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium">Roster students</p>
               <button
@@ -246,8 +278,10 @@ export function PreEtsAuthorizationFinalizeModal({
                   className="grid gap-2 rounded-lg border border-neutral-200 p-3 sm:grid-cols-[1fr_1fr_80px_auto]"
                 >
                   <input
-                    placeholder="Participant ID"
-                    className="rounded border border-neutral-300 px-2 py-1 text-sm"
+                    placeholder={row.needsPid ? "Add PID # (required)" : "Participant ID"}
+                    className={`rounded border px-2 py-1 text-sm ${
+                      row.needsPid ? "border-amber-400 bg-amber-50/80" : "border-neutral-300"
+                    }`}
                     value={row.participantId}
                     onChange={(e) => updateRow(index, { participantId: e.target.value })}
                     disabled={saving}
