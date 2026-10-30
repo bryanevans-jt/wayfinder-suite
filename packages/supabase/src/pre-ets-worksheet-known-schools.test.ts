@@ -56,6 +56,18 @@ test("Coffee County Wiregrass is recognized and Coffe typo is corrected", () => 
   );
 });
 
+test("Thomas County Central maps to Thomas County Central High School", () => {
+  assert.ok(looksLikeKnownWorksheetSchoolLabel("Thomas County Central"));
+  assert.equal(
+    canonicalizeWorksheetSchoolName("Thomas County Central"),
+    "Thomas County Central High School"
+  );
+  assert.equal(
+    canonicalizeWorksheetSchoolName("THOMAS COUNTY CENTRAL HIGH"),
+    "Thomas County Central High School"
+  );
+});
+
 test("Harrell Learning Center and HLC billing shorthand are recognized", () => {
   assert.ok(looksLikeKnownWorksheetSchoolLabel("Harrell Learning Center"));
   assert.ok(looksLikeKnownWorksheetSchoolLabel("HLC WARE"));

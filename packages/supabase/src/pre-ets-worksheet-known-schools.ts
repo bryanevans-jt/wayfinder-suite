@@ -47,6 +47,10 @@ const WORKSHEET_SCHOOL_CANONICAL: Array<{ pattern: RegExp; canonical: string }> 
     pattern: /^coffee\s+county\s+wiregrass$/i,
     canonical: "Coffee County Wiregrass",
   },
+  {
+    pattern: /^thomas\s+county\s+central(\s+high(\s+school)?|\s+school)?$/i,
+    canonical: "Thomas County Central High School",
+  },
 ];
 
 const KNOWN_SCHOOL_LABEL_PATTERNS: RegExp[] = [
@@ -64,6 +68,7 @@ const KNOWN_SCHOOL_LABEL_PATTERNS: RegExp[] = [
   /\bhlc(\s+ware)?\b/i,
   /\blearning\s+center\b/i,
   /\bcoffee\s+county\s+wiregrass\b/i,
+  /\bthomas\s+county\s+central\b/i,
   /\bcharter\s+school\b/i,
   /** Alternate Pre-ETS sites billed like schools but not named “___ High School”. */
   /^project\s+[a-z0-9]/i,
