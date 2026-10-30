@@ -382,6 +382,93 @@ describe("pre-ets-worksheet-parser", () => {
     );
   });
 
+  it("does not treat Group 2 as an instructor name on the group header", () => {
+    const header = parseGroupHeader("Dougherty County High School - Group 1 - Group 2");
+    assert.equal(header.instructorName, null);
+    assert.match(header.groupName, /group 1/i);
+    assert.match(header.groupName, /group 2/i);
+
+    const parsedLine = parseWorksheetSupervisorInstructorLine("/ Instructor: Group 2");
+    assert.equal(parsedLine?.instructorName, null);
+  });
+
+  it("starts Group 2 when the instructor line carries a group designation", () => {
+    const csv = [
+      "JOSHUA TREE NOVEMBER PRE-ETS BILLING 2026-27,,,,,,,,,,,",
+      "DISTRICT 5 SCHOOLS,,,,,,,,,,,,",
+      "COLUMBUS OFFICE SCHOOLS,,,,,,,,,,,,",
+      "Dougherty County High School - Group 1,,,,,,,,,,,,",
+      "/ Instructor: Group 2,,,,,,,,,,,,",
+      "#,STUDENT NAME,PID #,A&I,SERVICE,CODE,UNITS,Class Time,Invoice #,Billed",
+      "1,Group Two Student,33333,,PRE,PRE-1,1,,,",
+    ].join("\n");
+
+    const parsed = parseDistrictWorksheet(csv);
+    assert.equal(parsed.stats.groupCount, 2);
+    const group1 = parsed.offices[0]?.groups.find((g) => /group 1/i.test(g.groupName));
+    const group2 = parsed.offices[0]?.groups.find((g) => /group 2/i.test(g.groupName));
+    assert.ok(group1);
+    assert.ok(group2);
+    assert.equal(group1?.instructorName, null);
+    assert.equal(group1?.students.length, 0);
+    assert.equal(group2?.students[0]?.participantId, "33333");
+  });
+
+  it("allows a blank instructor on the supervisor or instructor row", () => {
+    assert.equal(
+      parseWorksheetSupervisorInstructorLine("Gracie Williams / Instructor:")?.instructorName,
+      null
+    );
+    assert.equal(parseWorksheetSupervisorInstructorLine("Instructor:")?.instructorName, null);
+
+    const csv = [
+      "JOSHUA TREE NOVEMBER PRE-ETS BILLING 2026-27,,,,,,,,,,,",
+      "DISTRICT 5 SCHOOLS,,,,,,,,,,,,",
+      "COLUMBUS OFFICE SCHOOLS,,,,,,,,,,,,",
+      "Dougherty County High School - Group 1,,,,,,,,,,,,",
+      "Gracie Williams / Instructor:,,,,,,,,,,,,",
+      "#,STUDENT NAME,PID #,A&I,SERVICE,CODE,UNITS,Class Time,Invoice #,Billed",
+      "1,Dougherty Student,44444,,PRE,PRE-1,1,,,",
+    ].join("\n");
+
+    const parsed = parseDistrictWorksheet(csv);
+    const group = parsed.offices[0]?.groups[0];
+    assert.equal(group?.instructorName, null);
+    assert.equal(group?.students[0]?.participantId, "44444");
+  });
+
+  it("removes TLC student PIDs duplicated on Lee County 9th Grade Inclusion", () => {
+    const csv = [
+      "JOSHUA TREE NOVEMBER PRE-ETS BILLING 2026-27,,,,,,,,,,,",
+      "DISTRICT 5 SCHOOLS,,,,,,,,,,,,",
+      "COLUMBUS OFFICE SCHOOLS,,,,,,,,,,,,",
+      "Lee County 9th Grade Center - INCLUSION -,,,,,,,,,,,,",
+      "Gracie Williams / Instructor: Example,,,,,,,,,,,,",
+      "#,STUDENT NAME,PID #,A&I,SERVICE,CODE,UNITS,Class Time,Invoice #,Billed",
+      "1,Lee Inclusion Student,11111,,PRE,PRE-1,1,,,",
+      "2,TLC Student,22222,,PRE,PRE-1,1,,,",
+      "Transitional Learning Center,,,,,,,,,,,,",
+      "1,TLC Student,22222,,PRE,PRE-1,1,,,",
+    ].join("\n");
+
+    const parsed = parseDistrictWorksheet(csv);
+    const lee = parsed.offices[0]?.groups.find(
+      (g) => /9th/i.test(g.schoolName) && /inclusion/i.test(String(g.groupName))
+    );
+    const tlc = parsed.offices[0]?.groups.find((g) =>
+      /transitional/i.test(g.schoolName)
+    );
+    assert.ok(lee && tlc);
+    assert.deepEqual(
+      lee.students.map((s) => s.participantId),
+      ["11111"]
+    );
+    assert.deepEqual(
+      tlc.students.map((s) => s.participantId),
+      ["22222"]
+    );
+  });
+
   it("keeps Lee County 9th Grade Inclusion and Transitional Learning Center as separate rosters", () => {
     const csv = [
       "JOSHUA TREE NOVEMBER PRE-ETS BILLING 2026-27,,,,,,,,,,,",
