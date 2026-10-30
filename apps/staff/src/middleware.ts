@@ -6,6 +6,7 @@ import {
   isGvraSupervisorRole,
   staffHomePath,
   type SupabaseCookieToSet,
+  loadAuthUserProfile,
   wayfinderServerAuthOptions,
 } from "@wayfinder/supabase";
 import { resolvePreviewSession } from "@wayfinder/supabase/preview-middleware";
@@ -21,7 +22,7 @@ import {
   isPreEtsInstructorBlockedStaffPath,
   portalPathAllowedForRole,
 } from "@/lib/staff-nav";
-import { isPreEtsApiPath, preEtsAccessAllowedForRole } from "@/lib/pre-ets-access";
+import { isPreEtsApiPath, preEtsMiddlewareAccessAllowed } from "@/lib/pre-ets-access";
 import { isInstructorRole } from "@wayfinder/supabase/roles";
 import { APP_VERSION } from "@wayfinder/branding";
 
@@ -59,17 +60,13 @@ export async function middleware(request: NextRequest) {
     return withDeployHeaders(response);
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
+  const { profile } = await loadAuthUserProfile(supabase);
 
-  const previewSession = resolvePreviewSession(
-    request,
-    user.id,
-    profile?.role ?? ""
-  );
+  if (!profile) {
+    return withDeployHeaders(response);
+  }
+
+  const previewSession = resolvePreviewSession(request, user.id, profile.role);
   const role = previewSession.effectiveRole;
 
   if (isPortalPath(pathname) && !portalPathAllowedForRole(pathname, role)) {
@@ -79,7 +76,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (isPreEtsStaffPath(pathname) || isPreEtsApiPath(pathname)) {
-    const allowed = await preEtsAccessAllowedForRole(role);
+    const allowed = preEtsMiddlewareAccessAllowed(role);
     if (!allowed) {
       if (isPreEtsApiPath(pathname)) {
         return withDeployHeaders(NextResponse.json({ error: "Forbidden" }, { status: 403 }));
