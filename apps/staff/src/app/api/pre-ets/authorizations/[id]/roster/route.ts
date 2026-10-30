@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { updatePendingPreEtsRoster } from "@wayfinder/supabase/pre-ets-roster-update";
+import { canEditPreEtsRosterAfterAuthorization } from "@wayfinder/supabase/pre-ets-settings";
 import { isPreEtsAuthorizationVisibleToRole } from "@/lib/pre-ets-field-gate";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
@@ -121,8 +122,32 @@ export async function PATCH(
   if (isPreEtsApiError(auth)) return auth;
 
   const { id } = await context.params;
+  const allowAfterAuthorization = canEditPreEtsRosterAfterAuthorization(auth.role);
 
   try {
+    const admin = createServiceRoleClient();
+    const { data: authRow } = await admin
+      .from("pre_ets_authorizations")
+      .select("auth_number, auth_type")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (!authRow) {
+      return NextResponse.json({ error: "Authorization not found." }, { status: 404 });
+    }
+
+    const hasAuthorizationNumber = Boolean((authRow.auth_number as string | null)?.trim());
+    const isPending = authRow.auth_type === "pending";
+    if ((hasAuthorizationNumber || !isPending) && !allowAfterAuthorization) {
+      return NextResponse.json(
+        {
+          error:
+            "This roster already has an authorization number. Only Admin or Super Admin can add or remove students.",
+        },
+        { status: 403 }
+      );
+    }
+
     const body = (await request.json()) as {
       roster?: Array<{
         participantId?: string;
@@ -133,9 +158,9 @@ export async function PATCH(
       }>;
     };
 
-    const admin = createServiceRoleClient();
     const result = await updatePendingPreEtsRoster(admin, {
       authorizationId: id,
+      allowAfterAuthorization,
       roster: (body.roster ?? []).map((row, index) => ({
         participantId: row.participantId ?? "",
         fullName: row.fullName ?? "",

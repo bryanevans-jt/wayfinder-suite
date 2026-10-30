@@ -278,6 +278,14 @@ export function canManagePreEtsWorksheetTestingOverride(role: string | null | un
   return isSuperAdminRole(r) || isAdminRole(r);
 }
 
+/** Admin / Super Admin — add or remove roster students after GVRA A&I is on the authorization. */
+export function canEditPreEtsRosterAfterAuthorization(
+  role: string | null | undefined
+): boolean {
+  const r = normalizeRole(role);
+  return isSuperAdminRole(r) || isAdminRole(r);
+}
+
 export function preEtsWorksheetTestingOverrideActive(
   settings: Pick<PreEtsSettingsRow, "worksheet_testing_override_enabled">
 ): boolean {
