@@ -41,7 +41,8 @@ export function pickRepresentativePreEtsAuthorization<
 >(authList: T[]): T | null {
   if (authList.length === 0) return null;
   return (
-    authList.find((a) => a.auth_type === "group" || a.auth_type === "pending") ??
+    authList.find((a) => a.auth_type === "group") ??
+    authList.find((a) => a.auth_type === "pending") ??
     authList[0] ??
     null
   );

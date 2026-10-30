@@ -6,6 +6,7 @@ import {
   looksLikeWorksheetGroupHeaderLine,
   parseDistrictWorksheet,
   parseGroupHeader,
+  parseWorksheetSupervisorInstructorLine,
   validateWorksheetHeaderColumns,
 } from "./pre-ets-worksheet-parser";
 
@@ -53,6 +54,43 @@ describe("pre-ets-worksheet-parser", () => {
     assert.equal(parsed.offices[0]?.groups[0]?.schoolName, "SHAW HIGH SCHOOL");
     assert.equal(parsed.offices[0]?.groups[0]?.instructorName, "IVETTE CORDERO");
     assert.equal(parsed.offices[0]?.groups[0]?.groupName, "INCLUSION");
+  });
+
+  it("parses two-line group header with supervisor and instructor row", () => {
+    const parsedLine = parseWorksheetSupervisorInstructorLine(
+      "VICTORIA BEIL / Instructor: IVETTE CORDERO"
+    );
+    assert.equal(parsedLine?.supervisorName, "VICTORIA BEIL");
+    assert.equal(parsedLine?.instructorName, "IVETTE CORDERO");
+
+    const shaw = parseGroupHeader("SHAW HIGH SCHOOL - INCLUSION -");
+    assert.equal(shaw.schoolName, "SHAW HIGH SCHOOL");
+    assert.equal(shaw.groupName, "INCLUSION");
+    assert.equal(shaw.instructorName, null);
+
+    const csv = [
+      "JOSHUA TREE NOVEMBER PRE-ETS BILLING 2026-27,,,,,,,,,,,",
+      "DISTRICT 5 SCHOOLS,,,,,,,,,,,,",
+      "COLUMBUS OFFICE SCHOOLS,,,,,,,,,,,,",
+      "SHAW HIGH SCHOOL - INCLUSION -,,,,,,,,,,,,",
+      "VICTORIA BEIL / Instructor: IVETTE CORDERO,,,,,,,,,,,,",
+      "#,STUDENT NAME,PID #,A&I,SERVICE,CODE,UNITS,Class Time,Invoice #,Billed",
+      "1,Test Student,12345,,PRE,PRE-1,1,,,",
+      "NORTHGATE HIGH - SELF CONTAINED 2 -,,,,,,,,,,,,",
+      "RACHEL SMITH / Instructor: EMERY FAIRCLOTH,,,,,,,,,,,,",
+      "1,Second Student,67890,,PRE,PRE-1,1,,,",
+    ].join("\n");
+
+    const parsed = parseDistrictWorksheet(csv);
+    assert.equal(parsed.stats.groupCount, 2);
+    assert.equal(parsed.stats.studentCount, 2);
+    const shawGroup = parsed.offices[0]?.groups.find((g) => g.schoolName.includes("SHAW"));
+    const northgate = parsed.offices[0]?.groups.find((g) => g.schoolName.includes("NORTHGATE"));
+    assert.equal(shawGroup?.instructorName, "IVETTE CORDERO");
+    assert.equal(shawGroup?.groupName, "INCLUSION");
+    assert.equal(northgate?.instructorName, "EMERY FAIRCLOTH");
+    assert.equal(northgate?.groupName, "SELF CONTAINED 2");
+    assert.equal(northgate?.students[0]?.participantId, "67890");
   });
 
   it("parses district line without the word Schools", () => {

@@ -123,6 +123,7 @@ export function stripWorksheetGroupHeaderMetadata(headerRaw: string): string {
   return headerRaw
     .replace(/\u00a0/g, " ")
     .replace(/\s*\[\s*\d+\s*,\s*\d+\s*\]\s*$/u, "")
+    .replace(/\s+[-–—]\s*$/u, "")
     .trim();
 }
 
@@ -162,8 +163,46 @@ export function primaryCsvLabel(line: string): string {
   return label.trim();
 }
 
+export type WorksheetSupervisorInstructorLine = {
+  supervisorName: string | null;
+  instructorName: string | null;
+};
+
+/** Supervisor / instructor row under a group header (legacy or two-line billing layout). */
+export function parseWorksheetSupervisorInstructorLine(
+  label: string
+): WorksheetSupervisorInstructorLine | null {
+  const normalized = label.replace(/\u00a0/g, " ").trim();
+  if (!normalized) return null;
+
+  const combo = normalized.match(
+    /^supervisor\s*:\s*(.+?)\s*\/\s*instructor\s*:\s*(.+)$/i
+  );
+  if (combo) {
+    return {
+      supervisorName: combo[1]?.trim() || null,
+      instructorName: combo[2]?.trim() || null,
+    };
+  }
+
+  const slashInstructor = normalized.match(/^(.+?)\s*\/\s*instructor\s*:\s*(.+)$/i);
+  if (slashInstructor) {
+    return {
+      supervisorName: slashInstructor[1]?.trim() || null,
+      instructorName: slashInstructor[2]?.trim() || null,
+    };
+  }
+
+  const legacy = normalized.match(/^supervisor\s*:\s*(.+)$/i);
+  if (legacy) {
+    return { supervisorName: legacy[1]?.trim() || null, instructorName: null };
+  }
+
+  return null;
+}
+
 function isSupervisorLine(line: string): boolean {
-  return /^\s*supervisor\s*:/i.test(primaryCsvLabel(line));
+  return parseWorksheetSupervisorInstructorLine(primaryCsvLabel(line)) !== null;
 }
 
 function isSummaryTotalLine(line: string): boolean {
@@ -193,10 +232,15 @@ export function looksLikeWorksheetSchoolName(label: string): boolean {
 
 /** Billing exports repeat column headers once per office; the next school line must start a new group. */
 export function looksLikeWorksheetGroupHeaderLine(line: string, cells: string[]): boolean {
-  if (isSupervisorLine(line) || isSummaryTotalLine(line) || isHeaderRow(cells)) {
+  const label = primaryCsvLabel(line);
+  if (
+    isSupervisorLine(line) ||
+    isSummaryTotalLine(line) ||
+    isHeaderRow(cells) ||
+    parseWorksheetSupervisorInstructorLine(label)
+  ) {
     return false;
   }
-  const label = primaryCsvLabel(line);
   if (!label || label.length < 8) return false;
   const firstCell = (cells[0] ?? "").trim();
   if (/^\d+\.?$/u.test(firstCell)) return false;
@@ -533,7 +577,32 @@ export function parseGroupHeader(headerRaw: string): {
   }
 
   const schoolName = parts[0] ?? trimmed;
-  const segments = parts.slice(1).map((part) => ({ part, kind: classifyHeaderSegment(part) }));
+  const tailParts = parts.slice(1);
+  const segments = tailParts.map((part) => ({ part, kind: classifyHeaderSegment(part) }));
+
+  const onlySchoolAndGroup =
+    tailParts.length === 1 &&
+    (segments[0]?.kind === "group" ||
+      segments[0]?.kind === "suffix" ||
+      segments[0]?.kind === "freq" ||
+      segments[0]?.kind === "day");
+
+  if (onlySchoolAndGroup && segments[0]) {
+    const groupPart = segments[0].part;
+    let groupDesignation = groupPart.trim();
+    let frequency: string | null = null;
+    if (segments[0].kind === "freq") {
+      frequency = normalizeFrequencyToken(groupPart) ?? null;
+      groupDesignation = frequency ?? groupDesignation;
+    }
+    return {
+      schoolName,
+      groupName: groupDesignation || "Main",
+      groupDesignation: groupDesignation || null,
+      frequency,
+      instructorName: null,
+    };
+  }
 
   let frequency: string | null = null;
   for (const seg of segments) {
@@ -824,6 +893,15 @@ export function parseDistrictWorksheet(
     }
 
     const rawHeaderLabel = primaryCsvLabel(line);
+    const supervisorInstructor = parseWorksheetSupervisorInstructorLine(rawHeaderLabel);
+    if (supervisorInstructor) {
+      if (currentGroup && supervisorInstructor.instructorName?.trim()) {
+        if (!currentGroup.instructorName?.trim()) {
+          currentGroup.instructorName = supervisorInstructor.instructorName.trim();
+        }
+      }
+      continue;
+    }
     const continuationHeader =
       Boolean(currentGroup?.schoolName?.trim()) &&
       looksLikeWorksheetSchoolContinuationHeader(rawHeaderLabel);
@@ -853,10 +931,6 @@ export function parseDistrictWorksheet(
           }
         }
       }
-      continue;
-    }
-
-    if (isSupervisorLine(line)) {
       continue;
     }
 
