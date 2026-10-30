@@ -104,6 +104,7 @@
     "./pre-ets-instructor-match": "./src/pre-ets-instructor-match.ts",
     "./pre-ets-instructor-sync": "./src/pre-ets-instructor-sync.ts",
     "./pre-ets-roster-update": "./src/pre-ets-roster-update.ts",
+    "./pre-ets-pending-participant-id": "./src/pre-ets-pending-participant-id.ts",
     "./pre-ets-auth-request-notify": "./src/pre-ets-auth-request-notify.ts",
     "./pre-ets-roster-released-notify": "./src/pre-ets-roster-released-notify.ts",
     "./pre-ets-authorization-finalize": "./src/pre-ets-authorization-finalize.ts",

@@ -17,6 +17,14 @@ test("Project United is a known alternate site without High School in the label"
   assert.ok(looksLikeKnownWorksheetSchoolLabel("PROJECT HOPE"));
 });
 
+test("Emanuel County Institute is recognized on billing sheets", () => {
+  assert.ok(looksLikeKnownWorksheetSchoolLabel("EMANUEL COUNTY INSTITUTE"));
+  assert.equal(
+    canonicalizeWorksheetSchoolName("Emanuel County Institute"),
+    "Emmanuel County Institute"
+  );
+});
+
 test("County-only billing labels map to high school names", () => {
   assert.ok(looksLikeKnownWorksheetSchoolLabel("HEARD COUNTY"));
   assert.ok(looksLikeKnownWorksheetSchoolLabel("Pike County"));

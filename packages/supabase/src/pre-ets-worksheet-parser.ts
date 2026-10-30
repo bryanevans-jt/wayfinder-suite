@@ -1,5 +1,12 @@
+import {
+  buildPreEtsPendingParticipantId,
+  isPreEtsPendingParticipantId,
+} from "./pre-ets-pending-participant-id";
 import { classifyPreEtsAuthorizationType, sanitizePreEtsServiceCodeText } from "./pre-ets-settings";
-import { looksLikeKnownWorksheetSchoolLabel } from "./pre-ets-worksheet-known-schools";
+import {
+  looksLikeCountyInstituteSchoolLabel,
+  looksLikeKnownWorksheetSchoolLabel,
+} from "./pre-ets-worksheet-known-schools";
 
 export const WORKSHEET_STUDENT_COLUMNS = [
   "#",
@@ -220,12 +227,14 @@ export function looksLikeWorksheetSchoolName(label: string): boolean {
   const normalized = label.replace(/\u00a0/g, " ").trim();
   if (/^supervisor\s*:/i.test(normalized) || /^total\b/i.test(normalized)) return false;
   if (looksLikeKnownWorksheetSchoolLabel(normalized)) return true;
+  if (looksLikeCountyInstituteSchoolLabel(normalized)) return true;
   if (normalized.length < 10) return false;
   return (
     /\b(high\s+school|middle\s+school|elementary\s+school|primary\s+school)\b/i.test(normalized) ||
     /\bcharter\s+school\b/i.test(normalized) ||
     /\b(county|city)\s+(high|middle|elementary)\b/i.test(normalized) ||
     /\bhigh\s+school\b/i.test(normalized) ||
+    /\b(county\s+institute|institute|academy)\b/i.test(normalized) ||
     looksLikeShortSchoolNameSuffix(normalized)
   );
 }
@@ -916,10 +925,29 @@ export function parseDistrictWorksheet(
       if (student.notApproved) {
         issues.push(`Row ${rowNum}: NOT APPROVED — skipped`);
       } else if (student.studentName || student.participantId) {
+        let addedToGroup = false;
         if (!student.participantId.trim()) {
-          issues.push(`Row ${rowNum}: skipped — missing PID #${student.studentName ? ` (${student.studentName})` : ""}`);
+          if (student.authNumber.trim() && student.studentName.trim() && schoolYear) {
+            student.participantId = buildPreEtsPendingParticipantId({
+              schoolYear,
+              studentName: student.studentName,
+              rowNumber: rowNum,
+            });
+            issues.push(
+              `Row ${rowNum}: missing PID # on sheet but authorization ${student.authNumber.trim()} present — add PID in Edit roster (${student.studentName})`
+            );
+            currentGroup.students.push(student);
+            addedToGroup = true;
+          } else {
+            issues.push(
+              `Row ${rowNum}: skipped — missing PID #${student.studentName ? ` (${student.studentName})` : ""}`
+            );
+          }
         } else {
           currentGroup.students.push(student);
+          addedToGroup = true;
+        }
+        if (addedToGroup) {
           if (!currentGroup.classTime && student.classTime?.trim()) {
             currentGroup.classTime = student.classTime.trim();
           }
@@ -987,15 +1015,23 @@ export function parseDistrictWorksheet(
     for (const group of office.groups) {
       studentCount += group.students.length;
       notApprovedCount += group.students.filter((s) => s.notApproved).length;
-      const eligible = group.students.filter(
+      const rosterable = group.students.filter(
         (s) => !s.notApproved && s.participantId.trim().length > 0
       );
       const label = `${group.schoolName} — ${group.groupName}`;
-      if (eligible.length === 0 && group.students.length > 0) {
+      const pendingPidCount = rosterable.filter((s) =>
+        isPreEtsPendingParticipantId(s.participantId)
+      ).length;
+      if (pendingPidCount > 0) {
+        issues.push(
+          `Group "${label}": ${pendingPidCount} student(s) on roster still need a PID # — use Edit roster`
+        );
+      }
+      if (rosterable.length === 0 && group.students.length > 0) {
         issues.push(
           `Group "${label}": no students with PID (all rows missing PID or NOT APPROVED) — roster will not be created`
         );
-      } else if (eligible.length === 0) {
+      } else if (rosterable.length === 0) {
         issues.push(
           `Group "${label}": no student rows parsed — check the group header line above the student table`
         );

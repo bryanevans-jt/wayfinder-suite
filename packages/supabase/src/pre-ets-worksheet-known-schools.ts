@@ -5,6 +5,14 @@ const WORKSHEET_SCHOOL_CANONICAL: Array<{ pattern: RegExp; canonical: string }> 
   { pattern: /^upson\s*[-]?\s*lee(\s+high(\s+school)?|\s+school)?$/i, canonical: "Upson Lee High School" },
   { pattern: /^pike\s+county(\s+high(\s+school)?|\s+school)?$/i, canonical: "Pike County High School" },
   { pattern: /^heard\s+county(\s+high(\s+school)?|\s+school)?$/i, canonical: "Heard County High School" },
+  {
+    pattern: /^emanuel\s+county\s+institute$/i,
+    canonical: "Emmanuel County Institute",
+  },
+  {
+    pattern: /^emmanuel\s+county\s+institute$/i,
+    canonical: "Emmanuel County Institute",
+  },
   { pattern: /^northgate(\s+high(\s+school)?|\s+school)?$/i, canonical: "Northgate High School" },
   {
     pattern: /^project\s+united(\s+high(\s+school)?|\s+school)?$/i,
@@ -20,6 +28,8 @@ const KNOWN_SCHOOL_LABEL_PATTERNS: RegExp[] = [
   /\bupson\s*[-]?\s*lee\b/i,
   /\bpike\s+county\b/i,
   /\bheard\s+county\b/i,
+  /\bemanuel\s+county\s+institute\b/i,
+  /\bemmanuel\s+county\s+institute\b/i,
   /\bnorthgate\b/i,
   /\bproject\s+united\b/i,
   /\bscintilla\s+charter\s+school\b/i,
@@ -32,6 +42,12 @@ const KNOWN_SCHOOL_LABEL_PATTERNS: RegExp[] = [
  * Billing shorthand like "Heard County" or "Pike County" (no "High School" on the row).
  * Used to start a new group when column headers are not repeated between schools.
  */
+/** Billing labels like "Emanuel County Institute" (not always "High School"). */
+export function looksLikeCountyInstituteSchoolLabel(label: string): boolean {
+  const normalized = label.replace(/\u00a0/g, " ").trim();
+  return /\bcounty\s+institute\b/i.test(normalized) && normalized.length >= 12;
+}
+
 export function looksLikeCountyOnlySchoolLabel(label: string): boolean {
   const normalized = label.replace(/\u00a0/g, " ").trim();
   if (!/\bcounty$/i.test(normalized)) return false;
@@ -45,6 +61,7 @@ export function looksLikeKnownWorksheetSchoolLabel(label: string): boolean {
   const normalized = label.replace(/\u00a0/g, " ").trim();
   if (normalized.length < 8) return false;
   if (looksLikeCountyOnlySchoolLabel(normalized)) return true;
+  if (looksLikeCountyInstituteSchoolLabel(normalized)) return true;
   if (KNOWN_SCHOOL_LABEL_PATTERNS.some((pattern) => pattern.test(normalized))) {
     return true;
   }
