@@ -17,6 +17,13 @@ test("Project United is a known alternate site without High School in the label"
   assert.ok(looksLikeKnownWorksheetSchoolLabel("PROJECT HOPE"));
 });
 
+test("County-only billing labels map to high school names", () => {
+  assert.ok(looksLikeKnownWorksheetSchoolLabel("HEARD COUNTY"));
+  assert.ok(looksLikeKnownWorksheetSchoolLabel("Pike County"));
+  assert.equal(canonicalizeWorksheetSchoolName("HEARD COUNTY"), "Heard County High School");
+  assert.equal(canonicalizeWorksheetSchoolName("Heard County"), "Heard County High School");
+});
+
 test("Scintilla Charter School Valdosta maps to class setup name", () => {
   assert.ok(looksLikeKnownWorksheetSchoolLabel("SCINTILLA CHARTER SCHOOL VALDOSTA"));
   assert.equal(

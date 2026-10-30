@@ -304,6 +304,53 @@ describe("pre-ets-worksheet-parser", () => {
     assert.equal(atkinson?.students[0]?.participantId, "22222");
   });
 
+  it("recognizes Pike County as a standalone group header row", () => {
+    assert.ok(
+      looksLikeWorksheetGroupHeaderLine("Pike County,,,,,,,,,,,,", ["Pike County"])
+    );
+
+    const csv = [
+      "JOSHUA TREE NOVEMBER PRE-ETS BILLING 2026-27",
+      "DISTRICT 5 SCHOOLS",
+      "COLUMBUS OFFICE SCHOOLS",
+      "Pike County",
+      "VICTORIA BEIL / Instructor: EMERY FAIRCLOTH",
+      "#,STUDENT NAME,PID #,A & I,Service,Code,Units,Class Time,Invoice #,Billed",
+      "1,Only Pike,33333,,PRE,PRE-1,1,,,",
+    ].join("\n");
+
+    const parsed = parseDistrictWorksheet(csv);
+    assert.equal(parsed.stats.groupCount, 1);
+    assert.equal(parsed.offices[0]?.groups[0]?.schoolName, "Pike County");
+    assert.equal(parsed.offices[0]?.groups[0]?.groupName, "Main");
+    assert.equal(parsed.offices[0]?.groups[0]?.students[0]?.participantId, "33333");
+  });
+
+  it("starts Heard County after Pike County without repeating column headers (D5-style)", () => {
+    const csv = [
+      "JOSHUA TREE NOVEMBER PRE-ETS BILLING 2026-27,,,,,,,,,,,",
+      "DISTRICT 5 SCHOOLS,,,,,,,,,,,,",
+      "COLUMBUS OFFICE SCHOOLS,,,,,,,,,,,,",
+      "PIKE COUNTY - INCLUSION -,,,,,,,,,,,,",
+      "VICTORIA BEIL / Instructor: EMERY FAIRCLOTH,,,,,,,,,,,,",
+      "#,STUDENT NAME,PID #,A&I,SERVICE,CODE,UNITS,Class Time,Invoice #,Billed",
+      "1,Pike Student,11111,,PRE,PRE-1,1,,,",
+      "HEARD COUNTY,,,,,,,,,,,,",
+      "VICTORIA BEIL / Instructor: EMERY FAIRCLOTH,,,,,,,,,,,,",
+      "1,Heard Student,22222,,PRE,PRE-1,1,,,",
+    ].join("\n");
+
+    const parsed = parseDistrictWorksheet(csv);
+    assert.equal(parsed.stats.groupCount, 2);
+    const pike = parsed.offices[0]?.groups.find((g) => /pike/i.test(g.schoolName));
+    const heard = parsed.offices[0]?.groups.find((g) => /heard/i.test(g.schoolName));
+    assert.ok(pike);
+    assert.ok(heard);
+    assert.equal(pike?.students[0]?.participantId, "11111");
+    assert.equal(heard?.students[0]?.participantId, "22222");
+    assert.equal(heard?.schoolName, "HEARD COUNTY");
+  });
+
   it("starts a new school when column headers are not repeated (D8-style)", () => {
     const csv = [
       "JOSHUA TREE OCTOBER PRE-ETS BILLING 2026-27,,,,,,,,,,,",
