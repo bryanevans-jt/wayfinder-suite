@@ -40,6 +40,7 @@ export function PreEtsAuthorizationsPanel() {
   const [roster, setRoster] = useState<RosterRow[]>([]);
   const [canFinalize, setCanFinalize] = useState(false);
   const [canEditRosterAfterAuthorization, setCanEditRosterAfterAuthorization] = useState(false);
+  const [canEditAuthorizationNumber, setCanEditAuthorizationNumber] = useState(false);
   const [canEditServiceCode, setCanEditServiceCode] = useState(false);
   const [finalizeTarget, setFinalizeTarget] = useState<Authorization | null>(null);
   const [editTarget, setEditTarget] = useState<Authorization | null>(null);
@@ -61,6 +62,7 @@ export function PreEtsAuthorizationsPanel() {
         access?: {
           canFinalizeAuthorizations?: boolean;
           canEditRosterAfterAuthorization?: boolean;
+          canEditAuthorizationNumber?: boolean;
           canEditAuthorizationServiceCode?: boolean;
         };
       };
@@ -69,6 +71,7 @@ export function PreEtsAuthorizationsPanel() {
         setCanEditRosterAfterAuthorization(
           data.access?.canEditRosterAfterAuthorization ?? false
         );
+        setCanEditAuthorizationNumber(data.access?.canEditAuthorizationNumber ?? false);
         setCanEditServiceCode(data.access?.canEditAuthorizationServiceCode ?? false);
       }
     })();
@@ -277,6 +280,7 @@ export function PreEtsAuthorizationsPanel() {
               : ""
           }`}
           canEditServiceCode={canEditServiceCode}
+          canEditAuthorizationNumber={canEditAuthorizationNumber}
           onClose={() => setEditTarget(null)}
           onSaved={() => void load()}
         />

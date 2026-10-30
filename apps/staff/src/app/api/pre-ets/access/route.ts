@@ -4,6 +4,7 @@ import {
   canAccessPreEts,
   canAccessPreEtsAccounts,
   canEditPreEtsAuthorizationServiceCode,
+  canEditPreEtsAuthorizationNumber,
   canEditPreEtsRosterAfterAuthorization,
   canDeliverPreEtsSessions,
   canManagePreEtsSettings,
@@ -52,6 +53,7 @@ export async function GET() {
       canFinalizeAuthorizations: canAccounts,
       canEditAuthorizationServiceCode: canEditPreEtsAuthorizationServiceCode(role, settings),
       canEditRosterAfterAuthorization: canEditPreEtsRosterAfterAuthorization(role),
+      canEditAuthorizationNumber: canEditPreEtsAuthorizationNumber(role),
       canViewPipeline:
         isSuperAdminRole(role) ||
         isAdminRole(role) ||

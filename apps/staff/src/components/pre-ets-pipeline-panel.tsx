@@ -73,6 +73,7 @@ export function PreEtsPipelinePanel() {
   const [loading, setLoading] = useState(true);
   const [canFinalize, setCanFinalize] = useState(false);
   const [canEditRosterAfterAuthorization, setCanEditRosterAfterAuthorization] = useState(false);
+  const [canEditAuthorizationNumber, setCanEditAuthorizationNumber] = useState(false);
   const [canEditServiceCode, setCanEditServiceCode] = useState(false);
   const [includeHidden, setIncludeHidden] = useState(false);
   const [editTarget, setEditTarget] = useState<PipelineRow | null>(null);
@@ -101,6 +102,7 @@ export function PreEtsPipelinePanel() {
         access?: {
           canFinalizeAuthorizations?: boolean;
           canEditRosterAfterAuthorization?: boolean;
+          canEditAuthorizationNumber?: boolean;
           canEditAuthorizationServiceCode?: boolean;
           canManageSetup?: boolean;
           canSupervise?: boolean;
@@ -115,6 +117,7 @@ export function PreEtsPipelinePanel() {
         setCanEditRosterAfterAuthorization(
           data.access?.canEditRosterAfterAuthorization ?? false
         );
+        setCanEditAuthorizationNumber(data.access?.canEditAuthorizationNumber ?? false);
         setCanEditServiceCode(data.access?.canEditAuthorizationServiceCode ?? false);
         setCanEditGroupLabels(
           Boolean(
@@ -515,6 +518,7 @@ export function PreEtsPipelinePanel() {
           authorizationId={editTarget.authorizationId}
           schoolLabel={`${editTarget.groupName}${editTarget.groupName !== editTarget.schoolName ? ` · ${editTarget.schoolName}` : ""}`}
           canEditServiceCode={canEditServiceCode}
+          canEditAuthorizationNumber={canEditAuthorizationNumber}
           onClose={() => setEditTarget(null)}
           onSaved={() => void load()}
         />
