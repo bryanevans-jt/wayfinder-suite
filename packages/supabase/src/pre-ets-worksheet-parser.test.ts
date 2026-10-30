@@ -371,6 +371,30 @@ describe("pre-ets-worksheet-parser", () => {
     assert.equal(group?.students[0]?.participantId, "55555");
   });
 
+  it("starts Thomas County Central without High School on the billing row", () => {
+    assert.ok(
+      looksLikeWorksheetGroupHeaderLine("Thomas County Central,,,,,,,,,,,,", [
+        "Thomas County Central",
+      ])
+    );
+
+    const csv = [
+      "JOSHUA TREE NOVEMBER PRE-ETS BILLING 2026-27,,,,,,,,,,,",
+      "DISTRICT 5 SCHOOLS,,,,,,,,,,,,",
+      "COLUMBUS OFFICE SCHOOLS,,,,,,,,,,,,",
+      "PIKE COUNTY - INCLUSION -,,,,,,,,,,,,",
+      "#,STUDENT NAME,PID #,A&I,SERVICE,CODE,UNITS,Class Time,Invoice #,Billed",
+      "1,Pike Student,11111,,PRE,PRE-1,1,,,",
+      "Thomas County Central,,,,,,,,,,,,",
+      "1,Thomas Student,66666,,PRE,PRE-1,1,,,",
+    ].join("\n");
+
+    const parsed = parseDistrictWorksheet(csv);
+    const group = parsed.offices[0]?.groups.find((g) => /thomas/i.test(g.schoolName));
+    assert.ok(group);
+    assert.equal(group?.students[0]?.participantId, "66666");
+  });
+
   it("starts Harrell Learning Center after another school without repeating column headers", () => {
     assert.ok(
       looksLikeWorksheetGroupHeaderLine("Harrell Learning Center,,,,,,,,,,,,", [
