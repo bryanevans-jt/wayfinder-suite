@@ -398,6 +398,48 @@ describe("pre-ets-worksheet-parser", () => {
     );
   });
 
+  it("parses Ware County Main and Transportation Exploration as separate groups", () => {
+    const transport = parseGroupHeader("WARE COUNTY HIGH SCHOOL - TRANSPORTATION EXPLORATION -");
+    assert.equal(transport.schoolName, "WARE COUNTY HIGH SCHOOL");
+    assert.equal(transport.groupName, "TRANSPORTATION EXPLORATION");
+    assert.equal(transport.instructorName, null);
+
+    const main = parseGroupHeader("WARE COUNTY HIGH SCHOOL - MAIN -");
+    assert.equal(main.groupName, "Main");
+
+    const csv = [
+      "Joshua Tree November Pre-ETS Billing 2026-27",
+      "District 5 Schools",
+      "Statesboro Office Schools",
+      "WARE COUNTY HIGH SCHOOL - MAIN -",
+      "Supervisor / Instructor: Kenya Clark",
+      "#,Student Name,PID #,A & I,Service,Code,Units",
+      "1,Shared Student,55555,,PRE,PRE-1,1",
+      "2,Main Only,11111,,PRE,PRE-1,1",
+      "WARE COUNTY HIGH SCHOOL - TRANSPORTATION EXPLORATION -",
+      "Supervisor / Instructor: Kenya Clark",
+      "1,Shared Student,55555,,PRE,PRE-1,1",
+      "2,Transport Only,22222,,PRE,PRE-1,1",
+    ].join("\n");
+
+    const parsed = parseDistrictWorksheet(csv);
+    const ware = parsed.offices[0]?.groups.filter((g) =>
+      g.schoolName.toUpperCase().includes("WARE")
+    );
+    assert.equal(ware?.length, 2);
+    const mainGroup = ware?.find((g) => /^main$/i.test(g.groupName));
+    const transportGroup = ware?.find((g) =>
+      /transportation exploration/i.test(g.groupName)
+    );
+    assert.ok(mainGroup);
+    assert.ok(transportGroup);
+    assert.deepEqual(mainGroup?.students.map((s) => s.participantId).sort(), ["11111", "55555"]);
+    assert.deepEqual(transportGroup?.students.map((s) => s.participantId).sort(), [
+      "22222",
+      "55555",
+    ]);
+  });
+
   it("splits Appling FFA and Day at the Fair with FFA ID columns and billing brackets", () => {
     const csv = [
       "Joshua Tree October Pre-ETS Billing 2026-27,,,,,,,,,,,",
