@@ -4,6 +4,7 @@ import {
 } from "./pre-ets-pending-participant-id";
 import { classifyPreEtsAuthorizationType, sanitizePreEtsServiceCodeText } from "./pre-ets-settings";
 import {
+  isStandaloneWorksheetSchoolSite,
   looksLikeCountyInstituteSchoolLabel,
   looksLikeKnownWorksheetSchoolLabel,
 } from "./pre-ets-worksheet-known-schools";
@@ -252,6 +253,8 @@ export function looksLikeWorksheetGroupHeaderLine(line: string, cells: string[])
   ) {
     return false;
   }
+  const strippedLabel = stripWorksheetGroupHeaderMetadata(label.replace(/\u00a0/g, " ").trim());
+  if (strippedLabel && isStandaloneWorksheetSchoolSite(strippedLabel)) return true;
   if (!label || label.length < 8) return false;
   const firstCell = (cells[0] ?? "").trim();
   if (/^\d+\.?$/u.test(firstCell)) return false;
@@ -401,6 +404,7 @@ export function looksLikeWorksheetElectiveGroupLabel(label: string): boolean {
 export function looksLikeWorksheetSchoolContinuationHeader(label: string): boolean {
   const t = label.replace(/\u00a0/g, " ").trim();
   if (!t) return false;
+  if (isStandaloneWorksheetSchoolSite(stripWorksheetGroupHeaderMetadata(t))) return false;
   if (looksLikeWorksheetElectiveGroupLabel(t)) return true;
   if (/\bday at the fair\b/i.test(t)) return true;
   if (/^pre[-\s]?(9000|5000|7000|7200)\b/i.test(t)) return true;
@@ -415,6 +419,7 @@ export function qualifyWorksheetGroupHeaderWithSchoolContext(
   priorSchoolName: string | null | undefined
 ): string {
   const label = stripWorksheetGroupHeaderMetadata(headerRaw);
+  if (isStandaloneWorksheetSchoolSite(label)) return label;
   const school = priorSchoolName?.trim() ?? "";
   if (!label || !school) return label;
   if (splitGroupHeaderParts(label).length >= 2) return label;

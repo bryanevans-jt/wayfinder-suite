@@ -51,6 +51,15 @@ const WORKSHEET_SCHOOL_CANONICAL: Array<{ pattern: RegExp; canonical: string }> 
     pattern: /^thomas\s+county\s+central(\s+high(\s+school)?|\s+school)?$/i,
     canonical: "Thomas County Central High School",
   },
+  { pattern: /^tlc$/i, canonical: "TLC" },
+  {
+    pattern: /^transitional\s+learning\s+center$/i,
+    canonical: "TLC",
+  },
+  {
+    pattern: /^lee\s+county\s+transitional\s+learning\s+center$/i,
+    canonical: "TLC",
+  },
 ];
 
 const KNOWN_SCHOOL_LABEL_PATTERNS: RegExp[] = [
@@ -69,6 +78,8 @@ const KNOWN_SCHOOL_LABEL_PATTERNS: RegExp[] = [
   /\blearning\s+center\b/i,
   /\bcoffee\s+county\s+wiregrass\b/i,
   /\bthomas\s+county\s+central\b/i,
+  /\btransitional\s+learning\s+center\b/i,
+  /^tlc$/i,
   /\bcharter\s+school\b/i,
   /** Alternate Pre-ETS sites billed like schools but not named “___ High School”. */
   /^project\s+[a-z0-9]/i,
@@ -93,8 +104,22 @@ export function looksLikeCountyOnlySchoolLabel(label: string): boolean {
 }
 
 /** True when the label is a known school even without "High School" (e.g. "Upson Lee"). */
+/** Distinct billing school/site row — never merge onto the previous school as a group segment. */
+export function isStandaloneWorksheetSchoolSite(label: string): boolean {
+  const normalized = fixWorksheetSchoolNameTypos(label.replace(/\u00a0/g, " ").trim());
+  if (!normalized) return false;
+  if (/^(inclusion|self\s*contained|resource|co-?teach|main|n\/a)$/i.test(normalized)) {
+    return false;
+  }
+  if (/^tlc$/i.test(normalized)) return true;
+  if (/\btransitional\s+learning\s+center\b/i.test(normalized)) return true;
+  if (/\b9\s*th\s+grade\s+center\b/i.test(normalized)) return true;
+  return looksLikeKnownWorksheetSchoolLabel(normalized);
+}
+
 export function looksLikeKnownWorksheetSchoolLabel(label: string): boolean {
   const normalized = fixWorksheetSchoolNameTypos(label);
+  if (/^tlc$/i.test(normalized)) return true;
   if (normalized.length < 8) return false;
   if (looksLikeCountyOnlySchoolLabel(normalized)) return true;
   if (looksLikeCountyInstituteSchoolLabel(normalized)) return true;
