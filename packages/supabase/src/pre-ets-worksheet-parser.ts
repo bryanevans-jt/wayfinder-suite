@@ -900,6 +900,26 @@ function parseStudentRow(
   };
 }
 
+function startParsedWorksheetGroup(
+  headerRaw: string,
+  instructorNameOverride?: string | null
+): ParsedWorksheetGroup {
+  const parsed = parseGroupHeader(headerRaw);
+  return {
+    headerRaw,
+    schoolName: parsed.schoolName,
+    groupName: parsed.groupName,
+    groupDesignation: parsed.groupDesignation,
+    frequency: parsed.frequency,
+    instructorName:
+      instructorNameOverride !== undefined ? instructorNameOverride : parsed.instructorName,
+    classTime: null,
+    serviceCode: null,
+    serviceLabel: null,
+    students: [],
+  };
+}
+
 /** When a PID appears on both TLC and another roster, keep the TLC row only. */
 function dedupeWorksheetParticipantsPreferDedicatedSchoolGroups(
   offices: ParsedWorksheetOffice[]
@@ -1006,20 +1026,10 @@ export function parseDistrictWorksheet(
         "";
       const nextGroupLabel = instructorLineGroupDesignation(instructorTail);
       if (nextGroupLabel && currentGroup && currentOffice) {
-        const nextGroupHeaderRaw = `${currentGroup.schoolName} - ${nextGroupLabel}`;
-        const parsedHeader = parseGroupHeader(nextGroupHeaderRaw);
-        currentGroup = {
-          headerRaw: nextGroupHeaderRaw,
-          schoolName: parsedHeader.schoolName,
-          groupName: parsedHeader.groupName,
-          groupDesignation: parsedHeader.groupDesignation,
-          frequency: parsedHeader.frequency,
-          instructorName: null,
-          classTime: null,
-          serviceCode: null,
-          serviceLabel: null,
-          students: [],
-        };
+        currentGroup = startParsedWorksheetGroup(
+          `${currentGroup.schoolName} - ${nextGroupLabel}`,
+          null
+        );
         currentOffice.groups.push(currentGroup);
         continue;
       }
@@ -1100,25 +1110,12 @@ export function parseDistrictWorksheet(
       offices.push(currentOffice);
     }
 
-    const headerRaw = qualifyWorksheetGroupHeaderWithSchoolContext(
+    const qualifiedGroupHeader = qualifyWorksheetGroupHeaderWithSchoolContext(
       rawHeaderLabel || primaryCsvLabel(line),
       currentGroup?.schoolName ?? null
     );
-    if (!headerRaw) continue;
-    const { schoolName, groupName, groupDesignation, frequency, instructorName } =
-      parseGroupHeader(headerRaw);
-    currentGroup = {
-      headerRaw,
-      schoolName,
-      groupName,
-      groupDesignation,
-      frequency,
-      instructorName,
-      classTime: null,
-      serviceCode: null,
-      serviceLabel: null,
-      students: [],
-    };
+    if (!qualifiedGroupHeader) continue;
+    currentGroup = startParsedWorksheetGroup(qualifiedGroupHeader);
     currentOffice.groups.push(currentGroup);
   }
 
