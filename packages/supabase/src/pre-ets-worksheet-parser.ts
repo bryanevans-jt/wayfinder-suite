@@ -234,7 +234,9 @@ export function looksLikeWorksheetSchoolName(label: string): boolean {
     /\bcharter\s+school\b/i.test(normalized) ||
     /\b(county|city)\s+(high|middle|elementary)\b/i.test(normalized) ||
     /\bhigh\s+school\b/i.test(normalized) ||
-    /\b(county\s+institute|institute|academy|learning\s+center)\b/i.test(normalized) ||
+    /\b(county\s+institute|institute|academy|learning\s+center|county\s+wiregrass)\b/i.test(
+      normalized
+    ) ||
     looksLikeShortSchoolNameSuffix(normalized)
   );
 }

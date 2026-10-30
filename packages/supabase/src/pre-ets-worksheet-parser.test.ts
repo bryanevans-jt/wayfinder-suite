@@ -346,6 +346,31 @@ describe("pre-ets-worksheet-parser", () => {
     assert.equal(parsed.offices[0]?.groups[0]?.students[0]?.participantId, "33333");
   });
 
+  it("starts Coffee County Wiregrass when Coffe is misspelled on the billing sheet", () => {
+    assert.ok(
+      looksLikeWorksheetGroupHeaderLine("Coffe County Wiregrass,,,,,,,,,,,,", [
+        "Coffe County Wiregrass",
+      ])
+    );
+
+    const csv = [
+      "JOSHUA TREE NOVEMBER PRE-ETS BILLING 2026-27,,,,,,,,,,,",
+      "DISTRICT 5 SCHOOLS,,,,,,,,,,,,",
+      "COLUMBUS OFFICE SCHOOLS,,,,,,,,,,,,",
+      "PIKE COUNTY - INCLUSION -,,,,,,,,,,,,",
+      "#,STUDENT NAME,PID #,A&I,SERVICE,CODE,UNITS,Class Time,Invoice #,Billed",
+      "1,Pike Student,11111,,PRE,PRE-1,1,,,",
+      "Coffe County Wiregrass,,,,,,,,,,,,",
+      "1,Wiregrass Student,55555,,PRE,PRE-1,1,,,",
+    ].join("\n");
+
+    const parsed = parseDistrictWorksheet(csv);
+    const group = parsed.offices[0]?.groups.find((g) => /wiregrass/i.test(g.schoolName));
+    assert.ok(group);
+    assert.equal(group?.schoolName, "Coffe County Wiregrass");
+    assert.equal(group?.students[0]?.participantId, "55555");
+  });
+
   it("starts Harrell Learning Center after another school without repeating column headers", () => {
     assert.ok(
       looksLikeWorksheetGroupHeaderLine("Harrell Learning Center,,,,,,,,,,,,", [
