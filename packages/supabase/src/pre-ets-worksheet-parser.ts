@@ -4,6 +4,7 @@ import {
 } from "./pre-ets-pending-participant-id";
 import { classifyPreEtsAuthorizationType, sanitizePreEtsServiceCodeText } from "./pre-ets-settings";
 import {
+  canonicalizeWorksheetSchoolName,
   isStandaloneWorksheetSchoolSite,
   looksLikeCountyInstituteSchoolLabel,
   looksLikeKnownWorksheetSchoolLabel,
@@ -176,6 +177,20 @@ export type WorksheetSupervisorInstructorLine = {
   instructorName: string | null;
 };
 
+function normalizeWorksheetInstructorName(raw: string | null | undefined): string | null {
+  const trimmed = raw?.trim() ?? "";
+  if (!trimmed) return null;
+  if (isGroupDesignationPart(trimmed)) return null;
+  return trimmed;
+}
+
+/** Billing sometimes puts the next group label on the instructor line (e.g. `/ Instructor: Group 2`). */
+function instructorLineGroupDesignation(raw: string | null | undefined): string | null {
+  const trimmed = raw?.trim() ?? "";
+  if (!trimmed || !isGroupDesignationPart(trimmed)) return null;
+  return trimmed;
+}
+
 /** Supervisor / instructor row under a group header (legacy or two-line billing layout). */
 export function parseWorksheetSupervisorInstructorLine(
   label: string
@@ -184,20 +199,36 @@ export function parseWorksheetSupervisorInstructorLine(
   if (!normalized) return null;
 
   const combo = normalized.match(
-    /^supervisor\s*:\s*(.+?)\s*\/\s*instructor\s*:\s*(.+)$/i
+    /^supervisor\s*:\s*(.+?)\s*\/\s*instructor\s*:\s*(.*)$/i
   );
   if (combo) {
     return {
       supervisorName: combo[1]?.trim() || null,
-      instructorName: combo[2]?.trim() || null,
+      instructorName: normalizeWorksheetInstructorName(combo[2]),
     };
   }
 
-  const slashInstructor = normalized.match(/^(.+?)\s*\/\s*instructor\s*:\s*(.+)$/i);
+  const leadingSlashInstructor = normalized.match(/^\/\s*instructor\s*:\s*(.*)$/i);
+  if (leadingSlashInstructor) {
+    return {
+      supervisorName: null,
+      instructorName: normalizeWorksheetInstructorName(leadingSlashInstructor[1]),
+    };
+  }
+
+  const slashInstructor = normalized.match(/^(.+?)\s*\/\s*instructor\s*:\s*(.*)$/i);
   if (slashInstructor) {
     return {
       supervisorName: slashInstructor[1]?.trim() || null,
-      instructorName: slashInstructor[2]?.trim() || null,
+      instructorName: normalizeWorksheetInstructorName(slashInstructor[2]),
+    };
+  }
+
+  const instructorOnly = normalized.match(/^instructor\s*:\s*(.*)$/i);
+  if (instructorOnly) {
+    return {
+      supervisorName: null,
+      instructorName: normalizeWorksheetInstructorName(instructorOnly[1]),
     };
   }
 
@@ -493,6 +524,7 @@ function isGroupDesignationPart(part: string): boolean {
   if (looksLikeWorksheetElectiveGroupLabel(part)) return true;
   if (/\bday at the fair\b/.test(lower)) return true;
   if (/^inclusion group \d+$/i.test(part.trim())) return true;
+  if (/^group\s*#?\s*\d+$/i.test(part.trim())) return true;
   if (GROUP_DESIGNATION_HINT.test(lower)) return true;
   if (/^inclusion\b/.test(lower)) return true;
   if (/^ffa$/i.test(lower)) return true;
@@ -542,9 +574,11 @@ function classifyHeaderSegment(part: string): HeaderSegmentKind {
 function splitInstructorPart(part: string): { instructorName: string; groupHint: string | null } {
   const inclusionParen = part.match(/^(.+?)\s*\(inclusion\)\s*$/i);
   if (inclusionParen) {
-    return { instructorName: inclusionParen[1]?.trim() ?? part, groupHint: "INCLUSION" };
+    const name = normalizeWorksheetInstructorName(inclusionParen[1]) ?? "";
+    return { instructorName: name, groupHint: "INCLUSION" };
   }
-  return { instructorName: part.trim(), groupHint: null };
+  const name = normalizeWorksheetInstructorName(part) ?? "";
+  return { instructorName: name, groupHint: null };
 }
 
 const BI_WEEKLY_PLACEHOLDER = "BI__WEEKLY__FREQ";
@@ -866,6 +900,44 @@ function parseStudentRow(
   };
 }
 
+/** When a PID appears on both TLC and another roster, keep the TLC row only. */
+function dedupeWorksheetParticipantsPreferDedicatedSchoolGroups(
+  offices: ParsedWorksheetOffice[]
+): void {
+  for (const office of offices) {
+    const pidToGroupIndices = new Map<string, number[]>();
+    office.groups.forEach((group, index) => {
+      for (const student of group.students) {
+        if (student.notApproved) continue;
+        const pid = student.participantId.trim();
+        if (!pid) continue;
+        const list = pidToGroupIndices.get(pid) ?? [];
+        list.push(index);
+        pidToGroupIndices.set(pid, list);
+      }
+    });
+
+    for (const [pid, indices] of pidToGroupIndices) {
+      if (indices.length <= 1) continue;
+
+      const tlcIndices = indices.filter(
+        (index) =>
+          canonicalizeWorksheetSchoolName(office.groups[index]!.schoolName) === "TLC"
+      );
+      if (tlcIndices.length === 0) continue;
+
+      const keepIndex = tlcIndices[tlcIndices.length - 1]!;
+      for (const index of indices) {
+        if (index === keepIndex) continue;
+        const group = office.groups[index]!;
+        group.students = group.students.filter(
+          (student) => student.notApproved || student.participantId.trim() !== pid
+        );
+      }
+    }
+  }
+}
+
 export function parseDistrictWorksheet(
   rawText: string,
   options: ParseWorksheetOptions = {}
@@ -927,6 +999,30 @@ export function parseDistrictWorksheet(
     const rawHeaderLabel = primaryCsvLabel(line);
     const supervisorInstructor = parseWorksheetSupervisorInstructorLine(rawHeaderLabel);
     if (supervisorInstructor) {
+      const instructorTail =
+        rawHeaderLabel.match(/^\/\s*instructor\s*:\s*(.*)$/i)?.[1]?.trim() ??
+        rawHeaderLabel.match(/\/\s*instructor\s*:\s*(.*)$/i)?.[1]?.trim() ??
+        rawHeaderLabel.match(/^instructor\s*:\s*(.*)$/i)?.[1]?.trim() ??
+        "";
+      const nextGroupLabel = instructorLineGroupDesignation(instructorTail);
+      if (nextGroupLabel && currentGroup && currentOffice) {
+        const headerRaw = `${currentGroup.schoolName} - ${nextGroupLabel}`;
+        const parsedHeader = parseGroupHeader(headerRaw);
+        currentGroup = {
+          headerRaw,
+          schoolName: parsedHeader.schoolName,
+          groupName: parsedHeader.groupName,
+          groupDesignation: parsedHeader.groupDesignation,
+          frequency: parsedHeader.frequency,
+          instructorName: null,
+          classTime: null,
+          serviceCode: null,
+          serviceLabel: null,
+          students: [],
+        };
+        currentOffice.groups.push(currentGroup);
+        continue;
+      }
       if (currentGroup && supervisorInstructor.instructorName?.trim()) {
         if (!currentGroup.instructorName?.trim()) {
           currentGroup.instructorName = supervisorInstructor.instructorName.trim();
@@ -1061,6 +1157,8 @@ export function parseDistrictWorksheet(
       }
     }
   }
+
+  dedupeWorksheetParticipantsPreferDedicatedSchoolGroups(offices);
 
   const serviceMonth = inferServiceMonth(monthLabel, schoolYear);
 
