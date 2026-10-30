@@ -184,13 +184,6 @@ function normalizeWorksheetInstructorName(raw: string | null | undefined): strin
   return trimmed;
 }
 
-/** Billing sometimes puts the next group label on the instructor line (e.g. `/ Instructor: Group 2`). */
-function instructorLineGroupDesignation(raw: string | null | undefined): string | null {
-  const trimmed = raw?.trim() ?? "";
-  if (!trimmed || !isGroupDesignationPart(trimmed)) return null;
-  return trimmed;
-}
-
 /** Supervisor / instructor row under a group header (legacy or two-line billing layout). */
 export function parseWorksheetSupervisorInstructorLine(
   label: string
@@ -592,11 +585,11 @@ export function splitGroupHeaderParts(headerRaw: string): string[] {
     .map((p) => p.trim())
     .filter(Boolean)
     .map((p) => p.replace(new RegExp(BI_WEEKLY_PLACEHOLDER, "gi"), "BI-WEEKLY"));
-  return coalesceInclusionGroupNumberParts(parts);
+  return coalesceWorksheetGroupNumberParts(parts);
 }
 
-/** "INCLUSION - GROUP - 1" → single segment "Inclusion Group 1" (distinct from "INCLUSION - THOMAS"). */
-function coalesceInclusionGroupNumberParts(parts: string[]): string[] {
+/** "INCLUSION - GROUP - 1" → "Inclusion Group 1"; "GROUP - 2" → "Group 2" (not an instructor name). */
+function coalesceWorksheetGroupNumberParts(parts: string[]): string[] {
   const out: string[] = [];
   for (let i = 0; i < parts.length; i++) {
     const current = parts[i] ?? "";
@@ -614,6 +607,11 @@ function coalesceInclusionGroupNumberParts(parts: string[]): string[] {
         i += 2;
         continue;
       }
+    }
+    if (/^group$/i.test(current.trim()) && /^\d+$/.test(next)) {
+      out.push(`Group ${next}`);
+      i += 1;
+      continue;
     }
     out.push(current);
   }
@@ -1019,20 +1017,6 @@ export function parseDistrictWorksheet(
     const rawHeaderLabel = primaryCsvLabel(line);
     const supervisorInstructor = parseWorksheetSupervisorInstructorLine(rawHeaderLabel);
     if (supervisorInstructor) {
-      const instructorTail =
-        rawHeaderLabel.match(/^\/\s*instructor\s*:\s*(.*)$/i)?.[1]?.trim() ??
-        rawHeaderLabel.match(/\/\s*instructor\s*:\s*(.*)$/i)?.[1]?.trim() ??
-        rawHeaderLabel.match(/^instructor\s*:\s*(.*)$/i)?.[1]?.trim() ??
-        "";
-      const nextGroupLabel = instructorLineGroupDesignation(instructorTail);
-      if (nextGroupLabel && currentGroup && currentOffice) {
-        currentGroup = startParsedWorksheetGroup(
-          `${currentGroup.schoolName} - ${nextGroupLabel}`,
-          null
-        );
-        currentOffice.groups.push(currentGroup);
-        continue;
-      }
       if (currentGroup && supervisorInstructor.instructorName?.trim()) {
         if (!currentGroup.instructorName?.trim()) {
           currentGroup.instructorName = supervisorInstructor.instructorName.trim();

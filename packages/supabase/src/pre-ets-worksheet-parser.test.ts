@@ -392,15 +392,18 @@ describe("pre-ets-worksheet-parser", () => {
     assert.equal(parsedLine?.instructorName, null);
   });
 
-  it("starts Group 2 when the instructor line carries a group designation", () => {
+  it("keeps Group 1 students when the instructor line mentions Group 2 (not an instructor)", () => {
     const csv = [
       "JOSHUA TREE NOVEMBER PRE-ETS BILLING 2026-27,,,,,,,,,,,",
       "DISTRICT 5 SCHOOLS,,,,,,,,,,,,",
       "COLUMBUS OFFICE SCHOOLS,,,,,,,,,,,,",
-      "Dougherty County High School - Group 1,,,,,,,,,,,,",
+      "DOUGHERTY COUNTY HIGH SCHOOL - GROUP 1 -,,,,,,,,,,,,",
       "/ Instructor: Group 2,,,,,,,,,,,,",
       "#,STUDENT NAME,PID #,A&I,SERVICE,CODE,UNITS,Class Time,Invoice #,Billed",
-      "1,Group Two Student,33333,,PRE,PRE-1,1,,,",
+      "1,Group One Student,33331,,PRE,PRE-1,1,,,",
+      "DOUGHERTY COUNTY HIGH SCHOOL - GROUP 2 -,,,,,,,,,,,,",
+      "SUPERVISOR: JANE DOE / Instructor:,,,,,,,,,,,,",
+      "1,Group Two Student,33332,,PRE,PRE-1,1,,,",
     ].join("\n");
 
     const parsed = parseDistrictWorksheet(csv);
@@ -410,8 +413,37 @@ describe("pre-ets-worksheet-parser", () => {
     assert.ok(group1);
     assert.ok(group2);
     assert.equal(group1?.instructorName, null);
-    assert.equal(group1?.students.length, 0);
-    assert.equal(group2?.students[0]?.participantId, "33333");
+    assert.equal(group2?.instructorName, null);
+    assert.equal(group1?.students[0]?.participantId, "33331");
+    assert.equal(group2?.students[0]?.participantId, "33332");
+  });
+
+  it("parses Dougherty-style GROUP - 1 headers like other county billing rows", () => {
+    assert.equal(
+      parseGroupHeader("DOUGHERTY COUNTY HIGH SCHOOL - GROUP - 1 -").groupName,
+      "Group 1"
+    );
+
+    const csv = [
+      "JOSHUA TREE NOVEMBER PRE-ETS BILLING 2026-27,,,,,,,,,,,",
+      "DISTRICT 6 SCHOOLS,,,,,,,,,,,,",
+      "ALBANY OFFICE SCHOOLS,,,,,,,,,,,,",
+      "DOUGHERTY COUNTY HIGH SCHOOL - GROUP - 1 -,,,,,,,,,,,,",
+      "SUPERVISOR: JANE DOE / Instructor:,,,,,,,,,,,,",
+      "#,STUDENT NAME,PID #,A&I,SERVICE,CODE,UNITS,Class Time,Invoice #,Billed",
+      "1,First,11111,,PRE,PRE-1,1,,,",
+      "DOUGHERTY COUNTY HIGH SCHOOL - GROUP - 2 -,,,,,,,,,,,,",
+      "SUPERVISOR: JANE DOE / Instructor:,,,,,,,,,,,,",
+      "1,Second,22222,,PRE,PRE-1,1,,,",
+    ].join("\n");
+
+    const parsed = parseDistrictWorksheet(csv);
+    assert.equal(parsed.stats.groupCount, 2);
+    const groups = parsed.offices[0]?.groups ?? [];
+    assert.equal(groups[0]?.students[0]?.participantId, "11111");
+    assert.equal(groups[1]?.students[0]?.participantId, "22222");
+    assert.match(groups[0]?.groupName ?? "", /group 1/i);
+    assert.match(groups[1]?.groupName ?? "", /group 2/i);
   });
 
   it("allows a blank instructor on the supervisor or instructor row", () => {

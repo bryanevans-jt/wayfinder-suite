@@ -6,6 +6,7 @@ import {
 } from "./pre-ets-worksheet-parser";
 import {
   pickCanonicalProgramGroupForName,
+  programGroupMatchesWorksheetHeader,
   resolveWorksheetGroupMapping,
   worksheetGroupMappingMatchesParsedSchool,
 } from "./pre-ets-worksheet-group-mapping";
@@ -46,6 +47,19 @@ describe("resolveWorksheetGroupMapping", () => {
     const fromExcel =
       "WHEELER COUNTY HIGH SCHOOL – MONTHLY – TIFFANY POWELL,,,";
     assert.equal(resolveWorksheetGroupMapping(map, fromExcel)?.canonical_school_name, row.canonical_school_name);
+  });
+});
+
+describe("programGroupMatchesWorksheetHeader", () => {
+  it("distinguishes Dougherty County Group 1 and Group 2 header lines", () => {
+    const group1Header = "DOUGHERTY COUNTY HIGH SCHOOL - GROUP 1 -";
+    const group2Header = "DOUGHERTY COUNTY HIGH SCHOOL - GROUP 2 -";
+    const stored = {
+      worksheet_header_key: "dougherty county high school - group 1",
+      header_raw: group1Header,
+    };
+    assert.ok(programGroupMatchesWorksheetHeader(stored, group1Header));
+    assert.equal(programGroupMatchesWorksheetHeader(stored, group2Header), false);
   });
 });
 
