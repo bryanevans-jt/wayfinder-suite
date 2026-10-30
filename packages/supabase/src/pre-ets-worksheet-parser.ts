@@ -1006,10 +1006,10 @@ export function parseDistrictWorksheet(
         "";
       const nextGroupLabel = instructorLineGroupDesignation(instructorTail);
       if (nextGroupLabel && currentGroup && currentOffice) {
-        const headerRaw = `${currentGroup.schoolName} - ${nextGroupLabel}`;
-        const parsedHeader = parseGroupHeader(headerRaw);
+        const nextGroupHeaderRaw = `${currentGroup.schoolName} - ${nextGroupLabel}`;
+        const parsedHeader = parseGroupHeader(nextGroupHeaderRaw);
         currentGroup = {
-          headerRaw,
+          headerRaw: nextGroupHeaderRaw,
           schoolName: parsedHeader.schoolName,
           groupName: parsedHeader.groupName,
           groupDesignation: parsedHeader.groupDesignation,
