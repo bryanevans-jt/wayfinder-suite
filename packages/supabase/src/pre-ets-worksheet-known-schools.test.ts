@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   canonicalizeWorksheetSchoolName,
+  fixWorksheetSchoolNameTypos,
   looksLikeKnownWorksheetSchoolLabel,
 } from "./pre-ets-worksheet-known-schools";
 
@@ -43,6 +44,15 @@ test("Scintilla Charter School Valdosta maps to class setup name", () => {
   assert.equal(
     canonicalizeWorksheetSchoolName("SCINTILLA CHARTER SCHOOL VALDOSTA"),
     "Scintilla Charter School"
+  );
+});
+
+test("Coffee County Wiregrass is recognized and Coffe typo is corrected", () => {
+  assert.equal(fixWorksheetSchoolNameTypos("Coffe County Wiregrass"), "Coffee County Wiregrass");
+  assert.ok(looksLikeKnownWorksheetSchoolLabel("Coffe County Wiregrass"));
+  assert.equal(
+    canonicalizeWorksheetSchoolName("Coffe County Wiregrass"),
+    "Coffee County Wiregrass"
   );
 });
 

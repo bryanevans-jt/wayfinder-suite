@@ -1,5 +1,13 @@
 import { expandSchoolAbbreviation } from "./pre-ets-school-name-match";
 
+/** Common GVRA billing typos before header / school matching. */
+export function fixWorksheetSchoolNameTypos(name: string): string {
+  return name
+    .replace(/\u00a0/g, " ")
+    .replace(/\bcoffe\b/gi, "Coffee")
+    .trim();
+}
+
 /** Billing exports that omit "High School" — match the worksheet label, not only class setup spelling. */
 const WORKSHEET_SCHOOL_CANONICAL: Array<{ pattern: RegExp; canonical: string }> = [
   { pattern: /^upson\s*[-]?\s*lee(\s+high(\s+school)?|\s+school)?$/i, canonical: "Upson Lee High School" },
@@ -35,6 +43,10 @@ const WORKSHEET_SCHOOL_CANONICAL: Array<{ pattern: RegExp; canonical: string }> 
     canonical: "Harrell Learning Center",
   },
   { pattern: /^hlc(\s+ware)?$/i, canonical: "Harrell Learning Center" },
+  {
+    pattern: /^coffee\s+county\s+wiregrass$/i,
+    canonical: "Coffee County Wiregrass",
+  },
 ];
 
 const KNOWN_SCHOOL_LABEL_PATTERNS: RegExp[] = [
@@ -51,6 +63,7 @@ const KNOWN_SCHOOL_LABEL_PATTERNS: RegExp[] = [
   /\bharrell\s+learning\s+center\b/i,
   /\bhlc(\s+ware)?\b/i,
   /\blearning\s+center\b/i,
+  /\bcoffee\s+county\s+wiregrass\b/i,
   /\bcharter\s+school\b/i,
   /** Alternate Pre-ETS sites billed like schools but not named “___ High School”. */
   /^project\s+[a-z0-9]/i,
@@ -76,7 +89,7 @@ export function looksLikeCountyOnlySchoolLabel(label: string): boolean {
 
 /** True when the label is a known school even without "High School" (e.g. "Upson Lee"). */
 export function looksLikeKnownWorksheetSchoolLabel(label: string): boolean {
-  const normalized = label.replace(/\u00a0/g, " ").trim();
+  const normalized = fixWorksheetSchoolNameTypos(label);
   if (normalized.length < 8) return false;
   if (looksLikeCountyOnlySchoolLabel(normalized)) return true;
   if (looksLikeCountyInstituteSchoolLabel(normalized)) return true;
@@ -99,7 +112,7 @@ function stripCharterSchoolCampusSuffix(name: string): string {
 }
 
 export function canonicalizeWorksheetSchoolName(name: string): string {
-  let trimmed = name.replace(/\u00a0/g, " ").trim();
+  let trimmed = fixWorksheetSchoolNameTypos(name);
   for (const { pattern, canonical } of WORKSHEET_SCHOOL_CANONICAL) {
     if (pattern.test(trimmed)) return canonical;
   }
