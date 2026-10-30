@@ -11,6 +11,12 @@ test("Upson Lee is a known school label without High", () => {
   assert.equal(canonicalizeWorksheetSchoolName("UPSON-LEE HIGH"), "Upson Lee High School");
 });
 
+test("Showcase Transition maps to Showcase Academy from class setup", () => {
+  assert.ok(looksLikeKnownWorksheetSchoolLabel("SHOWCASE TRANSITION"));
+  assert.equal(canonicalizeWorksheetSchoolName("Showcase Transition"), "Showcase Academy");
+  assert.equal(canonicalizeWorksheetSchoolName("Showcase Academy"), "Showcase Academy");
+});
+
 test("Project United is a known alternate site without High School in the label", () => {
   assert.ok(looksLikeKnownWorksheetSchoolLabel("PROJECT UNITED"));
   assert.equal(canonicalizeWorksheetSchoolName("PROJECT UNITED"), "Project United");

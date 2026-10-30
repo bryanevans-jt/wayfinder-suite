@@ -184,6 +184,26 @@ describe("pre-ets-worksheet-parser", () => {
     assert.equal(scintilla?.students[0]?.participantId, "44444");
   });
 
+  it("recognizes Showcase Transition as a standalone group header row", () => {
+    assert.ok(
+      looksLikeWorksheetGroupHeaderLine("Showcase Transition,,,", ["Showcase Transition"])
+    );
+
+    const csv = [
+      "JOSHUA TREE NOVEMBER PRE-ETS BILLING 2026-27",
+      "DISTRICT 5 SCHOOLS",
+      "Columbus Office Schools",
+      "Showcase Transition - INCLUSION -",
+      "Supervisor / Instructor: Terri Dudley",
+      "#,Student Name,PID #,A & I,Service,Code,Units",
+      "1,Sample Student,99999,,PRE,PRE-1,1",
+    ].join("\n");
+
+    const parsed = parseDistrictWorksheet(csv);
+    assert.equal(parsed.offices[0]?.groups[0]?.schoolName, "Showcase Transition");
+    assert.equal(parsed.offices[0]?.groups[0]?.students.length, 1);
+  });
+
   it("recognizes Project United group headers without High School in the label", () => {
     const header = "PROJECT UNITED - MONTHLY - JANE DOE";
     assert.ok(looksLikeWorksheetGroupHeaderLine(`${header},,,,,,,,,,,,`, [header]));
