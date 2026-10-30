@@ -35,6 +35,18 @@ function normalizeServiceMonth(month: string): string {
   return month.length === 7 ? `${month}-01` : month.slice(0, 10);
 }
 
+/** Same auth pick as Schools & groups (group/pending authorization when present). */
+export function pickRepresentativePreEtsAuthorization<
+  T extends { auth_type: string },
+>(authList: T[]): T | null {
+  if (authList.length === 0) return null;
+  return (
+    authList.find((a) => a.auth_type === "group" || a.auth_type === "pending") ??
+    authList[0] ??
+    null
+  );
+}
+
 function statusFromAuth(
   auth: { auth_number: string | null; auth_type: string } | null,
   studentCount: number
@@ -147,10 +159,7 @@ export async function loadPreEtsSchoolPipeline(
         | { id: string; auth_number: string | null; auth_type: string; service_code: string }[]
         | null;
       const authList = Array.isArray(authsRaw) ? authsRaw : authsRaw ? [authsRaw] : [];
-      const auth =
-        authList.find((a) => a.auth_type === "group" || a.auth_type === "pending") ??
-        authList[0] ??
-        null;
+      const auth = pickRepresentativePreEtsAuthorization(authList);
 
       const programGroupId = group.id as string;
       const studentCount = auth?.id
