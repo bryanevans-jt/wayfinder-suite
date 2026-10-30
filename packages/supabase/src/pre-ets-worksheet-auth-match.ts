@@ -88,6 +88,8 @@ export async function findPendingGroupAuthorizationId(
 
   if (data?.id) return data.id as string;
 
+  if (headerKey) return null;
+
   const { data: anyPending } = await admin
     .from("pre_ets_authorizations")
     .select("id")

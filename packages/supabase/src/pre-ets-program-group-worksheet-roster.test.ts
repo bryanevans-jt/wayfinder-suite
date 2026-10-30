@@ -98,4 +98,80 @@ describe("collectParsedWorksheetGroupsForProgramGroup", () => {
     }
     assert.deepEqual([...pids].sort(), ["111", "333"]);
   });
+
+  it("does not union Dougherty Group 1 spreadsheet rows into Group 2 allowlists", () => {
+    const groups: ParsedWorksheetGroup[] = [
+      {
+        headerRaw: "DOUGHERTY COUNTY HIGH SCHOOL - GROUP 1 -",
+        schoolName: "DOUGHERTY COUNTY HIGH SCHOOL",
+        groupName: "GROUP 1",
+        groupDesignation: "GROUP 1",
+        frequency: null,
+        instructorName: null,
+        classTime: null,
+        serviceCode: null,
+        serviceLabel: null,
+        students: [
+          {
+            rowNumber: 1,
+            listOrder: 1,
+            studentName: "One",
+            participantId: "111",
+            authNumber: "12345",
+            service: "",
+            serviceCode: "",
+            units: 1,
+            classTime: "",
+            invoiceNumber: "",
+            billed: "",
+            notApproved: false,
+            authType: "group",
+            issues: [],
+          },
+        ],
+      },
+      {
+        headerRaw: "DOUGHERTY COUNTY HIGH SCHOOL - GROUP 2 -",
+        schoolName: "DOUGHERTY COUNTY HIGH SCHOOL",
+        groupName: "GROUP 2",
+        groupDesignation: "GROUP 2",
+        frequency: null,
+        instructorName: null,
+        classTime: null,
+        serviceCode: null,
+        serviceLabel: null,
+        students: [
+          {
+            rowNumber: 2,
+            listOrder: 1,
+            studentName: "Two",
+            participantId: "222",
+            authNumber: "67890",
+            service: "",
+            serviceCode: "",
+            units: 1,
+            classTime: "",
+            invoiceNumber: "",
+            billed: "",
+            notApproved: false,
+            authType: "group",
+            issues: [],
+          },
+        ],
+      },
+    ];
+
+    const group2 = collectParsedWorksheetGroupsForProgramGroup(groups, {
+      headerRaw: "DOUGHERTY COUNTY HIGH SCHOOL - GROUP 2 -",
+      headerKey: "dougherty county high school - group 2",
+      groupName: "GROUP 1",
+      schoolName: "Dougherty County High School",
+    });
+
+    assert.equal(group2.length, 1);
+    assert.deepEqual(
+      [...group2[0]!.students.map((s) => s.participantId)],
+      ["222"]
+    );
+  });
 });

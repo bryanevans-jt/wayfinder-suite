@@ -26,6 +26,7 @@ import {
   findProgramGroupForWorksheetImport,
   loadWorksheetGroupMappings,
   normalizeWorksheetHeaderKey,
+  programGroupMatchesWorksheetHeader,
   resolveWorksheetGroupMapping,
   worksheetGroupMappingMatchesParsedSchool,
 } from "./pre-ets-worksheet-group-mapping";
@@ -92,11 +93,31 @@ async function upsertProgramGroup(
     input.settings
   );
   const headerKey = normalizeWorksheetHeaderKey(input.group.headerRaw);
-  const existingId = await findProgramGroupForWorksheetImport(admin, {
+  let existingId = await findProgramGroupForWorksheetImport(admin, {
     schoolId: input.schoolId,
     serviceMonth: input.serviceMonth,
     group: input.group,
   });
+
+  if (existingId) {
+    const { data: stored } = await admin
+      .from("pre_ets_program_groups")
+      .select("worksheet_header_key, header_raw")
+      .eq("id", existingId)
+      .maybeSingle();
+    if (
+      stored &&
+      !programGroupMatchesWorksheetHeader(
+        {
+          worksheet_header_key: (stored.worksheet_header_key as string | null) ?? null,
+          header_raw: String(stored.header_raw ?? ""),
+        },
+        input.group.headerRaw
+      )
+    ) {
+      existingId = null;
+    }
+  }
 
   if (existingId) {
     await admin
@@ -434,10 +455,11 @@ export async function commitWorksheetImport(
       const byAuth = new Map<string, typeof groupStudents>();
 
       for (const student of groupStudents) {
+        const headerScope = worksheetHeaderKey || group.headerRaw.trim().toLowerCase();
         const key =
           student.authType === "individual"
-            ? `ind:${student.participantId}:${student.authNumber || "pending"}`
-            : `grp:${student.authNumber || "pending"}`;
+            ? `ind:${student.participantId}:${student.authNumber || "pending"}:${headerScope}`
+            : `grp:${student.authNumber || "pending"}:${headerScope}`;
         const list = byAuth.get(key) ?? [];
         list.push(student);
         byAuth.set(key, list);

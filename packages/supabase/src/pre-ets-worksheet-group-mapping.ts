@@ -181,33 +181,6 @@ export async function findProgramGroupForWorksheetImport(
     }
   }
 
-  const { data: byNameRows } = await admin
-    .from("pre_ets_program_groups")
-    .select("id, group_name, created_at, worksheet_header_key, header_raw")
-    .eq("school_id", input.schoolId)
-    .eq("service_month", input.serviceMonth);
-
-  const canonical = pickCanonicalProgramGroupForName(byNameRows ?? [], input.group.groupName);
-  if (!canonical) return null;
-
-  if (
-    programGroupMatchesWorksheetHeader(
-      {
-        worksheet_header_key: (canonical.worksheet_header_key as string | null) ?? null,
-        header_raw: (canonical.header_raw as string | null) ?? null,
-      },
-      headerRaw
-    )
-  ) {
-    return canonical.id as string;
-  }
-
-  const storedKey = String(canonical.worksheet_header_key ?? "").trim();
-  const storedRaw = String(canonical.header_raw ?? "").trim();
-  if (!storedKey && !storedRaw) {
-    return canonical.id as string;
-  }
-
   return null;
 }
 

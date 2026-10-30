@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   parseDistrictWorksheet,
+  worksheetHeaderGroupNumberToken,
   worksheetHeaderKeysMatch,
   type ParsedWorksheetGroup,
 } from "./pre-ets-worksheet-parser";
@@ -85,6 +86,9 @@ export function collectParsedWorksheetGroupsForProgramGroup(
     canonicalizeWorksheetSchoolName(target.schoolName)
   );
   const groupKey = normalizeProgramGroupNameKey(target.groupName);
+  const targetGroupNumber = worksheetHeaderGroupNumberToken(
+    target.headerRaw || target.headerKey
+  );
   if (!groupKey) return out;
 
   for (const group of groups) {
@@ -95,10 +99,19 @@ export function collectParsedWorksheetGroupsForProgramGroup(
       canonicalizeWorksheetSchoolName(group.schoolName)
     );
     const gGroup = normalizeProgramGroupNameKey(group.groupName);
-    if (gSchool === schoolKey && gGroup === groupKey) {
-      out.push(group);
-      seenHeaders.add(headerId);
+    if (gSchool !== schoolKey || gGroup !== groupKey) continue;
+
+    const candidateGroupNumber = worksheetHeaderGroupNumberToken(group.headerRaw);
+    if (
+      targetGroupNumber &&
+      candidateGroupNumber &&
+      targetGroupNumber !== candidateGroupNumber
+    ) {
+      continue;
     }
+
+    out.push(group);
+    seenHeaders.add(headerId);
   }
 
   return out;

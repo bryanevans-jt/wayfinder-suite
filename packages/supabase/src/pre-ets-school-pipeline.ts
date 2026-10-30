@@ -3,6 +3,7 @@ import { isPreEtsAuthorizationReleasedToField } from "./pre-ets-release";
 import { fetchAllPostgrestRows } from "./postgrest-fetch-all";
 import { loadPreEtsAssignedSchoolIds } from "./pre-ets-upload-scope";
 import {
+  authorizationMatchesProgramGroupHeader,
   countEligibleRosterStudentsForAuthorization,
   countEligibleRosterStudentsForProgramGroup,
   countRosterStudentsForAuthorization,
@@ -102,7 +103,7 @@ export async function loadPreEtsSchoolPipeline(
     let groupsQuery = admin
       .from("pre_ets_program_groups")
       .select(
-        "id, group_name, instructor_name, class_time, service_code, hidden_at, merged_into_program_group_id, pre_ets_authorizations(id, auth_number, auth_type, service_code)"
+        "id, group_name, instructor_name, class_time, service_code, hidden_at, merged_into_program_group_id, header_raw, worksheet_header_key, pre_ets_authorizations(id, auth_number, auth_type, service_code, worksheet_header_key)"
       )
       .eq("school_id", schoolId)
       .eq("service_month", serviceMonth);
@@ -157,11 +158,30 @@ export async function loadPreEtsSchoolPipeline(
 
     for (const group of visibleGroups) {
       const authsRaw = group.pre_ets_authorizations as
-        | { id: string; auth_number: string | null; auth_type: string; service_code: string }
-        | { id: string; auth_number: string | null; auth_type: string; service_code: string }[]
+        | {
+            id: string;
+            auth_number: string | null;
+            auth_type: string;
+            service_code: string;
+            worksheet_header_key: string | null;
+          }
+        | {
+            id: string;
+            auth_number: string | null;
+            auth_type: string;
+            service_code: string;
+            worksheet_header_key: string | null;
+          }[]
         | null;
       const authList = Array.isArray(authsRaw) ? authsRaw : authsRaw ? [authsRaw] : [];
-      const auth = pickRepresentativePreEtsAuthorization(authList);
+      const headerMeta = {
+        worksheet_header_key: (group.worksheet_header_key as string | null) ?? null,
+        header_raw: String(group.header_raw ?? ""),
+      };
+      const scopedAuthList = authList.filter((a) =>
+        authorizationMatchesProgramGroupHeader(headerMeta, a.worksheet_header_key)
+      );
+      const auth = pickRepresentativePreEtsAuthorization(scopedAuthList);
 
       const programGroupId = group.id as string;
       const studentCount = auth?.id

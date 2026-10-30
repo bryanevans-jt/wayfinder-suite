@@ -153,6 +153,13 @@ export function worksheetHeaderKeysMatch(a: string, b: string): boolean {
   return normalizeWorksheetHeaderKeyLoose(a) === normalizeWorksheetHeaderKeyLoose(b);
 }
 
+/** Numeric suffix from headers like "… - GROUP 1" (distinct from Group 2 at the same school). */
+export function worksheetHeaderGroupNumberToken(headerRaw: string): string | null {
+  const key = normalizeWorksheetHeaderKeyLoose(headerRaw);
+  const match = key.match(/\bgroup\s*(\d+)\b/);
+  return match?.[1] ?? null;
+}
+
 /** First non-empty CSV cell (billing exports pad rows with trailing commas). */
 export function primaryCsvLabel(line: string): string {
   const cells = parseCsvLine(line).map((c) => c.replace(/\u00a0/g, " ").trim());
