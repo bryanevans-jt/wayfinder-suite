@@ -8,6 +8,8 @@ import {
 import { buildPreEtsRosterFileLabel } from "@wayfinder/supabase/pre-ets-roster-filename";
 import {
   loadEligibleRosterStudentsForAuthorization,
+  loadEligibleRosterStudentsForProgramGroup,
+  programGroupIdForAuthorization,
 } from "@wayfinder/supabase/pre-ets-program-group-roster";
 import { buildPreEtsRosterPdf } from "@/lib/pre-ets-roster-export";
 
@@ -39,7 +41,7 @@ export async function buildAuthorizationRosterPdf(
   const { data: authorization, error } = await admin
     .from("pre_ets_authorizations")
     .select(
-      "id, auth_number, auth_type, service_code, service_label, service_month, pre_ets_schools(name, pre_ets_districts(school_year)), pre_ets_program_groups(group_name, instructor_name)"
+      "id, auth_number, auth_type, service_code, service_label, service_month, program_group_id, pre_ets_schools(name, pre_ets_districts(school_year)), pre_ets_program_groups(group_name, instructor_name)"
     )
     .eq("id", authorizationId)
     .maybeSingle();
@@ -62,7 +64,21 @@ export async function buildAuthorizationRosterPdf(
       | null
   );
 
-  const aggregated = await loadEligibleRosterStudentsForAuthorization(admin, authorizationId);
+  const authType = authorization.auth_type as "group" | "individual" | "pending";
+
+  let aggregated = await loadEligibleRosterStudentsForAuthorization(admin, authorizationId);
+  if (
+    aggregated.length === 0 &&
+    (authType === "group" || authType === "pending")
+  ) {
+    const programGroupId =
+      (authorization.program_group_id as string | null) ??
+      (await programGroupIdForAuthorization(admin, authorizationId));
+    if (programGroupId) {
+      aggregated = await loadEligibleRosterStudentsForProgramGroup(admin, programGroupId);
+    }
+  }
+
   let students = aggregated.map((s) => ({
     participantId: s.participantId,
     fullName: s.fullName,
@@ -71,8 +87,6 @@ export async function buildAuthorizationRosterPdf(
   if (students.length === 0) {
     return { ok: false, error: "No roster students with PID", skip: true };
   }
-
-  const authType = authorization.auth_type as "group" | "individual" | "pending";
   const pdfStudents =
     authType === "individual" && students.length > 0 ? [students[0]!] : students;
 
