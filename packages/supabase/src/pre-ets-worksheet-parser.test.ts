@@ -346,6 +346,33 @@ describe("pre-ets-worksheet-parser", () => {
     assert.equal(parsed.offices[0]?.groups[0]?.students[0]?.participantId, "33333");
   });
 
+  it("starts Harrell Learning Center after another school without repeating column headers", () => {
+    assert.ok(
+      looksLikeWorksheetGroupHeaderLine("Harrell Learning Center,,,,,,,,,,,,", [
+        "Harrell Learning Center",
+      ])
+    );
+
+    const csv = [
+      "JOSHUA TREE NOVEMBER PRE-ETS BILLING 2026-27,,,,,,,,,,,",
+      "DISTRICT 5 SCHOOLS,,,,,,,,,,,,",
+      "COLUMBUS OFFICE SCHOOLS,,,,,,,,,,,,",
+      "PIKE COUNTY - INCLUSION -,,,,,,,,,,,,",
+      "VICTORIA BEIL / Instructor: EMERY FAIRCLOTH,,,,,,,,,,,,",
+      "#,STUDENT NAME,PID #,A&I,SERVICE,CODE,UNITS,Class Time,Invoice #,Billed",
+      "1,Pike Student,11111,,PRE,PRE-1,1,,,",
+      "Harrell Learning Center,,,,,,,,,,,,",
+      "VICTORIA BEIL / Instructor: JANE DOE,,,,,,,,,,,,",
+      "1,Harrell Student,44444,,PRE,PRE-1,1,,,",
+    ].join("\n");
+
+    const parsed = parseDistrictWorksheet(csv);
+    assert.equal(parsed.stats.groupCount, 2);
+    const harrell = parsed.offices[0]?.groups.find((g) => /harrell/i.test(g.schoolName));
+    assert.ok(harrell);
+    assert.equal(harrell?.students[0]?.participantId, "44444");
+  });
+
   it("starts Heard County after Pike County without repeating column headers (D5-style)", () => {
     const csv = [
       "JOSHUA TREE NOVEMBER PRE-ETS BILLING 2026-27,,,,,,,,,,,",
