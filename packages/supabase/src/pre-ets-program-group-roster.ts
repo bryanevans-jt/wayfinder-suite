@@ -1,6 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isPreEtsPendingParticipantId } from "./pre-ets-pending-participant-id";
-import { fetchAllPostgrestRows } from "./postgrest-fetch-all";
+import {
+  fetchAllPostgrestRows,
+  fetchAllPostgrestRowsByIn,
+} from "./postgrest-fetch-all";
 import {
   loadWorksheetParticipantAllowlistForProgramGroup,
   loadWorksheetParticipantAllowlistsForProgramGroups,
@@ -128,7 +131,7 @@ export async function loadProgramGroupRosterCounts(
   }
 
   const [groups, auths] = await Promise.all([
-    fetchAllPostgrestRows<{
+    fetchAllPostgrestRowsByIn<{
       id: string;
       worksheet_header_key: string | null;
       header_raw: string | null;
@@ -136,9 +139,10 @@ export async function loadProgramGroupRosterCounts(
       admin,
       "pre_ets_program_groups",
       "id, worksheet_header_key, header_raw",
-      { applyFilters: (query) => query.in("id", ids) }
+      "id",
+      ids
     ),
-    fetchAllPostgrestRows<{
+    fetchAllPostgrestRowsByIn<{
       id: string;
       program_group_id: string;
       auth_type: string;
@@ -147,8 +151,9 @@ export async function loadProgramGroupRosterCounts(
       admin,
       "pre_ets_authorizations",
       "id, program_group_id, auth_type, worksheet_header_key",
+      "program_group_id",
+      ids,
       {
-        applyFilters: (query) => query.in("program_group_id", ids),
         order: { column: "created_at", ascending: true },
       }
     ),
@@ -188,7 +193,7 @@ export async function loadProgramGroupRosterCounts(
   }
 
   const [entries, allowlists] = await Promise.all([
-    fetchAllPostgrestRows<{
+    fetchAllPostgrestRowsByIn<{
       authorization_id: string;
       not_approved: boolean;
       pre_ets_students: {
@@ -199,9 +204,11 @@ export async function loadProgramGroupRosterCounts(
       admin,
       "pre_ets_roster_entries",
       "authorization_id, not_approved, pre_ets_students(participant_id, full_name)",
+      "authorization_id",
+      authIds,
       {
         applyFilters: (query) =>
-          query.in("authorization_id", authIds).eq("not_approved", false),
+          query.eq("not_approved", false),
       }
     ),
     loadWorksheetParticipantAllowlistsForProgramGroups(admin, ids),
@@ -268,12 +275,11 @@ export async function loadEligibleRosterStudentsForProgramGroup(
   const authIds = await listAuthorizationIdsForProgramGroup(admin, programGroupId);
   if (authIds.length === 0) return [];
 
-  const entries = await fetchAllPostgrestRows<{
+  const entries = await fetchAllPostgrestRowsByIn<{
     list_order: number;
     not_approved: boolean;
     pre_ets_students: { participant_id: string | null; full_name: string | null } | null;
-  }>(admin, "pre_ets_roster_entries", "list_order, not_approved, pre_ets_students(participant_id, full_name)", {
-    applyFilters: (q) => q.in("authorization_id", authIds),
+  }>(admin, "pre_ets_roster_entries", "list_order, not_approved, pre_ets_students(participant_id, full_name)", "authorization_id", authIds, {
     order: { column: "list_order", ascending: true },
   });
 
@@ -371,7 +377,7 @@ export async function loadEligibleRosterCountsForAuthorizations(
   const counts = new Map<string, number>(ids.map((id) => [id, 0]));
   if (ids.length === 0) return counts;
 
-  const entries = await fetchAllPostgrestRows<{
+  const entries = await fetchAllPostgrestRowsByIn<{
     authorization_id: string;
     not_approved: boolean;
     pre_ets_students: { participant_id: string | null } | null;
@@ -379,9 +385,11 @@ export async function loadEligibleRosterCountsForAuthorizations(
     admin,
     "pre_ets_roster_entries",
     "authorization_id, not_approved, pre_ets_students(participant_id)",
+    "authorization_id",
+    ids,
     {
       applyFilters: (query) =>
-        query.in("authorization_id", ids).eq("not_approved", false),
+        query.eq("not_approved", false),
     }
   );
   for (const entry of entries) {

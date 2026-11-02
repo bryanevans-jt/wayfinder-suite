@@ -30,6 +30,7 @@ import {
   resolveWorksheetGroupMapping,
   worksheetGroupMappingMatchesParsedSchool,
 } from "./pre-ets-worksheet-group-mapping";
+import { fetchAllPostgrestRowsByIn } from "./postgrest-fetch-all";
 
 export type PreEtsYtdWarning = {
   participantId: string;
@@ -523,14 +524,29 @@ export async function commitWorksheetImport(
           });
         }
 
-        const { data: studentRows, error: studentBatchError } = await admin
+        const studentPayload = [...studentPayloadByParticipant.values()];
+        const studentBatch = await admin
           .from("pre_ets_students")
-          .upsert([...studentPayloadByParticipant.values()], {
+          .upsert(studentPayload, {
             onConflict: "participant_id,school_year",
           })
           .select("id, participant_id");
 
-        if (studentBatchError || !studentRows?.length) continue;
+        let studentRows = studentBatch.data ?? [];
+        if (studentBatch.error) {
+          studentRows = [];
+          for (const payload of studentPayload) {
+            const { data: student } = await admin
+              .from("pre_ets_students")
+              .upsert(payload, {
+                onConflict: "participant_id,school_year",
+              })
+              .select("id, participant_id")
+              .maybeSingle();
+            if (student) studentRows.push(student);
+          }
+        }
+        if (studentRows.length === 0) continue;
 
         const studentIdByParticipant = new Map(
           studentRows.map((student) => [
@@ -540,22 +556,41 @@ export async function commitWorksheetImport(
         );
         const studentIds = [...studentIdByParticipant.values()];
 
-        await admin.from("pre_ets_student_ytd_units").upsert(
-          studentIds.map((studentId) => ({
+        const ytdPayload = studentIds.map((studentId) => ({
             student_id: studentId,
             school_year: parsed.schoolYear,
             billable_units: 0,
-          })),
-          { onConflict: "student_id,school_year", ignoreDuplicates: true }
-        );
-
-        const { data: ytdRows } = await admin
+          }));
+        const { error: ytdBatchError } = await admin
           .from("pre_ets_student_ytd_units")
-          .select("student_id, billable_units")
-          .in("student_id", studentIds)
-          .eq("school_year", parsed.schoolYear);
+          .upsert(ytdPayload,
+          { onConflict: "student_id,school_year", ignoreDuplicates: true }
+          );
+        if (ytdBatchError) {
+          for (const payload of ytdPayload) {
+            await admin.from("pre_ets_student_ytd_units").upsert(payload, {
+              onConflict: "student_id,school_year",
+              ignoreDuplicates: true,
+            });
+          }
+        }
+
+        const ytdRows = await fetchAllPostgrestRowsByIn<{
+          student_id: string;
+          billable_units: number | null;
+        }>(
+          admin,
+          "pre_ets_student_ytd_units",
+          "student_id, billable_units",
+          "student_id",
+          studentIds,
+          {
+            applyFilters: (query) =>
+              query.eq("school_year", parsed.schoolYear),
+          }
+        );
         const currentYtdByStudent = new Map(
-          (ytdRows ?? []).map((row) => [
+          ytdRows.map((row) => [
             String(row.student_id),
             Number(row.billable_units ?? 0),
           ])
@@ -619,6 +654,15 @@ export async function commitWorksheetImport(
             });
           if (!rosterBatchError) {
             authMatchStats.rosterEntriesUpdated += rosterPayload.length;
+          } else {
+            for (const payload of rosterPayload) {
+              const { error } = await admin
+                .from("pre_ets_roster_entries")
+                .upsert(payload, {
+                  onConflict: "authorization_id,student_id",
+                });
+              if (!error) authMatchStats.rosterEntriesUpdated++;
+            }
           }
         }
 

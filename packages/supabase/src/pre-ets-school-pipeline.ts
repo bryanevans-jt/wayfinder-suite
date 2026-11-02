@@ -1,6 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isPreEtsAuthorizationReleasedToField } from "./pre-ets-release";
-import { fetchAllPostgrestRows } from "./postgrest-fetch-all";
+import {
+  fetchAllPostgrestRows,
+  fetchAllPostgrestRowsByIn,
+} from "./postgrest-fetch-all";
 import { loadPreEtsAssignedSchoolIds } from "./pre-ets-upload-scope";
 import {
   authorizationMatchesProgramGroupHeader,
@@ -76,20 +79,22 @@ export async function loadPreEtsSchoolPipeline(
     return [];
   }
 
-  const schools = await fetchAllPostgrestRows<{ id: string; name: string }>(
-    admin,
-    "pre_ets_schools",
-    "id, name",
-    {
-      order: { column: "name", ascending: true },
-      applyFilters: (query) => {
-        if (scopedSchoolIds !== null) {
-          return query.in("id", scopedSchoolIds);
-        }
-        return query;
-      },
-    }
-  );
+  const schools =
+    scopedSchoolIds === null
+      ? await fetchAllPostgrestRows<{ id: string; name: string }>(
+          admin,
+          "pre_ets_schools",
+          "id, name",
+          { order: { column: "name", ascending: true } }
+        )
+      : await fetchAllPostgrestRowsByIn<{ id: string; name: string }>(
+          admin,
+          "pre_ets_schools",
+          "id, name",
+          "id",
+          scopedSchoolIds,
+          { order: { column: "name", ascending: true } }
+        );
 
   const rows: PreEtsPipelineRow[] = [];
 
@@ -125,13 +130,15 @@ export async function loadPreEtsSchoolPipeline(
       | null;
   };
 
-  const groups = await fetchAllPostgrestRows<PipelineGroup>(
+  const groups = await fetchAllPostgrestRowsByIn<PipelineGroup>(
     admin,
     "pre_ets_program_groups",
     "id, school_id, group_name, instructor_name, class_time, service_code, hidden_at, merged_into_program_group_id, header_raw, worksheet_header_key, pre_ets_authorizations(id, auth_number, auth_type, service_code, worksheet_header_key)",
+    "school_id",
+    schoolIds,
     {
       applyFilters: (query) => {
-        let filtered = query.in("school_id", schoolIds).eq("service_month", serviceMonth);
+        let filtered = query.eq("service_month", serviceMonth);
         if (!input.includeHidden) filtered = filtered.is("hidden_at", null);
         return filtered;
       },
@@ -182,17 +189,17 @@ export async function loadPreEtsSchoolPipeline(
   ];
   const rosterCountsByAuthorization = new Map<string, number>();
   if (representativeAuthIds.length > 0) {
-    const rosterEntries = await fetchAllPostgrestRows<{
+    const rosterEntries = await fetchAllPostgrestRowsByIn<{
       authorization_id: string;
     }>(
       admin,
       "pre_ets_roster_entries",
       "authorization_id",
+      "authorization_id",
+      representativeAuthIds,
       {
         applyFilters: (query) =>
-          query
-            .in("authorization_id", representativeAuthIds)
-            .eq("not_approved", false),
+          query.eq("not_approved", false),
       }
     );
     for (const entry of rosterEntries) {
@@ -212,11 +219,17 @@ export async function loadPreEtsSchoolPipeline(
   ];
   const mergeTargetNames = new Map<string, string>();
   if (mergeTargetIds.length > 0) {
-    const { data: targets } = await admin
-      .from("pre_ets_program_groups")
-      .select("id, group_name")
-      .in("id", mergeTargetIds);
-    for (const target of targets ?? []) {
+    const targets = await fetchAllPostgrestRowsByIn<{
+      id: string;
+      group_name: string;
+    }>(
+      admin,
+      "pre_ets_program_groups",
+      "id, group_name",
+      "id",
+      mergeTargetIds
+    );
+    for (const target of targets) {
       mergeTargetNames.set(target.id as string, target.group_name as string);
     }
   }

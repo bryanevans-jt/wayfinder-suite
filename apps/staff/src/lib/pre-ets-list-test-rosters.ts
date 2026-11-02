@@ -5,7 +5,10 @@ import {
   loadProgramGroupRosterCounts,
 } from "@wayfinder/supabase/pre-ets-program-group-roster";
 import { pickRepresentativePreEtsAuthorization } from "@wayfinder/supabase/pre-ets-school-pipeline";
-import { fetchAllPostgrestRows } from "@wayfinder/supabase/postgrest-fetch-all";
+import {
+  fetchAllPostgrestRows,
+  fetchAllPostgrestRowsByIn,
+} from "@wayfinder/supabase/postgrest-fetch-all";
 
 type AdminClient = ReturnType<typeof createServiceRoleClient>;
 
@@ -78,12 +81,13 @@ async function loadAuthorizationRows(
   const unique = [...new Set(authIds.filter(Boolean))];
   if (unique.length === 0) return new Map();
 
-  const rows = await fetchAllPostgrestRows<AuthRow>(
+  const rows = await fetchAllPostgrestRowsByIn<AuthRow>(
     admin,
     "pre_ets_authorizations",
     "id, auth_type, service_month, pre_ets_schools(name, pre_ets_districts(school_year)), pre_ets_program_groups(group_name)",
+    "id",
+    unique,
     {
-      applyFilters: (q) => q.in("id", unique),
       order: { column: "created_at", ascending: true },
     }
   );

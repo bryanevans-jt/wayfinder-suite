@@ -8,7 +8,7 @@ import {
 import { normalizeProgramGroupNameKey } from "./pre-ets-worksheet-group-mapping";
 import { canonicalizeWorksheetSchoolName } from "./pre-ets-worksheet-known-schools";
 import { loadPreEtsSettings } from "./pre-ets-settings";
-import { fetchAllPostgrestRows } from "./postgrest-fetch-all";
+import { fetchAllPostgrestRowsByIn } from "./postgrest-fetch-all";
 
 /** Participant IDs listed under this header line on the last committed worksheet import. */
 export async function loadWorksheetParticipantAllowlistForProgramGroup(
@@ -41,11 +41,12 @@ export async function loadWorksheetParticipantAllowlistsForProgramGroups(
     group_name: string | null;
     pre_ets_schools: { name: string } | { name: string }[] | null;
   };
-  const groups = await fetchAllPostgrestRows<GroupRow>(
+  const groups = await fetchAllPostgrestRowsByIn<GroupRow>(
     admin,
     "pre_ets_program_groups",
     "id, header_raw, worksheet_header_key, worksheet_import_id, group_name, pre_ets_schools(name)",
-    { applyFilters: (query) => query.in("id", ids) }
+    "id",
+    ids
   );
   const importIds = [
     ...new Set(
@@ -56,7 +57,7 @@ export async function loadWorksheetParticipantAllowlistsForProgramGroups(
   ];
   if (importIds.length === 0) return out;
 
-  const imports = await fetchAllPostgrestRows<{
+  const imports = await fetchAllPostgrestRowsByIn<{
     id: string;
     file_content: string | null;
     status: string;
@@ -64,7 +65,8 @@ export async function loadWorksheetParticipantAllowlistsForProgramGroups(
     admin,
     "pre_ets_worksheet_imports",
     "id, file_content, status",
-    { applyFilters: (query) => query.in("id", importIds) }
+    "id",
+    importIds
   );
   const settings = await loadPreEtsSettings(admin);
   const parsedGroupsByImport = new Map<string, ParsedWorksheetGroup[]>();

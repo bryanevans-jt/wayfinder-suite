@@ -7,6 +7,11 @@ export const POSTGREST_DEFAULT_PAGE_SIZE = 1000;
 type OrderSpec = { column: string; ascending?: boolean };
 
 type AnyFilterBuilder = PostgrestFilterBuilder<any, any, any, any[], string, unknown, "GET">;
+type FetchAllOptions = {
+  order?: OrderSpec | OrderSpec[];
+  applyFilters?: (query: AnyFilterBuilder) => AnyFilterBuilder;
+  pageSize?: number;
+};
 
 /**
  * Fetch every row from a table query by paging with `.range()`.
@@ -16,11 +21,7 @@ export async function fetchAllPostgrestRows<T extends Record<string, unknown>>(
   admin: SupabaseClient,
   table: string,
   select: string,
-  options?: {
-    order?: OrderSpec | OrderSpec[];
-    applyFilters?: (query: AnyFilterBuilder) => AnyFilterBuilder;
-    pageSize?: number;
-  }
+  options?: FetchAllOptions
 ): Promise<T[]> {
   const pageSize = options?.pageSize ?? POSTGREST_DEFAULT_PAGE_SIZE;
   const all: T[] = [];
@@ -54,4 +55,45 @@ export async function fetchAllPostgrestRows<T extends Record<string, unknown>>(
   }
 
   return all;
+}
+
+/**
+ * Fetch rows for a potentially large `.in(...)` filter without creating an
+ * oversized PostgREST URL. Chunks run sequentially to keep database pressure bounded.
+ */
+export async function fetchAllPostgrestRowsByIn<
+  T extends Record<string, unknown>,
+>(
+  admin: SupabaseClient,
+  table: string,
+  select: string,
+  column: string,
+  values: string[],
+  options?: FetchAllOptions & { inChunkSize?: number }
+): Promise<T[]> {
+  const unique = [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+  if (unique.length === 0) return [];
+  const chunkSize = Math.max(1, options?.inChunkSize ?? 100);
+  const rows: T[] = [];
+
+  for (let index = 0; index < unique.length; index += chunkSize) {
+    const chunk = unique.slice(index, index + chunkSize);
+    const chunkRows = await fetchAllPostgrestRows<T>(
+      admin,
+      table,
+      select,
+      {
+        order: options?.order,
+        pageSize: options?.pageSize,
+        applyFilters: (query) => {
+          const filtered = query.in(column, chunk);
+          return options?.applyFilters
+            ? options.applyFilters(filtered)
+            : filtered;
+        },
+      }
+    );
+    rows.push(...chunkRows);
+  }
+  return rows;
 }

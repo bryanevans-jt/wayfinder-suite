@@ -124,7 +124,7 @@ export async function wayfinderAuthMiddlewareWithContext(
   const { pathname } = request.nextUrl;
   const handlerAuthenticatedRead =
     request.method === "GET" &&
-    (pathname === "/api/notifications" || pathname === "/api/report-alerts");
+    pathname === "/api/report-alerts";
   if (handlerAuthenticatedRead) {
     return authContext(response);
   }

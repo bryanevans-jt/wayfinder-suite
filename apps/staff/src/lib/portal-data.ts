@@ -412,14 +412,20 @@ export async function loadPortalBootstrap(
       "supervisor_user_id",
       scope.supervisorUserId
     );
-    esClientLinksQuery = esClientLinksQuery.in("es_user_id", scopedUserIds);
     const scopedClientIds = clientRowsLoaded.map((row) => String(row.id));
-    if (scopedClientIds.length > 0) {
-      openIntakeTasksQuery = openIntakeTasksQuery.in(
-        "client_id",
-        scopedClientIds
-      );
-    }
+    const clientIdsForFilter =
+      scopedClientIds.length > 0
+        ? scopedClientIds
+        : ["00000000-0000-0000-0000-000000000000"];
+    // Include every co-assignee on clients already proven to be in scope.
+    esClientLinksQuery = esClientLinksQuery.in(
+      "client_id",
+      clientIdsForFilter
+    );
+    openIntakeTasksQuery = openIntakeTasksQuery.in(
+      "client_id",
+      clientIdsForFilter
+    );
   }
 
   const [
@@ -436,7 +442,7 @@ export async function loadPortalBootstrap(
     counselorOfficeLinksQuery,
     staffOfficeLinksQuery,
     supervisorEsLinksQuery,
-    preloadedEsClientLinksResult ?? esClientLinksQuery,
+    esClientLinksQuery,
     openIntakeTasksQuery,
   ]);
   let servicesRaw = loadedServices;
