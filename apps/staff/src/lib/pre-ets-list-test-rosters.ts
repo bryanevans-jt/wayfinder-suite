@@ -1,9 +1,8 @@
 import type { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { buildPreEtsRosterFileLabel } from "@wayfinder/supabase/pre-ets-roster-filename";
 import {
-  countEligibleRosterStudentsForAuthorization,
-  countEligibleRosterStudentsForProgramGroup,
-  listAuthorizationIdsForProgramGroup,
+  loadEligibleRosterCountsForAuthorizations,
+  loadProgramGroupRosterCounts,
 } from "@wayfinder/supabase/pre-ets-program-group-roster";
 import { pickRepresentativePreEtsAuthorization } from "@wayfinder/supabase/pre-ets-school-pipeline";
 import { fetchAllPostgrestRows } from "@wayfinder/supabase/postgrest-fetch-all";
@@ -113,30 +112,35 @@ export async function listPreEtsTestRostersForMonth(
 
   const authIdsToLoad: string[] = [];
   const eligibleByAuth = new Map<string, number>();
+  const visibleProgramGroupIds = programGroups
+    .filter((programGroup) => !programGroup.hidden_at)
+    .map((programGroup) => programGroup.id);
+  const rosterCounts = await loadProgramGroupRosterCounts(
+    admin,
+    visibleProgramGroupIds
+  );
 
   for (const programGroup of programGroups) {
     if (programGroup.hidden_at) continue;
 
     const programGroupId = programGroup.id;
-    const scopedAuthIds = await listAuthorizationIdsForProgramGroup(admin, programGroupId);
+    const scopedAuthIds =
+      rosterCounts.authorizationIdsByProgramGroup.get(programGroupId) ?? [];
     authIdsToLoad.push(...scopedAuthIds);
 
-    const programGroupCount = await countEligibleRosterStudentsForProgramGroup(
-      admin,
-      programGroupId
+    const programGroupCount =
+      rosterCounts.eligibleStudentCountByProgramGroup.get(programGroupId) ?? 0;
+
+    const representative = pickRepresentativePreEtsAuthorization(
+      scopedAuthIds.map((id) => ({
+        id,
+        auth_type: rosterCounts.authorizationTypeById.get(id) ?? "",
+      }))
     );
 
-    let representative: { id: string; auth_type: string } | null = null;
-    if (scopedAuthIds.length > 0) {
-      const { data: pickRows } = await admin
-        .from("pre_ets_authorizations")
-        .select("id, auth_type")
-        .in("id", scopedAuthIds);
-      representative = pickRepresentativePreEtsAuthorization(pickRows ?? []);
-    }
-
     for (const authId of scopedAuthIds) {
-      const authCount = await countEligibleRosterStudentsForAuthorization(admin, authId);
+      const authCount =
+        rosterCounts.eligibleStudentCountByAuthorization.get(authId) ?? 0;
       if (authCount > 0) {
         eligibleByAuth.set(authId, authCount);
       }
@@ -168,10 +172,16 @@ export async function listPreEtsTestRostersForMonth(
   );
   for (const row of monthScopedAuths) {
     authIdsToLoad.push(row.id);
-    if (!eligibleByAuth.has(row.id)) {
-      const count = await countEligibleRosterStudentsForAuthorization(admin, row.id);
-      if (count > 0) eligibleByAuth.set(row.id, count);
-    }
+  }
+  const missingMonthAuthIds = monthScopedAuths
+    .map((row) => row.id)
+    .filter((id) => !eligibleByAuth.has(id));
+  const monthCounts = await loadEligibleRosterCountsForAuthorizations(
+    admin,
+    missingMonthAuthIds
+  );
+  for (const [authorizationId, count] of monthCounts) {
+    if (count > 0) eligibleByAuth.set(authorizationId, count);
   }
 
   const authById = await loadAuthorizationRows(admin, authIdsToLoad);

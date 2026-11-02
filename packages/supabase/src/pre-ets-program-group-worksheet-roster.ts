@@ -8,61 +8,108 @@ import {
 import { normalizeProgramGroupNameKey } from "./pre-ets-worksheet-group-mapping";
 import { canonicalizeWorksheetSchoolName } from "./pre-ets-worksheet-known-schools";
 import { loadPreEtsSettings } from "./pre-ets-settings";
+import { fetchAllPostgrestRows } from "./postgrest-fetch-all";
 
 /** Participant IDs listed under this header line on the last committed worksheet import. */
 export async function loadWorksheetParticipantAllowlistForProgramGroup(
   admin: SupabaseClient,
   programGroupId: string
 ): Promise<Set<string> | null> {
-  const { data: pg } = await admin
-    .from("pre_ets_program_groups")
-    .select(
-      "header_raw, worksheet_header_key, worksheet_import_id, group_name, pre_ets_schools(name)"
-    )
-    .eq("id", programGroupId)
-    .maybeSingle();
+  const allowlists = await loadWorksheetParticipantAllowlistsForProgramGroups(
+    admin,
+    [programGroupId]
+  );
+  return allowlists.get(programGroupId) ?? null;
+}
 
-  if (!pg?.worksheet_import_id) return null;
+/** Parse each committed worksheet once while resolving allowlists for many groups. */
+export async function loadWorksheetParticipantAllowlistsForProgramGroups(
+  admin: SupabaseClient,
+  programGroupIds: string[]
+): Promise<Map<string, Set<string> | null>> {
+  const ids = [...new Set(programGroupIds.map((id) => id.trim()).filter(Boolean))];
+  const out = new Map<string, Set<string> | null>(
+    ids.map((id) => [id, null])
+  );
+  if (ids.length === 0) return out;
 
-  const headerRaw = String(pg.header_raw ?? "").trim();
-  const headerKey = String(pg.worksheet_header_key ?? "").trim();
-  if (!headerRaw && !headerKey) return null;
+  type GroupRow = {
+    id: string;
+    header_raw: string | null;
+    worksheet_header_key: string | null;
+    worksheet_import_id: string | null;
+    group_name: string | null;
+    pre_ets_schools: { name: string } | { name: string }[] | null;
+  };
+  const groups = await fetchAllPostgrestRows<GroupRow>(
+    admin,
+    "pre_ets_program_groups",
+    "id, header_raw, worksheet_header_key, worksheet_import_id, group_name, pre_ets_schools(name)",
+    { applyFilters: (query) => query.in("id", ids) }
+  );
+  const importIds = [
+    ...new Set(
+      groups
+        .map((group) => group.worksheet_import_id)
+        .filter((id): id is string => Boolean(id))
+    ),
+  ];
+  if (importIds.length === 0) return out;
 
-  const { data: imp } = await admin
-    .from("pre_ets_worksheet_imports")
-    .select("file_content, status")
-    .eq("id", pg.worksheet_import_id as string)
-    .maybeSingle();
-
-  const fileContent = typeof imp?.file_content === "string" ? imp.file_content.trim() : "";
-  if (!fileContent || imp?.status !== "committed") return null;
-
+  const imports = await fetchAllPostgrestRows<{
+    id: string;
+    file_content: string | null;
+    status: string;
+  }>(
+    admin,
+    "pre_ets_worksheet_imports",
+    "id, file_content, status",
+    { applyFilters: (query) => query.in("id", importIds) }
+  );
   const settings = await loadPreEtsSettings(admin);
-  const parsed = parseDistrictWorksheet(fileContent, {
-    notApprovedMarker: settings.not_approved_marker,
-    groupAuthDigitCount: settings.group_auth_digit_count,
-  });
-
-  const allGroups = parsed.offices.flatMap((o) => o.groups);
-  const schoolRel = pg.pre_ets_schools as { name: string } | { name: string }[] | null;
-  const schoolName = Array.isArray(schoolRel) ? schoolRel[0]?.name : schoolRel?.name;
-  const matched = collectParsedWorksheetGroupsForProgramGroup(allGroups, {
-    headerRaw,
-    headerKey,
-    groupName: String(pg.group_name ?? ""),
-    schoolName: schoolName ?? "",
-  });
-  if (matched.length === 0) return null;
-
-  const pids = new Set<string>();
-  for (const group of matched) {
-    for (const student of group.students) {
-      if (student.notApproved) continue;
-      const pid = student.participantId.trim();
-      if (pid) pids.add(pid);
-    }
+  const parsedGroupsByImport = new Map<string, ParsedWorksheetGroup[]>();
+  for (const worksheetImport of imports) {
+    const fileContent = worksheetImport.file_content?.trim() ?? "";
+    if (!fileContent || worksheetImport.status !== "committed") continue;
+    const parsed = parseDistrictWorksheet(fileContent, {
+      notApprovedMarker: settings.not_approved_marker,
+      groupAuthDigitCount: settings.group_auth_digit_count,
+    });
+    parsedGroupsByImport.set(
+      worksheetImport.id,
+      parsed.offices.flatMap((office) => office.groups)
+    );
   }
-  return pids;
+
+  for (const group of groups) {
+    if (!group.worksheet_import_id) continue;
+    const parsedGroups = parsedGroupsByImport.get(group.worksheet_import_id);
+    if (!parsedGroups) continue;
+    const headerRaw = group.header_raw?.trim() ?? "";
+    const headerKey = group.worksheet_header_key?.trim() ?? "";
+    if (!headerRaw && !headerKey) continue;
+    const schoolRel = group.pre_ets_schools;
+    const schoolName = Array.isArray(schoolRel)
+      ? schoolRel[0]?.name
+      : schoolRel?.name;
+    const matched = collectParsedWorksheetGroupsForProgramGroup(parsedGroups, {
+      headerRaw,
+      headerKey,
+      groupName: group.group_name ?? "",
+      schoolName: schoolName ?? "",
+    });
+    if (matched.length === 0) continue;
+    const pids = new Set<string>();
+    for (const parsedGroup of matched) {
+      for (const student of parsedGroup.students) {
+        if (student.notApproved) continue;
+        const pid = student.participantId.trim();
+        if (pid) pids.add(pid);
+      }
+    }
+    out.set(group.id, pids);
+  }
+  return out;
 }
 
 /** Match header line first; also include spreadsheet sections with the same school + group name. */

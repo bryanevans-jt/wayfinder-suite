@@ -1,7 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isPreEtsPendingParticipantId } from "./pre-ets-pending-participant-id";
 import { fetchAllPostgrestRows } from "./postgrest-fetch-all";
-import { loadWorksheetParticipantAllowlistForProgramGroup } from "./pre-ets-program-group-worksheet-roster";
+import {
+  loadWorksheetParticipantAllowlistForProgramGroup,
+  loadWorksheetParticipantAllowlistsForProgramGroups,
+} from "./pre-ets-program-group-worksheet-roster";
 import { worksheetHeaderKeysMatch } from "./pre-ets-worksheet-parser";
 
 function relationOne<T>(raw: T | T[] | null | undefined): T | null {
@@ -89,6 +92,158 @@ export async function listAuthorizationIdsForProgramGroup(
   return auths
     .filter((a) => authorizationMatchesProgramGroupHeader(meta, a.worksheet_header_key))
     .map((a) => a.id);
+}
+
+export type ProgramGroupRosterCounts = {
+  authorizationIdsByProgramGroup: Map<string, string[]>;
+  authorizationTypeById: Map<string, string>;
+  eligibleStudentCountByAuthorization: Map<string, number>;
+  eligibleStudentCountByProgramGroup: Map<string, number>;
+};
+
+/**
+ * Batch equivalent of the program-group and authorization count helpers.
+ * It avoids per-group metadata, authorization, roster, settings, and worksheet reads.
+ */
+export async function loadProgramGroupRosterCounts(
+  admin: SupabaseClient,
+  programGroupIds: string[]
+): Promise<ProgramGroupRosterCounts> {
+  const ids = [...new Set(programGroupIds.map((id) => id.trim()).filter(Boolean))];
+  const authorizationIdsByProgramGroup = new Map<string, string[]>(
+    ids.map((id) => [id, []])
+  );
+  const authorizationTypeById = new Map<string, string>();
+  const eligibleStudentCountByAuthorization = new Map<string, number>();
+  const eligibleStudentCountByProgramGroup = new Map<string, number>(
+    ids.map((id) => [id, 0])
+  );
+  if (ids.length === 0) {
+    return {
+      authorizationIdsByProgramGroup,
+      authorizationTypeById,
+      eligibleStudentCountByAuthorization,
+      eligibleStudentCountByProgramGroup,
+    };
+  }
+
+  const [groups, auths] = await Promise.all([
+    fetchAllPostgrestRows<{
+      id: string;
+      worksheet_header_key: string | null;
+      header_raw: string | null;
+    }>(
+      admin,
+      "pre_ets_program_groups",
+      "id, worksheet_header_key, header_raw",
+      { applyFilters: (query) => query.in("id", ids) }
+    ),
+    fetchAllPostgrestRows<{
+      id: string;
+      program_group_id: string;
+      auth_type: string;
+      worksheet_header_key: string | null;
+    }>(
+      admin,
+      "pre_ets_authorizations",
+      "id, program_group_id, auth_type, worksheet_header_key",
+      {
+        applyFilters: (query) => query.in("program_group_id", ids),
+        order: { column: "created_at", ascending: true },
+      }
+    ),
+  ]);
+  const groupById = new Map(groups.map((group) => [group.id, group]));
+  const programGroupIdByAuthorization = new Map<string, string>();
+
+  for (const auth of auths) {
+    const group = groupById.get(auth.program_group_id);
+    if (
+      group &&
+      !authorizationMatchesProgramGroupHeader(
+        {
+          worksheet_header_key: group.worksheet_header_key,
+          header_raw: group.header_raw ?? "",
+        },
+        auth.worksheet_header_key
+      )
+    ) {
+      continue;
+    }
+    const current = authorizationIdsByProgramGroup.get(auth.program_group_id) ?? [];
+    current.push(auth.id);
+    authorizationIdsByProgramGroup.set(auth.program_group_id, current);
+    authorizationTypeById.set(auth.id, auth.auth_type);
+    programGroupIdByAuthorization.set(auth.id, auth.program_group_id);
+  }
+
+  const authIds = [...programGroupIdByAuthorization.keys()];
+  if (authIds.length === 0) {
+    return {
+      authorizationIdsByProgramGroup,
+      authorizationTypeById,
+      eligibleStudentCountByAuthorization,
+      eligibleStudentCountByProgramGroup,
+    };
+  }
+
+  const [entries, allowlists] = await Promise.all([
+    fetchAllPostgrestRows<{
+      authorization_id: string;
+      not_approved: boolean;
+      pre_ets_students: {
+        participant_id: string | null;
+        full_name: string | null;
+      } | null;
+    }>(
+      admin,
+      "pre_ets_roster_entries",
+      "authorization_id, not_approved, pre_ets_students(participant_id, full_name)",
+      {
+        applyFilters: (query) =>
+          query.in("authorization_id", authIds).eq("not_approved", false),
+      }
+    ),
+    loadWorksheetParticipantAllowlistsForProgramGroups(admin, ids),
+  ]);
+
+  const participantIdsByProgramGroup = new Map<string, Set<string>>();
+  for (const entry of entries) {
+    if (entry.not_approved) continue;
+    const student = relationOne(entry.pre_ets_students);
+    const participantId = student?.participant_id?.trim() ?? "";
+    if (!isBillableRosterParticipantId(participantId)) continue;
+    eligibleStudentCountByAuthorization.set(
+      entry.authorization_id,
+      (eligibleStudentCountByAuthorization.get(entry.authorization_id) ?? 0) + 1
+    );
+    const programGroupId = programGroupIdByAuthorization.get(entry.authorization_id);
+    if (!programGroupId) continue;
+    const participantIds =
+      participantIdsByProgramGroup.get(programGroupId) ?? new Set<string>();
+    participantIds.add(participantId);
+    participantIdsByProgramGroup.set(programGroupId, participantIds);
+  }
+
+  for (const programGroupId of ids) {
+    const participantIds =
+      participantIdsByProgramGroup.get(programGroupId) ?? new Set<string>();
+    const allowlist = allowlists.get(programGroupId);
+    const count =
+      allowlist && allowlist.size > 0
+        ? [...participantIds].filter((participantId) =>
+            allowlist.has(participantId)
+          ).length
+        : participantIds.size;
+    eligibleStudentCountByProgramGroup.set(programGroupId, count);
+  }
+
+  return {
+    authorizationIdsByProgramGroup,
+    authorizationTypeById,
+    eligibleStudentCountByAuthorization,
+    eligibleStudentCountByProgramGroup,
+  };
 }
 
 /** Resolve program group from an authorization when present. */
@@ -204,6 +359,41 @@ export async function countEligibleRosterStudentsForAuthorization(
 ): Promise<number> {
   const students = await loadEligibleRosterStudentsForAuthorization(admin, authorizationId);
   return students.length;
+}
+
+export async function loadEligibleRosterCountsForAuthorizations(
+  admin: SupabaseClient,
+  authorizationIds: string[]
+): Promise<Map<string, number>> {
+  const ids = [
+    ...new Set(authorizationIds.map((id) => id.trim()).filter(Boolean)),
+  ];
+  const counts = new Map<string, number>(ids.map((id) => [id, 0]));
+  if (ids.length === 0) return counts;
+
+  const entries = await fetchAllPostgrestRows<{
+    authorization_id: string;
+    not_approved: boolean;
+    pre_ets_students: { participant_id: string | null } | null;
+  }>(
+    admin,
+    "pre_ets_roster_entries",
+    "authorization_id, not_approved, pre_ets_students(participant_id)",
+    {
+      applyFilters: (query) =>
+        query.in("authorization_id", ids).eq("not_approved", false),
+    }
+  );
+  for (const entry of entries) {
+    if (entry.not_approved) continue;
+    const student = relationOne(entry.pre_ets_students);
+    if (!isBillableRosterParticipantId(student?.participant_id)) continue;
+    counts.set(
+      entry.authorization_id,
+      (counts.get(entry.authorization_id) ?? 0) + 1
+    );
+  }
+  return counts;
 }
 
 export async function countEligibleRosterStudentsForProgramGroup(

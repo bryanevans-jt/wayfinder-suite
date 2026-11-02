@@ -505,41 +505,79 @@ export async function commitWorksheetImport(
           }
         }
 
+        const studentPayloadByParticipant = new Map<
+          string,
+          {
+            participant_id: string;
+            full_name: string;
+            school_year: string;
+            primary_school_id: string;
+          }
+        >();
         for (const row of students) {
-          const { data: student, error: stuErr } = await admin
-            .from("pre_ets_students")
-            .upsert(
-              {
-                participant_id: row.participantId,
-                full_name: row.studentName,
-                school_year: parsed.schoolYear,
-                primary_school_id: schoolId,
-              },
-              { onConflict: "participant_id,school_year" }
-            )
-            .select("id")
-            .single();
+          studentPayloadByParticipant.set(row.participantId, {
+            participant_id: row.participantId,
+            full_name: row.studentName,
+            school_year: parsed.schoolYear,
+            primary_school_id: schoolId,
+          });
+        }
 
-          if (stuErr || !student) continue;
-          const studentId = student.id as string;
+        const { data: studentRows, error: studentBatchError } = await admin
+          .from("pre_ets_students")
+          .upsert([...studentPayloadByParticipant.values()], {
+            onConflict: "participant_id,school_year",
+          })
+          .select("id, participant_id");
 
-          await admin.from("pre_ets_student_ytd_units").upsert(
-            {
-              student_id: studentId,
-              school_year: parsed.schoolYear,
-              billable_units: 0,
-            },
-            { onConflict: "student_id,school_year", ignoreDuplicates: true }
-          );
+        if (studentBatchError || !studentRows?.length) continue;
 
-          const { data: ytd } = await admin
-            .from("pre_ets_student_ytd_units")
-            .select("billable_units")
-            .eq("student_id", studentId)
-            .eq("school_year", parsed.schoolYear)
-            .maybeSingle();
+        const studentIdByParticipant = new Map(
+          studentRows.map((student) => [
+            String(student.participant_id),
+            String(student.id),
+          ])
+        );
+        const studentIds = [...studentIdByParticipant.values()];
 
-          const currentYtd = (ytd?.billable_units as number) ?? 0;
+        await admin.from("pre_ets_student_ytd_units").upsert(
+          studentIds.map((studentId) => ({
+            student_id: studentId,
+            school_year: parsed.schoolYear,
+            billable_units: 0,
+          })),
+          { onConflict: "student_id,school_year", ignoreDuplicates: true }
+        );
+
+        const { data: ytdRows } = await admin
+          .from("pre_ets_student_ytd_units")
+          .select("student_id, billable_units")
+          .in("student_id", studentIds)
+          .eq("school_year", parsed.schoolYear);
+        const currentYtdByStudent = new Map(
+          (ytdRows ?? []).map((row) => [
+            String(row.student_id),
+            Number(row.billable_units ?? 0),
+          ])
+        );
+
+        const rosterByStudent = new Map<
+          string,
+          {
+            authorization_id: string;
+            student_id: string;
+            units_approved: number;
+            class_time: string | null;
+            invoice_number: string | null;
+            billed_cents: number | null;
+            not_approved: boolean;
+            list_order: number;
+          }
+        >();
+        for (const row of students) {
+          const studentId = studentIdByParticipant.get(row.participantId);
+          if (!studentId) continue;
+          const currentYtd = currentYtdByStudent.get(studentId) ?? 0;
           if (
             currentYtd + row.units > ytdThreshold &&
             !warnedParticipants.has(row.participantId)
@@ -556,25 +594,32 @@ export async function commitWorksheetImport(
 
           let billedCents: number | null = null;
           if (row.billed) {
-            const n = Number.parseFloat(row.billed.replace(/[^0-9.]/g, ""));
-            if (Number.isFinite(n)) billedCents = Math.round(n * 100);
+            const amount = Number.parseFloat(row.billed.replace(/[^0-9.]/g, ""));
+            if (Number.isFinite(amount)) billedCents = Math.round(amount * 100);
           }
+          rosterByStudent.set(studentId, {
+            authorization_id: authId,
+            student_id: studentId,
+            units_approved: row.units,
+            class_time:
+              row.classTime?.trim() || group.classTime?.trim() || null,
+            invoice_number: row.invoiceNumber || null,
+            billed_cents: billedCents,
+            not_approved: false,
+            list_order: row.listOrder,
+          });
+        }
 
-          await admin.from("pre_ets_roster_entries").upsert(
-            {
-              authorization_id: authId,
-              student_id: studentId,
-              units_approved: row.units,
-              class_time: row.classTime?.trim() || group.classTime?.trim() || null,
-              invoice_number: row.invoiceNumber || null,
-              billed_cents: billedCents,
-              not_approved: false,
-              list_order: row.listOrder,
-            },
-            { onConflict: "authorization_id,student_id" }
-          );
-
-          authMatchStats.rosterEntriesUpdated++;
+        const rosterPayload = [...rosterByStudent.values()];
+        if (rosterPayload.length > 0) {
+          const { error: rosterBatchError } = await admin
+            .from("pre_ets_roster_entries")
+            .upsert(rosterPayload, {
+              onConflict: "authorization_id,student_id",
+            });
+          if (!rosterBatchError) {
+            authMatchStats.rosterEntriesUpdated += rosterPayload.length;
+          }
         }
 
         if (!first.authNumber) {
