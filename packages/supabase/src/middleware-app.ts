@@ -6,8 +6,15 @@ import { getSupabaseAnonKey, getSupabaseUrl } from "./env";
 import { loadAuthUserProfile } from "./auth-profile";
 import { isClientRole, isKnownRole, isStaffRole } from "./roles";
 import { isPreviewMutationBlocked, resolvePreviewSession } from "./preview-middleware";
+import { tryMiddlewareAnonymousAuthResponse } from "./middleware-auth-fast-path";
+import {
+  MiddlewareAuthTimeoutError,
+  withMiddlewareAuthTimeout,
+} from "./middleware-auth-timeout";
+import type { WayfinderAppKind } from "./middleware-app-types";
+import { redirectStrayEmailAuthParams } from "./middleware-email-auth-redirect";
 
-export type WayfinderAppKind = "staff" | "client";
+export type { WayfinderAppKind } from "./middleware-app-types";
 
 export type WayfinderAuthMiddlewareContext = {
   response: NextResponse;
@@ -43,59 +50,7 @@ function clientAppOrigin(): string {
   return raw.replace(/\/$/, "");
 }
 
-const AUTH_CALLBACK_PATH = "/auth/callback";
-const AUTH_CONFIRM_PATH = "/auth/confirm";
-const AUTH_ACCESS_PATH = "/auth/access";
-
-/**
- * Supabase emails sometimes land on Site URL root (`/?token_hash=…`) when RedirectTo
- * is the app origin or the dashboard template was not re-pasted. Route to confirm/callback.
- */
-export function redirectStrayEmailAuthParams(
-  request: NextRequest,
-  context: { app: WayfinderAppKind }
-): NextResponse | null {
-  const { pathname } = request.nextUrl;
-  if (
-    pathname.startsWith(AUTH_CALLBACK_PATH) ||
-    pathname.startsWith(AUTH_CONFIRM_PATH) ||
-    pathname.startsWith(AUTH_ACCESS_PATH) ||
-    pathname.startsWith("/api/auth")
-  ) {
-    return null;
-  }
-
-  const params = request.nextUrl.searchParams;
-  const type = params.get("type");
-  const code = params.get("code");
-  const tokenHashParam = params.get("token_hash");
-  const tokenParam = params.get("token");
-
-  if (context.app === "staff" && tokenParam && !type && !tokenHashParam && pathname !== AUTH_ACCESS_PATH) {
-    const url = request.nextUrl.clone();
-    url.pathname = AUTH_ACCESS_PATH;
-    return NextResponse.redirect(url);
-  }
-
-  const tokenHash = tokenHashParam ?? (type ? tokenParam : null);
-
-  if (tokenHash && type) {
-    const url = request.nextUrl.clone();
-    url.pathname = context.app === "staff" ? AUTH_CONFIRM_PATH : AUTH_CALLBACK_PATH;
-    url.searchParams.set("token_hash", tokenHash);
-    url.searchParams.set("type", type);
-    url.searchParams.delete("token");
-    return NextResponse.redirect(url);
-  }
-
-  if (code) {
-    const url = request.nextUrl.clone();
-    url.pathname = AUTH_CALLBACK_PATH;
-    return NextResponse.redirect(url);
-  }
-
-  return null;
-}
+export { redirectStrayEmailAuthParams } from "./middleware-email-auth-redirect";
 
 function redirectPreservingCookies(
   cookiesToSet: SupabaseCookieToSet[],
@@ -127,6 +82,11 @@ export async function wayfinderAuthMiddlewareWithContext(
     pathname === "/api/report-alerts";
   if (handlerAuthenticatedRead) {
     return authContext(response);
+  }
+
+  const anonymousResponse = tryMiddlewareAnonymousAuthResponse(request, context);
+  if (anonymousResponse) {
+    return authContext(anonymousResponse);
   }
 
   let supabaseUrl: string;
@@ -162,12 +122,21 @@ export async function wayfinderAuthMiddlewareWithContext(
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (pathname.startsWith("/walkthrough")) {
-    return authContext(response);
+  let user: Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"];
+  try {
+    ({
+      data: { user },
+    } = await withMiddlewareAuthTimeout("Supabase auth.getUser()", supabase.auth.getUser()));
+  } catch (err) {
+    if (err instanceof MiddlewareAuthTimeoutError) {
+      return authContext(
+        new NextResponse(
+          "Wayfinder sign-in is temporarily slow. Wait a moment and refresh, or try again in a private window.",
+          { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } }
+        )
+      );
+    }
+    throw err;
   }
 
   if (!user) {
@@ -188,7 +157,25 @@ export async function wayfinderAuthMiddlewareWithContext(
     return authContext(response);
   }
 
-  const { profile, errorMessage } = await loadAuthUserProfile(supabase, user.id);
+  let profile: Awaited<ReturnType<typeof loadAuthUserProfile>>["profile"];
+  let errorMessage: Awaited<ReturnType<typeof loadAuthUserProfile>>["errorMessage"];
+  try {
+    ({ profile, errorMessage } = await withMiddlewareAuthTimeout(
+      "Supabase profile load",
+      loadAuthUserProfile(supabase, user.id)
+    ));
+  } catch (err) {
+    if (err instanceof MiddlewareAuthTimeoutError) {
+      return authContext(
+        new NextResponse(
+          "Wayfinder could not load your profile in time. Refresh the page or try again shortly.",
+          { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } }
+        ),
+        { userId: user.id }
+      );
+    }
+    throw err;
+  }
 
   if (!profile || !isKnownRole(profile.role)) {
     await supabase.auth.signOut();

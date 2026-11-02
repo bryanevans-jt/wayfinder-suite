@@ -1,6 +1,9 @@
 import { LoginFormShell } from "@wayfinder/auth-ui";
 import { CLIENT_APP_PRODUCT_NAME } from "@wayfinder/branding";
+import { isClientRole } from "@wayfinder/supabase";
 import { accountNotSetUpMessage } from "@wayfinder/supabase/error-log";
+import { getAppSession } from "@wayfinder/supabase/preview-server";
+import { redirect } from "next/navigation";
 
 type SearchParams = Promise<{ error?: string; reason?: string }>;
 
@@ -10,6 +13,10 @@ export default async function ClientLoginPage({
   searchParams: SearchParams;
 }) {
   const { error, reason } = await searchParams;
+  const session = await getAppSession();
+  if (session && isClientRole(session.effectiveRole)) {
+    redirect("/dashboard");
+  }
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-brand-white px-4 py-16">

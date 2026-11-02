@@ -4,7 +4,7 @@ import {
   JOSHUA_TREE_ORG_EMAIL_DOMAIN,
   STAFF_APP_PRODUCT_NAME,
 } from "@wayfinder/branding";
-import { isClientRole } from "@wayfinder/supabase";
+import { isClientRole, isStaffRole, staffHomePath } from "@wayfinder/supabase";
 import { accountNotSetUpMessage } from "@wayfinder/supabase/error-log";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { redirect } from "next/navigation";
@@ -41,6 +41,10 @@ export default async function StaffLoginPage({
     if (params.code && !error) {
       redirect(`/auth/callback?code=${encodeURIComponent(params.code)}`);
     }
+  }
+
+  if (session && isStaffRole(session.effectiveRole)) {
+    redirect(staffHomePath(session.effectiveRole));
   }
 
   const signedInAsClient = isClientRole(session?.actorRole);

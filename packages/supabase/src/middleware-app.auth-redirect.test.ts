@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { NextRequest } from "next/server";
-import { redirectStrayEmailAuthParams } from "./middleware-app";
+import { redirectStrayEmailAuthParams } from "./middleware-email-auth-redirect";
 
 describe("redirectStrayEmailAuthParams", () => {
   it("sends root magic-link query params to staff confirm", () => {

@@ -5,6 +5,11 @@ import {
   getSupabaseUrl,
   type SupabaseCookieToSet,
 } from '@wayfinder/supabase';
+import { requestHasSupabaseAuthSessionCookie } from '@wayfinder/supabase/auth-session-cookies';
+import {
+  MiddlewareAuthTimeoutError,
+  withMiddlewareAuthTimeout,
+} from '@wayfinder/supabase/middleware-auth-timeout';
 import { reportsServerAuthOptions } from '@/lib/supabase/auth-options';
 import { NextResponse, type NextRequest } from 'next/server';
 
@@ -25,6 +30,34 @@ async function loadReportingRole(
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
+  const { pathname } = request.nextUrl;
+  const isAuthCallback = pathname.startsWith('/auth/');
+  const isLogin = pathname === '/login';
+  const isApi = pathname.startsWith('/api/');
+
+  if (isAuthCallback || isApi) {
+    return response;
+  }
+
+  const hasSessionCookie = requestHasSupabaseAuthSessionCookie(request.cookies.getAll());
+
+  if (isLogin && !hasSessionCookie) {
+    return response;
+  }
+
+  if (
+    !hasSessionCookie &&
+    (pathname === '/' || pathname.startsWith('/reports'))
+  ) {
+    const redirect = request.nextUrl.clone();
+    redirect.pathname = '/login';
+    redirect.searchParams.set('next', request.nextUrl.pathname);
+    return NextResponse.redirect(redirect);
+  }
+
+  if (!hasSessionCookie) {
+    return response;
+  }
 
   let supabaseUrl: string;
   let supabaseAnonKey: string;
@@ -55,20 +88,22 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const isAuthCallback = request.nextUrl.pathname.startsWith('/auth/');
-  const isLogin = request.nextUrl.pathname === '/login';
-  const isApi = request.nextUrl.pathname.startsWith('/api/');
-
-  if (isAuthCallback || isApi) {
-    return response;
+  let user: Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user'];
+  try {
+    ({
+      data: { user },
+    } = await withMiddlewareAuthTimeout('Supabase auth.getUser()', supabase.auth.getUser()));
+  } catch (err) {
+    if (err instanceof MiddlewareAuthTimeoutError) {
+      return new NextResponse(
+        'Reports sign-in is temporarily slow. Wait a moment and refresh.',
+        { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8' } }
+      );
+    }
+    throw err;
   }
 
   if (!user) {
-    if (isLogin) return response;
     const redirect = request.nextUrl.clone();
     redirect.pathname = '/login';
     redirect.searchParams.set('next', request.nextUrl.pathname);

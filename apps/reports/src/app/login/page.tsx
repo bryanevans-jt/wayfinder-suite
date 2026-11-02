@@ -1,7 +1,10 @@
 import { ReportSupportNote } from "@/components/ReportSupportNote";
 import { ReportsLoginForm } from "@/components/ReportsLoginForm";
 import { JOSHUA_TREE_ORG_EMAIL_DOMAIN } from "@wayfinder/branding";
+import { canAccessFormalReporting } from "@wayfinder/supabase";
 import { accountNotSetUpMessage } from "@wayfinder/supabase/error-log";
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 
 type SearchParams = Promise<{ error?: string; next?: string }>;
 
@@ -27,6 +30,19 @@ export default async function LoginPage({
 }) {
   const { error, next } = await searchParams;
   const redirectAfterSignIn = safeNextPath(next);
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user?.email?.endsWith(`@${JOSHUA_TREE_ORG_EMAIL_DOMAIN}`)) {
+    const { data: rpcRows } = await supabase.rpc("get_auth_user_profile");
+    const row = (Array.isArray(rpcRows) ? rpcRows[0] : rpcRows) as { role?: string } | undefined;
+    const role = row?.role ? String(row.role).toLowerCase() : "";
+    if (canAccessFormalReporting(role)) {
+      redirect(redirectAfterSignIn);
+    }
+  }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-brand-white px-4 py-16">
