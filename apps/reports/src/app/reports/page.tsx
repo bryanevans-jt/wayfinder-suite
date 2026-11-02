@@ -1,25 +1,44 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { StateSelector } from '@/components/reports/StateSelector';
 import { ReportSelection } from '@/components/reports/ReportSelection';
 import { ClientPicker, type ClientSelection } from '@/components/reports/ClientPicker';
-import { SEMonthlyForm } from '@/components/reports/SEMonthlyForm';
-import { VPRForm } from '@/components/reports/VPRForm';
-import { JTSGVMRForm } from '@/components/reports/JTSGVMRForm';
-import { EVFForm } from '@/components/reports/EVFForm';
-import { JTSGTSVSForm } from '@/components/reports/JTSGTSVSForm';
-import { TnDynamicForm } from '@/components/reports/TnDynamicForm';
-import { TnPdfUploadForm } from '@/components/reports/TnPdfUploadForm';
-import { ReviewAndSign } from '@/components/reports/ReviewAndSign';
-import { SubmissionStatus } from '@/components/reports/SubmissionStatus';
 import { withReportSupportHint } from '@/lib/report-errors';
-import { resolveReportingEsName } from '@/lib/es-display-name';
 import type { TnReportSelection } from '@/components/reports/ReportSelection';
 import { tagSchemaLabels, tagSchemaOrderedKeys } from '@/lib/tag-schema';
+import { useReportsAuth } from './reports-auth-context';
+import dynamic from 'next/dynamic';
+
+const SEMonthlyForm = dynamic(() =>
+  import('@/components/reports/SEMonthlyForm').then((module) => module.SEMonthlyForm)
+);
+const VPRForm = dynamic(() =>
+  import('@/components/reports/VPRForm').then((module) => module.VPRForm)
+);
+const JTSGVMRForm = dynamic(() =>
+  import('@/components/reports/JTSGVMRForm').then((module) => module.JTSGVMRForm)
+);
+const EVFForm = dynamic(() =>
+  import('@/components/reports/EVFForm').then((module) => module.EVFForm)
+);
+const JTSGTSVSForm = dynamic(() =>
+  import('@/components/reports/JTSGTSVSForm').then((module) => module.JTSGTSVSForm)
+);
+const TnDynamicForm = dynamic(() =>
+  import('@/components/reports/TnDynamicForm').then((module) => module.TnDynamicForm)
+);
+const TnPdfUploadForm = dynamic(() =>
+  import('@/components/reports/TnPdfUploadForm').then((module) => module.TnPdfUploadForm)
+);
+const ReviewAndSign = dynamic(() =>
+  import('@/components/reports/ReviewAndSign').then((module) => module.ReviewAndSign)
+);
+const SubmissionStatus = dynamic(() =>
+  import('@/components/reports/SubmissionStatus').then((module) => module.SubmissionStatus)
+);
 
 type Screen =
   | 'STATE_SELECTION'
@@ -43,7 +62,7 @@ type ReportType = 'seMonthly' | 'vpr' | 'jtsgvmr' | 'evf' | 'jtsgtsvs';
 function ReportsWorkspace() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [user, setUser] = useState<{ email: string; displayName: string } | null>(null);
+  const user = useReportsAuth();
   const [screen, setScreen] = useState<Screen>('STATE_SELECTION');
   const [selectedState, setSelectedState] = useState<ReportingState | ''>('');
   const [reportType, setReportType] = useState<ReportType | ''>('');
@@ -55,70 +74,15 @@ function ReportsWorkspace() {
   const [typedEsName, setTypedEsName] = useState('');
   const [signatureData, setSignatureData] = useState('');
   const [message, setMessage] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [authError, setAuthError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [deepLinkHandled, setDeepLinkHandled] = useState(false);
   const [tnReport, setTnReport] = useState<TnReportSelection | null>(null);
   const [tnFieldLabels, setTnFieldLabels] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    let cancelled = false;
-    const supabase = createClient();
-
-    async function loadAuth() {
-      const AUTH_TIMEOUT_MS = 15000;
-      try {
-        const authResult = await Promise.race([
-          supabase.auth.getUser(),
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Auth check timed out')), AUTH_TIMEOUT_MS)
-          ),
-        ]);
-        const {
-          data: { user },
-          error: userError,
-        } = authResult;
-
-        if (cancelled) return;
-
-        if (userError || !user) {
-          router.replace('/login?next=/reports');
-          return;
-        }
-
-        const email = user.email || '';
-        if (!email.endsWith('@thejoshuatree.org')) {
-          router.replace('/login?error=org_only');
-          return;
-        }
-
-        const resolvedEsName = resolveReportingEsName(null, user.user_metadata);
-
-        setUser({
-          email,
-          displayName: resolvedEsName || email,
-        });
-        setEsName(resolvedEsName);
-        setLoading(false);
-      } catch (err) {
-        console.error('Reports auth init failed:', err);
-        if (!cancelled) {
-          setAuthError(
-            err instanceof Error && err.message === 'Auth check timed out'
-              ? 'Sign-in is taking too long. Try refreshing, or sign out and use your passkey again.'
-              : 'Could not verify your session. Try signing in again.'
-          );
-          setLoading(false);
-        }
-      }
-    }
-
-    void loadAuth();
-    return () => {
-      cancelled = true;
-    };
-  }, [router]);
+    setEsName(user.displayName);
+  }, [user.displayName]);
 
   useEffect(() => {
     if (loading || deepLinkHandled) return;
@@ -240,23 +204,7 @@ function ReportsWorkspace() {
     }
   }
 
-  if (authError) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4">
-        <div className="max-w-md rounded-2xl border border-amber-200 bg-white p-8 text-center shadow-lg">
-          <p className="text-amber-950">{authError}</p>
-          <Link
-            href="/login?next=/reports"
-            className="mt-6 inline-block rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600"
-          >
-            Back to sign in
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (loading || !user) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-700" />
