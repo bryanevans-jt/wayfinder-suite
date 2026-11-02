@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ServiceSelectOptions } from "@wayfinder/branding";
+import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { unstable_cache } from "next/cache";
 export { filterGaReferralServiceLabels } from "@wayfinder/supabase/referral-services";
 
 export type FeatureToggles = {
@@ -12,6 +14,8 @@ export type FeatureToggles = {
   celebrationAnniversaryTemplate: string;
   directReferralAssignEnabled: boolean;
 };
+
+export const FEATURE_TOGGLES_CACHE_TAG = "staff-feature-toggles";
 
 export const DEFAULT_BIRTHDAY_TEMPLATE =
   "Happy Birthday, {first_name}! Hope you have a fantastic day!";
@@ -53,6 +57,12 @@ export async function loadFeatureToggles(admin: SupabaseClient): Promise<Feature
     directReferralAssignEnabled: data?.direct_referral_assign_enabled === true,
   };
 }
+
+export const loadCachedFeatureToggles = unstable_cache(
+  async () => loadFeatureToggles(createServiceRoleClient()),
+  ["staff-feature-toggles-v1"],
+  { revalidate: 60, tags: [FEATURE_TOGGLES_CACHE_TAG] }
+);
 
 /** @deprecated Prefer loadFeatureToggles */
 export async function loadServiceOfferings(admin: SupabaseClient) {

@@ -3,7 +3,6 @@ import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import {
   canManagePreEtsSettings,
   DEFAULT_PRE_ETS_SETTINGS,
-  loadPreEtsSettings,
   normalizePreEtsSettingsRow,
   parsePreEtsRateDollars,
   PRE_ETS_ROLLOUT_ROLES,
@@ -13,6 +12,11 @@ import {
 } from "@wayfinder/supabase/pre-ets-settings";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { normalizeRole } from "@wayfinder/supabase/roles";
+import {
+  loadCachedPreEtsSettings,
+  PRE_ETS_SETTINGS_CACHE_TAG,
+} from "@/lib/pre-ets-access";
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
 function sanitizeEnabledRoles(roles: unknown): string[] {
@@ -111,8 +115,7 @@ export async function GET() {
   const actor = { userId: session.effectiveUserId, userRole: session.effectiveRole };
 
   try {
-    const admin = createServiceRoleClient();
-    const settings = await loadPreEtsSettings(admin);
+    const settings = await loadCachedPreEtsSettings();
     return NextResponse.json({
       settings,
       rolloutRoles: PRE_ETS_ROLLOUT_ROLES,
@@ -152,6 +155,7 @@ export async function PATCH(request: Request) {
       return respondWithLoggedError("staff", route, error, actor);
     }
 
+    revalidateTag(PRE_ETS_SETTINGS_CACHE_TAG);
     return NextResponse.json({
       ok: true,
       settings: normalizePreEtsSettingsRow(data as Record<string, unknown>),

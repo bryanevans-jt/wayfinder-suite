@@ -3,21 +3,21 @@
 import { formatPortalDateTime } from "@wayfinder/branding";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ClientNotificationRow } from "@/lib/client-notifications";
 
-type NotificationRow = {
-  id: string;
-  kind: string;
-  title: string;
-  body: string | null;
-  link_path: string | null;
-  read_at: string | null;
-  created_at: string;
+type Props = {
+  initialNotifications?: ClientNotificationRow[];
+  initialUnread?: number;
 };
 
-export function ClientNotificationsBell() {
+export function ClientNotificationsBell({
+  initialNotifications = [],
+  initialUnread = 0,
+}: Props) {
   const [open, setOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationRow[]>([]);
-  const [unread, setUnread] = useState(0);
+  const [notifications, setNotifications] =
+    useState<ClientNotificationRow[]>(initialNotifications);
+  const [unread, setUnread] = useState(initialUnread);
   const [loading, setLoading] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -26,7 +26,7 @@ export function ClientNotificationsBell() {
     try {
       const res = await fetch("/api/notifications");
       const data = (await res.json()) as {
-        notifications?: NotificationRow[];
+        notifications?: ClientNotificationRow[];
         unread?: number;
       };
       if (res.ok) {
@@ -39,9 +39,17 @@ export function ClientNotificationsBell() {
   }, []);
 
   useEffect(() => {
-    void load();
-    const interval = setInterval(() => void load(), 60_000);
-    return () => clearInterval(interval);
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    const interval = setInterval(refreshWhenVisible, 60_000);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    window.addEventListener("focus", refreshWhenVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      window.removeEventListener("focus", refreshWhenVisible);
+    };
   }, [load]);
 
   useEffect(() => {

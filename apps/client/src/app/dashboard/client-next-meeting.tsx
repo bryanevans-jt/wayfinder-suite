@@ -1,6 +1,6 @@
 import { formatPortalDateTime, serviceDisplayName } from "@wayfinder/branding";
-import { createServerClient, resolveClientPortalDataAccess } from "@wayfinder/supabase";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
+import { getClientDashboardAccess } from "@/lib/client-dashboard-access";
 import { CLIENT_DASHBOARD_SECTION_IDS as IDS } from "@/lib/dashboard-section-ids";
 import { CLIENT_DASHBOARD_SECTIONS as LABELS } from "@/lib/dashboard-section-labels";
 import { MeetingActions } from "./meeting-actions";
@@ -15,9 +15,7 @@ export async function ClientNextMeeting({ selectedClientId }: Props) {
     return null;
   }
 
-  const supabase = await createServerClient();
-  const access = await resolveClientPortalDataAccess(
-    supabase,
+  const access = await getClientDashboardAccess(
     session.effectiveUserId,
     session.effectiveRole,
     selectedClientId

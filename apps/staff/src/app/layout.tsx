@@ -6,7 +6,7 @@ import {
   WayfinderFooter,
   WayfinderTopNav,
 } from "@wayfinder/branding";
-import { createServerClient } from "@wayfinder/supabase";
+import { getAppSession } from "@wayfinder/supabase/preview-server";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { staffHomeHref, staffNavBadge } from "@/lib/staff-nav";
@@ -43,20 +43,8 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  let staffRole: string | null = null;
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
-    staffRole = profile?.role ?? null;
-  }
+  const session = await getAppSession();
+  const staffRole = session?.effectiveRole ?? null;
 
   return (
     <html lang="en">

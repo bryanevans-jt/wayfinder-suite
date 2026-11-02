@@ -11,7 +11,8 @@ export type AuthUserProfileRow = {
  * matching {@link wayfinderAuthMiddleware} behavior.
  */
 export async function loadAuthUserProfile(
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  knownUserId?: string | null
 ): Promise<{ profile: AuthUserProfileRow | null; errorMessage: string | null }> {
   const { data: rpcRows, error: rpcError } = await supabase.rpc("get_auth_user_profile");
 
@@ -34,17 +35,21 @@ export async function loadAuthUserProfile(
     return { profile: null, errorMessage: rpcError.message };
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  let userId = knownUserId;
+  if (userId === undefined) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    userId = user?.id ?? null;
+  }
+  if (!userId) {
     return { profile: null, errorMessage: rpcError?.message ?? null };
   }
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("role, is_active")
-    .eq("id", user.id)
+    .eq("id", userId)
     .maybeSingle();
 
   if (profileError) {

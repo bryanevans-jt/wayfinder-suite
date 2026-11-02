@@ -9,6 +9,28 @@ import { isPreviewMutationBlocked, resolvePreviewSession } from "./preview-middl
 
 export type WayfinderAppKind = "staff" | "client";
 
+export type WayfinderAuthMiddlewareContext = {
+  response: NextResponse;
+  userId: string | null;
+  actorRole: string | null;
+  effectiveRole: string | null;
+  /** Whether app-specific middleware should continue evaluating protected-route rules. */
+  shouldContinue: boolean;
+};
+
+function authContext(
+  response: NextResponse,
+  values: Partial<Omit<WayfinderAuthMiddlewareContext, "response">> = {}
+): WayfinderAuthMiddlewareContext {
+  return {
+    response,
+    userId: values.userId ?? null,
+    actorRole: values.actorRole ?? null,
+    effectiveRole: values.effectiveRole ?? null,
+    shouldContinue: values.shouldContinue ?? false,
+  };
+}
+
 function staffAppOrigin(): string {
   const raw =
     process.env.NEXT_PUBLIC_STAFF_APP_URL ?? "http://localhost:3000";
@@ -92,12 +114,20 @@ function redirectPreservingCookies(
  * Refreshes the session, loads `profiles`, and routes users to the correct app
  * (`NEXT_PUBLIC_CLIENT_APP_URL` vs `NEXT_PUBLIC_STAFF_APP_URL`) by role.
  */
-export async function wayfinderAuthMiddleware(
+export async function wayfinderAuthMiddlewareWithContext(
   request: NextRequest,
   context: { app: WayfinderAppKind }
-): Promise<NextResponse> {
+): Promise<WayfinderAuthMiddlewareContext> {
   let response = NextResponse.next({ request });
   let sessionCookies: SupabaseCookieToSet[] = [];
+
+  const { pathname } = request.nextUrl;
+  const handlerAuthenticatedRead =
+    request.method === "GET" &&
+    (pathname === "/api/notifications" || pathname === "/api/report-alerts");
+  if (handlerAuthenticatedRead) {
+    return authContext(response);
+  }
 
   let supabaseUrl: string;
   let supabaseAnonKey: string;
@@ -107,9 +137,11 @@ export async function wayfinderAuthMiddleware(
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Missing Supabase environment variables.";
-    return new NextResponse(
-      `Wayfinder configuration error: ${message}\n\nSet NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY for this app.`,
-      { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } }
+    return authContext(
+      new NextResponse(
+        `Wayfinder configuration error: ${message}\n\nSet NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY for this app.`,
+        { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } }
+      )
     );
   }
 
@@ -134,16 +166,14 @@ export async function wayfinderAuthMiddleware(
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl;
-
   if (pathname.startsWith("/walkthrough")) {
-    return response;
+    return authContext(response);
   }
 
   if (!user) {
     const authLanding = redirectStrayEmailAuthParams(request, context);
     if (authLanding) {
-      return authLanding;
+      return authContext(authLanding);
     }
 
     if (pathname === "/" || pathname.startsWith("/dashboard")) {
@@ -153,12 +183,12 @@ export async function wayfinderAuthMiddleware(
       url.searchParams.delete("token");
       url.searchParams.delete("type");
       url.searchParams.delete("code");
-      return NextResponse.redirect(url);
+      return authContext(NextResponse.redirect(url));
     }
-    return response;
+    return authContext(response);
   }
 
-  const { profile, errorMessage } = await loadAuthUserProfile(supabase);
+  const { profile, errorMessage } = await loadAuthUserProfile(supabase, user.id);
 
   if (!profile || !isKnownRole(profile.role)) {
     await supabase.auth.signOut();
@@ -175,7 +205,9 @@ export async function wayfinderAuthMiddleware(
     } else {
       url.searchParams.set("reason", `Unrecognized role: ${profile.role ?? "(empty)"}`);
     }
-    return redirectPreservingCookies(sessionCookies, url);
+    return authContext(redirectPreservingCookies(sessionCookies, url), {
+      userId: user.id,
+    });
   }
 
   if (!profile.is_active) {
@@ -183,7 +215,11 @@ export async function wayfinderAuthMiddleware(
     const url = request.nextUrl.clone();
     url.pathname = "/account-inactive";
     url.searchParams.set("reason", "inactive");
-    return redirectPreservingCookies(sessionCookies, url);
+    return authContext(redirectPreservingCookies(sessionCookies, url), {
+      userId: user.id,
+      actorRole: profile.role,
+      effectiveRole: profile.role,
+    });
   }
 
   const previewSession = resolvePreviewSession(
@@ -193,10 +229,17 @@ export async function wayfinderAuthMiddleware(
   );
 
   if (isPreviewMutationBlocked(request, previewSession.isPreviewReadOnly)) {
-    return new NextResponse("Read-only preview — exit preview to make changes.", {
-      status: 403,
-      headers: { "content-type": "text/plain; charset=utf-8" },
-    });
+    return authContext(
+      new NextResponse("Read-only preview — exit preview to make changes.", {
+        status: 403,
+        headers: { "content-type": "text/plain; charset=utf-8" },
+      }),
+      {
+        userId: user.id,
+        actorRole: profile.role,
+        effectiveRole: previewSession.effectiveRole,
+      }
+    );
   }
 
   const effectiveRole = previewSession.effectiveRole;
@@ -209,21 +252,39 @@ export async function wayfinderAuthMiddleware(
   const wantsClient = isClientRole(effectiveRole);
 
   if (pathname.startsWith("/api/preview/handoff") || pathname.startsWith("/api/preview/stop")) {
-    return response;
+    return authContext(response, {
+      userId: user.id,
+      actorRole: profile.role,
+      effectiveRole,
+    });
   }
 
   if (wantsClient && context.app === "staff") {
     if (pathname === "/login") {
-      return response;
+      return authContext(response, {
+        userId: user.id,
+        actorRole: profile.role,
+        effectiveRole,
+      });
     }
-    return redirectPreservingCookies(sessionCookies, new URL("/dashboard", clientOrigin));
+    return authContext(
+      redirectPreservingCookies(sessionCookies, new URL("/dashboard", clientOrigin)),
+      { userId: user.id, actorRole: profile.role, effectiveRole }
+    );
   }
 
   if (wantsStaff && context.app === "client") {
     if (pathname === "/login") {
-      return response;
+      return authContext(response, {
+        userId: user.id,
+        actorRole: profile.role,
+        effectiveRole,
+      });
     }
-    return redirectPreservingCookies(sessionCookies, new URL("/dashboard", staffOrigin));
+    return authContext(
+      redirectPreservingCookies(sessionCookies, new URL("/dashboard", staffOrigin)),
+      { userId: user.id, actorRole: profile.role, effectiveRole }
+    );
   }
 
   const roleMatchesApp =
@@ -232,12 +293,30 @@ export async function wayfinderAuthMiddleware(
 
   if (roleMatchesApp) {
     if (pathname === "/login" || pathname === "/") {
-      return redirectPreservingCookies(sessionCookies, new URL("/dashboard", requestOrigin));
+      return authContext(
+        redirectPreservingCookies(sessionCookies, new URL("/dashboard", requestOrigin)),
+        { userId: user.id, actorRole: profile.role, effectiveRole }
+      );
     }
     if (pathname === "/account-inactive") {
-      return redirectPreservingCookies(sessionCookies, new URL("/dashboard", requestOrigin));
+      return authContext(
+        redirectPreservingCookies(sessionCookies, new URL("/dashboard", requestOrigin)),
+        { userId: user.id, actorRole: profile.role, effectiveRole }
+      );
     }
   }
 
-  return response;
+  return authContext(response, {
+    userId: user.id,
+    actorRole: profile.role,
+    effectiveRole,
+    shouldContinue: roleMatchesApp,
+  });
+}
+
+export async function wayfinderAuthMiddleware(
+  request: NextRequest,
+  context: { app: WayfinderAppKind }
+): Promise<NextResponse> {
+  return (await wayfinderAuthMiddlewareWithContext(request, context)).response;
 }

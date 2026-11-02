@@ -1,21 +1,32 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
   canAccessPreEts,
-  isPreEtsRolloutRole,
   loadPreEtsSettings,
+  type PreEtsSettingsRow,
 } from "@wayfinder/supabase/pre-ets-settings";
-import { isSuperAdminRole, normalizeRole, staffHomePath } from "@wayfinder/supabase/roles";
+import { isSuperAdminRole, staffHomePath } from "@wayfinder/supabase/roles";
+import { unstable_cache } from "next/cache";
+import {
+  isPreEtsApiPath,
+  isPreEtsDashboardPath,
+  PRE_ETS_API_PREFIX,
+  PRE_ETS_PATH_PREFIX,
+} from "./pre-ets-middleware-access";
 
-export const PRE_ETS_PATH_PREFIX = "/dashboard/pre-ets";
-export const PRE_ETS_API_PREFIX = "/api/pre-ets";
+export {
+  isPreEtsApiPath,
+  isPreEtsDashboardPath,
+  PRE_ETS_API_PREFIX,
+  PRE_ETS_PATH_PREFIX,
+};
+export const PRE_ETS_SETTINGS_CACHE_TAG = "pre-ets-settings";
 
-export function isPreEtsDashboardPath(pathname: string): boolean {
-  return pathname === PRE_ETS_PATH_PREFIX || pathname.startsWith(`${PRE_ETS_PATH_PREFIX}/`);
-}
-
-export function isPreEtsApiPath(pathname: string): boolean {
-  return pathname === PRE_ETS_API_PREFIX || pathname.startsWith(`${PRE_ETS_API_PREFIX}/`);
-}
+export const loadCachedPreEtsSettings = unstable_cache(
+  async (): Promise<PreEtsSettingsRow> =>
+    loadPreEtsSettings(createServiceRoleClient()),
+  ["pre-ets-settings-v1"],
+  { revalidate: 30, tags: [PRE_ETS_SETTINGS_CACHE_TAG] }
+);
 
 export function isPreEtsProtectedPath(pathname: string): boolean {
   return isPreEtsDashboardPath(pathname) || isPreEtsApiPath(pathname);
@@ -30,20 +41,8 @@ export async function preEtsAccessAllowedForRole(
   role: string | null | undefined
 ): Promise<boolean> {
   if (isSuperAdminRole(role)) return true;
-  const admin = createServiceRoleClient();
-  const settings = await loadPreEtsSettings(admin);
+  const settings = await loadCachedPreEtsSettings();
   return canAccessPreEts(role, settings);
-}
-
-/**
- * Edge middleware gate only — no database. Full module/role rollout checks stay in
- * {@link preEtsAccessAllowedForRole} (page) and {@link requirePreEtsApi} (API routes).
- */
-export function preEtsMiddlewareAccessAllowed(role: string | null | undefined): boolean {
-  if (isSuperAdminRole(role)) return true;
-  const normalized = normalizeRole(role);
-  if (!normalized) return false;
-  return isPreEtsRolloutRole(normalized);
 }
 
 export function preEtsDeniedRedirectPath(role: string | null | undefined): string {

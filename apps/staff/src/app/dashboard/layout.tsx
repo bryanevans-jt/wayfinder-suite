@@ -1,9 +1,8 @@
 import { StaffDashboardShell } from "@/components/staff-dashboard-shell";
 import { PreviewBanner } from "@/components/preview-banner";
 import { TrainingDemoBanner } from "@/components/training-demo-banner";
-import { loadFeatureToggles } from "@/lib/feature-toggles";
+import { loadCachedFeatureToggles } from "@/lib/feature-toggles";
 import { preEtsAccessAllowedForRole } from "@/lib/pre-ets-access";
-import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { getAppSession, staffAppOrigin } from "@wayfinder/supabase/preview-server";
 import { isSuperAdminRole } from "@wayfinder/supabase/roles";
 
@@ -18,19 +17,12 @@ export default async function DashboardLayout({
   const showAuditLink = Boolean(
     session && isSuperAdminRole(session.actorRole) && !session.isPreviewing
   );
-  const showPreEtsNav = await preEtsAccessAllowedForRole(navRole);
-
-  let showCommunityPartners = false;
-  let hideIntakeCallsNav = false;
-  try {
-    const admin = createServiceRoleClient();
-    const toggles = await loadFeatureToggles(admin);
-    showCommunityPartners = toggles.communityPartnersEnabled;
-    hideIntakeCallsNav = toggles.directReferralAssignEnabled;
-  } catch {
-    showCommunityPartners = false;
-    hideIntakeCallsNav = false;
-  }
+  const [showPreEtsNav, toggles] = await Promise.all([
+    preEtsAccessAllowedForRole(navRole),
+    loadCachedFeatureToggles().catch(() => null),
+  ]);
+  const showCommunityPartners = toggles?.communityPartnersEnabled ?? false;
+  const hideIntakeCallsNav = toggles?.directReferralAssignEnabled ?? false;
 
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col bg-white">

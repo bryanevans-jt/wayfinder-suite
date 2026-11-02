@@ -20,6 +20,7 @@ import { ClientNextMeeting } from "./client-next-meeting";
 import { DashboardActions } from "./dashboard-actions";
 import { CLIENT_DASHBOARD_SECTION_IDS as IDS } from "@/lib/dashboard-section-ids";
 import { CLIENT_DASHBOARD_SECTIONS as LABELS } from "@/lib/dashboard-section-labels";
+import type { ClientNotificationRow } from "@/lib/client-notifications";
 import { SuccessPath } from "./success-path";
 
 type DashboardSearchParams = Promise<{ client?: string }>;
@@ -36,34 +37,46 @@ export default async function ClientDashboardPage({
   }
 
   const supabase = await createServerClient();
-  const { data: authUser } = await supabase.auth.getUser();
   const support = isSupportRole(session.effectiveRole);
 
-  if (authUser.user && !support) {
+  if (!support) {
     try {
       const admin = createServiceRoleClient();
-      await ensureClientAuthProfile(admin, authUser.user.id, authUser.user.email);
+      await ensureClientAuthProfile(
+        admin,
+        session.actorUserId,
+        session.actorEmail ?? undefined
+      );
     } catch {
       // Service role may be unset in local dev; email-based lookup still applies after migration.
     }
   }
 
-  const displayEmail = authUser.user?.email ?? session.effectiveUserId;
+  const displayEmail = session.actorEmail ?? session.effectiveUserId;
 
-  const { data: a11yProfile } = await supabase
-    .from("profiles")
-    .select("accessibility_large_text, accessibility_high_contrast")
-    .eq("id", session.effectiveUserId)
-    .maybeSingle();
+  const [{ data: a11yProfile }, { data: notificationRows }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("accessibility_large_text, accessibility_high_contrast")
+      .eq("id", session.effectiveUserId)
+      .maybeSingle(),
+    supabase
+      .from("in_app_notifications")
+      .select("id, kind, title, body, link_path, read_at, created_at")
+      .eq("user_id", session.actorUserId)
+      .order("created_at", { ascending: false })
+      .limit(30),
+  ]);
+  const notifications = (notificationRows ?? []) as ClientNotificationRow[];
 
   let supportClients: SupportClientOption[] = [];
-  if (support && authUser.user) {
+  if (support) {
     try {
       const admin = createServiceRoleClient();
       const { data: assignments } = await admin
         .from("support_client_assignments")
         .select("client_id")
-        .eq("support_user_id", authUser.user.id);
+        .eq("support_user_id", session.actorUserId);
       const clientIds = (assignments ?? []).map((a) => a.client_id as string);
       if (clientIds.length > 0) {
         const { data: clients } = await admin
@@ -168,13 +181,16 @@ export default async function ClientDashboardPage({
         </Suspense>
       ) : null}
       <PushNotificationPrompt />
-      <ClientCelebrationsCard />
+      <ClientCelebrationsCard notifications={notifications} />
       <ClientNextMeeting selectedClientId={sp.client} />
       <SuccessPath selectedClientId={sp.client} />
       {!support ? <ClientMessagesPanel /> : null}
       <ClientApplicationsCard selectedClientId={sp.client} />
       <ClientActivity selectedClientId={sp.client} />
-      <DashboardActions allowPasskey={!support} />
+      <DashboardActions
+        allowPasskey={!support}
+        initialNotifications={notifications}
+      />
       <AccessibilitySettings
         initialLargeText={Boolean(a11yProfile?.accessibility_large_text)}
         initialHighContrast={Boolean(a11yProfile?.accessibility_high_contrast)}

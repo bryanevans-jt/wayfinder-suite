@@ -1,11 +1,10 @@
 import { WAYFINDER_LOGO_PATH } from "@wayfinder/branding";
 import {
-  createServerClient,
   isSupportRole,
   loadClientSuccessPath,
-  resolveDashboardClient,
 } from "@wayfinder/supabase";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
+import { getClientDashboardAccess } from "@/lib/client-dashboard-access";
 import Image from "next/image";
 import { CLIENT_DASHBOARD_SECTION_IDS as IDS } from "@/lib/dashboard-section-ids";
 import { CLIENT_DASHBOARD_SECTIONS as LABELS } from "@/lib/dashboard-section-labels";
@@ -21,16 +20,14 @@ export async function SuccessPath({ selectedClientId }: SuccessPathProps) {
     return null;
   }
 
-  const supabase = await createServerClient();
   const readOnly = isSupportRole(session.effectiveRole);
-  const ctx = await resolveDashboardClient(
-    supabase,
+  const access = await getClientDashboardAccess(
     session.effectiveUserId,
     session.effectiveRole,
     selectedClientId
   );
 
-  if (!ctx) {
+  if (!access) {
     return (
       <section
         id={IDS.yourPath}
@@ -49,7 +46,8 @@ export async function SuccessPath({ selectedClientId }: SuccessPathProps) {
     );
   }
 
-  const { data: clientRow } = await supabase
+  const { ctx, admin } = access;
+  const { data: clientRow } = await admin
     .from("clients")
     .select("id, user_id, current_service_id, current_stage_id")
     .eq("id", ctx.clientId)
@@ -74,7 +72,7 @@ export async function SuccessPath({ selectedClientId }: SuccessPathProps) {
     );
   }
 
-  const path = await loadClientSuccessPath(supabase, {
+  const path = await loadClientSuccessPath(admin, {
     current_service_id: clientRow.current_service_id,
     current_stage_id: clientRow.current_stage_id,
   });

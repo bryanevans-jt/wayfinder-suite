@@ -1,34 +1,16 @@
-"use client";
-
 import { formatPortalDateTime } from "@wayfinder/branding";
-import { useCallback, useEffect, useState } from "react";
 import { CLIENT_DASHBOARD_SECTION_IDS as IDS } from "@/lib/dashboard-section-ids";
 import { CLIENT_DASHBOARD_SECTIONS as LABELS } from "@/lib/dashboard-section-labels";
+import type { ClientNotificationRow } from "@/lib/client-notifications";
 
-type Row = {
-  id: string;
-  kind: string;
-  title: string;
-  body: string | null;
-  created_at: string;
-};
-
-export function ClientCelebrationsCard() {
-  const [items, setItems] = useState<Row[]>([]);
-
-  const load = useCallback(async () => {
-    const res = await fetch("/api/notifications");
-    const data = (await res.json()) as { notifications?: Row[] };
-    if (res.ok) {
-      setItems(
-        (data.notifications ?? []).filter((n) => n.kind === "employment_celebration").slice(0, 3)
-      );
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+export function ClientCelebrationsCard({
+  notifications,
+}: {
+  notifications: ClientNotificationRow[];
+}) {
+  const items = notifications
+    .filter((notification) => notification.kind === "employment_celebration")
+    .slice(0, 3);
 
   if (items.length === 0) return null;
 

@@ -103,6 +103,7 @@ export function StaffSidebarPanel({
                       ) : (
                         <Link
                           href={item.href}
+                          prefetch={false}
                           onClick={onNavigate}
                           aria-current={active ? "page" : undefined}
                           className={className}

@@ -1,4 +1,3 @@
-import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
   canAccessPreEts,
   canAccessPreEtsAccounts,
@@ -6,15 +5,16 @@ import {
   canManagePreEtsSettings,
   canManagePreEtsSetup,
   canSupervisePreEts,
-  loadPreEtsSettings,
+  type PreEtsSettingsRow,
 } from "@wayfinder/supabase/pre-ets-settings";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { NextResponse } from "next/server";
+import { loadCachedPreEtsSettings } from "./pre-ets-access";
 
 export type PreEtsApiSession = {
   userId: string;
   role: string;
-  settings: Awaited<ReturnType<typeof loadPreEtsSettings>>;
+  settings: PreEtsSettingsRow;
 };
 
 export async function requirePreEtsApi(
@@ -25,8 +25,7 @@ export async function requirePreEtsApi(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const admin = createServiceRoleClient();
-  const settings = await loadPreEtsSettings(admin);
+  const settings = await loadCachedPreEtsSettings();
   const role = session.effectiveRole;
 
   const allowed =

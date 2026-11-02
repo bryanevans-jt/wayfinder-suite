@@ -4,8 +4,10 @@ import { isSuperAdminRole } from "@wayfinder/supabase/roles";
 import {
   DEFAULT_ANNIVERSARY_TEMPLATE,
   DEFAULT_BIRTHDAY_TEMPLATE,
+  FEATURE_TOGGLES_CACHE_TAG,
   loadFeatureToggles,
 } from "@/lib/feature-toggles";
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -79,5 +81,6 @@ export async function PATCH(request: Request) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  revalidateTag(FEATURE_TOGGLES_CACHE_TAG);
   return NextResponse.json({ ok: true });
 }

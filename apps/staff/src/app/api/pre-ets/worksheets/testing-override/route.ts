@@ -2,10 +2,14 @@ import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import {
   canManagePreEtsWorksheetTestingOverride,
-  loadPreEtsSettings,
   normalizePreEtsSettingsRow,
 } from "@wayfinder/supabase/pre-ets-settings";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
+import {
+  loadCachedPreEtsSettings,
+  PRE_ETS_SETTINGS_CACHE_TAG,
+} from "@/lib/pre-ets-access";
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -18,8 +22,7 @@ export async function GET() {
   const actor = { userId: session.effectiveUserId, userRole: session.effectiveRole };
 
   try {
-    const admin = createServiceRoleClient();
-    const settings = await loadPreEtsSettings(admin);
+    const settings = await loadCachedPreEtsSettings();
     return NextResponse.json({
       enabled: settings.worksheet_testing_override_enabled,
       canManage: canManagePreEtsWorksheetTestingOverride(session.effectiveRole),
@@ -71,6 +74,7 @@ export async function PATCH(request: Request) {
     }
 
     const settings = normalizePreEtsSettingsRow(data as Record<string, unknown>);
+    revalidateTag(PRE_ETS_SETTINGS_CACHE_TAG);
     return NextResponse.json({
       ok: true,
       enabled: settings.worksheet_testing_override_enabled,

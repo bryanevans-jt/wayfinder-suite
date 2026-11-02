@@ -2,14 +2,21 @@ import { PushNotificationsToggle, RegisterPasskeyButton, SignOutButton } from "@
 import { ClientNotificationsBell } from "@/components/client-notifications-bell";
 import { CLIENT_DASHBOARD_SECTION_IDS as IDS } from "@/lib/dashboard-section-ids";
 import { CLIENT_DASHBOARD_SECTIONS as LABELS } from "@/lib/dashboard-section-labels";
+import type { ClientNotificationRow } from "@/lib/client-notifications";
 
 export function DashboardActions({
   allowPasskey = true,
   showNotifications = true,
+  initialNotifications = [],
 }: {
   allowPasskey?: boolean;
   showNotifications?: boolean;
+  initialNotifications?: ClientNotificationRow[];
 }) {
+  const initialUnread = initialNotifications.filter(
+    (notification) => !notification.read_at
+  ).length;
+
   return (
     <section
       id={IDS.account}
@@ -19,7 +26,12 @@ export function DashboardActions({
       <h2 id={IDS.accountHeading} className="text-lg font-semibold text-brand-green">
         {LABELS.account}
       </h2>
-      {showNotifications ? <ClientNotificationsBell /> : null}
+      {showNotifications ? (
+        <ClientNotificationsBell
+          initialNotifications={initialNotifications}
+          initialUnread={initialUnread}
+        />
+      ) : null}
       <PushNotificationsToggle />
       <div className="flex flex-wrap items-center gap-3">
         {allowPasskey ? <RegisterPasskeyButton /> : null}

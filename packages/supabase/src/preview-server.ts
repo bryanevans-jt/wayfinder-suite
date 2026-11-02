@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { cache } from "react";
 import { createClient } from "./server";
 import {
   PREVIEW_ACTOR_COOKIE,
@@ -28,13 +29,14 @@ export type AppSession = {
   isTrainingDemoHandoff?: boolean;
   trainingTargetName?: string | null;
   actorUserId: string;
+  actorEmail: string | null;
   actorRole: string;
   effectiveUserId: string;
   effectiveRole: string;
   preview: PreviewSession | null;
 };
 
-export async function getAppSession(): Promise<AppSession | null> {
+const loadAppSession = async (): Promise<AppSession | null> => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -44,7 +46,7 @@ export async function getAppSession(): Promise<AppSession | null> {
     return null;
   }
 
-  const { profile: actorProfile } = await loadAuthUserProfile(supabase);
+  const { profile: actorProfile } = await loadAuthUserProfile(supabase, user.id);
 
   if (!actorProfile?.is_active || !isKnownRole(actorProfile.role)) {
     return null;
@@ -66,6 +68,7 @@ export async function getAppSession(): Promise<AppSession | null> {
       isTrainingDemoHandoff: true,
       trainingTargetName: trainingCookies.targetName,
       actorUserId: user.id,
+      actorEmail: user.email ?? null,
       actorRole: actorProfile.role,
       effectiveUserId: trainingCookies.targetUserId,
       effectiveRole: trainingCookies.targetRole,
@@ -95,6 +98,7 @@ export async function getAppSession(): Promise<AppSession | null> {
       isPreviewing: true,
       isReadOnly: true,
       actorUserId: user.id,
+      actorEmail: user.email ?? null,
       actorRole: actorProfile.role,
       effectiveUserId: previewCookies.targetUserId,
       effectiveRole: previewCookies.targetRole,
@@ -106,12 +110,19 @@ export async function getAppSession(): Promise<AppSession | null> {
     isPreviewing: false,
     isReadOnly: false,
     actorUserId: user.id,
+    actorEmail: user.email ?? null,
     actorRole: actorProfile.role,
     effectiveUserId: user.id,
     effectiveRole: actorProfile.role,
     preview: null,
   };
-}
+};
+
+/**
+ * React request memoization keeps layouts, pages, and sibling server components
+ * from repeating the same Auth and profile round trips during one render.
+ */
+export const getAppSession = cache(loadAppSession);
 
 export async function assertNotPreviewMutation() {
   const session = await getAppSession();

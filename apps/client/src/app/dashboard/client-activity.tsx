@@ -5,11 +5,10 @@ import {
 } from "@wayfinder/branding";
 import {
   buildClientActivityFkIds,
-  createServerClient,
-  resolveClientPortalDataAccess,
 } from "@wayfinder/supabase";
 import { loadIntakeAppointmentsAsMeetings } from "@wayfinder/supabase/hospitality-intake-activity";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
+import { getClientDashboardAccess } from "@/lib/client-dashboard-access";
 import { CLIENT_DASHBOARD_SECTION_IDS as IDS } from "@/lib/dashboard-section-ids";
 import { CLIENT_DASHBOARD_SECTIONS as LABELS } from "@/lib/dashboard-section-labels";
 
@@ -23,9 +22,7 @@ export async function ClientActivity({ selectedClientId }: Props) {
     return null;
   }
 
-  const supabase = await createServerClient();
-  const access = await resolveClientPortalDataAccess(
-    supabase,
+  const access = await getClientDashboardAccess(
     session.effectiveUserId,
     session.effectiveRole,
     selectedClientId

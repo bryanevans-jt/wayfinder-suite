@@ -73,8 +73,17 @@ export function ReportAlertsBanner({ staffRole }: Props) {
 
   useEffect(() => {
     void load();
-    const interval = setInterval(() => void load(), 5 * 60_000);
-    return () => clearInterval(interval);
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    const interval = setInterval(refreshWhenVisible, 5 * 60_000);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    window.addEventListener("focus", refreshWhenVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      window.removeEventListener("focus", refreshWhenVisible);
+    };
   }, [load]);
 
   const fingerprint = useMemo(() => alertFingerprint(alerts), [alerts]);

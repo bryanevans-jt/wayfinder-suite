@@ -1,16 +1,9 @@
-import { createServerClient } from "@supabase/ssr";
 import {
-  getSupabaseAnonKey,
-  getSupabaseUrl,
   isCounselorRole,
   isGvraSupervisorRole,
   staffHomePath,
-  type SupabaseCookieToSet,
-  loadAuthUserProfile,
-  wayfinderServerAuthOptions,
 } from "@wayfinder/supabase";
-import { resolvePreviewSession } from "@wayfinder/supabase/preview-middleware";
-import { wayfinderAuthMiddleware } from "@wayfinder/supabase/middleware-app";
+import { wayfinderAuthMiddlewareWithContext } from "@wayfinder/supabase/middleware-app";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {
@@ -22,7 +15,10 @@ import {
   isPreEtsInstructorBlockedStaffPath,
   portalPathAllowedForRole,
 } from "@/lib/staff-nav";
-import { isPreEtsApiPath, preEtsMiddlewareAccessAllowed } from "@/lib/pre-ets-access";
+import {
+  isPreEtsApiPath,
+  preEtsMiddlewareAccessAllowed,
+} from "@/lib/pre-ets-middleware-access";
 import { isInstructorRole } from "@wayfinder/supabase/roles";
 import { APP_VERSION } from "@wayfinder/branding";
 
@@ -34,40 +30,16 @@ function withDeployHeaders(response: NextResponse): NextResponse {
 }
 
 export async function middleware(request: NextRequest) {
-  const response = withDeployHeaders(await wayfinderAuthMiddleware(request, { app: "staff" }));
+  const auth = await wayfinderAuthMiddlewareWithContext(request, { app: "staff" });
+  const response = withDeployHeaders(auth.response);
 
   const { pathname } = request.nextUrl;
 
-  const supabase = createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
-    ...wayfinderServerAuthOptions,
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(cookiesToSet: SupabaseCookieToSet[]) {
-        cookiesToSet.forEach(({ name, value, options }) =>
-          response.cookies.set(name, value, options)
-        );
-      },
-    },
-  });
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  if (!auth.shouldContinue || !auth.effectiveRole) {
     return withDeployHeaders(response);
   }
 
-  const { profile } = await loadAuthUserProfile(supabase);
-
-  if (!profile) {
-    return withDeployHeaders(response);
-  }
-
-  const previewSession = resolvePreviewSession(request, user.id, profile.role);
-  const role = previewSession.effectiveRole;
+  const role = auth.effectiveRole;
 
   if (isPortalPath(pathname) && !portalPathAllowedForRole(pathname, role)) {
     const url = request.nextUrl.clone();
@@ -120,6 +92,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|api/cron|api/health|favicon.ico|sw.js|manifest.json|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|woff|woff2|ttf)$).*)",
   ],
 };

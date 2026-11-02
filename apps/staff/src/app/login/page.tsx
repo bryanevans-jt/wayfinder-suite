@@ -4,8 +4,9 @@ import {
   JOSHUA_TREE_ORG_EMAIL_DOMAIN,
   STAFF_APP_PRODUCT_NAME,
 } from "@wayfinder/branding";
-import { createServerClient, isClientRole } from "@wayfinder/supabase";
+import { isClientRole } from "@wayfinder/supabase";
 import { accountNotSetUpMessage } from "@wayfinder/supabase/error-log";
+import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { redirect } from "next/navigation";
 
 type SearchParams = Promise<{
@@ -28,12 +29,9 @@ export default async function StaffLoginPage({
   const params = await searchParams;
   const { error, reason } = params;
 
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const session = await getAppSession();
 
-  if (!user) {
+  if (!session) {
     const tokenHash = params.token_hash ?? params.token;
     const type = params.type;
     if (tokenHash && type && !error) {
@@ -45,15 +43,7 @@ export default async function StaffLoginPage({
     }
   }
 
-  let signedInAsClient = false;
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
-    signedInAsClient = isClientRole(profile?.role);
-  }
+  const signedInAsClient = isClientRole(session?.actorRole);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-brand-white px-4 py-16">

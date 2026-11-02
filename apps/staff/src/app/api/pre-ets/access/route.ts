@@ -1,4 +1,3 @@
-import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import {
   canAccessPreEts,
@@ -12,7 +11,6 @@ import {
   canManagePreEtsWorksheetTestingOverride,
   canSupervisePreEts,
   canViewPreEtsHr,
-  loadPreEtsSettings,
 } from "@wayfinder/supabase/pre-ets-settings";
 import {
   canUploadPreEtsWorksheets,
@@ -20,6 +18,7 @@ import {
 } from "@wayfinder/supabase/pre-ets-upload-scope";
 import { isAdminRole, isSuperAdminRole } from "@wayfinder/supabase/roles";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
+import { loadCachedPreEtsSettings } from "@/lib/pre-ets-access";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -32,8 +31,7 @@ export async function GET() {
   const actor = { userId: session.effectiveUserId, userRole: session.effectiveRole };
 
   try {
-    const admin = createServiceRoleClient();
-    const settings = await loadPreEtsSettings(admin);
+    const settings = await loadCachedPreEtsSettings();
     const role = session.effectiveRole;
 
     const canAccounts = canAccessPreEtsAccounts(role, settings);
