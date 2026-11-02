@@ -1,6 +1,9 @@
 "use client";
 
-import type { PortalBootstrap } from "@/lib/portal-data";
+import type {
+  PortalBootstrap,
+  PortalWorkspaceConfig,
+} from "@/lib/portal-data";
 import { activityLogDetailText, type ActivityLogRow } from "@/lib/portal-activity-log";
 import { formatPortalDateTime } from "@/lib/portal-datetime";
 import {
@@ -8,37 +11,14 @@ import {
   personDisplayName,
 } from "@wayfinder/branding";
 import { isArchivedClient, isTerminalStageTitle } from "@wayfinder/supabase/client-archive";
-import {
-  AddClientModal,
-  type CounselorOption,
-} from "@/app/dashboard/clients/add-client-modal";
-import { AdminContactLogTimeEditModal } from "@/components/admin-contact-log-time-edit-modal";
-import { AdminMessageAuditPanel } from "@/components/admin-message-audit-panel";
-import { ClientDetailDrawer } from "@/components/client-detail-drawer";
-import { ClientImportPanel } from "@/components/client-import-panel";
+import type { CounselorOption } from "@/app/dashboard/clients/add-client-modal";
 import { ClientListRow } from "@/components/client-list-row";
 import {
   ClientListPaginationControls,
   useClientListPagination,
 } from "@/components/client-list-pagination";
-import { ErrorLogPanel } from "@/components/error-log-panel";
-import { ClientProfileModal } from "@/components/client-profile-modal";
-import { NaturalSupportModal } from "@/components/natural-support-modal";
 import { OfficeDirectoryList } from "@/components/office-directory-list";
 import { OfficeDistrictRegionSelect } from "@/components/office-district-region-select";
-import { SupervisorWeekPack } from "@/components/supervisor-week-pack";
-import { SupervisorTeamHoursPanel } from "@/components/supervisor-team-hours-panel";
-import { DemoTrainingWorkspace } from "@/components/demo-training-workspace";
-import { PayrollSettingsPanel } from "@/components/payroll-settings-panel";
-import { PreEtsSettingsPanel } from "@/components/pre-ets-settings-panel";
-import { IjpBillingSettingsPanel } from "@/components/ijp-billing-settings-panel";
-import { KraBillableSettingsPanel } from "@/components/kra-billable-settings-panel";
-import { ReferralTrainingPhasePanel } from "@/components/referral-training-phase-panel";
-import { FeatureTogglesPanel } from "@/components/feature-toggles-panel";
-import { ServiceOfferingsPanel } from "@/components/service-offerings-panel";
-import { EmailTemplatesPanel } from "@/components/email-templates-panel";
-import { PtoSettingsPanel } from "@/components/pto-settings-panel";
-import { WrtCurriculumPanel } from "@/components/wrt-curriculum-panel";
 import {
   buildOfficeDisplayName,
   coerceDistrictOrRegionForState,
@@ -55,8 +35,6 @@ import {
   isTeamSupervisorsNav,
   type PortalNavState,
 } from "@/components/portal-nav";
-import { CounselorMergePanel } from "@/components/counselor-merge-panel";
-import { PortalSetupChecklist } from "@/components/portal-setup-checklist";
 import { friendlyClientError, USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
 import { clientRecordMatchesTextSearch } from "@wayfinder/supabase/prior-enrollment-search";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -67,27 +45,193 @@ import {
 } from "@/lib/client-pipeline-where";
 import { portalServiceSelectOptions } from "@/lib/service-offerings";
 import { SuperAdminIntegrationsStrip } from "@/components/super-admin-integrations-strip";
+import dynamic from "next/dynamic";
 
 type PortalMode = "super_admin" | "admin" | "supervisor";
+
+const AddClientModal = dynamic(
+  () =>
+    import("@/app/dashboard/clients/add-client-modal").then(
+      (module) => module.AddClientModal
+    ),
+  { ssr: false }
+);
+const AdminContactLogTimeEditModal = dynamic(
+  () =>
+    import("@/components/admin-contact-log-time-edit-modal").then(
+      (module) => module.AdminContactLogTimeEditModal
+    ),
+  { ssr: false }
+);
+const AdminMessageAuditPanel = dynamic(
+  () =>
+    import("@/components/admin-message-audit-panel").then(
+      (module) => module.AdminMessageAuditPanel
+    ),
+  { ssr: false }
+);
+const ClientDetailDrawer = dynamic(
+  () =>
+    import("@/components/client-detail-drawer").then(
+      (module) => module.ClientDetailDrawer
+    ),
+  { ssr: false }
+);
+const ClientImportPanel = dynamic(
+  () =>
+    import("@/components/client-import-panel").then(
+      (module) => module.ClientImportPanel
+    ),
+  { ssr: false }
+);
+const ErrorLogPanel = dynamic(
+  () =>
+    import("@/components/error-log-panel").then(
+      (module) => module.ErrorLogPanel
+    ),
+  { ssr: false }
+);
+const ClientProfileModal = dynamic(
+  () =>
+    import("@/components/client-profile-modal").then(
+      (module) => module.ClientProfileModal
+    ),
+  { ssr: false }
+);
+const NaturalSupportModal = dynamic(
+  () =>
+    import("@/components/natural-support-modal").then(
+      (module) => module.NaturalSupportModal
+    ),
+  { ssr: false }
+);
+const SupervisorWeekPack = dynamic(
+  () =>
+    import("@/components/supervisor-week-pack").then(
+      (module) => module.SupervisorWeekPack
+    ),
+  { ssr: false }
+);
+const SupervisorTeamHoursPanel = dynamic(
+  () =>
+    import("@/components/supervisor-team-hours-panel").then(
+      (module) => module.SupervisorTeamHoursPanel
+    ),
+  { ssr: false }
+);
+const DemoTrainingWorkspace = dynamic(
+  () =>
+    import("@/components/demo-training-workspace").then(
+      (module) => module.DemoTrainingWorkspace
+    ),
+  { ssr: false }
+);
+const PayrollSettingsPanel = dynamic(
+  () =>
+    import("@/components/payroll-settings-panel").then(
+      (module) => module.PayrollSettingsPanel
+    ),
+  { ssr: false }
+);
+const PreEtsSettingsPanel = dynamic(
+  () =>
+    import("@/components/pre-ets-settings-panel").then(
+      (module) => module.PreEtsSettingsPanel
+    ),
+  { ssr: false }
+);
+const IjpBillingSettingsPanel = dynamic(
+  () =>
+    import("@/components/ijp-billing-settings-panel").then(
+      (module) => module.IjpBillingSettingsPanel
+    ),
+  { ssr: false }
+);
+const KraBillableSettingsPanel = dynamic(
+  () =>
+    import("@/components/kra-billable-settings-panel").then(
+      (module) => module.KraBillableSettingsPanel
+    ),
+  { ssr: false }
+);
+const ReferralTrainingPhasePanel = dynamic(
+  () =>
+    import("@/components/referral-training-phase-panel").then(
+      (module) => module.ReferralTrainingPhasePanel
+    ),
+  { ssr: false }
+);
+const FeatureTogglesPanel = dynamic(
+  () =>
+    import("@/components/feature-toggles-panel").then(
+      (module) => module.FeatureTogglesPanel
+    ),
+  { ssr: false }
+);
+const ServiceOfferingsPanel = dynamic(
+  () =>
+    import("@/components/service-offerings-panel").then(
+      (module) => module.ServiceOfferingsPanel
+    ),
+  { ssr: false }
+);
+const EmailTemplatesPanel = dynamic(
+  () =>
+    import("@/components/email-templates-panel").then(
+      (module) => module.EmailTemplatesPanel
+    ),
+  { ssr: false }
+);
+const PtoSettingsPanel = dynamic(
+  () =>
+    import("@/components/pto-settings-panel").then(
+      (module) => module.PtoSettingsPanel
+    ),
+  { ssr: false }
+);
+const WrtCurriculumPanel = dynamic(
+  () =>
+    import("@/components/wrt-curriculum-panel").then(
+      (module) => module.WrtCurriculumPanel
+    ),
+  { ssr: false }
+);
+const CounselorMergePanel = dynamic(
+  () =>
+    import("@/components/counselor-merge-panel").then(
+      (module) => module.CounselorMergePanel
+    ),
+  { ssr: false }
+);
+const PortalSetupChecklist = dynamic(
+  () =>
+    import("@/components/portal-setup-checklist").then(
+      (module) => module.PortalSetupChecklist
+    ),
+  { ssr: false }
+);
 
 type Props = {
   mode: PortalMode;
   title: string;
   subtitle: string;
   initialNav?: PortalNavState;
+  initialConfig?: PortalWorkspaceConfig;
 };
 
-type ConfigResponse = {
-  bootstrap: PortalBootstrap;
-  canEditLogs: boolean;
-  canDeleteContactLogs: boolean;
-  canAssignAdmins: boolean;
-  role: string;
-};
+type ConfigResponse = PortalWorkspaceConfig;
 
-export function PortalWorkspace({ mode, title, subtitle, initialNav }: Props) {
+export function PortalWorkspace({
+  mode,
+  title,
+  subtitle,
+  initialNav,
+  initialConfig,
+}: Props) {
   const [nav, setNav] = useState<PortalNavState>(initialNav ?? { primary: "clients" });
-  const [config, setConfig] = useState<ConfigResponse | null>(null);
+  const [config, setConfig] = useState<ConfigResponse | null>(
+    initialConfig ?? null
+  );
   const [logs, setLogs] = useState<ActivityLogRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -192,8 +336,8 @@ export function PortalWorkspace({ mode, title, subtitle, initialNav }: Props) {
   }, [filterEs, filterClient, filterOffice]);
 
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    if (!initialConfig) void reload();
+  }, [initialConfig, reload]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);

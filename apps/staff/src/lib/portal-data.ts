@@ -4,7 +4,12 @@ import {
   resolveStaffDisplayName,
   serviceDisplayName,
 } from "@wayfinder/branding";
-import { createServerClient, isAdminTierRole, isSuperAdminRole, buildClientActivityFkIds } from "@wayfinder/supabase";
+import {
+  buildClientActivityFkIds,
+  isAdminTierRole,
+  isSuperAdminRole,
+  isSupervisorRole,
+} from "@wayfinder/supabase";
 import { fetchContactLogsWithSchemaFallback, contactLogDisplayText } from "@wayfinder/supabase/contact-logs-query";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { fetchAllPostgrestRows } from "@wayfinder/supabase/postgrest-fetch-all";
@@ -26,6 +31,7 @@ import {
 } from "@/lib/sunset-tn";
 import { loadServiceOfferings, toServiceSelectOptions } from "@/lib/service-offerings";
 import { loadStaffNameById } from "@/lib/staff-names";
+import { loadSupervisorScope } from "@/lib/supervisor-client-scope";
 import {
   buildContactLogChangeDetail,
   type ActivityLogRow,
@@ -39,18 +45,7 @@ export async function requirePortalPage(minTier: PortalTier) {
     redirect("/login");
   }
 
-  const supabase = await createServerClient();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, is_active")
-    .eq("id", session.actorUserId)
-    .maybeSingle();
-
-  if (!profile?.is_active) {
-    redirect("/account-inactive");
-  }
-
-  const actorRole = profile.role as string;
+  const actorRole = session.actorRole;
   const role = session.isPreviewing ? session.effectiveRole : actorRole;
   const allowed =
     minTier === "super_admin"
@@ -200,12 +195,50 @@ export type PortalBootstrap = {
   esClientLinks: { id: string; es_user_id: string; client_id: string }[];
 };
 
+export type PortalWorkspaceConfig = {
+  bootstrap: PortalBootstrap;
+  canEditLogs: boolean;
+  canDeleteContactLogs: boolean;
+  canAssignAdmins: boolean;
+  role: string;
+};
+
+export async function loadPortalWorkspaceConfig(
+  minTier: PortalTier
+): Promise<PortalWorkspaceConfig> {
+  const { user, role } = await requirePortalPage(minTier);
+  const admin = createServiceRoleClient();
+  let scope:
+    | { supervisorUserId?: string; officeIds?: string[]; esUserIds?: string[] }
+    | undefined;
+  if (role === "supervisor" && !isAdminTierRole(role)) {
+    const supervisorScope = await loadSupervisorScope(admin, user.id);
+    scope = {
+      supervisorUserId: supervisorScope.supervisorUserId,
+      officeIds: supervisorScope.officeIds,
+      esUserIds: supervisorScope.esUserIds,
+    };
+  }
+  const bootstrap = await loadPortalBootstrap(admin, scope, {
+    includeHiddenOffices: isSuperAdminRole(role),
+  });
+  return {
+    bootstrap,
+    canEditLogs: isSuperAdminRole(role),
+    canDeleteContactLogs:
+      isAdminTierRole(role) || isSupervisorRole(role),
+    canAssignAdmins: isSuperAdminRole(role),
+    role,
+  };
+}
+
 export async function loadPortalBootstrap(
   admin: ReturnType<typeof createServiceRoleClient>,
   scope?: { supervisorUserId?: string; officeIds?: string[]; esUserIds?: string[] },
   options?: { includeHiddenOffices?: boolean }
 ): Promise<PortalBootstrap> {
-  let officesRows: OfficeRecord[] = await queryAllOffices(admin);
+  const officesPromise = queryAllOffices(admin);
+  const serviceOfferingsPromise = loadServiceOfferings(admin);
 
   const CLIENT_SELECT_FULL =
     "id, contact_email, office_id, user_id, profile_id, full_name, current_service_id, current_stage_id, counselor_id, archived_at, intake_status, referral_state, is_demo";
@@ -214,41 +247,102 @@ export async function loadPortalBootstrap(
   const CLIENT_SELECT_NO_ARCHIVED =
     "id, contact_email, office_id, user_id, profile_id, full_name, current_service_id, current_stage_id, counselor_id, intake_status, referral_state, is_demo";
 
-  async function loadAllClientRows(): Promise<Array<Record<string, unknown>>> {
+  type FetchAllOptions = NonNullable<
+    Parameters<typeof fetchAllPostgrestRows>[3]
+  >;
+  type ClientQueryFilter = NonNullable<FetchAllOptions["applyFilters"]>;
+
+  async function loadAllClientRows(
+    applyFilters?: ClientQueryFilter
+  ): Promise<Array<Record<string, unknown>>> {
     try {
       return await fetchAllPostgrestRows<Record<string, unknown>>(admin, "clients", CLIENT_SELECT_FULL, {
         order: { column: "full_name", ascending: true },
+        applyFilters,
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes("full_name")) {
         return fetchAllPostgrestRows(admin, "clients", CLIENT_SELECT_NO_FULL_NAME, {
           order: { column: "created_at", ascending: true },
+          applyFilters,
         });
       }
       if (msg.includes("archived_at")) {
         return fetchAllPostgrestRows(admin, "clients", CLIENT_SELECT_NO_ARCHIVED, {
           order: { column: "full_name", ascending: true },
+          applyFilters,
         });
       }
       if (msg.includes("referral_state")) {
         const withoutState = CLIENT_SELECT_FULL.replace(", referral_state", "");
         return fetchAllPostgrestRows(admin, "clients", withoutState, {
           order: { column: "full_name", ascending: true },
+          applyFilters,
         });
       }
       throw err;
     }
   }
 
-  let clientRowsLoaded: Array<Record<string, unknown>> = [];
-  try {
-    clientRowsLoaded = await loadAllClientRows();
-  } catch {
-    clientRowsLoaded = await fetchAllPostgrestRows(admin, "clients", "id, contact_email, office_id", {
-      order: { column: "id", ascending: true },
-    });
+  const scopedUserIds = scope?.supervisorUserId
+    ? [
+        ...new Set([
+          scope.supervisorUserId,
+          ...(scope.esUserIds ?? []),
+        ]),
+      ]
+    : [];
+  const preloadedEsClientLinksResult =
+    scopedUserIds.length > 0
+      ? await admin
+          .from("es_client_assignments")
+          .select("id, es_user_id, client_id")
+          .in("es_user_id", scopedUserIds)
+      : null;
+
+  async function loadScopedClientRows(): Promise<
+    Array<Record<string, unknown>>
+  > {
+    if (!scope?.supervisorUserId) return loadAllClientRows();
+    const linkedClientIds = [
+      ...new Set(
+        (preloadedEsClientLinksResult?.data ?? []).map(
+          (link) => link.client_id as string
+        )
+      ),
+    ];
+    const loads: Promise<Array<Record<string, unknown>>>[] = [];
+    if ((scope.officeIds ?? []).length > 0) {
+      loads.push(
+        loadAllClientRows((query) =>
+          query.in("office_id", scope.officeIds ?? [])
+        )
+      );
+    }
+    if (linkedClientIds.length > 0) {
+      loads.push(
+        loadAllClientRows((query) => query.in("id", linkedClientIds))
+      );
+    }
+    if (loads.length === 0) return [];
+    const rows = (await Promise.all(loads)).flat();
+    return [...new Map(rows.map((row) => [String(row.id), row])).values()];
   }
+
+  const [loadedOffices, loadedClients] = await Promise.all([
+    officesPromise,
+    loadScopedClientRows().catch(() =>
+      fetchAllPostgrestRows(
+        admin,
+        "clients",
+        "id, contact_email, office_id",
+        { order: { column: "id", ascending: true } }
+      )
+    ),
+  ]);
+  let officesRows: OfficeRecord[] = loadedOffices;
+  let clientRowsLoaded: Array<Record<string, unknown>> = loadedClients;
 
   clientRowsLoaded = clientRowsLoaded.filter(
     (row) => (row as { is_demo?: boolean }).is_demo !== true
@@ -256,117 +350,109 @@ export async function loadPortalBootstrap(
 
   const clientsQuery = { data: clientRowsLoaded, error: null as { message: string } | null };
 
-  let servicesQuery = await admin.from("services").select("id, name, state").order("name");
   type ServiceRowLoaded = { id: string; name: string; state?: string | null };
-  let servicesRaw: ServiceRowLoaded[];
-  if (servicesQuery.error?.message.includes("state")) {
-    const fallback = await admin.from("services").select("id, name").order("name");
-    servicesRaw = (fallback.data ?? []) as ServiceRowLoaded[];
-  } else {
-    servicesRaw = (servicesQuery.data ?? []) as ServiceRowLoaded[];
+  async function loadServices(): Promise<ServiceRowLoaded[]> {
+    const query = await admin
+      .from("services")
+      .select("id, name, state")
+      .order("name");
+    if (query.error?.message.includes("state")) {
+      const fallback = await admin.from("services").select("id, name").order("name");
+      return (fallback.data ?? []) as ServiceRowLoaded[];
+    }
+    return (query.data ?? []) as ServiceRowLoaded[];
   }
 
-  let milestonesQuery = await admin
-    .from("service_milestones")
-    .select("id, title, service_id, order_index")
-    .order("order_index");
   type MilestoneRowLoaded = {
     id: string;
     title: string;
     service_id: string;
     order_index?: number;
   };
-  let milestones: MilestoneRowLoaded[];
-  if (milestonesQuery.error?.message.includes("order_index")) {
-    const fallback = await admin
+  async function loadMilestones(): Promise<MilestoneRowLoaded[]> {
+    const query = await admin
       .from("service_milestones")
-      .select("id, title, service_id")
-      .order("title");
-    milestones = (fallback.data ?? []) as MilestoneRowLoaded[];
-  } else {
-    milestones = (milestonesQuery.data ?? []) as MilestoneRowLoaded[];
+      .select("id, title, service_id, order_index")
+      .order("order_index");
+    if (query.error?.message.includes("order_index")) {
+      const fallback = await admin
+        .from("service_milestones")
+        .select("id, title, service_id")
+        .order("title");
+      return (fallback.data ?? []) as MilestoneRowLoaded[];
+    }
+    return (query.data ?? []) as MilestoneRowLoaded[];
+  }
+
+  let counselorOfficeLinksQuery = admin
+    .from("counselor_office_assignments")
+    .select("id, counselor_id, office_id");
+  let staffOfficeLinksQuery = admin
+    .from("staff_office_assignments")
+    .select("id, user_id, office_id");
+  let supervisorEsLinksQuery = admin
+    .from("supervisor_es_assignments")
+    .select("id, supervisor_user_id, es_user_id");
+  let esClientLinksQuery = admin
+    .from("es_client_assignments")
+    .select("id, es_user_id, client_id");
+  let openIntakeTasksQuery = admin
+    .from("hospitality_intake_tasks")
+    .select("client_id")
+    .eq("status", "open");
+  if (scope?.supervisorUserId) {
+    if ((scope.officeIds ?? []).length > 0) {
+      counselorOfficeLinksQuery = counselorOfficeLinksQuery.in(
+        "office_id",
+        scope.officeIds ?? []
+      );
+    }
+    staffOfficeLinksQuery = staffOfficeLinksQuery.in("user_id", scopedUserIds);
+    supervisorEsLinksQuery = supervisorEsLinksQuery.eq(
+      "supervisor_user_id",
+      scope.supervisorUserId
+    );
+    esClientLinksQuery = esClientLinksQuery.in("es_user_id", scopedUserIds);
+    const scopedClientIds = clientRowsLoaded.map((row) => String(row.id));
+    if (scopedClientIds.length > 0) {
+      openIntakeTasksQuery = openIntakeTasksQuery.in(
+        "client_id",
+        scopedClientIds
+      );
+    }
   }
 
   const [
+    loadedServices,
+    loadedMilestones,
     { data: counselorOfficeLinks },
     { data: staffOfficeLinks },
     { data: supervisorEsLinks },
     { data: esClientLinks },
     { data: openIntakeTasks },
   ] = await Promise.all([
-    admin.from("counselor_office_assignments").select("id, counselor_id, office_id"),
-    admin.from("staff_office_assignments").select("id, user_id, office_id"),
-    admin.from("supervisor_es_assignments").select("id, supervisor_user_id, es_user_id"),
-    admin.from("es_client_assignments").select("id, es_user_id, client_id"),
-    admin.from("hospitality_intake_tasks").select("client_id").eq("status", "open"),
+    loadServices(),
+    loadMilestones(),
+    counselorOfficeLinksQuery,
+    staffOfficeLinksQuery,
+    supervisorEsLinksQuery,
+    preloadedEsClientLinksResult ?? esClientLinksQuery,
+    openIntakeTasksQuery,
   ]);
+  let servicesRaw = loadedServices;
+  const milestones = loadedMilestones;
 
   const openIntakeClientIds = new Set(
     (openIntakeTasks ?? []).map((t) => t.client_id as string)
   );
 
-  let counselorsQuery = await admin
-    .from("counselors")
-    .select("id, full_name, office_id, user_id, contact_email")
-    .order("full_name");
-  let counselors: Array<{
+  type CounselorRow = {
     id: string;
     full_name: string;
     office_id: string | null;
     user_id?: string | null;
     contact_email?: string | null;
-  }> = (counselorsQuery.data ?? []) as Array<{
-    id: string;
-    full_name: string;
-    office_id: string | null;
-    user_id?: string | null;
-    contact_email?: string | null;
-  }>;
-  if (counselorsQuery.error?.message.includes("contact_email")) {
-    const withoutEmail = await admin
-      .from("counselors")
-      .select("id, full_name, office_id, user_id")
-      .order("full_name");
-    counselorsQuery = withoutEmail as typeof counselorsQuery;
-    counselors = (withoutEmail.data ?? []) as typeof counselors;
-  }
-  if (counselorsQuery.error?.message.includes("user_id")) {
-    const fallback = await admin
-      .from("counselors")
-      .select("id, full_name, office_id")
-      .order("full_name");
-    if (fallback.error) throw new Error(fallback.error.message);
-    counselors = (fallback.data ?? []) as typeof counselors;
-  } else if (counselorsQuery.error) {
-    throw new Error(counselorsQuery.error.message);
-  }
-
-  let profilesQuery = await admin
-    .from("profiles")
-    .select("id, role, full_name, first_name, last_name, is_active, staff_removed_at");
-  if (profilesQuery.error?.message.includes("staff_removed_at")) {
-    profilesQuery = await admin
-      .from("profiles")
-      .select("id, role, full_name, first_name, last_name, is_active");
-  }
-  if (profilesQuery.error?.message.includes("first_name")) {
-    profilesQuery = await admin.from("profiles").select("id, role, full_name, is_active");
-  }
-  const profiles = profilesQuery.data;
-
-  const authUsers = await admin.auth.admin.listUsers({ perPage: 1000 });
-  const emailById = new Map(
-    (authUsers.data.users ?? []).map((u) => [u.id, u.email ?? ""])
-  );
-  const authMetaById = new Map(
-    (authUsers.data.users ?? []).map((u) => [u.id, u.user_metadata ?? {}])
-  );
-
-  const { data: protectedRows } = await admin
-    .from("system_protected_profiles")
-    .select("profile_id");
-  const protectedIds = new Set((protectedRows ?? []).map((r) => r.profile_id as string));
-
+  };
   type ProfileRow = {
     id: string;
     role: string;
@@ -376,6 +462,73 @@ export async function loadPortalBootstrap(
     is_active?: boolean | null;
     staff_removed_at?: string | null;
   };
+
+  async function loadCounselors(): Promise<CounselorRow[]> {
+    const query = await admin
+      .from("counselors")
+      .select("id, full_name, office_id, user_id, contact_email")
+      .order("full_name");
+    if (query.error?.message.includes("contact_email")) {
+      const withoutEmail = await admin
+        .from("counselors")
+        .select("id, full_name, office_id, user_id")
+        .order("full_name");
+      if (!withoutEmail.error) {
+        return (withoutEmail.data ?? []) as CounselorRow[];
+      }
+      if (!withoutEmail.error.message.includes("user_id")) {
+        throw new Error(withoutEmail.error.message);
+      }
+    }
+    if (
+      query.error?.message.includes("user_id") ||
+      query.error?.message.includes("contact_email")
+    ) {
+      const fallback = await admin
+        .from("counselors")
+        .select("id, full_name, office_id")
+        .order("full_name");
+      if (fallback.error) throw new Error(fallback.error.message);
+      return (fallback.data ?? []) as CounselorRow[];
+    }
+    if (query.error) throw new Error(query.error.message);
+    return (query.data ?? []) as CounselorRow[];
+  }
+
+  async function loadProfiles(): Promise<ProfileRow[]> {
+    let query = await admin
+      .from("profiles")
+      .select("id, role, full_name, first_name, last_name, is_active, staff_removed_at");
+    if (query.error?.message.includes("staff_removed_at")) {
+      query = await admin
+        .from("profiles")
+        .select("id, role, full_name, first_name, last_name, is_active");
+    }
+    if (query.error?.message.includes("first_name")) {
+      query = await admin
+        .from("profiles")
+        .select("id, role, full_name, is_active");
+    }
+    if (query.error) throw new Error(query.error.message);
+    return (query.data ?? []) as ProfileRow[];
+  }
+
+  const [loadedCounselors, profiles, authUsers, { data: protectedRows }] =
+    await Promise.all([
+      loadCounselors(),
+      loadProfiles(),
+      admin.auth.admin.listUsers({ perPage: 1000 }),
+      admin.from("system_protected_profiles").select("profile_id"),
+    ]);
+  let counselors = loadedCounselors;
+  const emailById = new Map(
+    (authUsers.data.users ?? []).map((u) => [u.id, u.email ?? ""])
+  );
+  const authMetaById = new Map(
+    (authUsers.data.users ?? []).map((u) => [u.id, u.user_metadata ?? {}])
+  );
+
+  const protectedIds = new Set((protectedRows ?? []).map((r) => r.profile_id as string));
 
   const profileById = new Map((profiles ?? []).map((p) => [p.id as string, p as ProfileRow]));
 
@@ -586,7 +739,7 @@ export async function loadPortalBootstrap(
     sunset
   );
 
-  const serviceOfferings = await loadServiceOfferings(admin);
+  const serviceOfferings = await serviceOfferingsPromise;
 
   return {
     offices: officesRows.map((o) => ({

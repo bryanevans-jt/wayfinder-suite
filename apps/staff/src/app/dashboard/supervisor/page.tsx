@@ -1,14 +1,15 @@
 import { PortalWorkspace } from "@/components/portal-workspace";
-import { requirePortalPage } from "@/lib/portal-data";
+import { loadPortalWorkspaceConfig } from "@/lib/portal-data";
 
 export default async function SupervisorPortalPage() {
-  await requirePortalPage("supervisor");
+  const initialConfig = await loadPortalWorkspaceConfig("supervisor");
 
   return (
     <PortalWorkspace
       mode="supervisor"
       title="Regional Supervisor Portal"
       subtitle="View clients and Employment Specialists in your scope, review connections, and export activity logs."
+      initialConfig={initialConfig}
     />
   );
 }
