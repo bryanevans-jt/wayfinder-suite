@@ -238,7 +238,6 @@ export async function loadPortalBootstrap(
   options?: { includeHiddenOffices?: boolean }
 ): Promise<PortalBootstrap> {
   const officesPromise = queryAllOffices(admin);
-  const serviceOfferingsPromise = loadServiceOfferings(admin);
 
   const CLIENT_SELECT_FULL =
     "id, contact_email, office_id, user_id, profile_id, full_name, current_service_id, current_stage_id, counselor_id, archived_at, intake_status, referral_state, is_demo";
@@ -330,7 +329,7 @@ export async function loadPortalBootstrap(
     return [...new Map(rows.map((row) => [String(row.id), row])).values()];
   }
 
-  const [loadedOffices, loadedClients] = await Promise.all([
+  const [loadedOffices, loadedClients, serviceOfferings] = await Promise.all([
     officesPromise,
     loadScopedClientRows().catch(() =>
       fetchAllPostgrestRows(
@@ -340,6 +339,7 @@ export async function loadPortalBootstrap(
         { order: { column: "id", ascending: true } }
       )
     ),
+    loadServiceOfferings(admin),
   ]);
   let officesRows: OfficeRecord[] = loadedOffices;
   let clientRowsLoaded: Array<Record<string, unknown>> = loadedClients;
@@ -738,8 +738,6 @@ export async function loadPortalBootstrap(
     })),
     sunset
   );
-
-  const serviceOfferings = await serviceOfferingsPromise;
 
   return {
     offices: officesRows.map((o) => ({
