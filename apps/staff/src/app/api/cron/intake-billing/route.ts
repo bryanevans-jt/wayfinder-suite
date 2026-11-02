@@ -19,6 +19,7 @@ export async function GET(request: Request) {
 
   try {
     const admin = createServiceRoleClient();
+    // Sole scheduled entry point for intake billing backfill and overdue meeting alerts.
     const result = await markDueScheduledIntakeBillings(admin);
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {

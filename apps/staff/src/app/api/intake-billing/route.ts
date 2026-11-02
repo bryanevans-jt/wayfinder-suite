@@ -3,7 +3,6 @@ import {
   canAccessIntakeBilling,
   canManageIntakeBilling,
   loadReadyContactLogsForIntakeBillings,
-  markDueScheduledIntakeBillings,
   updateIntakeBillingStatus,
 } from "@wayfinder/supabase/intake-billing";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
@@ -18,7 +17,7 @@ export async function GET(request: Request) {
   }
 
   const admin = createServiceRoleClient();
-  await markDueScheduledIntakeBillings(admin);
+  // Backfill and overdue intake notifications run on /api/cron/intake-billing (hourly).
 
   const status = new URL(request.url).searchParams.get("status") || "ready_to_bill";
   const selectWithLog =
