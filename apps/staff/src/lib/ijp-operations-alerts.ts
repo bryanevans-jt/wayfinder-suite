@@ -91,15 +91,6 @@ export async function loadIjpSignatureListFlags(
 ): Promise<Record<string, string>> {
   if (clientIds.length === 0) return {};
 
-  const { loadIjpSignatureUiStatus } = await import("@/lib/ijp-attestation-status");
-  const out: Record<string, string> = {};
-  await Promise.all(
-    clientIds.map(async (id) => {
-      const status = await loadIjpSignatureUiStatus(admin, id);
-      if (status?.showListFlag) {
-        out[id] = status.serviceMonthLabel;
-      }
-    })
-  );
-  return out;
+  const { loadIjpSignatureListFlagsBatched } = await import("@/lib/ijp-attestation-status");
+  return loadIjpSignatureListFlagsBatched(admin, clientIds);
 }

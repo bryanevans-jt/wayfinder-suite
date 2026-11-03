@@ -39,20 +39,43 @@ function monthRangeUtc(monthStart: string): { start: string; end: string } {
   };
 }
 
-/** Client on GA IJP at least one day in the calendar month (episode overlap). */
-export async function clientOnGaIjpDuringMonth(
-  admin: SupabaseClient,
-  clientId: string,
+export type GaIjpEpisodeRow = {
+  service_id: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+};
+
+export type GaIjpClientRow = {
+  current_service_id: string | null;
+  archived_at: string | null;
+  is_demo?: boolean | null;
+  intake_status?: string | null;
+};
+
+export type GaIjpServiceRow = {
+  name: string | null;
+  state: string | null;
+};
+
+export type BillableTimeEntryRow = ClientBillableEntry & {
+  duration_minutes: number;
+  service_activity_types?:
+    | { code?: string; counts_toward_client_billable?: boolean }
+    | { code?: string; counts_toward_client_billable?: boolean }[]
+    | null;
+};
+
+/** Pure: client on GA IJP at least one day in the calendar month (episode overlap). */
+export function clientOnGaIjpDuringMonthFromRows(
+  episodes: GaIjpEpisodeRow[],
+  client: GaIjpClientRow | null | undefined,
+  service: GaIjpServiceRow | null | undefined,
   monthStart: string,
   gaIjpServiceId: string
-): Promise<boolean> {
+): boolean {
   const monthEnd = serviceMonthEndYmd(monthStart);
-  const { data: episodes } = await admin
-    .from("service_episodes")
-    .select("service_id, started_at, ended_at, status")
-    .eq("client_id", clientId);
 
-  for (const ep of episodes ?? []) {
+  for (const ep of episodes) {
     if ((ep.service_id as string) !== gaIjpServiceId) continue;
     const start = (ep.started_at as string)?.slice(0, 10) ?? "";
     const end = (ep.ended_at as string)?.slice(0, 10) ?? monthEnd;
@@ -61,12 +84,6 @@ export async function clientOnGaIjpDuringMonth(
     }
   }
 
-  const { data: client } = await admin
-    .from("clients")
-    .select("current_service_id, archived_at, is_demo, intake_status")
-    .eq("id", clientId)
-    .maybeSingle();
-
   if (!client || client.is_demo) return false;
   if ((client.current_service_id as string) === gaIjpServiceId) {
     const archived = client.archived_at as string | null;
@@ -74,20 +91,67 @@ export async function clientOnGaIjpDuringMonth(
     return true;
   }
 
-  const { data: svc } = await admin
-    .from("services")
-    .select("name, state")
-    .eq("id", client.current_service_id)
-    .maybeSingle();
   if (
-    svc &&
-    (svc.state as string) === "GA" &&
-    isIndividualJobPlacementServiceName(svc.name as string)
+    service &&
+    (service.state as string) === "GA" &&
+    isIndividualJobPlacementServiceName(service.name as string)
   ) {
     return true;
   }
 
   return false;
+}
+
+/** Pure: any billable (non-rejected) time in the service month. */
+export function clientHasBillableTimeFromEntries(rows: BillableTimeEntryRow[]): boolean {
+  for (const row of rows) {
+    const embed = row.service_activity_types;
+    const activity = Array.isArray(embed) ? embed[0] : embed;
+    if (
+      entryCountsTowardClientBillableWithActivity(row as ClientBillableEntry, activity) &&
+      (row.duration_minutes as number) > 0
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Client on GA IJP at least one day in the calendar month (episode overlap). */
+export async function clientOnGaIjpDuringMonth(
+  admin: SupabaseClient,
+  clientId: string,
+  monthStart: string,
+  gaIjpServiceId: string
+): Promise<boolean> {
+  const { data: episodes } = await admin
+    .from("service_episodes")
+    .select("service_id, started_at, ended_at, status")
+    .eq("client_id", clientId);
+
+  const { data: client } = await admin
+    .from("clients")
+    .select("current_service_id, archived_at, is_demo, intake_status")
+    .eq("id", clientId)
+    .maybeSingle();
+
+  let service: GaIjpServiceRow | null = null;
+  if (client?.current_service_id && (client.current_service_id as string) !== gaIjpServiceId) {
+    const { data: svc } = await admin
+      .from("services")
+      .select("name, state")
+      .eq("id", client.current_service_id)
+      .maybeSingle();
+    service = (svc as GaIjpServiceRow | null) ?? null;
+  }
+
+  return clientOnGaIjpDuringMonthFromRows(
+    (episodes ?? []) as GaIjpEpisodeRow[],
+    client as GaIjpClientRow | null,
+    service,
+    monthStart,
+    gaIjpServiceId
+  );
 }
 
 export async function clientHasBillableTimeInMonth(
@@ -107,20 +171,7 @@ export async function clientHasBillableTimeInMonth(
     .gte("service_date", month)
     .lte("service_date", monthEnd);
 
-  for (const row of rows ?? []) {
-    const embed = row.service_activity_types as
-      | { code?: string; counts_toward_client_billable?: boolean }
-      | { code?: string; counts_toward_client_billable?: boolean }[]
-      | null;
-    const activity = Array.isArray(embed) ? embed[0] : embed;
-    if (
-      entryCountsTowardClientBillableWithActivity(row as ClientBillableEntry, activity) &&
-      (row.duration_minutes as number) > 0
-    ) {
-      return true;
-    }
-  }
-  return false;
+  return clientHasBillableTimeFromEntries((rows ?? []) as BillableTimeEntryRow[]);
 }
 
 export async function loadEligibleIjpClientIdsForMonth(

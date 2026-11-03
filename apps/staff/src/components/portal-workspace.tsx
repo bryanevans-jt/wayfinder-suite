@@ -489,27 +489,57 @@ export function PortalWorkspace({
   } = useClientListPagination(filteredClients);
 
   const [ijpSignatureFlags, setIjpSignatureFlags] = useState<Record<string, string>>({});
+  const [ijpSignatureFlagsRefreshKey, setIjpSignatureFlagsRefreshKey] = useState(0);
+  // Stable dependency: sliceClientListPage returns a new array every render, which would
+  // re-fire this effect forever if we depended on pagedClients directly.
+  const pagedClientIdsKey = useMemo(
+    () => pagedClients.map((c) => c.id).join(","),
+    [pagedClients]
+  );
 
   useEffect(() => {
-    const ids = pagedClients.map((c) => c.id);
+    const ids = pagedClientIdsKey ? pagedClientIdsKey.split(",") : [];
     if (ids.length === 0) {
       setIjpSignatureFlags({});
       return;
     }
+    const controller = new AbortController();
     void (async () => {
       try {
         const res = await fetch("/api/ijp-attestation/signature-flags", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ clientIds: ids }),
+          signal: controller.signal,
         });
+        if (!res.ok) {
+          // Failures (incl. 429) show no badges; do not retry-loop.
+          if (!controller.signal.aborted) setIjpSignatureFlags({});
+          return;
+        }
         const data = (await res.json()) as { flags?: Record<string, string> };
-        if (res.ok) setIjpSignatureFlags(data.flags ?? {});
+        if (!controller.signal.aborted) setIjpSignatureFlags(data.flags ?? {});
       } catch {
-        // Non-blocking — list still renders without IJP badges.
+        if (!controller.signal.aborted) {
+          // Non-blocking — list still renders without IJP badges.
+          setIjpSignatureFlags({});
+        }
       }
     })();
-  }, [pagedClients]);
+    return () => controller.abort();
+  }, [pagedClientIdsKey, ijpSignatureFlagsRefreshKey]);
+
+  useEffect(() => {
+    let lastFocusRefreshAt = 0;
+    function onFocus() {
+      const now = Date.now();
+      if (now - lastFocusRefreshAt < 60_000) return;
+      lastFocusRefreshAt = now;
+      setIjpSignatureFlagsRefreshKey((k) => k + 1);
+    }
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
 
   useEffect(() => {
     setDrawerClient((current) => {
@@ -2901,7 +2931,11 @@ export function PortalWorkspace({
         open={profileModalClient !== null}
         clientId={profileModalClient?.id ?? ""}
         clientLabel={profileModalClient?.label ?? ""}
-        onClose={() => setProfileModalClient(null)}
+        onClose={() => {
+          setProfileModalClient(null);
+          // Refresh list badges after signature capture in the profile modal.
+          setIjpSignatureFlagsRefreshKey((k) => k + 1);
+        }}
       />
       {staffProfile ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">

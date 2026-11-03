@@ -11,12 +11,25 @@ import {
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
 import { loadIjpSignatureListFlags } from "@/lib/ijp-operations-alerts";
+import {
+  IJP_SIGNATURE_FLAGS_MAX_CLIENT_IDS,
+  ijpSignatureFlagsDisabledByEnv,
+  ijpSignatureFlagsRateLimited,
+} from "@/lib/ijp-signature-flags-rate-limit";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   const session = await getAppSession();
   if (!session) {
     return NextResponse.json({ error: USER_FACING_AUTH_REQUIRED }, { status: 401 });
+  }
+
+  if (ijpSignatureFlagsDisabledByEnv()) {
+    return NextResponse.json({ flags: {} });
+  }
+
+  if (ijpSignatureFlagsRateLimited(session.actorUserId)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
   const supabase = await createServerClient();
@@ -35,7 +48,10 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json()) as { clientIds?: string[] };
-  const clientIds = (body.clientIds ?? []).filter(Boolean).slice(0, 200);
+  const clientIds = [...new Set((body.clientIds ?? []).filter(Boolean))].slice(
+    0,
+    IJP_SIGNATURE_FLAGS_MAX_CLIENT_IDS
+  );
   if (clientIds.length === 0) {
     return NextResponse.json({ flags: {} });
   }
