@@ -189,14 +189,14 @@ async function hydrateClients(
         ? admin.from("services").select("id, name").in("id", serviceIds)
         : Promise.resolve({ data: [] as { id: string; name: string | null }[] }),
       counselorIds.length
-        ? admin.from("counselors").select("id, name").in("id", counselorIds)
-        : Promise.resolve({ data: [] as { id: string; name: string | null }[] }),
+        ? admin.from("counselors").select("id, full_name").in("id", counselorIds)
+        : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
     ]);
 
   const profileById = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));
   const officeById = new Map((offices ?? []).map((o) => [o.id, o]));
   const serviceById = new Map((services ?? []).map((s) => [s.id, s.name]));
-  const counselorById = new Map((counselors ?? []).map((c) => [c.id, c.name]));
+  const counselorById = new Map((counselors ?? []).map((c) => [c.id, c.full_name]));
 
   return clientRows.map((c) => {
     const authId = (c.user_id ?? c.profile_id) as string | null;

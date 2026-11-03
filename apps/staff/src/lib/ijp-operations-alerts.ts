@@ -41,13 +41,14 @@ export async function loadIjpAttestationSlaRows(
   const demoIds = new Set((demoClients ?? []).map((c) => c.id as string));
 
   const esIds = [...new Set((alerts ?? []).map((a) => a.es_user_id as string).filter(Boolean))];
+  // profiles has full_name (and optional first/last); display_name is app-computed, not a column.
   const { data: profiles } = esIds.length
-    ? await admin.from("profiles").select("id, full_name, display_name").in("id", esIds)
+    ? await admin.from("profiles").select("id, full_name").in("id", esIds)
     : { data: [] };
   const esName = new Map(
     (profiles ?? []).map((p) => [
       p.id as string,
-      (p.display_name as string)?.trim() || (p.full_name as string)?.trim() || "ES",
+      (p.full_name as string)?.trim() || "ES",
     ])
   );
 

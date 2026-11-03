@@ -22,13 +22,10 @@ export async function POST() {
 
   const { data: profile } = await admin
     .from("profiles")
-    .select("full_name, display_name")
+    .select("full_name")
     .eq("id", trainingEsUserId)
     .maybeSingle();
-  const targetName =
-    (profile?.display_name as string)?.trim() ||
-    (profile?.full_name as string)?.trim() ||
-    "ES Training Demo";
+  const targetName = (profile?.full_name as string)?.trim() || "ES Training Demo";
 
   const response = NextResponse.json({
     ok: true,

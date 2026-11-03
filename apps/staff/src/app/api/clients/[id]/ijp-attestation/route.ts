@@ -20,7 +20,7 @@ async function fieldSession() {
   const supabase = await createServerClient();
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, is_active, full_name, display_name")
+    .select("role, is_active")
     .eq("id", session.actorUserId)
     .maybeSingle();
   if (!profile?.is_active) return null;
