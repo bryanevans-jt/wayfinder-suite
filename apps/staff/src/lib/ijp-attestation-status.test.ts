@@ -104,5 +104,13 @@ describe("IJP signature list flag batching", () => {
     assert.deepEqual(batched, perClient);
     assert.deepEqual(Object.keys(batched).sort(), ["episode-overlap", "needs-flag"]);
     assert.equal(batched["needs-flag"], "October 2026");
+
+    // Collect-signature affordance should also match per-client compute.
+    for (const [clientId, snap] of Object.entries(snapshotsByClientId)) {
+      const status = computeIjpSignatureUiStatusFromSnapshot(snap, GA_IJP, now);
+      if (status?.showCollectSignature) {
+        assert.equal(status.showCollectSignature, true, clientId);
+      }
+    }
   });
 });

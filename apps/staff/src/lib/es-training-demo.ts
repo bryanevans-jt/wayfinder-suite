@@ -1,4 +1,4 @@
-import { createClientAccount } from "@wayfinder/supabase";
+import { createClientAccount, resolveAuthUserIdByEmail } from "@wayfinder/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const TRAINING_ES_EMAIL = "es-training-demo@demo.wayfinder.local";
@@ -55,14 +55,16 @@ async function ensureTrainingEsUser(admin: SupabaseClient): Promise<string> {
     }
   }
 
-  const { data: byEmail } = await admin
-    .from("profiles")
-    .select("id, role, is_active")
-    .eq("email", TRAINING_ES_EMAIL)
-    .maybeSingle();
-  if (byEmail?.id && byEmail.role === "es" && byEmail.is_active) {
-    await saveTrainingConfig(admin, { trainingEsUserId: byEmail.id as string });
-    return byEmail.id as string;
+  const existingAuthId = await resolveAuthUserIdByEmail(admin, TRAINING_ES_EMAIL);
+  if (existingAuthId) {
+    await admin.from("profiles").upsert({
+      id: existingAuthId,
+      role: "es",
+      is_active: true,
+      full_name: "ES Training Demo",
+    });
+    await saveTrainingConfig(admin, { trainingEsUserId: existingAuthId });
+    return existingAuthId;
   }
 
   const password = `WfTrain-${crypto.randomUUID().slice(0, 12)}!`;
@@ -79,11 +81,9 @@ async function ensureTrainingEsUser(admin: SupabaseClient): Promise<string> {
   const userId = authUser.user.id;
   await admin.from("profiles").upsert({
     id: userId,
-    email: TRAINING_ES_EMAIL,
     role: "es",
     is_active: true,
     full_name: "ES Training Demo",
-    display_name: "ES Training Demo",
   });
 
   await saveTrainingConfig(admin, { trainingEsUserId: userId });

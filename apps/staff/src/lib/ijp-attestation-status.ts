@@ -251,19 +251,18 @@ async function loadBillableEntriesForClients(
   return byClient;
 }
 
-/**
- * Batched list-flag loader: resolves GA IJP service once and fans out a few
- * IN queries instead of per-client status loads.
- */
-export async function loadIjpSignatureListFlagsBatched(
+async function loadIjpSignatureSnapshotsBatched(
   admin: SupabaseClient,
   clientIds: string[],
-  now = new Date()
-): Promise<Record<string, string>> {
-  if (clientIds.length === 0) return {};
+  now: Date
+): Promise<{
+  gaIjpServiceId: string;
+  snapshotsByClientId: Record<string, IjpSignatureClientSnapshot>;
+} | null> {
+  if (clientIds.length === 0) return null;
 
   const gaIjpServiceId = await resolveGaIjpServiceId(admin);
-  if (!gaIjpServiceId) return {};
+  if (!gaIjpServiceId) return null;
 
   const months = monthsNeededForFlags(now);
 
@@ -347,5 +346,44 @@ export async function loadIjpSignatureListFlagsBatched(
     };
   }
 
-  return computeIjpSignatureListFlagsFromSnapshots(snapshotsByClientId, gaIjpServiceId, now);
+  return { gaIjpServiceId, snapshotsByClientId };
+}
+
+/**
+ * Batched list-flag loader: resolves GA IJP service once and fans out a few
+ * IN queries instead of per-client status loads.
+ */
+export async function loadIjpSignatureListFlagsBatched(
+  admin: SupabaseClient,
+  clientIds: string[],
+  now = new Date()
+): Promise<Record<string, string>> {
+  const loaded = await loadIjpSignatureSnapshotsBatched(admin, clientIds, now);
+  if (!loaded) return {};
+  return computeIjpSignatureListFlagsFromSnapshots(
+    loaded.snapshotsByClientId,
+    loaded.gaIjpServiceId,
+    now
+  );
+}
+
+/** Batched statuses for caseload UI (list badges + collect-signature affordance). */
+export async function loadIjpSignatureUiStatusesBatched(
+  admin: SupabaseClient,
+  clientIds: string[],
+  now = new Date()
+): Promise<Record<string, IjpSignatureUiStatus>> {
+  const loaded = await loadIjpSignatureSnapshotsBatched(admin, clientIds, now);
+  if (!loaded) return {};
+
+  const out: Record<string, IjpSignatureUiStatus> = {};
+  for (const [clientId, snapshot] of Object.entries(loaded.snapshotsByClientId)) {
+    const status = computeIjpSignatureUiStatusFromSnapshot(
+      snapshot,
+      loaded.gaIjpServiceId,
+      now
+    );
+    if (status) out[clientId] = status;
+  }
+  return out;
 }

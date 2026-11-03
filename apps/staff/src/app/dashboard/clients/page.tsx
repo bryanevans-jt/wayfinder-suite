@@ -28,7 +28,7 @@ import { EsClientsTodayStrip } from "@/components/es-clients-today-strip";
 import { loadCaseloadTriageFlags } from "@/lib/caseload-operations";
 import { fetchEsCaseloadClients, getEsCaseloadAdmin } from "@/lib/es-caseload-data";
 import { filterSunsetServices, loadSunsetKeepIds } from "@/lib/sunset-tn";
-import { loadIjpSignatureUiStatus } from "@/lib/ijp-attestation-status";
+import { loadIjpSignatureUiStatusesBatched } from "@/lib/ijp-attestation-status";
 
 type PageProps = {
   searchParams: Promise<{ archived?: string }>;
@@ -248,17 +248,18 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
   const ijpSignatureByClient = new Map<string, string>();
   const ijpCollectByClient = new Set<string>();
   if (ijpAdmin && !includeArchived) {
-    await Promise.all(
-      sortedClients.map(async (c) => {
-        const status = await loadIjpSignatureUiStatus(ijpAdmin, c.id);
-        if (status?.showListFlag) {
-          ijpSignatureByClient.set(c.id, status.serviceMonthLabel);
-        }
-        if (status?.showCollectSignature) {
-          ijpCollectByClient.add(c.id);
-        }
-      })
+    const statuses = await loadIjpSignatureUiStatusesBatched(
+      ijpAdmin,
+      sortedClients.map((c) => c.id)
     );
+    for (const [clientId, status] of Object.entries(statuses)) {
+      if (status.showListFlag) {
+        ijpSignatureByClient.set(clientId, status.serviceMonthLabel);
+      }
+      if (status.showCollectSignature) {
+        ijpCollectByClient.add(clientId);
+      }
+    }
   }
 
   return (

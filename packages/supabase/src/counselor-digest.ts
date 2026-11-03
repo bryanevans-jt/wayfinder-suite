@@ -31,7 +31,7 @@ async function digestOneCounselor(
   const { data: counselorRow } = await admin
     .from("counselors")
     .select("id")
-    .eq("profile_id", counselorUserId)
+    .eq("user_id", counselorUserId)
     .maybeSingle();
   const counselorRowId = (counselorRow?.id as string | undefined) ?? counselorUserId;
 
