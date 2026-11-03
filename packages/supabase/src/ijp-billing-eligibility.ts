@@ -3,6 +3,10 @@ import {
   entryCountsTowardClientBillableWithActivity,
   type ClientBillableEntry,
 } from "./client-billable";
+import {
+  fetchAllPostgrestRows,
+  fetchAllPostgrestRowsByIn,
+} from "./postgrest-fetch-all";
 import { localDateStringInTz, STAFF_CLOCK_TIMEZONE } from "./staff-time-clock-shared";
 import { resolveGaIjpServiceId } from "./ijp-billing-settings";
 import { isIndividualJobPlacementServiceName } from "./ijp-stages";
@@ -174,6 +178,164 @@ export async function clientHasBillableTimeInMonth(
   return clientHasBillableTimeFromEntries((rows ?? []) as BillableTimeEntryRow[]);
 }
 
+export type GaIjpEligibilitySnapshot = {
+  client: GaIjpClientRow | null;
+  episodes: GaIjpEpisodeRow[];
+  currentService: GaIjpServiceRow | null;
+};
+
+/** Batched GA IJP eligibility rows for many clients (few IN queries). */
+export async function loadGaIjpEligibilitySnapshots(
+  admin: SupabaseClient,
+  clientIds: string[],
+  gaIjpServiceId: string
+): Promise<Record<string, GaIjpEligibilitySnapshot>> {
+  const uniqueIds = [...new Set(clientIds.filter(Boolean))];
+  const out: Record<string, GaIjpEligibilitySnapshot> = {};
+  for (const id of uniqueIds) {
+    out[id] = { client: null, episodes: [], currentService: null };
+  }
+  if (uniqueIds.length === 0) return out;
+
+  const [clients, episodes] = await Promise.all([
+    fetchAllPostgrestRowsByIn<{
+      id: string;
+      current_service_id: string | null;
+      archived_at: string | null;
+      is_demo: boolean | null;
+      intake_status: string | null;
+    }>(admin, "clients", "id, current_service_id, archived_at, is_demo, intake_status", "id", uniqueIds, {
+      order: { column: "id", ascending: true },
+    }),
+    fetchAllPostgrestRowsByIn<{
+      client_id: string;
+      service_id: string | null;
+      started_at: string | null;
+      ended_at: string | null;
+    }>(
+      admin,
+      "service_episodes",
+      "client_id, service_id, started_at, ended_at",
+      "client_id",
+      uniqueIds,
+      { order: { column: "client_id", ascending: true } }
+    ),
+  ]);
+
+  for (const row of clients) {
+    const id = row.id as string;
+    out[id] = {
+      ...out[id],
+      client: row as GaIjpClientRow,
+    };
+  }
+
+  for (const ep of episodes) {
+    const clientId = ep.client_id as string;
+    const snap = out[clientId];
+    if (!snap) continue;
+    snap.episodes.push(ep as GaIjpEpisodeRow);
+  }
+
+  const serviceIds = [
+    ...new Set(
+      clients
+        .map((c) => c.current_service_id as string | null)
+        .filter((id): id is string => Boolean(id) && id !== gaIjpServiceId)
+    ),
+  ];
+  if (serviceIds.length > 0) {
+    const services = await fetchAllPostgrestRowsByIn<{
+      id: string;
+      name: string | null;
+      state: string | null;
+    }>(admin, "services", "id, name, state", "id", serviceIds, {
+      order: { column: "id", ascending: true },
+    });
+    const servicesById = new Map(services.map((s) => [s.id as string, s as GaIjpServiceRow]));
+    for (const clientId of uniqueIds) {
+      const currentServiceId = out[clientId]?.client?.current_service_id ?? null;
+      if (currentServiceId && currentServiceId !== gaIjpServiceId) {
+        out[clientId].currentService = servicesById.get(currentServiceId) ?? null;
+      }
+    }
+  }
+
+  return out;
+}
+
+export function filterClientIdsOnGaIjpDuringMonth(
+  snapshots: Record<string, GaIjpEligibilitySnapshot>,
+  monthStart: string,
+  gaIjpServiceId: string
+): string[] {
+  const ids: string[] = [];
+  for (const [clientId, snap] of Object.entries(snapshots)) {
+    if (
+      clientOnGaIjpDuringMonthFromRows(
+        snap.episodes,
+        snap.client,
+        snap.currentService,
+        monthStart,
+        gaIjpServiceId
+      )
+    ) {
+      ids.push(clientId);
+    }
+  }
+  return ids;
+}
+
+/** Batched billable time entries keyed by client_id for a service month. */
+export async function loadBillableTimeEntriesByClient(
+  admin: SupabaseClient,
+  clientIds: string[],
+  monthStart: string
+): Promise<Record<string, BillableTimeEntryRow[]>> {
+  const uniqueIds = [...new Set(clientIds.filter(Boolean))];
+  const byClient: Record<string, BillableTimeEntryRow[]> = {};
+  for (const id of uniqueIds) byClient[id] = [];
+  if (uniqueIds.length === 0) return byClient;
+
+  const month = serviceMonthStartFromYmd(monthStart);
+  const monthEnd = serviceMonthEndYmd(month);
+  const rows = await fetchAllPostgrestRowsByIn<
+    BillableTimeEntryRow & { client_id: string }
+  >(
+    admin,
+    "es_time_entries",
+    "client_id, duration_minutes, flags, client_present, delivery_mode, service_date, status, service_activity_types ( code, counts_toward_client_billable )",
+    "client_id",
+    uniqueIds,
+    {
+      order: { column: "client_id", ascending: true },
+      applyFilters: (query) =>
+        query
+          .neq("status", "rejected")
+          .gte("service_date", month)
+          .lte("service_date", monthEnd),
+    }
+  );
+
+  for (const row of rows) {
+    const clientId = row.client_id as string;
+    const list = byClient[clientId] ?? [];
+    list.push(row);
+    byClient[clientId] = list;
+  }
+  return byClient;
+}
+
+export function filterClientIdsWithBillableTime(
+  entriesByClient: Record<string, BillableTimeEntryRow[]>
+): string[] {
+  const ids: string[] = [];
+  for (const [clientId, rows] of Object.entries(entriesByClient)) {
+    if (clientHasBillableTimeFromEntries(rows)) ids.push(clientId);
+  }
+  return ids;
+}
+
 export async function loadEligibleIjpClientIdsForMonth(
   admin: SupabaseClient,
   monthStart: string
@@ -181,20 +343,22 @@ export async function loadEligibleIjpClientIdsForMonth(
   const gaIjpServiceId = await resolveGaIjpServiceId(admin);
   if (!gaIjpServiceId) return [];
 
-  const { data: clients } = await admin
-    .from("clients")
-    .select("id")
-    .eq("is_demo", false)
-    .neq("intake_status", "discarded");
-
-  const ids: string[] = [];
-  for (const c of clients ?? []) {
-    const id = c.id as string;
-    if (await clientOnGaIjpDuringMonth(admin, id, monthStart, gaIjpServiceId)) {
-      ids.push(id);
+  const clients = await fetchAllPostgrestRows<{ id: string }>(
+    admin,
+    "clients",
+    "id",
+    {
+      order: { column: "id", ascending: true },
+      applyFilters: (query) =>
+        query.eq("is_demo", false).neq("intake_status", "discarded"),
     }
-  }
-  return ids;
+  );
+
+  const ids = clients.map((c) => c.id as string);
+  if (ids.length === 0) return [];
+
+  const snapshots = await loadGaIjpEligibilitySnapshots(admin, ids, gaIjpServiceId);
+  return filterClientIdsOnGaIjpDuringMonth(snapshots, monthStart, gaIjpServiceId);
 }
 
 export function attestationCaptureWindowOpen(monthStart: string, now = new Date()): boolean {

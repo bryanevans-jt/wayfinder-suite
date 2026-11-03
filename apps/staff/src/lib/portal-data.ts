@@ -251,31 +251,45 @@ export async function loadPortalBootstrap(
   >;
   type ClientQueryFilter = NonNullable<FetchAllOptions["applyFilters"]>;
 
+  function withBootstrapClientFilters(applyFilters?: ClientQueryFilter): ClientQueryFilter {
+    return (query) => {
+      const narrowed = query.eq("is_demo", false).neq("intake_status", "discarded");
+      return applyFilters ? applyFilters(narrowed) : narrowed;
+    };
+  }
+
   async function loadAllClientRows(
     applyFilters?: ClientQueryFilter
   ): Promise<Array<Record<string, unknown>>> {
+    const filters = withBootstrapClientFilters(applyFilters);
     try {
       return await fetchAllPostgrestRows<Record<string, unknown>>(admin, "clients", CLIENT_SELECT_FULL, {
         order: { column: "full_name", ascending: true },
-        applyFilters,
+        applyFilters: filters,
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes("full_name")) {
         return fetchAllPostgrestRows(admin, "clients", CLIENT_SELECT_NO_FULL_NAME, {
           order: { column: "created_at", ascending: true },
-          applyFilters,
+          applyFilters: filters,
         });
       }
       if (msg.includes("archived_at")) {
         return fetchAllPostgrestRows(admin, "clients", CLIENT_SELECT_NO_ARCHIVED, {
           order: { column: "full_name", ascending: true },
-          applyFilters,
+          applyFilters: filters,
         });
       }
       if (msg.includes("referral_state")) {
         const withoutState = CLIENT_SELECT_FULL.replace(", referral_state", "");
         return fetchAllPostgrestRows(admin, "clients", withoutState, {
+          order: { column: "full_name", ascending: true },
+          applyFilters: filters,
+        });
+      }
+      if (msg.includes("intake_status") || msg.includes("is_demo")) {
+        return fetchAllPostgrestRows(admin, "clients", CLIENT_SELECT_FULL, {
           order: { column: "full_name", ascending: true },
           applyFilters,
         });
@@ -502,37 +516,58 @@ export async function loadPortalBootstrap(
   }
 
   async function loadProfiles(): Promise<ProfileRow[]> {
-    let query = await admin
-      .from("profiles")
-      .select("id, role, full_name, first_name, last_name, is_active, staff_removed_at");
-    if (query.error?.message.includes("staff_removed_at")) {
-      query = await admin
-        .from("profiles")
-        .select("id, role, full_name, first_name, last_name, is_active");
+    const selects = [
+      "id, role, full_name, first_name, last_name, is_active, staff_removed_at",
+      "id, role, full_name, first_name, last_name, is_active",
+      "id, role, full_name, is_active",
+    ];
+    let lastError: Error | null = null;
+    for (const select of selects) {
+      try {
+        return await fetchAllPostgrestRows<ProfileRow>(admin, "profiles", select, {
+          order: { column: "id", ascending: true },
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (
+          msg.includes("staff_removed_at") ||
+          msg.includes("first_name") ||
+          msg.includes("column")
+        ) {
+          lastError = err instanceof Error ? err : new Error(msg);
+          continue;
+        }
+        throw err;
+      }
     }
-    if (query.error?.message.includes("first_name")) {
-      query = await admin
-        .from("profiles")
-        .select("id, role, full_name, is_active");
+    throw lastError ?? new Error("Failed to load profiles");
+  }
+
+  async function loadAuthUsers(): Promise<
+    Array<{ id: string; email?: string; user_metadata?: Record<string, unknown> }>
+  > {
+    const users: Array<{ id: string; email?: string; user_metadata?: Record<string, unknown> }> =
+      [];
+    for (let page = 1; page <= 20; page++) {
+      const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+      if (error) throw new Error(error.message);
+      const batch = data.users ?? [];
+      users.push(...batch);
+      if (batch.length < 1000) break;
     }
-    if (query.error) throw new Error(query.error.message);
-    return (query.data ?? []) as ProfileRow[];
+    return users;
   }
 
   const [loadedCounselors, profiles, authUsers, { data: protectedRows }] =
     await Promise.all([
       loadCounselors(),
       loadProfiles(),
-      admin.auth.admin.listUsers({ perPage: 1000 }),
+      loadAuthUsers(),
       admin.from("system_protected_profiles").select("profile_id"),
     ]);
   let counselors = loadedCounselors;
-  const emailById = new Map(
-    (authUsers.data.users ?? []).map((u) => [u.id, u.email ?? ""])
-  );
-  const authMetaById = new Map(
-    (authUsers.data.users ?? []).map((u) => [u.id, u.user_metadata ?? {}])
-  );
+  const emailById = new Map(authUsers.map((u) => [u.id, u.email ?? ""]));
+  const authMetaById = new Map(authUsers.map((u) => [u.id, u.user_metadata ?? {}]));
 
   const protectedIds = new Set((protectedRows ?? []).map((r) => r.profile_id as string));
 

@@ -6,6 +6,10 @@ import {
   workedMinutesFromEntries,
 } from "@wayfinder/supabase/es-time-tracking";
 import {
+  fetchAllPostgrestRows,
+  fetchAllPostgrestRowsByIn,
+} from "@wayfinder/supabase/postgrest-fetch-all";
+import {
   filterOfficesForPicker,
   queryAllOffices,
 } from "@/lib/office-visibility";
@@ -138,37 +142,57 @@ async function loadScopedClientRows(
     "id, user_id, profile_id, office_id, counselor_id, created_at, current_stage_id, current_service_id, archived_at, job_start_date, is_demo";
 
   if (scope.kind === "es") {
-    const { data: links } = await admin
-      .from("es_client_assignments")
-      .select("client_id")
-      .eq("es_user_id", scope.esUserId);
-    const clientIds = [...new Set((links ?? []).map((l) => l.client_id as string))];
+    const links = await fetchAllPostgrestRows<{ client_id: string }>(
+      admin,
+      "es_client_assignments",
+      "client_id",
+      {
+        order: { column: "client_id", ascending: true },
+        applyFilters: (query) => query.eq("es_user_id", scope.esUserId),
+      }
+    );
+    const clientIds = [...new Set(links.map((l) => l.client_id as string))];
     if (clientIds.length === 0) {
       return [];
     }
-    const { data } = await admin.from("clients").select(select).in("id", clientIds);
-    return excludeDemoClients(applyClientFilters(data ?? [], filters));
+    const data = await fetchAllPostgrestRowsByIn<ClientRow>(
+      admin,
+      "clients",
+      select,
+      "id",
+      clientIds,
+      { order: { column: "id", ascending: true } }
+    );
+    return excludeDemoClients(applyClientFilters(data, filters));
   }
 
   if (scope.kind === "supervisor") {
     const clientIdSet = new Set<string>();
 
     if (scope.esUserIds.length > 0) {
-      const { data: links } = await admin
-        .from("es_client_assignments")
-        .select("client_id")
-        .in("es_user_id", scope.esUserIds);
-      for (const link of links ?? []) {
+      const links = await fetchAllPostgrestRowsByIn<{ client_id: string }>(
+        admin,
+        "es_client_assignments",
+        "client_id",
+        "es_user_id",
+        scope.esUserIds,
+        { order: { column: "client_id", ascending: true } }
+      );
+      for (const link of links) {
         clientIdSet.add(link.client_id as string);
       }
     }
 
     if (scope.officeIds.length > 0) {
-      const { data: officeClients } = await admin
-        .from("clients")
-        .select("id")
-        .in("office_id", scope.officeIds);
-      for (const row of officeClients ?? []) {
+      const officeClients = await fetchAllPostgrestRowsByIn<{ id: string }>(
+        admin,
+        "clients",
+        "id",
+        "office_id",
+        scope.officeIds,
+        { order: { column: "id", ascending: true } }
+      );
+      for (const row of officeClients) {
         clientIdSet.add(row.id as string);
       }
     }
@@ -177,38 +201,56 @@ async function loadScopedClientRows(
       return [];
     }
 
-    const { data } = await admin.from("clients").select(select).in("id", [...clientIdSet]);
-    let rows = data ?? [];
+    let rows = await fetchAllPostgrestRowsByIn<ClientRow>(
+      admin,
+      "clients",
+      select,
+      "id",
+      [...clientIdSet],
+      { order: { column: "id", ascending: true } }
+    );
 
     if (filters.esUserId) {
-      const { data: esLinks } = await admin
-        .from("es_client_assignments")
-        .select("client_id")
-        .eq("es_user_id", filters.esUserId);
-      const allowed = new Set((esLinks ?? []).map((l) => l.client_id as string));
+      const esLinks = await fetchAllPostgrestRows<{ client_id: string }>(
+        admin,
+        "es_client_assignments",
+        "client_id",
+        {
+          order: { column: "client_id", ascending: true },
+          applyFilters: (query) => query.eq("es_user_id", filters.esUserId),
+        }
+      );
+      const allowed = new Set(esLinks.map((l) => l.client_id as string));
       rows = rows.filter((c) => allowed.has(c.id as string));
     }
 
     return excludeDemoClients(applyClientFilters(rows, filters));
   }
 
-  let query = admin.from("clients").select(select).eq("is_demo", false).limit(10000);
-  if (filters.officeId) {
-    query = query.eq("office_id", filters.officeId);
-  }
-  const { data: allClients } = await query;
-  let rows = allClients ?? [];
+  let rows = await fetchAllPostgrestRows<ClientRow>(admin, "clients", select, {
+    order: { column: "id", ascending: true },
+    applyFilters: (query) => {
+      let q = query.eq("is_demo", false);
+      if (filters.officeId) q = q.eq("office_id", filters.officeId);
+      return q;
+    },
+  });
 
   if (filters.esUserId) {
-    const { data: esLinks } = await admin
-      .from("es_client_assignments")
-      .select("client_id")
-      .eq("es_user_id", filters.esUserId);
-    const allowed = new Set((esLinks ?? []).map((l) => l.client_id as string));
+    const esLinks = await fetchAllPostgrestRows<{ client_id: string }>(
+      admin,
+      "es_client_assignments",
+      "client_id",
+      {
+        order: { column: "client_id", ascending: true },
+        applyFilters: (query) => query.eq("es_user_id", filters.esUserId),
+      }
+    );
+    const allowed = new Set(esLinks.map((l) => l.client_id as string));
     rows = rows.filter((c) => allowed.has(c.id as string));
   }
 
-  return rows as ClientRow[];
+  return rows;
 }
 
 function applyClientFilters(
@@ -640,14 +682,29 @@ export async function loadAnalyticsSummary(
   let billableMinutes = 0;
   let workedMinutes = 0;
   if (esIdsForTime.length > 0) {
-    const { data: timeEntries } = await admin
-      .from("es_time_entries")
-      .select("es_user_id, duration_minutes, service_start_at, service_end_at, status, service_date")
-      .in("es_user_id", esIdsForTime.slice(0, 500))
-      .eq("status", "approved")
-      .gte("service_date", range.fromIso)
-      .lte("service_date", range.toIso);
-    const rows = timeEntries ?? [];
+    type TimeEntryRow = {
+      es_user_id: string;
+      duration_minutes: number;
+      service_start_at?: string | null;
+      service_end_at?: string | null;
+      status: string | null;
+      service_date: string | null;
+    };
+    const rows = await fetchAllPostgrestRowsByIn<TimeEntryRow>(
+      admin,
+      "es_time_entries",
+      "es_user_id, duration_minutes, service_start_at, service_end_at, status, service_date",
+      "es_user_id",
+      esIdsForTime.slice(0, 500),
+      {
+        order: { column: "es_user_id", ascending: true },
+        applyFilters: (query) =>
+          query
+            .eq("status", "approved")
+            .gte("service_date", range.fromIso)
+            .lte("service_date", range.toIso),
+      }
+    );
     billableMinutes = sumBillableMinutes(rows);
     const byEs = new Map<string, typeof rows>();
     for (const row of rows) {

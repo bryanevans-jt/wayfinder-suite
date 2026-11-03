@@ -84,7 +84,7 @@ export function HrTimesheetsPanel() {
     void load(week || undefined);
     const timer = window.setInterval(() => {
       void load(week || undefined);
-    }, 30_000);
+    }, 60_000);
     return () => window.clearInterval(timer);
   }, [load, week]);
 
@@ -108,7 +108,7 @@ export function HrTimesheetsPanel() {
           <div>
             <h2 className="text-base font-semibold text-brand-black">Signed In Now</h2>
             <p className="mt-1 text-sm text-brand-black/70">
-              Company-wide Time Clock (payroll). Updates about every 30 seconds.
+              Company-wide Time Clock (payroll). Updates about every 60 seconds.
             </p>
           </div>
           <label className="text-sm font-medium">

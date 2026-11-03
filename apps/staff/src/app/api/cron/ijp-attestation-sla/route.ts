@@ -2,12 +2,15 @@ import { clientDisplayName } from "@wayfinder/branding";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithCronLoggedError } from "@wayfinder/supabase/error-log";
 import {
-  clientHasBillableTimeInMonth,
-  clientOnGaIjpDuringMonth,
   currentServiceMonthStart,
+  filterClientIdsOnGaIjpDuringMonth,
+  filterClientIdsWithBillableTime,
+  loadBillableTimeEntriesByClient,
+  loadGaIjpEligibilitySnapshots,
   serviceMonthEndYmd,
 } from "@wayfinder/supabase/ijp-billing-eligibility";
 import { resolveGaIjpServiceId } from "@wayfinder/supabase/ijp-billing-settings";
+import { fetchAllPostgrestRows } from "@wayfinder/supabase/postgrest-fetch-all";
 import { localDateStringInTz, STAFF_CLOCK_TIMEZONE } from "@wayfinder/supabase/staff-time-clock-shared";
 import { NextResponse } from "next/server";
 
@@ -42,17 +45,30 @@ export async function GET(request: Request) {
     const monthStart = currentServiceMonthStart(now);
     const dueAt = new Date(`${serviceMonthEndYmd(monthStart)}T23:59:59-04:00`).toISOString();
 
-    const { data: clients } = await admin
-      .from("clients")
-      .select("id, full_name, contact_email, is_demo, intake_status")
-      .eq("is_demo", false)
-      .neq("intake_status", "discarded");
+    const clients = await fetchAllPostgrestRows<{
+      id: string;
+      full_name: string | null;
+      contact_email: string | null;
+      is_demo: boolean | null;
+      intake_status: string | null;
+    }>(admin, "clients", "id, full_name, contact_email, is_demo, intake_status", {
+      order: { column: "id", ascending: true },
+      applyFilters: (query) =>
+        query.eq("is_demo", false).neq("intake_status", "discarded"),
+    });
+
+    const clientIds = clients.map((c) => c.id as string);
+    const clientById = new Map(clients.map((c) => [c.id as string, c]));
+
+    const snapshots = await loadGaIjpEligibilitySnapshots(admin, clientIds, gaIjpServiceId);
+    const onIjpIds = filterClientIdsOnGaIjpDuringMonth(snapshots, monthStart, gaIjpServiceId);
+    const billableByClient = await loadBillableTimeEntriesByClient(admin, onIjpIds, monthStart);
+    const eligibleIds = filterClientIdsWithBillableTime(billableByClient);
 
     let created = 0;
-    for (const client of clients ?? []) {
-      const clientId = client.id as string;
-      if (!(await clientOnGaIjpDuringMonth(admin, clientId, monthStart, gaIjpServiceId))) continue;
-      if (!(await clientHasBillableTimeInMonth(admin, clientId, monthStart))) continue;
+    for (const clientId of eligibleIds) {
+      const client = clientById.get(clientId);
+      if (!client) continue;
 
       const { data: att } = await admin
         .from("ijp_monthly_attestations")

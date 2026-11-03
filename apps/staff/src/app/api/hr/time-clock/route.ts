@@ -3,7 +3,6 @@ import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { isAdminTierRole, isHrRole } from "@wayfinder/supabase/roles";
 import {
-  applyMidnightSplitIfNeeded,
   isStaffPayrollClockRole,
   listOpenShiftsForUsers,
   localDateStringInTz,
@@ -62,9 +61,8 @@ export async function GET(request: Request) {
     .filter((p) => isStaffPayrollClockRole((p.role as string | null) ?? null))
     .map((p) => p.id as string);
 
-  for (const id of staffIds) {
-    await applyMidnightSplitIfNeeded(admin, id);
-  }
+  // Midnight splits are handled by cron `/api/cron/staff-clock` (*/15).
+  // Avoid N+1 writes on every HR poll.
 
   const now = new Date();
   const openShifts = await listOpenShiftsForUsers(admin, staffIds);
