@@ -44,7 +44,7 @@ export async function GET(request: Request) {
 
     const { data: clients } = await admin
       .from("clients")
-      .select("id, full_name, contact_email, es_user_id, is_demo, intake_status")
+      .select("id, full_name, contact_email, is_demo, intake_status")
       .eq("is_demo", false)
       .neq("intake_status", "discarded");
 
@@ -72,6 +72,14 @@ export async function GET(request: Request) {
         .maybeSingle();
       if (dismissed?.id) continue;
 
+      const { data: assignment } = await admin
+        .from("es_client_assignments")
+        .select("es_user_id")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
       const label = clientDisplayName(client);
       const { error } = await admin.from("report_dashboard_alerts").insert({
         alert_type: "missing",
@@ -80,7 +88,7 @@ export async function GET(request: Request) {
         reporting_month: monthStart,
         wayfinder_client_id: clientId,
         client_name: label,
-        es_user_id: (client.es_user_id as string) ?? null,
+        es_user_id: (assignment?.es_user_id as string) ?? null,
         due_at: dueAt,
       });
 

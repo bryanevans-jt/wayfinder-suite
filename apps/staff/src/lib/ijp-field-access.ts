@@ -15,13 +15,13 @@ export async function canAccessIjpClientSignature(
 
   const { data: client } = await admin
     .from("clients")
-    .select("es_user_id, office_id")
+    .select("id")
     .eq("id", opts.clientId)
     .maybeSingle();
   if (!client) return false;
 
   if (isFieldSpecialistRole(opts.role)) {
-    if ((client.es_user_id as string) === opts.userId) return true;
+    // Assignment lives on es_client_assignments — clients has no es_user_id column.
     return esIsAssignedToClient(opts.userId, opts.clientId);
   }
 

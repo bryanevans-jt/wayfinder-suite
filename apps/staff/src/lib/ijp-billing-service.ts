@@ -113,13 +113,15 @@ async function loadEsNameMapForClientMonth(
   clientId: string,
   serviceMonth: string
 ): Promise<Map<string, string>> {
-  const { data: client } = await admin
-    .from("clients")
-    .select("es_user_id")
-    .eq("id", clientId)
-    .maybeSingle();
   const esIds = new Set<string>();
-  if (client?.es_user_id) esIds.add(client.es_user_id as string);
+
+  const { data: assignments } = await admin
+    .from("es_client_assignments")
+    .select("es_user_id")
+    .eq("client_id", clientId);
+  for (const a of assignments ?? []) {
+    if (a.es_user_id) esIds.add(a.es_user_id as string);
+  }
 
   const { data: entries } = await admin
     .from("es_time_entries")
