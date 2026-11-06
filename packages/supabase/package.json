@@ -46,6 +46,8 @@
     "./staff-pto-shared": "./src/staff-pto-shared.ts",
     "./staff-wrt-shared": "./src/staff-wrt-shared.ts",
     "./wrt-seed-curriculum": "./src/wrt-seed-curriculum.ts",
+    "./wrt-seed-curriculum-legacy-ntact": "./src/wrt-seed-curriculum-legacy-ntact.ts",
+    "./es-field-specialist-contact": "./src/es-field-specialist-contact.ts",
     "./contact-log-suggestions": "./src/contact-log-suggestions.ts",
     "./contact-logs-query": "./src/contact-logs-query.ts",
     "./client-archive": "./src/client-archive.ts",

@@ -101,18 +101,13 @@ export async function loadWrtCurriculumTree(admin: Admin): Promise<WrtModuleWith
   });
 }
 
-export async function seedWrtCurriculumIfEmpty(admin: Admin): Promise<{ seeded: boolean; moduleCount: number }> {
-  const { count, error } = await admin
-    .from("wrt_modules")
-    .select("id", { count: "exact", head: true });
-  if (error) throw new Error(error.message);
-  if ((count ?? 0) > 0) {
-    return { seeded: false, moduleCount: count ?? 0 };
-  }
-
+async function insertWrtCurriculumFromSeed(
+  admin: Admin,
+  curriculum: typeof WRT_SEED_CURRICULUM
+): Promise<number> {
   const now = new Date().toISOString();
   let moduleOrder = 0;
-  for (const mod of WRT_SEED_CURRICULUM) {
+  for (const mod of curriculum) {
     const { data: moduleRow, error: modErr } = await admin
       .from("wrt_modules")
       .insert({
@@ -172,5 +167,18 @@ export async function seedWrtCurriculumIfEmpty(admin: Admin): Promise<{ seeded: 
     }
   }
 
-  return { seeded: true, moduleCount: WRT_SEED_CURRICULUM.length };
+  return curriculum.length;
+}
+
+export async function seedWrtCurriculumIfEmpty(admin: Admin): Promise<{ seeded: boolean; moduleCount: number }> {
+  const { count, error } = await admin
+    .from("wrt_modules")
+    .select("id", { count: "exact", head: true });
+  if (error) throw new Error(error.message);
+  if ((count ?? 0) > 0) {
+    return { seeded: false, moduleCount: count ?? 0 };
+  }
+
+  const moduleCount = await insertWrtCurriculumFromSeed(admin, WRT_SEED_CURRICULUM);
+  return { seeded: true, moduleCount };
 }

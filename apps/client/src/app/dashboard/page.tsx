@@ -21,6 +21,7 @@ import { DashboardActions } from "./dashboard-actions";
 import { CLIENT_DASHBOARD_SECTION_IDS as IDS } from "@/lib/dashboard-section-ids";
 import { CLIENT_DASHBOARD_SECTIONS as LABELS } from "@/lib/dashboard-section-labels";
 import { SuccessPath } from "./success-path";
+import { ClientFieldSpecialistSection } from "@/components/client-field-specialist-section";
 
 type DashboardSearchParams = Promise<{ client?: string }>;
 
@@ -143,6 +144,14 @@ export default async function ClientDashboardPage({
           {!support ? (
             <>
               <span aria-hidden="true">·</span>
+              <a href={`#${IDS.specialist}`} className="font-medium text-brand-green hover:underline">
+                {LABELS.specialistContact}
+              </a>
+            </>
+          ) : null}
+          {!support ? (
+            <>
+              <span aria-hidden="true">·</span>
               <a href={`#${IDS.messages}`} className="font-medium text-brand-green hover:underline">
                 Messages
               </a>
@@ -171,6 +180,17 @@ export default async function ClientDashboardPage({
       <ClientCelebrationsCard />
       <ClientNextMeeting selectedClientId={sp.client} />
       <SuccessPath selectedClientId={sp.client} />
+      {!support ? (
+        <div id={IDS.specialist} className="scroll-mt-6">
+          <ClientFieldSpecialistSection
+            selectedClientId={sp.client}
+            sessionUserId={session.effectiveUserId}
+            sessionRole={session.effectiveRole}
+            isPreviewing={session.isPreviewing}
+            actorRole={session.actorRole}
+          />
+        </div>
+      ) : null}
       {!support ? <ClientMessagesPanel /> : null}
       <ClientApplicationsCard selectedClientId={sp.client} />
       <ClientActivity selectedClientId={sp.client} />

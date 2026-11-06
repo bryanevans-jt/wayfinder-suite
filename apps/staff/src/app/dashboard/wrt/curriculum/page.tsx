@@ -26,8 +26,8 @@ export default async function WrtCurriculumPage() {
       </div>
       <h1 className="text-2xl font-semibold text-brand-black">WRT Curriculum</h1>
       <p className="mt-2 max-w-2xl text-sm text-brand-black/75">
-        Manage Workplace Readiness Training modules, lessons, and content blocks. Available to Admin,
-        Super Admin, and WRT Admin.
+        Manage Workplace Readiness Training modules, lessons, and content blocks. Super Admin and Admin
+        only (preview until wider rollout).
       </p>
       <div className="mt-6">
         <WrtCurriculumPanel />
