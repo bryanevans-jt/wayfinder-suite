@@ -25,7 +25,6 @@ export const ASSIGNABLE_STAFF_ROLES = [
   "counselor",
   "hr",
   "hospitality_specialist",
-  "wrt_admin",
 ] as const;
 
 export type StaffRole = (typeof STAFF_ROLES)[number];
@@ -246,7 +245,8 @@ export function staffHomePath(role: string | null | undefined): string {
   if (r === "accountant") return "/dashboard/intake-billing";
   if (r === "hr") return "/dashboard/hr";
   if (r === "hospitality_specialist") return "/dashboard/hospitality";
-  if (r === "wrt_admin") return "/dashboard/wrt";
+  // Legacy `wrt_admin` accounts route to Clients (role no longer assignable from UI).
+  if (r === "wrt_admin") return "/dashboard/clients";
   if (r === "instructor") return "/dashboard/pre-ets";
   return "/dashboard/clients";
 }
