@@ -1,9 +1,12 @@
 import type { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { todayLocalDate } from "@wayfinder/supabase";
 import {
   WRT_ACTIVITY_CODE,
+  WRT_RUBRIC_DOMAIN_KEYS,
   type WrtDeliveryMode,
   type WrtEnrollmentRow,
   type WrtModuleWithLessons,
+  type WrtRubricDomainKey,
   type WrtSessionRow,
 } from "@wayfinder/supabase/staff-wrt-shared";
 import { loadWrtCurriculumTree } from "@/lib/staff-wrt-data";
@@ -26,9 +29,13 @@ function mapEnrollment(row: Record<string, unknown>): WrtEnrollmentRow {
 }
 
 function mapSession(row: Record<string, unknown>): WrtSessionRow {
+  const rawIds = row.lesson_ids as string[] | null | undefined;
   return {
     id: String(row.id),
     lesson_id: (row.lesson_id as string | null) ?? null,
+    lesson_ids: Array.isArray(rawIds) ? rawIds.map(String) : null,
+    session_block_minutes:
+      row.session_block_minutes != null ? Number(row.session_block_minutes) : null,
     scheduled_start: String(row.scheduled_start),
     scheduled_end: (row.scheduled_end as string | null) ?? null,
     delivery_mode: row.delivery_mode as WrtDeliveryMode,
@@ -290,6 +297,8 @@ export async function scheduleSession(
   admin: Admin,
   input: {
     lessonId: string | null;
+    lessonIds?: string[] | null;
+    sessionBlockMinutes?: number | null;
     scheduledStart: string;
     scheduledEnd?: string | null;
     deliveryMode: WrtDeliveryMode;
@@ -300,10 +309,17 @@ export async function scheduleSession(
   }
 ): Promise<WrtSessionRow> {
   const now = new Date().toISOString();
+  const lessonIds = input.lessonIds?.length ? input.lessonIds : input.lessonId ? [input.lessonId] : [];
+  const blockMins =
+    input.sessionBlockMinutes != null && Number.isFinite(input.sessionBlockMinutes)
+      ? Number(input.sessionBlockMinutes)
+      : 30;
   const { data, error } = await admin
     .from("wrt_sessions")
     .insert({
       lesson_id: input.lessonId,
+      lesson_ids: lessonIds.length ? lessonIds : null,
+      session_block_minutes: blockMins,
       scheduled_start: input.scheduledStart,
       scheduled_end: input.scheduledEnd ?? null,
       delivery_mode: input.deliveryMode,
@@ -325,7 +341,7 @@ export async function scheduleSession(
         client_id: a.clientId,
         enrollment_id: a.enrollmentId,
         attendance: "present",
-        duration_minutes: 30,
+        duration_minutes: blockMins,
         lesson_completed: false,
         created_at: now,
         updated_at: now,
@@ -340,23 +356,38 @@ export async function scheduleSession(
 export type SessionAttendeeInput = {
   clientId: string;
   attendance: "present" | "absent";
-  durationMinutes: number;
+  /** @deprecated Block duration is set at session level; ignored for billing. */
+  durationMinutes?: number;
   startTime?: string | null;
   endTime?: string | null;
-  lessonCompleted: boolean;
 };
+
+export type WrtRubricInput = Partial<
+  Record<WrtRubricDomainKey, { level: number; notes?: string | null }>
+>;
 
 export async function completeSession(
   admin: Admin,
   input: {
     sessionId: string;
     actorUserId: string;
+    /** Primary lesson for legacy session.lesson_id (first of lessonIds if omitted). */
     lessonId: string | null;
+    /** All lesson segments covered in this block (order preserved). */
+    lessonIds?: string[] | null;
+    /** One clock duration for the block (minutes); billable per present client uses this value. */
+    sessionBlockMinutes: number;
+    /** Mark these lesson rows complete for each present attendee with an active enrollment. */
+    completedLessonIds?: string[] | null;
     attendees: SessionAttendeeInput[];
     serviceDate?: string;
+    /** Staff-only observational rubric (one set per present client). */
+    rubricByClient?: Record<string, WrtRubricInput> | null;
+    deliveryMode?: WrtDeliveryMode | null;
   }
-): Promise<{ warnings: string[] }> {
+): Promise<{ warnings: string[]; contactLogIds: string[] }> {
   const warnings: string[] = [];
+  const contactLogIds: string[] = [];
   const now = new Date().toISOString();
   const activityTypeId = await resolveWrtActivityTypeId(admin);
 
@@ -368,44 +399,72 @@ export async function completeSession(
   if (sessErr) throw new Error(sessErr.message);
   if (!session) throw new Error("Session not found.");
 
-  let lessonTitle = "Workplace Readiness Training";
-  const lessonId = input.lessonId ?? (session.lesson_id as string | null);
-  if (lessonId) {
-    const { data: lesson } = await admin
-      .from("wrt_lessons")
-      .select("title")
-      .eq("id", lessonId)
-      .maybeSingle();
-    if (lesson?.title) lessonTitle = String(lesson.title);
+  const blockMinutes = Math.max(0, Number(input.sessionBlockMinutes) || 0);
+  const sessionRow = session as Record<string, unknown>;
+  const lessonIdsFromSession = Array.isArray(sessionRow.lesson_ids)
+    ? (sessionRow.lesson_ids as string[])
+    : [];
+  const lessonIds = (input.lessonIds?.length ? input.lessonIds : lessonIdsFromSession).filter(Boolean);
+  if (lessonIds.length === 0 && input.lessonId) {
+    lessonIds.push(input.lessonId);
   }
+  if (lessonIds.length === 0 && sessionRow.lesson_id) {
+    lessonIds.push(String(sessionRow.lesson_id));
+  }
+  const primaryLessonId = lessonIds[0] ?? input.lessonId ?? (sessionRow.lesson_id as string | null);
+
+  let lessonTitles: string[] = [];
+  if (lessonIds.length > 0) {
+    const { data: lessons } = await admin.from("wrt_lessons").select("id, title").in("id", lessonIds);
+    const byId = new Map((lessons ?? []).map((l) => [String(l.id), String(l.title)]));
+    lessonTitles = lessonIds.map((id) => byId.get(id) ?? "Lesson");
+  } else {
+    lessonTitles = ["Workplace Readiness Training"];
+  }
+
+  const completedLessonIdSet = new Set(
+    (input.completedLessonIds ?? []).filter(Boolean).map(String)
+  );
+  const presentClients = input.attendees.filter((a) => a.attendance === "present");
+  const presentCount = presentClients.length;
+
+  const lessonPart =
+    lessonTitles.length === 1
+      ? lessonTitles[0]
+      : `${lessonTitles.length} segments: ${lessonTitles.join("; ")}`;
+  const delivery =
+    input.deliveryMode ??
+    (sessionRow.delivery_mode as WrtDeliveryMode) ??
+    "in_person";
 
   for (const att of input.attendees) {
     const enrollment = await loadActiveEnrollmentForClient(admin, att.clientId);
 
     const { data: existing } = await admin
       .from("wrt_session_attendees")
-      .select("id")
+      .select("id, contact_log_id")
       .eq("session_id", input.sessionId)
       .eq("client_id", att.clientId)
       .maybeSingle();
 
     const attendeePatch = {
       attendance: att.attendance,
-      duration_minutes: att.durationMinutes,
+      duration_minutes: blockMinutes,
       start_time: att.startTime ?? null,
       end_time: att.endTime ?? null,
-      lesson_completed: att.attendance === "present" && att.lessonCompleted,
+      lesson_completed: att.attendance === "present" && completedLessonIdSet.size > 0,
       enrollment_id: enrollment?.id ?? null,
       updated_at: now,
     };
 
-    let attendeeId = existing?.id as string | undefined;
+    let attendeeRowId = existing?.id as string | undefined;
     if (existing) {
       const { error } = await admin
         .from("wrt_session_attendees")
         .update(attendeePatch)
         .eq("id", existing.id);
       if (error) throw new Error(error.message);
+      attendeeRowId = String(existing.id);
     } else {
       const { data: inserted, error } = await admin
         .from("wrt_session_attendees")
@@ -418,66 +477,152 @@ export async function completeSession(
         .select("id")
         .single();
       if (error) throw new Error(error.message);
-      attendeeId = String(inserted.id);
+      attendeeRowId = String(inserted.id);
     }
 
-    if (att.attendance !== "present") continue;
+    if (att.attendance !== "present" || blockMinutes <= 0) continue;
 
-    if (att.lessonCompleted && enrollment && lessonId) {
-      const { error: progErr } = await admin.from("wrt_lesson_progress").upsert(
-        {
-          enrollment_id: enrollment.id,
-          lesson_id: lessonId,
-          completed_at: now,
-          completed_by: input.actorUserId,
-        },
-        { onConflict: "enrollment_id,lesson_id" }
-      );
-      if (progErr) throw new Error(progErr.message);
-    }
-
-    if (att.durationMinutes > 0) {
-      const contactNotes = `Workplace Readiness Training — ${lessonTitle} (${att.durationMinutes} min)${
-        att.lessonCompleted ? "; lesson marked complete" : "; progress session (lesson not complete)"
-      }.`;
-      const time =
-        activityTypeId && att.durationMinutes > 0
-          ? {
-              activityTypeId,
-              durationMinutes: att.durationMinutes,
-              serviceDate: input.serviceDate,
-              startTime: att.startTime ?? undefined,
-              endTime: att.endTime ?? undefined,
-            }
-          : undefined;
-
-      const result = await saveClientContactLog(admin, input.actorUserId, {
-        clientId: att.clientId,
-        contactNotes,
-        internalNotes: "Logged from WRT session (admin facilitation preview).",
-        time,
-      });
-      if (!result.ok) {
-        warnings.push(result.error ?? "Contact log failed for a client.");
-      } else if (result.warning) {
-        warnings.push(result.warning);
+    if (enrollment && completedLessonIdSet.size > 0) {
+      for (const lid of completedLessonIdSet) {
+        const { error: progErr } = await admin.from("wrt_lesson_progress").upsert(
+          {
+            enrollment_id: enrollment.id,
+            lesson_id: lid,
+            completed_at: now,
+            completed_by: input.actorUserId,
+          },
+          { onConflict: "enrollment_id,lesson_id" }
+        );
+        if (progErr) throw new Error(progErr.message);
       }
     }
 
-    void attendeeId;
+    const rubric = input.rubricByClient?.[att.clientId];
+    let rubricLines = "";
+    if (rubric && presentCount > 0) {
+      const parts: string[] = [];
+      for (const key of WRT_RUBRIC_DOMAIN_KEYS) {
+        const cell = rubric[key];
+        if (cell && cell.level >= 1 && cell.level <= 3) {
+          const label = key.replace(/_/g, " ");
+          parts.push(`${label}: L${cell.level}${cell.notes?.trim() ? ` (${cell.notes.trim()})` : ""}`);
+        }
+      }
+      if (parts.length) {
+        rubricLines = ` Observational rubric (staff): ${parts.join("; ")}.`;
+      }
+    }
+
+    const contactNotes = `WRT session block — ${lessonPart} — ${blockMinutes} min block · ${presentCount} present (service minutes ${blockMinutes * presentCount} total).${
+      completedLessonIdSet.size ? ` Lessons marked complete: ${completedLessonIdSet.size}.` : ""
+    }${rubricLines}`;
+
+    const time =
+      activityTypeId && blockMinutes > 0
+        ? {
+            activityTypeId,
+            durationMinutes: blockMinutes,
+            serviceDate: input.serviceDate,
+            startTime: att.startTime ?? undefined,
+            endTime: att.endTime ?? undefined,
+            clientPresent: true,
+            deliveryMode: delivery === "virtual" ? ("virtual" as const) : ("in_person" as const),
+          }
+        : undefined;
+
+    const serviceDate = input.serviceDate ?? todayLocalDate();
+    const safeTime =
+      time && blockMinutes > 0
+        ? {
+            ...time,
+            serviceDate,
+            startTime: (att.startTime ?? "").trim() || "09:00",
+            endTime: (att.endTime ?? "").trim() || undefined,
+          }
+        : undefined;
+
+    const result = await saveClientContactLog(admin, input.actorUserId, {
+      clientId: att.clientId,
+      contactNotes,
+      internalNotes: `WRT session ${input.sessionId}${attendeeRowId ? `; attendee ${attendeeRowId}` : ""}.`,
+      time: safeTime,
+    });
+    if (!result.ok) {
+      warnings.push(result.error ?? "Contact log failed for a client.");
+    } else if (result.warning) {
+      warnings.push(result.warning);
+      if (result.contactLogId) {
+        contactLogIds.push(result.contactLogId);
+        await admin
+          .from("wrt_session_attendees")
+          .update({ contact_log_id: result.contactLogId, updated_at: now })
+          .eq("session_id", input.sessionId)
+          .eq("client_id", att.clientId);
+      }
+    } else {
+      if (result.contactLogId) {
+        contactLogIds.push(result.contactLogId);
+        await admin
+          .from("wrt_session_attendees")
+          .update({ contact_log_id: result.contactLogId, updated_at: now })
+          .eq("session_id", input.sessionId)
+          .eq("client_id", att.clientId);
+      }
+    }
+  }
+
+  const rubricRows: Array<{
+    session_id: string;
+    client_id: string;
+    domain_key: string;
+    level: number;
+    notes: string | null;
+    scored_by: string;
+    created_at: string;
+    updated_at: string;
+  }> = [];
+  if (input.rubricByClient) {
+    for (const att of presentClients) {
+      const r = input.rubricByClient[att.clientId];
+      if (!r) continue;
+      for (const key of WRT_RUBRIC_DOMAIN_KEYS) {
+        const cell = r[key];
+        if (!cell || cell.level < 1 || cell.level > 3) continue;
+        rubricRows.push({
+          session_id: input.sessionId,
+          client_id: att.clientId,
+          domain_key: key,
+          level: cell.level,
+          notes: cell.notes?.trim() || null,
+          scored_by: input.actorUserId,
+          created_at: now,
+          updated_at: now,
+        });
+      }
+    }
+  }
+  if (rubricRows.length > 0) {
+    const { error: rubErr } = await admin.from("wrt_session_rubric_rows").upsert(rubricRows, {
+      onConflict: "session_id,client_id,domain_key",
+    });
+    if (rubErr && !/duplicate key|does not exist|schema cache/i.test(rubErr.message)) {
+      warnings.push(`Rubric save: ${rubErr.message}`);
+    }
   }
 
   const { error: doneErr } = await admin
     .from("wrt_sessions")
     .update({
       status: "completed",
-      lesson_id: lessonId,
+      lesson_id: primaryLessonId ?? null,
+      lesson_ids: lessonIds.length ? lessonIds : null,
+      session_block_minutes: blockMinutes,
       updated_at: now,
     })
     .eq("id", input.sessionId);
   if (doneErr) throw new Error(doneErr.message);
 
-  return { warnings };
+  return { warnings, contactLogIds };
 }
 
 /** Mark a lesson complete for present clients (no hours / contact log). */

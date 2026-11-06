@@ -18,8 +18,8 @@ export default async function WrtFacilitationPreviewPage() {
     <main className="px-4 py-8 sm:px-6 sm:py-10">
       <h1 className="text-2xl font-semibold text-brand-black">WRT Facilitation</h1>
       <p className="mt-2 max-w-2xl text-sm text-brand-black/75">
-        Staff facilitation workspace for Workplace Readiness Training (Super Admin and Admin preview).
-        Manage modules and lessons under{" "}
+        Staff workspace for Workplace Readiness Training: enrollments, sessions, presentation mode,
+        observational rubric, and facilitator print kit. Admins can manage curriculum under{" "}
         <Link href="/dashboard/wrt/curriculum" className="font-medium text-brand-green hover:underline">
           WRT Curriculum
         </Link>

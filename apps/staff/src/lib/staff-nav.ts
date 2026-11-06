@@ -16,6 +16,7 @@ import {
   isWrtAdminRole,
   staffHomePath,
 } from "@wayfinder/supabase/roles";
+import { canUseWrtFacilitation } from "@wayfinder/supabase/staff-wrt-shared";
 import { buildReportsAppUrl } from "@wayfinder/branding";
 
 export { canAccessFormalReporting };
@@ -205,6 +206,19 @@ const referralQueueNav: StaffNavItem = {
   match: (p) => p.startsWith("/dashboard/referrals"),
 };
 
+const wrtFacilitationNav: StaffNavItem = {
+  href: "/dashboard/wrt",
+  label: "WRT",
+  match: (p) => p.startsWith("/dashboard/wrt"),
+};
+
+function withWrtFacilitationNav(items: StaffNavItem[], role: string | null): StaffNavItem[] {
+  if (!canUseWrtFacilitation(role) || items.some((i) => i.href === wrtFacilitationNav.href)) {
+    return items;
+  }
+  return [...items, wrtFacilitationNav];
+}
+
 export const PRE_ETS_DASHBOARD_PATH = preEtsNav.href;
 
 const cultureNavSection: StaffNavSection = {
@@ -334,7 +348,7 @@ export function staffNavSectionsForRole(
                 billableHoursNav,
                 {
                   href: "/dashboard/wrt",
-                  label: "WRT Preview",
+                  label: "WRT",
                   match: (p) => p.startsWith("/dashboard/wrt"),
                 },
                 reportingNav,
@@ -379,7 +393,7 @@ export function staffNavSectionsForRole(
                 billableHoursNav,
                 {
                   href: "/dashboard/wrt",
-                  label: "WRT Preview",
+                  label: "WRT",
                   match: (p) => p.startsWith("/dashboard/wrt"),
                 },
                 reportingNav,
@@ -426,7 +440,10 @@ export function staffNavSectionsForRole(
           label: "Tools",
           items: withTraining(
             maybePartners(
-              withPreEtsNav([dataExportsNav, communityPartnersNav], showPreEtsNav),
+              withWrtFacilitationNav(
+                withPreEtsNav([dataExportsNav, communityPartnersNav], showPreEtsNav),
+                staffRole
+              ),
               showCp
             )
           ),
@@ -561,7 +578,13 @@ export function staffNavSectionsForRole(
         {
           label: "Resources",
           items: withTraining(
-            maybePartners([communityPartnersNav, analyticsNav, dataExportsNav], showCp)
+            maybePartners(
+              withWrtFacilitationNav(
+                [communityPartnersNav, analyticsNav, dataExportsNav],
+                staffRole
+              ),
+              showCp
+            )
           ),
         },
       ],
@@ -593,7 +616,13 @@ export function staffNavSectionsForRole(
         {
           label: "Resources",
           items: withTraining(
-            maybePartners([communityPartnersNav, analyticsNav, dataExportsNav], showCp)
+            maybePartners(
+              withWrtFacilitationNav(
+                [communityPartnersNav, analyticsNav, dataExportsNav],
+                staffRole
+              ),
+              showCp
+            )
           ),
         },
       ],

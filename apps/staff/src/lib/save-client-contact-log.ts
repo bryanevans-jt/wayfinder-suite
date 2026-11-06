@@ -165,5 +165,5 @@ export async function saveClientContactLog(
     clientPresent: input.clientPresent,
   });
 
-  return warning ? { ok: true, warning } : { ok: true };
+  return warning ? { ok: true, warning, contactLogId } : { ok: true, contactLogId };
 }

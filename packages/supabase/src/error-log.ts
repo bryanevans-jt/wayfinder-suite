@@ -19,7 +19,7 @@ export function userFacingSystemErrorWithCode(errorCode?: string | null): string
   return `${USER_FACING_SYSTEM_ERROR} Reference code: ${errorCode.trim().toUpperCase()}. ${USER_FACING_SUPPORT_LINE}`;
 }
 
-export type ActionSuccess = { ok: true; warning?: string };
+export type ActionSuccess = { ok: true; warning?: string; contactLogId?: string };
 export type ActionFailure = { ok: false; error: string; errorCode?: string };
 export type ActionResult = ActionSuccess | ActionFailure;
 

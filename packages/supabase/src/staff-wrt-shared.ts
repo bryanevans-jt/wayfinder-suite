@@ -1,4 +1,4 @@
-import { isAdminTierRole } from "./roles";
+import { isAdminTierRole, isFieldSpecialistRole, isSupervisorRole } from "./roles";
 
 export const WRT_BLOCK_TYPES = [
   "rich_text",
@@ -58,7 +58,7 @@ export type WrtLessonWithBlocks = WrtLessonRow & { blocks: WrtLessonBlockRow[] }
 
 export type WrtModuleWithLessons = WrtModuleRow & { lessons: WrtLessonWithBlocks[] };
 
-/** WRT Preview (facilitation + curriculum): Super Admin and Admin only until wider rollout. */
+/** Curriculum editor entry in nav — admin tier only (facilitation is wider; see canUseWrtFacilitation). */
 export function isWrtCurriculumPreviewUnlocked(role: string | null | undefined): boolean {
   return isAdminTierRole(role);
 }
@@ -68,9 +68,15 @@ export function canManageWrtCurriculum(role: string | null | undefined): boolean
   return isAdminTierRole(role);
 }
 
-/** Facilitation / presentation preview — same gate as curriculum for now. */
+/** Curriculum editing — Admin / Super Admin only. */
 export function canUseWrtFacilitationPreview(role: string | null | undefined): boolean {
-  return isAdminTierRole(role);
+  return canUseWrtFacilitation(role);
+}
+
+/** Facilitation workspace (log sessions, presentation, print kit) — ES/TS, supervisors, and admin tier. */
+export function canUseWrtFacilitation(role: string | null | undefined): boolean {
+  const r = (role ?? "").trim().toLowerCase();
+  return isAdminTierRole(r) || isFieldSpecialistRole(r) || isSupervisorRole(r);
 }
 
 export const WRT_DELIVERY_MODES = ["in_person", "virtual"] as const;
@@ -94,6 +100,10 @@ export type WrtEnrollmentRow = {
 export type WrtSessionRow = {
   id: string;
   lesson_id: string | null;
+  /** Optional multi-segment list (session block); when set, takes precedence over lesson_id for logging. */
+  lesson_ids?: string[] | null;
+  /** Single duration for the whole block (minutes). Billable minutes per present client = block × present count. */
+  session_block_minutes?: number | null;
   scheduled_start: string;
   scheduled_end: string | null;
   delivery_mode: WrtDeliveryMode;
@@ -106,6 +116,25 @@ export type WrtSessionRow = {
 };
 
 export const WRT_ACTIVITY_CODE = "JT-ACT-070";
+
+/** Observational Workplace Readiness Rubric — staff-only; levels 1–3. */
+export const WRT_RUBRIC_DOMAIN_KEYS = [
+  "punctuality_attendance",
+  "hygiene_presentation",
+  "social_communication",
+  "task_engagement",
+  "receptivity_supervision",
+] as const;
+
+export type WrtRubricDomainKey = (typeof WRT_RUBRIC_DOMAIN_KEYS)[number];
+
+export const WRT_RUBRIC_DOMAIN_LABELS: Record<WrtRubricDomainKey, string> = {
+  punctuality_attendance: "Punctuality & Attendance",
+  hygiene_presentation: "Hygiene & Presentation",
+  social_communication: "Social Communication",
+  task_engagement: "Task Engagement & Focus",
+  receptivity_supervision: "Receptivity to Supervision",
+};
 
 export function isValidWrtBlockType(value: string): value is WrtBlockType {
   return (WRT_BLOCK_TYPES as readonly string[]).includes(value);

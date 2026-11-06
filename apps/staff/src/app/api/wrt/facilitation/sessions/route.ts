@@ -1,4 +1,4 @@
-import { jsonWrtError, requireWrtCurriculumSession, wrtOk } from "@/lib/staff-wrt-auth";
+import { jsonWrtError, requireWrtFacilitationSession, wrtOk } from "@/lib/staff-wrt-auth";
 import { scheduleSession } from "@/lib/staff-wrt-facilitation";
 import type { WrtDeliveryMode } from "@wayfinder/supabase/staff-wrt-shared";
 import { NextRequest } from "next/server";
@@ -6,9 +6,11 @@ import { NextRequest } from "next/server";
 export async function POST(request: NextRequest) {
   const route = "api/wrt/facilitation/sessions";
   try {
-    const { admin, userId } = await requireWrtCurriculumSession(true);
+    const { admin, userId } = await requireWrtFacilitationSession(true);
     const body = (await request.json()) as {
       lessonId?: string | null;
+      lessonIds?: string[] | null;
+      sessionBlockMinutes?: number | null;
       scheduledStart?: string;
       scheduledEnd?: string | null;
       deliveryMode?: WrtDeliveryMode;
@@ -24,8 +26,20 @@ export async function POST(request: NextRequest) {
       return wrtOk({ error: "At least one attendee is required." }, { status: 400 });
     }
 
+    const lessonIds =
+      Array.isArray(body.lessonIds) && body.lessonIds.length > 0
+        ? body.lessonIds.filter(Boolean)
+        : body.lessonId
+          ? [body.lessonId]
+          : [];
+
     const session = await scheduleSession(admin, {
-      lessonId: body.lessonId ?? null,
+      lessonId: body.lessonId ?? lessonIds[0] ?? null,
+      lessonIds: lessonIds.length ? lessonIds : null,
+      sessionBlockMinutes:
+        body.sessionBlockMinutes != null && Number.isFinite(Number(body.sessionBlockMinutes))
+          ? Number(body.sessionBlockMinutes)
+          : undefined,
       scheduledStart: body.scheduledStart,
       scheduledEnd: body.scheduledEnd ?? null,
       deliveryMode: body.deliveryMode === "virtual" ? "virtual" : "in_person",

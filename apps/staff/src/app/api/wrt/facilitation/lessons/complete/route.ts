@@ -1,11 +1,11 @@
-import { jsonWrtError, requireWrtCurriculumSession, wrtOk } from "@/lib/staff-wrt-auth";
+import { jsonWrtError, requireWrtFacilitationSession, wrtOk } from "@/lib/staff-wrt-auth";
 import { markLessonCompleteForClients } from "@/lib/staff-wrt-facilitation";
 import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
   const route = "api/wrt/facilitation/lessons/complete";
   try {
-    const { admin, userId } = await requireWrtCurriculumSession(true);
+    const { admin, userId } = await requireWrtFacilitationSession(true);
     const body = (await request.json()) as {
       lessonId?: string;
       clientIds?: string[];

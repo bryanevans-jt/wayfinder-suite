@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  WRT_RUBRIC_DOMAIN_KEYS,
+  WRT_RUBRIC_DOMAIN_LABELS,
   type WrtDeliveryMode,
   type WrtEnrollmentRow,
   type WrtModuleWithLessons,
+  type WrtRubricDomainKey,
   type WrtSessionRow,
   youtubeEmbedUrl,
 } from "@wayfinder/supabase/staff-wrt-shared";
@@ -33,11 +36,11 @@ type GroupMember = {
   name: string;
   enrollmentId: string | null;
   attendance: "present" | "absent";
-  durationMinutes: string;
   startTime: string;
   endTime: string;
-  lessonCompleted: boolean;
 };
+
+type RubricCellState = { level: 0 | 1 | 2 | 3; notes: string };
 
 export function WrtFacilitationWorkspace() {
   const [clients, setClients] = useState<ClientOption[]>([]);
@@ -56,13 +59,22 @@ export function WrtFacilitationWorkspace() {
   const [moduleId, setModuleId] = useState<string | null>(null);
   const [lessonId, setLessonId] = useState<string | null>(null);
 
-  const [sessionMinutes, setSessionMinutes] = useState("30");
+  /** Lessons covered in this facilitation block (order preserved). */
+  const [blockLessonIds, setBlockLessonIds] = useState<string[]>([]);
+  /** One duration (minutes) for the whole block; billing uses block × present count. */
+  const [sessionBlockMinutes, setSessionBlockMinutes] = useState("60");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [markComplete, setMarkComplete] = useState(true);
 
   const [scheduleStart, setScheduleStart] = useState("");
   const [zoomUrl, setZoomUrl] = useState("");
+  const [scheduleBlockLessonIds, setScheduleBlockLessonIds] = useState<string[]>([]);
+  const [scheduleBlockMinutes, setScheduleBlockMinutes] = useState("60");
+
+  const [rubricByClient, setRubricByClient] = useState<
+    Record<string, Partial<Record<WrtRubricDomainKey, RubricCellState>>>
+  >({});
 
   const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
   const [groupQuery, setGroupQuery] = useState("");
@@ -92,7 +104,10 @@ export function WrtFacilitationWorkspace() {
       const firstAssigned =
         data.curriculum.find((m) => data.moduleIds.includes(m.id)) ?? data.curriculum[0];
       setModuleId(firstAssigned?.id ?? null);
-      setLessonId(firstAssigned?.lessons[0]?.id ?? null);
+      const firstL = firstAssigned?.lessons[0]?.id ?? null;
+      setLessonId(firstL);
+      setBlockLessonIds(firstL ? [firstL] : []);
+      setScheduleBlockLessonIds(firstL ? [firstL] : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load.");
       setSnap(null);
@@ -115,6 +130,11 @@ export function WrtFacilitationWorkspace() {
     void loadSnapshot(clientId);
   }, [clientId, loadSnapshot]);
 
+  useEffect(() => {
+    setRubricByClient({});
+    setGroupMembers([]);
+  }, [clientId]);
+
   const selectedModule = useMemo(
     () => snap?.curriculum.find((m) => m.id === moduleId) ?? null,
     [snap, moduleId]
@@ -128,6 +148,18 @@ export function WrtFacilitationWorkspace() {
     if (!snap?.enrollment) return snap?.curriculum ?? [];
     return (snap.curriculum ?? []).filter((m) => snap.moduleIds.includes(m.id));
   }, [snap]);
+
+  function toggleLessonInBlock(id: string) {
+    setBlockLessonIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
+
+  function toggleScheduleLessonInBlock(id: string) {
+    setScheduleBlockLessonIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
 
   async function enroll() {
     if (!clientId) return;
@@ -203,20 +235,62 @@ export function WrtFacilitationWorkspace() {
       name: snap.clientName,
       enrollmentId: snap.enrollment?.id ?? null,
       attendance: "present",
-      durationMinutes: sessionMinutes,
       startTime,
       endTime,
-      lessonCompleted: markComplete,
     };
     if (groupMembers.length === 0) return [primary];
     const others = groupMembers.filter((m) => m.clientId !== clientId);
     return [primary, ...others];
   }
 
+  function lessonIdsForBlock(): string[] {
+    if (blockLessonIds.length > 0) return blockLessonIds;
+    return lessonId ? [lessonId] : [];
+  }
+
+  function rubricPayloadForApi(): Record<
+    string,
+    Partial<Record<WrtRubricDomainKey, { level: number; notes?: string | null }>>
+  > {
+    const out: Record<
+      string,
+      Partial<Record<WrtRubricDomainKey, { level: number; notes?: string | null }>>
+    > = {};
+    for (const [cid, row] of Object.entries(rubricByClient)) {
+      const domains: Partial<Record<WrtRubricDomainKey, { level: number; notes?: string | null }>> =
+        {};
+      for (const key of WRT_RUBRIC_DOMAIN_KEYS) {
+        const cell = row[key];
+        if (cell && cell.level >= 1 && cell.level <= 3) {
+          domains[key] = {
+            level: cell.level,
+            notes: cell.notes.trim() ? cell.notes : null,
+          };
+        }
+      }
+      if (Object.keys(domains).length > 0) out[cid] = domains;
+    }
+    return out;
+  }
+
   async function runSession() {
     if (!clientId || !snap?.enrollment) return;
     const attendees = buildAttendees();
     if (attendees.length === 0) return;
+    const blockMinutes = Number(sessionBlockMinutes) || 0;
+    if (blockMinutes <= 0) {
+      setError("Enter session block minutes (greater than zero).");
+      return;
+    }
+    const ids = lessonIdsForBlock();
+    if (ids.length === 0) {
+      setError("Select at least one lesson for this block.");
+      return;
+    }
+    const rubricApi = rubricPayloadForApi();
+    const completedLessonIds =
+      markComplete && attendees.some((a) => a.attendance === "present") ? ids : [];
+
     setBusy(true);
     setMessage(null);
     setError(null);
@@ -224,16 +298,18 @@ export function WrtFacilitationWorkspace() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        lessonId,
+        lessonId: ids[0],
+        lessonIds: ids,
+        sessionBlockMinutes: blockMinutes,
+        completedLessonIds,
         deliveryMode: snap.enrollment.delivery_mode,
+        rubricByClient: Object.keys(rubricApi).length > 0 ? rubricApi : undefined,
         attendees: attendees.map((a) => ({
           clientId: a.clientId,
           enrollmentId: a.enrollmentId,
           attendance: a.attendance,
-          durationMinutes: Number(a.durationMinutes) || 30,
           startTime: a.startTime || null,
           endTime: a.endTime || null,
-          lessonCompleted: a.attendance === "present" && a.lessonCompleted,
         })),
       }),
     });
@@ -253,6 +329,21 @@ export function WrtFacilitationWorkspace() {
 
   async function scheduleUpcoming() {
     if (!clientId || !snap?.enrollment || !scheduleStart) return;
+    const schedIds =
+      scheduleBlockLessonIds.length > 0
+        ? scheduleBlockLessonIds
+        : lessonId
+          ? [lessonId]
+          : [];
+    if (schedIds.length === 0) {
+      setError("Select at least one lesson to schedule.");
+      return;
+    }
+    const schedBlock = Number(scheduleBlockMinutes) || 0;
+    if (schedBlock <= 0) {
+      setError("Enter planned block minutes for the scheduled session.");
+      return;
+    }
     setBusy(true);
     setMessage(null);
     const attendees = buildAttendees().map((a) => ({
@@ -263,7 +354,9 @@ export function WrtFacilitationWorkspace() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        lessonId,
+        lessonId: schedIds[0],
+        lessonIds: schedIds,
+        sessionBlockMinutes: schedBlock,
         scheduledStart: new Date(scheduleStart).toISOString(),
         deliveryMode: snap.enrollment.delivery_mode,
         zoomUrl: zoomUrl.trim() || null,
@@ -291,10 +384,8 @@ export function WrtFacilitationWorkspace() {
         name: c.name,
         enrollmentId: null,
         attendance: "present",
-        durationMinutes: sessionMinutes,
         startTime,
         endTime,
-        lessonCompleted: markComplete,
       },
     ]);
   }
@@ -319,6 +410,24 @@ export function WrtFacilitationWorkspace() {
   }, [clientId, snap, groupMembers]);
 
   const presentCount = sessionRoster.filter((a) => a.attendance === "present").length;
+
+  const presentClientsForRubric = useMemo(
+    () => sessionRoster.filter((a) => a.attendance === "present"),
+    [sessionRoster]
+  );
+
+  function setRubricCell(
+    cid: string,
+    key: WrtRubricDomainKey,
+    patch: Partial<RubricCellState>
+  ) {
+    setRubricByClient((prev) => {
+      const row = { ...(prev[cid] ?? {}) };
+      const cur = row[key] ?? { level: 0 as const, notes: "" };
+      row[key] = { ...cur, ...patch };
+      return { ...prev, [cid]: row };
+    });
+  }
 
   function startPresentation() {
     if (!snap?.enrollment || presentCount === 0) return;
@@ -347,11 +456,37 @@ export function WrtFacilitationWorkspace() {
       ) : null}
 
       <div>
-        <h2 className="text-lg font-semibold text-brand-black">WRT Facilitation Preview</h2>
+        <h2 className="text-lg font-semibold text-brand-black">WRT Facilitation</h2>
         <p className="mt-1 max-w-2xl text-sm text-brand-black/70">
-          Admin-only preview of the Employment Specialist experience.
-          Enrollments are opt-in and do not change a client&apos;s service assignment.
+          Workplace Readiness Training for field staff and supervisors. Enrollments are opt-in and do
+          not change a client&apos;s service assignment.
         </p>
+      </div>
+
+      <div className="mt-4 rounded-lg border border-brand-green/25 bg-white p-4 text-sm">
+        <p className="font-semibold text-brand-black">Facilitator print kit</p>
+        <p className="mt-1 text-brand-black/70">
+          Download a ZIP of every lesson (PDF, Joshua Tree branding) for a binder, or open one lesson
+          at a time.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <a
+            href="/api/wrt/print-kit"
+            className="rounded-lg bg-brand-green px-3 py-1.5 text-sm font-semibold text-white"
+          >
+            Download full kit (ZIP)
+          </a>
+          {selectedLesson ? (
+            <a
+              href={`/api/wrt/print-kit?lessonId=${encodeURIComponent(selectedLesson.id)}`}
+              className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-semibold"
+            >
+              This lesson (PDF)
+            </a>
+          ) : (
+            <span className="text-brand-black/50">Select a lesson for a single-lesson PDF.</span>
+          )}
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
@@ -675,6 +810,37 @@ export function WrtFacilitationWorkspace() {
                     />
                   </label>
                 </div>
+                <label className="mt-2 block text-sm">
+                  <span className="font-medium">Planned block (minutes)</span>
+                  <input
+                    type="number"
+                    min={1}
+                    className="mt-1 w-full max-w-xs rounded border border-neutral-300 px-2 py-1.5"
+                    value={scheduleBlockMinutes}
+                    onChange={(e) => setScheduleBlockMinutes(e.target.value)}
+                  />
+                </label>
+                {selectedModule ? (
+                  <div className="mt-3 rounded border border-dashed border-neutral-200 p-3">
+                    <p className="text-xs font-semibold text-brand-black/55">
+                      Lessons in this scheduled block ({selectedModule.title})
+                    </p>
+                    <ul className="mt-2 space-y-1">
+                      {(selectedModule.lessons ?? []).map((l) => (
+                        <li key={l.id}>
+                          <label className="flex cursor-pointer items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={scheduleBlockLessonIds.includes(l.id)}
+                              onChange={() => toggleScheduleLessonInBlock(l.id)}
+                            />
+                            {l.title}
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
                 <button
                   type="button"
                   disabled={busy || !scheduleStart}
@@ -694,8 +860,16 @@ export function WrtFacilitationWorkspace() {
                         <button
                           type="button"
                           onClick={() => {
+                            const first = m.lessons[0]?.id ?? null;
                             setModuleId(m.id);
-                            setLessonId(m.lessons[0]?.id ?? null);
+                            setLessonId(first);
+                            if (first) {
+                              setBlockLessonIds([first]);
+                              setScheduleBlockLessonIds([first]);
+                            } else {
+                              setBlockLessonIds([]);
+                              setScheduleBlockLessonIds([]);
+                            }
                           }}
                           className={`w-full rounded-md px-2 py-1.5 text-left text-sm ${
                             moduleId === m.id
@@ -714,12 +888,22 @@ export function WrtFacilitationWorkspace() {
                   <ul className="mt-2 space-y-1">
                     {(selectedModule?.lessons ?? []).map((l) => {
                       const done = snap.completedLessonIds.includes(l.id);
+                      const inBlock = blockLessonIds.includes(l.id);
                       return (
-                        <li key={l.id}>
+                        <li key={l.id} className="flex items-start gap-2 rounded-md px-1 py-0.5">
+                          <label className="flex cursor-pointer items-center pt-1.5">
+                            <input
+                              type="checkbox"
+                              className="rounded border-neutral-300"
+                              checked={inBlock}
+                              onChange={() => toggleLessonInBlock(l.id)}
+                              title="Include in this facilitation block"
+                            />
+                          </label>
                           <button
                             type="button"
                             onClick={() => setLessonId(l.id)}
-                            className={`w-full rounded-md px-2 py-1.5 text-left text-sm ${
+                            className={`min-w-0 flex-1 rounded-md px-2 py-1.5 text-left text-sm ${
                               lessonId === l.id
                                 ? "bg-brand-green text-white"
                                 : "text-brand-black hover:bg-neutral-100"
@@ -800,21 +984,25 @@ export function WrtFacilitationWorkspace() {
                         })}
                       </ul>
 
-                      <div className="border-t border-neutral-100 pt-3 space-y-2">
+                      <div className="border-t border-neutral-100 pt-3 space-y-3">
                         <p className="font-medium">Log session (1:1 or group)</p>
+                        <p className="text-xs text-brand-black/60">
+                          Check lessons in the left column for this block. One duration applies to the
+                          whole block; billing uses block minutes × number of clients marked present.
+                        </p>
                         <div className="grid gap-2 sm:grid-cols-3">
                           <label>
-                            Minutes
+                            Block (minutes)
                             <input
                               type="number"
-                              min={0}
+                              min={1}
                               className="mt-1 w-full rounded border border-neutral-300 px-2 py-1"
-                              value={sessionMinutes}
-                              onChange={(e) => setSessionMinutes(e.target.value)}
+                              value={sessionBlockMinutes}
+                              onChange={(e) => setSessionBlockMinutes(e.target.value)}
                             />
                           </label>
                           <label>
-                            Begin
+                            Begin (optional)
                             <input
                               type="time"
                               className="mt-1 w-full rounded border border-neutral-300 px-2 py-1"
@@ -823,7 +1011,7 @@ export function WrtFacilitationWorkspace() {
                             />
                           </label>
                           <label>
-                            End
+                            End (optional)
                             <input
                               type="time"
                               className="mt-1 w-full rounded border border-neutral-300 px-2 py-1"
@@ -838,116 +1026,72 @@ export function WrtFacilitationWorkspace() {
                             checked={markComplete}
                             onChange={(e) => setMarkComplete(e.target.checked)}
                           />
-                          Mark lesson complete (present attendees only)
+                          Mark checked lessons complete for present attendees
                         </label>
 
-                        <div className="rounded border border-dashed border-neutral-300 p-2">
-                          <p className="text-xs font-semibold text-brand-black/55">
-                            Group attendees (optional)
-                          </p>
-                          <input
-                            className="mt-1 w-full rounded border border-neutral-300 px-2 py-1 text-sm"
-                            placeholder="Search to add…"
-                            value={groupQuery}
-                            onChange={(e) => {
-                              setGroupQuery(e.target.value);
-                              void loadClients(e.target.value).catch(() => undefined);
-                            }}
-                          />
-                          {groupQuery ? (
-                            <ul className="mt-1 max-h-28 overflow-auto text-sm">
-                              {clients.slice(0, 8).map((c) => (
-                                <li key={c.id}>
-                                  <button
-                                    type="button"
-                                    className="w-full px-1 py-0.5 text-left hover:bg-neutral-50"
-                                    onClick={() => addGroupMember(c)}
-                                  >
-                                    + {c.name}
-                                  </button>
-                                </li>
-                              ))}
-                            </ul>
-                          ) : null}
-                          {groupMembers.length > 0 ? (
-                            <ul className="mt-2 space-y-2">
-                              {groupMembers.map((m) => (
-                                <li
-                                  key={m.clientId}
-                                  className="flex flex-wrap items-center gap-2 rounded bg-neutral-50 px-2 py-1"
-                                >
-                                  <span className="font-medium">{m.name}</span>
-                                  <select
-                                    className="rounded border border-neutral-300 text-xs"
-                                    value={m.attendance}
-                                    onChange={(e) =>
-                                      setGroupMembers((prev) =>
-                                        prev.map((x) =>
-                                          x.clientId === m.clientId
-                                            ? {
-                                                ...x,
-                                                attendance: e.target.value as
-                                                  | "present"
-                                                  | "absent",
-                                              }
-                                            : x
-                                        )
-                                      )
-                                    }
-                                  >
-                                    <option value="present">Present</option>
-                                    <option value="absent">Absent</option>
-                                  </select>
-                                  <input
-                                    type="number"
-                                    className="w-16 rounded border border-neutral-300 px-1 text-xs"
-                                    value={m.durationMinutes}
-                                    onChange={(e) =>
-                                      setGroupMembers((prev) =>
-                                        prev.map((x) =>
-                                          x.clientId === m.clientId
-                                            ? { ...x, durationMinutes: e.target.value }
-                                            : x
-                                        )
-                                      )
-                                    }
-                                  />
-                                  <label className="flex items-center gap-1 text-xs">
-                                    <input
-                                      type="checkbox"
-                                      checked={m.lessonCompleted}
-                                      onChange={(e) =>
-                                        setGroupMembers((prev) =>
-                                          prev.map((x) =>
-                                            x.clientId === m.clientId
-                                              ? { ...x, lessonCompleted: e.target.checked }
-                                              : x
-                                          )
-                                        )
-                                      }
-                                    />
-                                    Complete
-                                  </label>
-                                  <button
-                                    type="button"
-                                    className="text-xs text-red-700"
-                                    onClick={() =>
-                                      setGroupMembers((prev) =>
-                                        prev.filter((x) => x.clientId !== m.clientId)
-                                      )
-                                    }
-                                  >
-                                    Remove
-                                  </button>
-                                </li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <p className="mt-1 text-xs text-brand-black/50">
-                              Leave empty for 1:1 with {snap.clientName}.
+                        {presentClientsForRubric.length > 0 ? (
+                          <div className="rounded border border-neutral-200 bg-neutral-50/80 p-3">
+                            <p className="text-sm font-semibold text-brand-black">
+                              Observational rubric (staff only)
                             </p>
-                          )}
-                        </div>
+                            <p className="mt-1 text-xs text-brand-black/60">
+                              Optional. One row per domain per present client; saved with the session.
+                            </p>
+                            <div className="mt-3 max-h-72 space-y-4 overflow-y-auto">
+                              {presentClientsForRubric.map((p) => (
+                                <div
+                                  key={p.clientId}
+                                  className="rounded border border-neutral-200 bg-white p-2"
+                                >
+                                  <p className="text-xs font-semibold text-brand-green">{p.name}</p>
+                                  <ul className="mt-2 space-y-2">
+                                    {WRT_RUBRIC_DOMAIN_KEYS.map((key) => {
+                                      const cell =
+                                        rubricByClient[p.clientId]?.[key] ?? {
+                                          level: 0 as const,
+                                          notes: "",
+                                        };
+                                      return (
+                                        <li
+                                          key={key}
+                                          className="grid gap-2 sm:grid-cols-[1fr_auto_1fr] sm:items-center"
+                                        >
+                                          <span className="text-xs text-brand-black/80">
+                                            {WRT_RUBRIC_DOMAIN_LABELS[key]}
+                                          </span>
+                                          <select
+                                            className="rounded border border-neutral-300 text-xs"
+                                            value={cell.level}
+                                            onChange={(e) =>
+                                              setRubricCell(p.clientId, key, {
+                                                level: Number(e.target.value) as 0 | 1 | 2 | 3,
+                                              })
+                                            }
+                                          >
+                                            <option value={0}>—</option>
+                                            <option value={1}>Level 1</option>
+                                            <option value={2}>Level 2</option>
+                                            <option value={3}>Level 3</option>
+                                          </select>
+                                          <input
+                                            className="rounded border border-neutral-300 px-2 py-1 text-xs"
+                                            placeholder="Notes (optional)"
+                                            value={cell.notes}
+                                            onChange={(e) =>
+                                              setRubricCell(p.clientId, key, {
+                                                notes: e.target.value,
+                                              })
+                                            }
+                                          />
+                                        </li>
+                                      );
+                                    })}
+                                  </ul>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
 
                         <button
                           type="button"

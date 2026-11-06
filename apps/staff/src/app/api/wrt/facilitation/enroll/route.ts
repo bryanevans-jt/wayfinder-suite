@@ -1,4 +1,4 @@
-import { jsonWrtError, requireWrtCurriculumSession, wrtOk } from "@/lib/staff-wrt-auth";
+import { jsonWrtError, requireWrtFacilitationSession, wrtOk } from "@/lib/staff-wrt-auth";
 import {
   createEnrollment,
   endEnrollment,
@@ -10,7 +10,7 @@ import { NextRequest } from "next/server";
 export async function POST(request: NextRequest) {
   const route = "api/wrt/facilitation/enroll";
   try {
-    const { admin, userId } = await requireWrtCurriculumSession(true);
+    const { admin, userId } = await requireWrtFacilitationSession(true);
     const body = (await request.json()) as {
       clientId?: string;
       deliveryMode?: WrtDeliveryMode;
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   const route = "api/wrt/facilitation/enroll";
   try {
-    const { admin } = await requireWrtCurriculumSession(true);
+    const { admin } = await requireWrtFacilitationSession(true);
     const body = (await request.json()) as {
       enrollmentId?: string;
       action?: string;

@@ -1,4 +1,4 @@
-import { jsonWrtError, requireWrtCurriculumSession, wrtOk } from "@/lib/staff-wrt-auth";
+import { jsonWrtError, requireWrtFacilitationSession, wrtOk } from "@/lib/staff-wrt-auth";
 import {
   loadClientFacilitationSnapshot,
   searchClientsForWrt,
@@ -9,7 +9,7 @@ import { NextRequest } from "next/server";
 export async function GET(request: NextRequest) {
   const route = "api/wrt/facilitation";
   try {
-    const { admin } = await requireWrtCurriculumSession(false);
+    const { admin } = await requireWrtFacilitationSession(false);
 
     try {
       await seedWrtCurriculumIfEmpty(admin);

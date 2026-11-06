@@ -269,20 +269,28 @@ export function WrtPresentationMode({
     setBusy(true);
     setError(null);
     try {
+      const lessonIdsForBlock =
+        completedLessonIds.length > 0
+          ? completedLessonIds
+          : lessonId
+            ? [lessonId]
+            : [];
+
       const res = await fetch("/api/wrt/facilitation/sessions/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          lessonId: lessonId,
+          lessonId: lessonIdsForBlock[0] ?? lessonId,
+          lessonIds: lessonIdsForBlock,
+          sessionBlockMinutes: minutes,
+          completedLessonIds,
           deliveryMode,
           attendees: presentAttendees.map((a) => ({
             clientId: a.clientId,
             enrollmentId: a.enrollmentId,
             attendance: "present" as const,
-            durationMinutes: minutes,
             startTime: finishStart || null,
             endTime: finishEnd || null,
-            lessonCompleted: false,
           })),
         }),
       });
