@@ -1,6 +1,7 @@
 /** Shared dashboard section headings (Title Case) for live and demo client UI. */
 export const CLIENT_DASHBOARD_SECTIONS = {
   yourPath: "Your Path",
+  specialistContact: "Your specialist",
   nextMeeting: "Next Meeting",
   applications: "Applications",
   yourActivity: "Your Activity",

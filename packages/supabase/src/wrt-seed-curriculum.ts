@@ -1,8 +1,9 @@
 /**
- * Starter WRT curriculum — original Joshua Tree facilitator lessons aligned to
- * NTACT:C Workplace Readiness domains and GVRA adult WRT (§6000).
- * Free public resources only (ODEP Soft Skills PDFs/videos, CFPB, JAN, SSA).
- * Fully editable in admin once seeded; not locked system content.
+ * Georgia statewide WRT curriculum seed (10 units × 3 lessons).
+ * GVRA Policy §§6000.00–6000.02; plain language; rural + urban examples within lessons.
+ * Admins can edit modules, lessons, and blocks after seed (including swapping video URLs).
+ *
+ * Legacy NTACT/ODEP starter lives in `wrt-seed-curriculum-legacy-ntact.ts` (not auto-loaded).
  */
 
 export type SeedBlock = {
@@ -40,248 +41,409 @@ const ODEP_COMMUNICATION_PDF =
   "https://www.dol.gov/sites/dolgov/files/odep/topics/youth/softskills/communication.pdf";
 const ODEP_TEAMWORK_PDF =
   "https://www.dol.gov/sites/dolgov/files/odep/topics/youth/softskills/teamwork.pdf";
-const ODEP_ENTHUSIASM_PDF =
-  "https://www.dol.gov/sites/dolgov/files/odep/topics/youth/softskills/enthusiasm.pdf";
 const ODEP_PROFESSIONALISM_PDF =
   "https://www.dol.gov/sites/dolgov/files/odep/topics/youth/softskills/professionalism.pdf";
 const ODEP_NETWORKING_PDF =
   "https://www.dol.gov/sites/dolgov/files/odep/topics/youth/softskills/networking.pdf";
 const ODEP_PROBLEM_PDF =
   "https://www.dol.gov/sites/dolgov/files/odep/topics/youth/softskills/problem.pdf";
-const CFPB_BUDGET =
-  "https://files.consumerfinance.gov/f/documents/cfpb_building_block_activities_budgeting.pdf";
+const CFPB_BUDGET = "https://files.consumerfinance.gov/f/documents/cfpb_building_block_activities_budgeting.pdf";
+const CDC_HANDWASHING = "https://www.cdc.gov/handwashing/pdf/handwashing-poster.pdf";
 const JAN_HOME = "https://askjan.org/";
-const SSA_WORK = "https://www.ssa.gov/redbook/";
+const EEOC_HARASSMENT = "https://www.eeoc.gov/youth/harassment";
 
-function quiz(title: string, questions: { q: string; options: string[]; answer: number }[]): SeedBlock {
-  return {
-    block_type: "quiz",
-    title,
-    meta: { questions },
-  };
+/** ODEP “Skills to Pay the Bills” — public workforce readiness series (swap anytime in admin). */
+const V_ODEP_COMM = "https://www.youtube.com/watch?v=X0voPlW2pSs";
+const V_ODEP_TEAM = "https://www.youtube.com/watch?v=sMFh9QYFh2I";
+const V_ODEP_ENTHUSIASM = "https://www.youtube.com/watch?v=-vk-99seC_I";
+const V_ODEP_PROF = "https://www.youtube.com/watch?v=7dPWVjQSad4";
+
+function quiz(
+  title: string,
+  questions: { q: string; options: string[]; answer: number }[]
+): SeedBlock {
+  return { block_type: "quiz", title, meta: { questions } };
+}
+
+const RURAL_URBAN_LINE =
+  "Where examples differ (MARTA vs. county dial-a-ride, busy retail vs. small employer), discuss both so clients recognize urban and rural settings.";
+
+function lessonPhases(opts: {
+  warmBody: string;
+  coreBody: string;
+  video?: { title: string; url: string };
+  appliedBody: string;
+  wrapBody: string;
+  printable?: { title: string; url: string };
+  extraBlocks?: SeedBlock[];
+}): SeedBlock[] {
+  const blocks: SeedBlock[] = [
+    {
+      block_type: "rich_text",
+      title: "Warm-Up / Anchor (~10 minutes)",
+      body: opts.warmBody,
+    },
+    {
+      block_type: "rich_text",
+      title: "Core Instruction (~15 minutes)",
+      body: opts.coreBody,
+    },
+  ];
+  if (opts.video) {
+    blocks.push({
+      block_type: "youtube",
+      title: opts.video.title,
+      url: opts.video.url,
+    });
+  }
+  blocks.push(
+    {
+      block_type: "rich_text",
+      title: "Applied Activity (~20 minutes)",
+      body: opts.appliedBody,
+    },
+    {
+      block_type: "activity",
+      title: "Facilitation notes for ES/TS",
+      body:
+        "Printable handouts below are optional — clients may write on paper while you advance slides on TV/tablet. For 1:1, you may type short notes into contact logs after the session.",
+    },
+    {
+      block_type: "rich_text",
+      title: "Wrap-Up / Formative check (~15 minutes)",
+      body: opts.wrapBody,
+    }
+  );
+  if (opts.printable) {
+    blocks.push({
+      block_type: "pdf_link",
+      title: opts.printable.title,
+      url: opts.printable.url,
+    });
+  }
+  if (opts.extraBlocks?.length) {
+    blocks.push(...opts.extraBlocks);
+  }
+  return blocks;
 }
 
 export const WRT_SEED_CURRICULUM: SeedModule[] = [
   {
-    slug: "social-skills",
-    title: "Social Skills",
+    slug: "gvra-u1-understanding-self",
+    title: "Unit 1 — Understanding Self, Strengths & Vocational Identity",
     description:
-      "Interpersonal and soft skills employers expect: communication, teamwork, professionalism, feedback, and workplace relationships (GVRA §6000; NTACT:C social/interpersonal domain).",
-    citations:
-      "NTACT:C Workplace Readiness Training; GVRA Provider Guidelines §6000; U.S. DOL ODEP Skills to Pay the Bills (free).",
+      "Personal strengths, navigating limitations with dignity, and informed choice for Georgia pathways (GVRA §6000.02: self-understanding, work attitudes, informed choice).",
+    citations: "GVRA Policy 6000.02 — Understanding of self & abilities; Work attitudes; Informed choice.",
     lessons: [
       {
-        slug: "communication-basics",
-        title: "Communication Basics",
+        slug: "u1-l1-discovering-strengths",
+        title: "Lesson 1.1 — Discovering My Personal Strengths and Talents",
         objectives:
-          "Identify clear spoken and written workplace communication; practice listening and checking for understanding.",
+          "Identify at least three personal strengths and two practical talents; connect one talent to a work task.",
         desired_outcomes:
-          "Participant can give a clear work update and restate instructions accurately.",
+          "Participant completes a strengths sort (paper or discussion) and states one strength linked to a job task.",
+        facilitator_notes: `60-minute flow. ${RURAL_URBAN_LINE} Group size up to 10 per GVRA 6000.01.`,
+        citations: "GVRA §6000.02 — Self-understanding & self-worth.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "Strengths Spotlight: show a relatable worker (stock clerk, warehouse associate, or front-desk role). Ask: What does this person do well? Say clearly: everyone has natural strengths even when school or past jobs were hard.",
+          coreBody:
+            "Teach **hard skills** (learned tasks like scanning, typing, using tools) vs **character strengths** (honest, patient, organized). Use plain language and examples from retail, food service, logistics, and small-town employers.",
+          video: { title: "Workplace communication & attitude (video model)", url: V_ODEP_COMM },
+          appliedBody:
+            "My Top 3 Strengths: use trait cards or a written list of ~20 workplace traits. Each participant picks three “power strengths” and pairs each with a concrete task (example: Detail-oriented → checking dates on stock).",
+          wrapBody:
+            "Exit ticket (write, dictate, or ES records): “One strength I bring to a Georgia employer is ___, which helps when doing ___.”",
+          printable: { title: "ODEP Soft Skills workbook (PDF, optional print)", url: ODEP_SOFT_SKILLS_PDF },
+          extraBlocks: [
+            quiz("Quick check", [
+              {
+                q: "A character strength is:",
+                options: [
+                  "Only a certificate from training",
+                  "A trait like honesty or patience that shows how you work with others",
+                  "The same as a hard skill",
+                ],
+                answer: 1,
+              },
+            ]),
+          ],
+        }),
+      },
+      {
+        slug: "u1-l2-functional-limitations",
+        title: "Lesson 1.2 — Navigating Functional Limitations with Pride",
+        objectives:
+          "Tell the difference between a limitation and personal failure; name two adaptive strategies for a real barrier.",
+        desired_outcomes:
+          "Participant names one barrier and one “bridge” (tool, request, or routine) they will use at work.",
         facilitator_notes:
-          "Open with a brief role-play (unclear vs clear request). Adult focus: supervisor check-ins, customer/coworker clarity. Pause after the ODEP video for discussion.",
-        citations: "ODEP Soft Skills — Communication (DOL YouTube + PDF).",
-        default_duration_minutes: 30,
-        blocks: [
-          {
-            block_type: "rich_text",
-            title: "Session focus",
-            body: "Clear communication is one of the top skills employers list. Today we practice saying what we mean, listening fully, and confirming understanding before acting.",
-          },
-          {
-            block_type: "youtube",
-            title: "ODEP Soft Skills — Communication",
-            url: "https://www.youtube.com/watch?v=X0voPlW2pSs",
-          },
-          {
-            block_type: "pdf_link",
-            title: "ODEP Communication activities (PDF)",
-            url: ODEP_COMMUNICATION_PDF,
-          },
-          {
-            block_type: "activity",
-            title: "Role-play: clarify the task",
-            body: "Pairs: one gives a vague work instruction; the other asks clarifying questions until they can repeat the task in their own words. Switch roles.",
-          },
-          quiz("Quick check", [
-            {
-              q: "What should you do if you do not understand a work instruction?",
-              options: [
-                "Guess and hope for the best",
-                "Ask clarifying questions and repeat the task back",
-                "Ignore it until someone notices",
-              ],
-              answer: 1,
-            },
-          ]),
-        ],
+          "Use “glasses for blurry vision” analogy — accommodations are normal. Avoid medical diagnosis talk unless the client brings it up.",
+        citations: "GVRA §6000.02 — Life patterns; healthy self-worth; coping with stereotypes.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "Ask: When vision is blurry, are glasses “cheating”? Connect: many workers use tools and supports — that is expected.",
+          coreBody:
+            "Explain **functional limitation** in plain words (energy, memory, sensory load, mobility) vs blaming the person. Reframe “I can’t” → “I do best when I have ___.”",
+          video: { title: "Professional attitude & resilience (video model)", url: V_ODEP_ENTHUSIASM },
+          appliedBody:
+            "Building the Bridge: match examples — memory fatigue → checklist; loud floor → quiet zone or approved ear protection per employer; mobility fatigue → pacing or rest breaks. Include rural jobs (longer walks on site, fewer transit options).",
+          wrapBody:
+            "Each participant identifies one limitation and writes or states their chosen bridge strategy.",
+          printable: { title: "ODEP Problem solving activities (PDF)", url: ODEP_PROBLEM_PDF },
+          extraBlocks: [
+            quiz("Quick check", [
+              {
+                q: "An accommodation at work is:",
+                options: [
+                  "A way to avoid work",
+                  "A tool or change that helps you meet job expectations",
+                  "Only for school, not jobs",
+                ],
+                answer: 1,
+              },
+            ]),
+          ],
+        }),
       },
       {
-        slug: "teamwork-cooperation",
-        title: "Teamwork and Cooperation",
-        objectives: "Describe how to share credit, ask for help, and support coworkers on a shared goal.",
-        desired_outcomes: "Participant names two teamwork behaviors they will use on the job.",
-        facilitator_notes: "Emphasize adult workplace teams (shifts, departments), not school group projects.",
-        citations: "ODEP Soft Skills — Teamwork.",
-        default_duration_minutes: 30,
-        blocks: [
-          {
-            block_type: "rich_text",
-            title: "Session focus",
-            body: "Most jobs require working with others. Good teammates communicate, share credit, and help the group meet deadlines.",
-          },
-          {
-            block_type: "youtube",
-            title: "ODEP Soft Skills — Teamwork",
-            url: "https://www.youtube.com/watch?v=sMFh9QYFh2I",
-          },
-          {
-            block_type: "pdf_link",
-            title: "ODEP Teamwork activities (PDF)",
-            url: ODEP_TEAMWORK_PDF,
-          },
-          {
-            block_type: "activity",
-            title: "Shared-credit practice",
-            body: "Discuss a time someone took all the credit. Rewrite the response to thank teammates by name.",
-          },
-          quiz("Quick check", [
-            {
-              q: "When praised for team work, a professional usually:",
-              options: [
-                "Accepts all credit alone",
-                "Shares credit with teammates",
-                "Leaves without responding",
-              ],
-              answer: 1,
-            },
-          ]),
-        ],
+        slug: "u1-l3-informed-choice-goals",
+        title: "Lesson 1.3 — Informed Choice and Setting Realistic Vocational Goals",
+        objectives:
+          "Compare two Georgia career pathways using tasks, setting, and schedule; rank interest using a simple scale.",
+        desired_outcomes:
+          "Participant picks one pathway and gives two reasons tied to their goals (not just pay).",
+        facilitator_notes:
+          "Use Would You Rather warm-up (indoor/outdoor, quiet/busy, talk vs. solo). Mention high-demand sectors in GA without promising placement.",
+        citations: "GVRA §6000.02 — Informed choice; work exploration.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "Would You Rather (workplace): sun vs. air conditioning; customers all day vs. sorting in back; fixed schedule vs. rotating shifts.",
+          coreBody:
+            "Informed choice = knowing tasks, demands on body and senses, typical schedule, and growth paths — then deciding what fits now.",
+          video: { title: "Teamwork & cooperation at work (video model)", url: V_ODEP_TEAM },
+          appliedBody:
+            "Career Match-Up: compare two fields (e.g., distribution/warehouse vs. hospitality housekeeping vs. local retail). Rate physical demands, social contact, schedule, personal interest (1–5 stars). Discuss rural commute vs. urban transit in the same lesson.",
+          wrapBody:
+            "Participant selects the better fit of the two and records two reasons (text or ES-entered note).",
+          printable: { title: "ODEP Networking & workplace relationships (PDF)", url: ODEP_NETWORKING_PDF },
+        }),
+      },
+    ],
+  },
+  {
+    slug: "gvra-u2-interpersonal-communication",
+    title: "Unit 2 — Interpersonal Skills & Professional Communication",
+    description:
+      "Verbal and non-verbal communication, listening for multi-step tasks, and tone by audience (GVRA §6000.02).",
+    citations: "GVRA Policy 6000.02 — Interpersonal skills; Appropriate communication methods.",
+    lessons: [
+      {
+        slug: "u2-l1-verbal-nonverbal",
+        title: "Lesson 2.1 — Verbal vs. Non-Verbal Workplace Communication",
+        objectives:
+          "Name four non-verbal cues; demonstrate a four-step professional greeting.",
+        desired_outcomes:
+          "Participant performs or records a short greeting with appropriate posture and volume.",
+        facilitator_notes:
+          "Demonstrate two entrances (closed vs. open body). Respect cultural differences around eye contact — offer “bridge of nose” alternative.",
+        citations: "GVRA §6000.02 — Communication methods; interpersonal skills.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "Contrast two entrances: slouch/mumble vs. upright/clear greeting. Which person would you want on the floor with customers?",
+          coreBody:
+            "Cover personal space (~arm’s length), facial expression, posture, and voice levels (whisper → floor voice → meeting voice).",
+          video: { title: "Communication basics (video model)", url: V_ODEP_COMM },
+          appliedBody:
+            "Professional Hello role-play: upright posture, comfortable eye contact or bridge-of-nose, neutral/warm face, script: “Good morning, [Name], how are you today?” Pairs or facilitator-led.",
+          wrapBody:
+            "Peer check or 10-second practice recording; simple rubric: posture, space, volume, face/eyes.",
+          printable: { title: "ODEP Communication activities (PDF)", url: ODEP_COMMUNICATION_PDF },
+        }),
       },
       {
-        slug: "professionalism-attitude",
-        title: "Professionalism and Workplace Attitude",
-        objectives: "Connect punctuality, initiative, and respectful tone to professionalism.",
-        desired_outcomes: "Participant lists three professionalism habits for their next workday or mock shift.",
-        facilitator_notes: "Pair ODEP enthusiasm and professionalism videos; keep examples adult (interviews, shifts).",
-        citations: "ODEP Soft Skills — Enthusiasm & Attitude; Professionalism.",
-        default_duration_minutes: 45,
+        slug: "u2-l2-active-listening",
+        title: "Lesson 2.2 — Active Listening and Following Multi-Step Instructions",
+        objectives:
+          "Use listen → write/picture → confirm to carry out a three-step work instruction.",
+        desired_outcomes:
+          "Participant repeats back three steps before starting, then completes the task.",
+        facilitator_notes:
+          "Workplace Telephone demo: one whisper chain to show message decay. Keep materials simple (folders, envelopes, bins).",
+        citations: "GVRA §6000.02 — Adaptive training; interpersonal skills.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "Short game: pass a verbal message around the group — show how it changes without write-backs.",
+          coreBody:
+            "Three-step listening: listen; jot a keyword or picture the steps; confirm — “Just to make sure: First ___, then ___, finally ___.”",
+          video: { title: "Teamwork & clear handoffs (video model)", url: V_ODEP_TEAM },
+          appliedBody:
+            "Multi-Step Challenge: Level 1 — two blue folders, stamp, side table. Level 2 — sort by date, staple corner, green bin. Client repeats steps before touching materials.",
+          wrapBody:
+            "Cold call: new three-step command. Track Mastered (3/3) vs. Needs reteaching.",
+          printable: { title: "ODEP Teamwork activities (PDF)", url: ODEP_TEAMWORK_PDF },
+          extraBlocks: [
+            quiz("Quick check", [
+              {
+                q: "Before you start a multi-step task, you should:",
+                options: [
+                  "Start quickly to look busy",
+                  "Repeat the steps in your own words to confirm",
+                  "Ignore details you did not hear",
+                ],
+                answer: 1,
+              },
+            ]),
+          ],
+        }),
+      },
+      {
+        slug: "u2-l3-audience-supervisor-peer-customer",
+        title: "Lesson 2.3 — Supervisors, Co-Workers, and Customers",
+        objectives:
+          "Choose appropriate tone and content for supervisor, peer, and customer situations.",
+        desired_outcomes:
+          "Participant sorts phrases into three audience buckets with 100% accuracy on supervisor items.",
+        facilitator_notes:
+          "Three Communication Zones — supervisor (concise, respectful), peer (friendly, work-focused), customer (patient, redirect when needed).",
+        citations: "GVRA §6000.02 — Communication; workplace behavior.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "Would you use the same tone with your best friend and with a manager giving a safety reminder?",
+          coreBody:
+            "Teach boundaries: supervisors need status updates; peers avoid private drama on the clock; customers need polite, on-task help.",
+          video: { title: "Professionalism on the job (video model)", url: V_ODEP_PROF },
+          appliedBody:
+            "Message Makeover: rewrite blunt lines into professional language for each audience (provide 4–6 examples).",
+          wrapBody:
+            "Sort six short phrases into Supervisor / Peer / Customer; require perfect supervisor bucket before ending.",
+          printable: { title: "ODEP Professionalism activities (PDF)", url: ODEP_PROFESSIONALISM_PDF },
+        }),
+      },
+    ],
+  },
+  {
+    slug: "gvra-u3-boundaries-professionalism",
+    title: "Unit 3 — Boundaries, Professionalism & Sexual Appropriateness",
+    description:
+      "Physical boundaries, safe topics, and harassment awareness with plain-language reporting (GVRA §6000.02).",
+    citations: "GVRA Policy 6000.02 — Sexual awareness & appropriateness; Interpersonal skills.",
+    lessons: [
+      {
+        slug: "u3-l1-personal-space",
+        title: "Lesson 3.1 — Personal Space and Physical Boundaries at Work",
+        objectives:
+          "State the handshake rule; identify impermissible workplace touch with 100% accuracy on scenarios.",
+        desired_outcomes:
+          "Participant places coworkers in the “work-appropriate” boundary and practices a respectful phrase if space feels too close.",
+        facilitator_notes:
+          "Use hula-hoop or arm’s-length demo. Be explicit about workplace rules without shaming.",
+        citations: "GVRA §6000.02 — Personal & social behaviors.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody: "Hula-hoop or rope circle: who should step inside at work, and when?",
+          coreBody:
+            "Appropriate: handshake, fist bump if employer allows, wave. Not appropriate: hugs, hair touch, blocking paths, standing inside personal bubble without reason.",
+          video: { title: "Professional boundaries & respect (video model)", url: V_ODEP_PROF },
+          appliedBody:
+            "Relationship circles: map self, family, friends, coworkers, public — stress coworkers are not the same as close friends. Script: “Please step back — I like a little space.”",
+          wrapBody:
+            "Five-question scenario check — all correct before pass; offer retake with support.",
+          printable: { title: "ODEP Soft Skills workbook (PDF)", url: ODEP_SOFT_SKILLS_PDF },
+        }),
+      },
+      {
+        slug: "u3-l2-safe-topics",
+        title: "Lesson 3.2 — Workplace-Appropriate Conversation Topics",
+        objectives:
+          "Classify examples into green-light (work-safe) vs red-light (private/off-limits) topics.",
+        desired_outcomes:
+          "Participant sorts 6–10 cards with rationale (weather vs. medical details, etc.).",
+        facilitator_notes:
+          "Water cooler examples: movies vs. dating life. Stay neutral — goal is comfort and safety for everyone.",
+        citations: "GVRA §6000.02 — Social appropriateness.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "Two snippets: favorite movie vs. probing personal relationship questions — which belongs at work?",
+          coreBody:
+            "Red-light examples: romantic/sexual content, graphic health, religion/politics debates, bank balances, gossip that tears people down. Green-light: weather, hobbies, sports, pets, work tasks.",
+          video: { title: "Communication & respect (video model)", url: V_ODEP_COMM },
+          appliedBody:
+            "Traffic-light sort: read prompts; clients hold green/red or call out — explain briefly.",
+          wrapBody:
+            "Independent sort of six written topics into Talk at work / Keep for home.",
+          printable: { title: "ODEP Communication activities (PDF)", url: ODEP_COMMUNICATION_PDF },
+          extraBlocks: [
+            quiz("Quick check", [
+              {
+                q: "Which is usually a work-safe small-talk topic?",
+                options: ["A coworker’s dating life", "Weekend plans in general", "Someone’s medical diagnosis"],
+                answer: 1,
+              },
+            ]),
+          ],
+        }),
+      },
+      {
+        slug: "u3-l3-harassment-stop-report",
+        title: "Lesson 3.3 — Recognizing and Responding to Sexual Harassment",
+        objectives:
+          "Name two examples of harassment; state Stop — Report — Tell a trusted adult/work leader; know who to tell.",
+        desired_outcomes:
+          "Participant completes a simple safety plan with supervisor/HR/coach contacts.",
+        facilitator_notes:
+          "Trauma-informed pace; allow breaks. Link to EEOC youth resource for definitions.",
+        citations: "GVRA §6000.02 — Rights & responsibilities; workplace safety.",
+        default_duration_minutes: 60,
         blocks: [
           {
             block_type: "rich_text",
-            title: "Session focus",
-            body: "Professionalism means responsibility, integrity, and doing what needs doing—even when no one asks. Attitude shows up in how you arrive, speak, and follow through.",
+            title: "Warm-Up / Anchor (~10 minutes)",
+            body:
+              "Comfortable vs. uncomfortable: body clues (knot in stomach, wanting to leave). Normalize seeking help.",
           },
           {
-            block_type: "youtube",
-            title: "ODEP Soft Skills — Enthusiasm and Attitude",
-            url: "https://www.youtube.com/watch?v=-vk-99seC_I",
+            block_type: "rich_text",
+            title: "Core Instruction (~15 minutes)",
+            body:
+              "Plain definition: unwelcome words, touches, or images of a sexual nature that make work feel unsafe. Examples: comments about body, repeated asks after “no,” sharing inappropriate photos. Protocol: clearly say stop if you can; move to a safe place; tell supervisor, HR, or GVRA/job coach. Link below is optional reading for facilitators/clients.",
           },
           {
-            block_type: "youtube",
-            title: "ODEP Soft Skills — Professionalism",
-            url: "https://www.youtube.com/watch?v=7dPWVjQSad4",
+            block_type: "external_link",
+            title: "EEOC — Harassment basics (reference)",
+            url: EEOC_HARASSMENT,
+          },
+          {
+            block_type: "rich_text",
+            title: "Applied Activity (~20 minutes)",
+            body:
+              "Complete “My Safety Plan” lines: trusted person at work, GVRA contact, words to say if uncomfortable. No requirement to disclose private details aloud.",
+          },
+          {
+            block_type: "rich_text",
+            title: "Wrap-Up / Formative check (~15 minutes)",
+            body:
+              "Exit: “If someone crossed a line, what are two steps you take?” Accept written, verbal, or ES-recorded answers.",
           },
           {
             block_type: "pdf_link",
-            title: "ODEP Professionalism activities (PDF)",
+            title: "ODEP Professionalism & workplace relationships (PDF)",
             url: ODEP_PROFESSIONALISM_PDF,
           },
-          {
-            block_type: "pdf_link",
-            title: "ODEP Enthusiasm activities (PDF)",
-            url: ODEP_ENTHUSIASM_PDF,
-          },
-          {
-            block_type: "activity",
-            title: "Interview contrast",
-            body: "Discuss the two interview styles from the enthusiasm video. List what the successful candidate did differently.",
-          },
           quiz("Quick check", [
             {
-              q: "Professionalism at work includes:",
+              q: "If harassment happens at work, you should:",
               options: [
-                "Only knowing the technical task",
-                "Responsibility, integrity, and productive habits",
-                "Avoiding coworkers",
-              ],
-              answer: 1,
-            },
-          ]),
-        ],
-      },
-      {
-        slug: "feedback-conflict",
-        title: "Accepting Feedback and Conflict Basics",
-        objectives: "Practice receiving constructive feedback without becoming defensive; name calm conflict steps.",
-        desired_outcomes: "Participant can role-play accepting one piece of feedback and stating a next step.",
-        facilitator_notes: "Keep conflict light and workplace-focused. De-escalate; do not role-play aggression.",
-        citations: "ODEP Soft Skills — Problem Solving; Joshua Tree original facilitator script.",
-        default_duration_minutes: 30,
-        blocks: [
-          {
-            block_type: "rich_text",
-            title: "Session focus",
-            body: "Feedback helps you keep a job. Pause, listen, ask one clarifying question, and state what you will try next. Conflict: stay calm, focus on the issue, suggest a fix.",
-          },
-          {
-            block_type: "pdf_link",
-            title: "ODEP Problem Solving activities (PDF)",
-            url: ODEP_PROBLEM_PDF,
-          },
-          {
-            block_type: "activity",
-            title: "Feedback sandwich role-play",
-            body: "Facilitator gives mild constructive feedback. Participant practices: listen → clarify → commit to one change.",
-          },
-          quiz("Quick check", [
-            {
-              q: "A helpful first response to workplace feedback is:",
-              options: [
-                "Argue immediately",
-                "Listen, clarify, and state a next step",
-                "Quit the conversation",
-              ],
-              answer: 1,
-            },
-          ]),
-        ],
-      },
-      {
-        slug: "workplace-relationships",
-        title: "Networking and Workplace Relationships",
-        objectives: "Describe professional networking as building helpful work relationships (not only job hunting).",
-        desired_outcomes: "Participant identifies three people or places they can network with respectfully.",
-        facilitator_notes: "Adult angle: coworkers, supervisors, community partners, VR counselor—not only social media.",
-        citations: "ODEP Soft Skills — Networking.",
-        default_duration_minutes: 30,
-        blocks: [
-          {
-            block_type: "rich_text",
-            title: "Session focus",
-            body: "Networking means building respectful relationships that support career goals—coworkers, supervisors, mentors, and community contacts.",
-          },
-          {
-            block_type: "pdf_link",
-            title: "ODEP Networking activities (PDF)",
-            url: ODEP_NETWORKING_PDF,
-          },
-          {
-            block_type: "pdf_link",
-            title: "Full ODEP Soft Skills curriculum (PDF)",
-            url: ODEP_SOFT_SKILLS_PDF,
-          },
-          {
-            block_type: "activity",
-            title: "30-second introduction",
-            body: "Practice a brief professional introduction: name, strength, and what kind of work you are preparing for.",
-          },
-          quiz("Quick check", [
-            {
-              q: "Workplace networking is mainly about:",
-              options: [
-                "Collecting as many phone numbers as possible",
-                "Building respectful relationships that support work goals",
-                "Avoiding supervisors",
+                "Stay silent so you do not make waves",
+                "Tell a trusted supervisor, HR, or your job coach",
+                "Only tell friends on social media",
               ],
               answer: 1,
             },
@@ -291,599 +453,569 @@ export const WRT_SEED_CURRICULUM: SeedModule[] = [
     ],
   },
   {
-    slug: "independent-living",
-    title: "Independent Living",
+    slug: "gvra-u4-grooming-hygiene",
+    title: "Unit 4 — Grooming, Hygiene & Workplace Presentation",
     description:
-      "Skills that support showing up ready to work: time, presentation, transportation, health routines, and problem-solving (GVRA §6000).",
-    citations: "GVRA §6000; NTACT:C independent living skills; JAN (askjan.org).",
+      "Daily hygiene, dress codes by sector, and on-the-clock routines (GVRA §6000.02).",
+    citations: "GVRA Policy 6000.02 — Grooming & hygiene; Workplace habits.",
     lessons: [
       {
-        slug: "time-management-punctuality",
-        title: "Time Management and Punctuality",
-        objectives: "Build a realistic morning-to-work plan; identify buffers for transit delays.",
-        desired_outcomes: "Participant writes a personal arrival plan with a buffer.",
-        facilitator_notes: "Use the participant’s real schedule (transit, childcare, medication) when possible.",
-        citations: "Joshua Tree original; ODEP professionalism themes.",
-        default_duration_minutes: 30,
-        blocks: [
-          {
-            block_type: "rich_text",
-            title: "Session focus",
-            body: "Employers expect reliable arrival. Plan backward from start time, add a buffer, and know who to contact if you will be late.",
-          },
-          {
-            block_type: "activity",
-            title: "Backward schedule",
-            body: "From shift start time, list wake, leave home, transit, and arrival buffer. Identify one risk and a backup plan.",
-          },
-          {
-            block_type: "pdf_link",
-            title: "ODEP Professionalism activities (PDF)",
-            url: ODEP_PROFESSIONALISM_PDF,
-          },
-          quiz("Quick check", [
-            {
-              q: "If you may be late to work, you should:",
-              options: [
-                "Say nothing and hope no one notices",
-                "Contact your supervisor as soon as you know",
-                "Make up a story later",
-              ],
-              answer: 1,
-            },
-          ]),
-        ],
-      },
-      {
-        slug: "presentation-hygiene",
-        title: "Personal Presentation and Hygiene for Work",
-        objectives: "Connect grooming and dress to employer expectations for the participant’s target job types.",
-        desired_outcomes: "Participant lists a personal work-ready checklist.",
-        facilitator_notes: "Be respectful and concrete. Match dress to actual local job types (retail, warehouse, office, food service).",
-        citations: "GVRA §6000 grooming/hygiene; Joshua Tree original.",
-        default_duration_minutes: 30,
-        blocks: [
-          {
-            block_type: "rich_text",
-            title: "Session focus",
-            body: "Presentation signals readiness. Clean clothes appropriate to the job, basic hygiene, and following any uniform or safety gear rules.",
-          },
-          {
-            block_type: "activity",
-            title: "Work-ready checklist",
-            body: "Create a nightly and morning checklist (clothes, hygiene, ID/badge, lunch, transit card/keys).",
-          },
-          quiz("Quick check", [
-            {
-              q: "Work presentation should be based on:",
-              options: [
-                "Whatever is most comfortable only",
-                "Employer and job-site expectations",
-                "Ignoring dress codes",
-              ],
-              answer: 1,
-            },
-          ]),
-        ],
-      },
-      {
-        slug: "transportation-to-work",
-        title: "Transportation and Getting to Work",
-        objectives: "Identify reliable ways to get to work and backup options.",
-        desired_outcomes: "Participant documents primary and backup transportation.",
-        facilitator_notes: "Include paratransit, family, rideshare budget limits, walking, bike—whatever is realistic locally.",
-        citations: "GVRA §6000 travel training; Joshua Tree original.",
-        default_duration_minutes: 30,
-        blocks: [
-          {
-            block_type: "rich_text",
-            title: "Session focus",
-            body: "Getting to work reliably is part of employability. Know your primary route, timing, cost, and what you will do if that option fails.",
-          },
-          {
-            block_type: "activity",
-            title: "Route card",
-            body: "Fill in: primary mode, leave-by time, travel time, cost, backup mode, who to call if stuck.",
-          },
-          quiz("Quick check", [
-            {
-              q: "A strong transportation plan includes:",
-              options: [
-                "Only one option with no backup",
-                "A primary plan and at least one backup",
-                "Relying on coworkers every day",
-              ],
-              answer: 1,
-            },
-          ]),
-        ],
-      },
-      {
-        slug: "health-routines-work",
-        title: "Health and Routines That Support Employment",
-        objectives: "Link sleep, medication routines, and breaks to reliable work performance.",
-        desired_outcomes: "Participant names one health routine that supports showing up ready.",
-        facilitator_notes: "Do not provide medical advice. Encourage coordination with treating providers and VR counselor as needed.",
-        citations: "GVRA §6000 health/medicine management (awareness); Joshua Tree original.",
-        default_duration_minutes: 30,
-        blocks: [
-          {
-            block_type: "rich_text",
-            title: "Session focus",
-            body: "Sleep, medication timing (as prescribed), meals, and planned breaks help you stay focused and reliable. This is planning—not medical advice.",
-          },
-          {
-            block_type: "activity",
-            title: "Work-support routine",
-            body: "List evening and morning habits that help the next workday. Note any accommodation conversation to have with a counselor or employer later.",
-          },
-          quiz("Quick check", [
-            {
-              q: "If medication timing affects your workday, you should:",
-              options: [
-                "Change doses without asking anyone",
-                "Coordinate with your provider and discuss workplace needs with your counselor as appropriate",
-                "Skip doses on workdays",
-              ],
-              answer: 1,
-            },
-          ]),
-        ],
-      },
-      {
-        slug: "problem-solving-help",
-        title: "Problem-Solving and Asking for Help",
-        objectives: "Practice naming a barrier, trying a step, and knowing when to ask for help or accommodations.",
-        desired_outcomes: "Participant can describe one workplace problem and who they would ask for help.",
-        facilitator_notes: "Introduce JAN as a free public resource for accommodation ideas—not a substitute for employer interactive process.",
-        citations: "ODEP Problem Solving PDF; Job Accommodation Network (askjan.org).",
-        default_duration_minutes: 30,
-        blocks: [
-          {
-            block_type: "rich_text",
-            title: "Session focus",
-            body: "At work, try a reasonable step, then ask early—supervisor, coworker, or counselor—before a small issue becomes a crisis.",
-          },
-          {
-            block_type: "pdf_link",
-            title: "ODEP Problem Solving activities (PDF)",
-            url: ODEP_PROBLEM_PDF,
-          },
-          {
-            block_type: "external_link",
-            title: "Job Accommodation Network (JAN)",
-            url: JAN_HOME,
-            body: "Free public guidance on workplace accommodations.",
-          },
-          {
-            block_type: "activity",
-            title: "Barrier → step → ask",
-            body: "Pick a real or sample barrier. Write: (1) the problem, (2) one step you can try, (3) who you ask if stuck.",
-          },
-          quiz("Quick check", [
-            {
-              q: "Asking for help at work is:",
-              options: [
-                "Always a sign of failure",
-                "A professional skill when used appropriately",
-                "Only allowed after you are fired",
-              ],
-              answer: 1,
-            },
-          ]),
-        ],
-      },
-    ],
-  },
-  {
-    slug: "financial-literacy",
-    title: "Financial Literacy",
-    description:
-      "Foundational money skills for working adults: earning, budgeting, banking, credit awareness, and benefits overview (NTACT:C / GVRA financial literacy).",
-    citations: "CFPB free consumer materials; SSA Red Book (public); Joshua Tree original facilitator plans.",
-    lessons: [
-      {
-        slug: "earning-pay",
-        title: "Earning and Understanding Pay",
-        objectives: "Identify gross vs net pay and common paycheck deductions at a high level.",
-        desired_outcomes: "Participant can explain the difference between gross and take-home pay.",
-        facilitator_notes: "Use a sample stub (no real SSNs). Keep tax detail high-level.",
-        citations: "Joshua Tree original; CFPB consumer education.",
-        default_duration_minutes: 30,
-        blocks: [
-          {
-            block_type: "rich_text",
-            title: "Session focus",
-            body: "Gross pay is before deductions. Net (take-home) is what you receive after taxes and other withholdings. Knowing the difference helps you budget.",
-          },
-          {
-            block_type: "activity",
-            title: "Sample stub review",
-            body: "Review a fictional paycheck. Circle gross, net, and one deduction. Discuss why net is lower.",
-          },
-          quiz("Quick check", [
-            {
-              q: "Take-home (net) pay is usually:",
-              options: [
-                "Higher than gross pay",
-                "Lower than gross pay after deductions",
-                "The same as gross pay",
-              ],
-              answer: 1,
-            },
-          ]),
-        ],
-      },
-      {
-        slug: "budgeting-basics",
-        title: "Budgeting Basics",
-        objectives: "Build a simple monthly budget with needs, wants, and savings.",
-        desired_outcomes: "Participant drafts a one-month needs/wants/savings sketch.",
-        facilitator_notes: "Use CFPB free budgeting PDF activities as optional handouts.",
-        citations: "CFPB Building Block budgeting PDF (free).",
-        default_duration_minutes: 45,
-        blocks: [
-          {
-            block_type: "rich_text",
-            title: "Session focus",
-            body: "A budget matches income to expenses. Start with needs (housing, food, transport), then wants, then a small savings or buffer if possible.",
-          },
-          {
-            block_type: "pdf_link",
-            title: "CFPB budgeting activities (PDF)",
-            url: CFPB_BUDGET,
-          },
-          {
-            block_type: "activity",
-            title: "Needs / wants / buffer",
-            body: "List monthly income estimate, three needs, two wants, and one buffer goal (even a small amount).",
-          },
-          quiz("Quick check", [
-            {
-              q: "In a basic budget, you should usually plan:",
-              options: [
-                "Wants before needs",
-                "Needs first, then wants and a buffer if possible",
-                "Only entertainment",
-              ],
-              answer: 1,
-            },
-          ]),
-        ],
-      },
-      {
-        slug: "banking-accounts",
-        title: "Banking and Accounts",
-        objectives: "Compare checking vs savings at a basic level; list safe banking habits.",
-        desired_outcomes: "Participant names one safe habit for debit/ATM use.",
-        facilitator_notes: "Do not recommend specific banks. Discuss fees and overdrafts generally.",
-        citations: "Joshua Tree original; CFPB consumer banking education (public).",
-        default_duration_minutes: 30,
-        blocks: [
-          {
-            block_type: "rich_text",
-            title: "Session focus",
-            body: "Checking is for everyday spending. Savings is for goals and emergencies. Protect PINs, review statements, and watch for fees.",
-          },
-          {
-            block_type: "activity",
-            title: "Account match",
-            body: "Sort sample transactions into checking vs savings use cases. Discuss one fee to avoid.",
-          },
-          quiz("Quick check", [
-            {
-              q: "A PIN should be:",
-              options: [
-                "Shared with coworkers",
-                "Kept private",
-                "Written on your debit card",
-              ],
-              answer: 1,
-            },
-          ]),
-        ],
-      },
-      {
-        slug: "credit-debt-awareness",
-        title: "Credit and Debt Awareness",
-        objectives: "Explain what credit is and why high-interest debt can grow quickly.",
-        desired_outcomes: "Participant can name one risk of unpaid high-interest debt.",
-        facilitator_notes: "Awareness only—not credit counseling. Refer complex situations to appropriate counselors.",
-        citations: "Joshua Tree original; CFPB public consumer credit education.",
-        default_duration_minutes: 30,
-        blocks: [
-          {
-            block_type: "rich_text",
-            title: "Session focus",
-            body: "Credit lets you borrow and repay. Interest is the cost of borrowing. Missing payments can damage credit and increase what you owe.",
-          },
-          {
-            block_type: "activity",
-            title: "Interest illustration",
-            body: "Using a simple example ($100 at a high APR unpaid), discuss how balances can grow. Emphasize paying on time when you use credit.",
-          },
-          quiz("Quick check", [
-            {
-              q: "Paying credit bills on time generally:",
-              options: [
-                "Harms your credit",
-                "Helps your credit history",
-                "Has no effect",
-              ],
-              answer: 1,
-            },
-          ]),
-        ],
-      },
-      {
-        slug: "benefits-work-overview",
-        title: "Benefits and Work — Overview",
-        objectives: "Know that working can affect benefits and that personalized advice requires a qualified counselor.",
-        desired_outcomes: "Participant knows to ask a benefits counselor / VR counselor before major work changes.",
-        facilitator_notes:
-          "Do not give individualized benefits advice. Point to SSA Red Book as public reference and refer to Benefits Counseling as appropriate.",
-        citations: "SSA Red Book (public); Joshua Tree original facilitator script.",
-        default_duration_minutes: 30,
-        blocks: [
-          {
-            block_type: "rich_text",
-            title: "Session focus",
-            body: "Work income can interact with disability benefits. Rules are individual. Use public references for awareness and talk with a qualified counselor before decisions.",
-          },
-          {
-            block_type: "external_link",
-            title: "SSA Red Book (public)",
-            url: SSA_WORK,
-            body: "Social Security’s public guide to work incentives.",
-          },
-          {
-            block_type: "activity",
-            title: "Questions list",
-            body: "Write three questions to ask a VR or benefits counselor about working while receiving benefits.",
-          },
-          quiz("Quick check", [
-            {
-              q: "Before making big work decisions that may affect benefits, you should:",
-              options: [
-                "Guess based on a friend’s experience",
-                "Ask a qualified counselor and use trusted public resources",
-                "Stop benefits yourself without guidance",
-              ],
-              answer: 1,
-            },
-          ]),
-        ],
-      },
-    ],
-  },
-  {
-    slug: "job-readiness",
-    title: "Job Readiness",
-    description:
-      "Employer expectations, applications, interviews, rights/responsibilities, and a personal job-search plan (NTACT:C job-seeking / GVRA §6000).",
-    citations: "NTACT:C Workplace Readiness; ODEP Soft Skills; JAN; Joshua Tree original.",
-    lessons: [
-      {
-        slug: "employer-expectations",
-        title: "Employer Expectations and Work Culture",
-        objectives: "List common employer expectations (attendance, quality, teamwork, safety).",
-        desired_outcomes: "Participant ranks which expectations they need most practice on.",
-        facilitator_notes: "Connect back to Social Skills module as needed.",
-        citations: "ODEP Soft Skills curriculum (free PDF).",
-        default_duration_minutes: 30,
-        blocks: [
-          {
-            block_type: "rich_text",
-            title: "Session focus",
-            body: "Employers look for reliability, quality work, following safety rules, and getting along with others—across almost every job.",
-          },
-          {
-            block_type: "pdf_link",
-            title: "ODEP Soft Skills curriculum (PDF)",
-            url: ODEP_SOFT_SKILLS_PDF,
-          },
-          {
-            block_type: "activity",
-            title: "Expectation ranking",
-            body: "Rank attendance, quality, teamwork, safety, and communication from strongest to needs practice. Pick one practice goal.",
-          },
-          quiz("Quick check", [
-            {
-              q: "Showing up on time is:",
-              options: [
-                "Optional if you work hard later",
-                "A core employer expectation",
-                "Only important in office jobs",
-              ],
-              answer: 1,
-            },
-          ]),
-        ],
-      },
-      {
-        slug: "applications-resumes",
-        title: "Applications and Resumes Intro",
-        objectives: "Gather key application facts and draft a simple resume outline.",
-        desired_outcomes: "Participant completes a fact sheet (contacts, work/volunteer history, skills).",
-        facilitator_notes: "Keep literacy supports ready. Focus on honesty and completeness.",
-        citations: "Joshua Tree original facilitator plan.",
-        default_duration_minutes: 45,
-        blocks: [
-          {
-            block_type: "rich_text",
-            title: "Session focus",
-            body: "Applications and resumes tell your story: contact info, experience, skills, and availability. Accuracy matters.",
-          },
-          {
-            block_type: "activity",
-            title: "Fact sheet",
-            body: "Fill: phone/email, work or volunteer history, three skills, availability, references plan.",
-          },
-          quiz("Quick check", [
-            {
-              q: "On applications you should:",
-              options: [
-                "Invent experience to look better",
-                "Provide accurate information",
-                "Leave contact info blank",
-              ],
-              answer: 1,
-            },
-          ]),
-        ],
-      },
-      {
-        slug: "interview-skills",
-        title: "Interview Skills",
-        objectives: "Practice a professional introduction and common interview questions.",
-        desired_outcomes: "Participant completes a mock interview with feedback.",
-        facilitator_notes: "Reuse ODEP enthusiasm video themes (arrive on time, positive tone).",
-        citations: "ODEP Soft Skills — Enthusiasm & Attitude video.",
-        default_duration_minutes: 45,
-        blocks: [
-          {
-            block_type: "rich_text",
-            title: "Session focus",
-            body: "Interviews show preparation, attitude, and fit. Arrive early, dress for the job, and practice short clear answers.",
-          },
-          {
-            block_type: "youtube",
-            title: "ODEP Soft Skills — Enthusiasm and Attitude",
-            url: "https://www.youtube.com/watch?v=-vk-99seC_I",
-          },
-          {
-            block_type: "activity",
-            title: "Mock interview",
-            body: "Three questions: Tell me about yourself; What is a strength?; When could you start? Give brief feedback.",
-          },
-          quiz("Quick check", [
-            {
-              q: "For interviews, it helps to:",
-              options: [
-                "Arrive late so you seem busy",
-                "Arrive on time and prepare short answers",
-                "Avoid eye contact always",
-              ],
-              answer: 1,
-            },
-          ]),
-        ],
-      },
-      {
-        slug: "rights-responsibilities",
-        title: "Workplace Rights, Responsibilities, and Disclosure Basics",
-        objectives: "Distinguish employee responsibilities from basic rights; introduce disclosure as a personal decision.",
-        desired_outcomes: "Participant can state one responsibility and one right, and when they might talk with a counselor about disclosure.",
-        facilitator_notes:
-          "Do not pressure disclosure. Use JAN as a free public accommodations resource. Refer legal questions to appropriate professionals.",
-        citations: "JAN (askjan.org); Joshua Tree original.",
-        default_duration_minutes: 30,
-        blocks: [
-          {
-            block_type: "rich_text",
-            title: "Session focus",
-            body: "Workers have responsibilities (safety, honesty, following policies) and rights (fair treatment, requesting accommodations through proper channels). Disability disclosure is personal—discuss with your counselor.",
-          },
-          {
-            block_type: "external_link",
-            title: "Job Accommodation Network",
-            url: JAN_HOME,
-          },
-          {
-            block_type: "activity",
-            title: "Rights vs responsibilities sort",
-            body: "Sort sample statements into rights, responsibilities, or ask-a-counselor.",
-          },
-          quiz("Quick check", [
-            {
-              q: "Disability disclosure at work is:",
-              options: [
-                "Always required on day one for every job",
-                "A personal decision to discuss with trusted counselors as needed",
-                "Never allowed",
-              ],
-              answer: 1,
-            },
-          ]),
-        ],
-      },
-      {
-        slug: "job-search-plan",
-        title: "Job Search Plan and Next Steps",
-        objectives: "Build a simple weekly job-search plan with measurable steps.",
-        desired_outcomes: "Participant leaves with a one-week action plan.",
-        facilitator_notes: "Align steps with VR counselor goals when applicable. This module is readiness—not a hire guarantee.",
-        citations: "Joshua Tree original facilitator plan.",
-        default_duration_minutes: 30,
-        blocks: [
-          {
-            block_type: "rich_text",
-            title: "Session focus",
-            body: "A job search plan turns goals into weekly actions: applications, follow-ups, skill practice, and meetings with your specialist or counselor.",
-          },
-          {
-            block_type: "activity",
-            title: "One-week plan",
-            body: "Write 3–5 concrete steps for the next week (who, what, when). Include one follow-up.",
-          },
-          quiz("Quick check", [
-            {
-              q: "A useful job-search plan includes:",
-              options: [
-                "Vague hopes only",
-                "Specific weekly actions and follow-ups",
-                "Waiting without applying",
-              ],
-              answer: 1,
-            },
-          ]),
-        ],
-      },
-    ],
-  },
-  {
-    slug: "optional-workplace-appropriateness",
-    title: "Workplace Appropriateness (Optional)",
-    description:
-      "Optional module: careful discussion of professional boundaries and workplace-appropriate behavior (GVRA §6000 sexual awareness/appropriateness). Assign only when clinically and culturally appropriate.",
-    citations: "GVRA §6000; Joshua Tree original facilitator guidance.",
-    is_optional: true,
-    lessons: [
-      {
-        slug: "workplace-boundaries",
-        title: "Professional Boundaries and Workplace Appropriateness",
+        slug: "u4-l1-daily-hygiene",
+        title: "Lesson 4.1 — Daily Personal Hygiene Routines for Work",
         objectives:
-          "Identify professional vs personal topics at work; practice respectful boundaries; know when to seek support.",
+          "Build a six-step morning hygiene sequence appropriate to sensory needs and job type.",
         desired_outcomes:
-          "Participant can name examples of workplace-appropriate vs inappropriate comments/behavior and who to tell if uncomfortable.",
+          "Participant orders steps correctly and completes a one-day self-check.",
         facilitator_notes:
-          "OPTIONAL. Use a calm, respectful tone. No graphic content. Focus on consent for touch, jokes, dating coworkers, and reporting harassment. Stop if the participant is distressed; involve supervisor/clinical supports as needed. Do not mix with group unless all attendees are appropriate for the topic.",
-        citations: "GVRA §6000; Joshua Tree original.",
-        default_duration_minutes: 30,
-        is_optional: true,
-        blocks: [
-          {
-            block_type: "rich_text",
-            title: "Session focus",
-            body: "Workplaces expect respectful boundaries: appropriate language, no unwanted comments about bodies or dating, and consent for any physical contact. If someone makes you uncomfortable, tell a supervisor, HR, or your specialist.",
-          },
-          {
-            block_type: "activity",
-            title: "Appropriate / not appropriate",
-            body: "Sort sample situations (handshake vs hug without asking; work compliment vs personal comment; asking a coworker out after they said no). Discuss safer choices.",
-          },
-          quiz("Quick check", [
-            {
-              q: "If a coworker’s comments make you uncomfortable, you should:",
-              options: [
-                "Ignore serious discomfort forever",
-                "Tell a supervisor, HR, or trusted specialist",
-                "Respond with similar comments",
-              ],
-              answer: 1,
-            },
-          ]),
-        ],
+          "Discuss scent sensitivity — unscented products. Avoid shaming; focus on job expectations.",
+        citations: "GVRA §6000.02 — Grooming & hygiene.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "Sensory impact in tight spaces — kitchens, small offices, shared vehicles to work.",
+          coreBody:
+            "Daily bathing, deodorant, oral care, clean clothes, hair care; perfume/cologne do not replace hygiene and may trigger allergies.",
+          video: { title: "Professionalism & attitude (video model)", url: V_ODEP_ENTHUSIASM },
+          appliedBody:
+            "Sequence strips: shower, deodorant, teeth, clean clothes, hair comb, hand wash — personalize morning vs. night shower.",
+          wrapBody:
+            "Self-audit checklist for tomorrow’s shift (yes/no prompts).",
+          printable: { title: "CDC handwashing poster (PDF)", url: CDC_HANDWASHING },
+        }),
+      },
+      {
+        slug: "u4-l2-dress-codes-ppe",
+        title: "Lesson 4.2 — Dress Codes, Uniforms & Safety Gear",
+        objectives:
+          "Match attire and PPE to food service, warehouse/trade, and office/customer settings.",
+        desired_outcomes:
+          "Participant completes a matching worksheet for six roles.",
+        facilitator_notes:
+          "Bring or show photos of clean vs. stained clothes; closed-toe shoes; hair restraints.",
+        citations: "GVRA §6000.02 — Presentation; safety.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "Compare photos: flip-flops and graphics vs. closed-toe shoes and neat polo — who is ready for warehouse or kitchen?",
+          coreBody:
+            "Three common codes: safety-first (boots, hi-vis), hospitality/retail uniform, business casual. Garments must be clean, fit, and job-appropriate.",
+          video: { title: "Professionalism on the job (video model)", url: V_ODEP_PROF },
+          appliedBody:
+            "PPE touch table if available: safety glasses, hairnet, non-slip shoe talk-through.",
+          wrapBody:
+            "Match six roles to required clothing/PPE.",
+          printable: { title: "ODEP Professionalism (PDF)", url: ODEP_PROFESSIONALISM_PDF },
+        }),
+      },
+      {
+        slug: "u4-l3-hygiene-on-the-clock",
+        title: "Lesson 4.3 — Hygiene Maintenance During the Shift",
+        objectives:
+          "List handwashing moments; pack a small ‘fresh kit’ for long shifts.",
+        desired_outcomes:
+          "Participant lists three wash moments and two items for a personal kit.",
+        facilitator_notes:
+          "Include rural/long-shift reality — fewer stores nearby, plan ahead.",
+        citations: "GVRA §6000.02 — Personal & social skills.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "Glitter/germ analogy: hands transfer to food, screens, customers.",
+          coreBody:
+            "Wash after restroom, breaks/eating, before tasks touching food or shared tools. Brief mirror check before floor return.",
+          video: { title: "Teamwork & customer-facing roles (video model)", url: V_ODEP_TEAM },
+          appliedBody:
+            "Build a Fresh Kit: travel toothbrush, floss picks, wipes, comb, mints (policy on gum per employer). Practice 20-second wash timing.",
+          wrapBody:
+            "Exit: name three handwash moments on shift.",
+          printable: { title: "CDC handwashing poster (PDF)", url: CDC_HANDWASHING },
+        }),
+      },
+    ],
+  },
+  {
+    slug: "gvra-u5-mobility-travel",
+    title: "Unit 5 — Community Mobility & Travel Training",
+    description:
+      "Reading schedules, safe pedestrian habits, delay protocols — Metro Atlanta and rural Georgia (GVRA §6000.02).",
+    citations: "GVRA Policy 6000.02 — Travel training; Ambulation & environment.",
+    lessons: [
+      {
+        slug: "u5-l1-transit-basics",
+        title: "Lesson 5.1 — Transit Basics in Georgia (Urban & Rural)",
+        objectives:
+          "Find route numbers, direction of travel, and transfer points on a simple map or timetable.",
+        desired_outcomes:
+          "Participant traces A→B with one transfer on a sample map (MARTA and/or county rural flex).",
+        facilitator_notes:
+          "If local maps are available, substitute. Discuss Breeze card vs. cash; paratransit booking windows in rural areas.",
+        citations: "GVRA §6000.02 — Travel training.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "Brainstorm ways workers arrive without driving: bus, rail, vanpool, coworker ride, bike/walk.",
+          coreBody:
+            "Read route number, direction, major stops, Sunday schedules vs. weekday. Urban: rail + bus transfers. Rural: dial-a-ride, deviated fixed-route, fewer runs — plan buffer time.",
+          video: { title: "Clear communication in fast environments (video model)", url: V_ODEP_COMM },
+          appliedBody:
+            "Map exercise: label boarding stop, transfer, arrival; compare travel time urban vs. rural trip example in lesson notes.",
+          wrapBody:
+            "Exit: write route number and target arrival time for a sample schedule question.",
+          printable: { title: "ODEP Problem solving (PDF) — backup planning", url: ODEP_PROBLEM_PDF },
+        }),
+      },
+      {
+        slug: "u5-l2-pedestrian-safety",
+        title: "Lesson 5.2 — Safe Walking, Signals, and Awareness",
+        objectives:
+          "Name five pedestrian rules; spot hazards in a described street scene.",
+        desired_outcomes:
+          "Participant scores 4/4 on a short signal quiz.",
+        facilitator_notes:
+          "Discuss headphones volume, crosswalk countdown, stranger-distance on transit platforms.",
+        citations: "GVRA §6000.02 — Ambulation & safety.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "What can go wrong walking while distracted?",
+          coreBody:
+            "Left-right-left, use crosswalks, wait for walk signal, stand behind platform line, keep belongings secure.",
+          video: { title: "Professional habits & attentiveness (video model)", url: V_ODEP_PROF },
+          appliedBody:
+            "Hazard hunt on a printed or described transit plaza — circle unsafe behaviors.",
+          wrapBody:
+            "Four-question picture/text quiz on signals.",
+          printable: { title: "ODEP Soft Skills workbook (PDF)", url: ODEP_SOFT_SKILLS_PDF },
+        }),
+      },
+      {
+        slug: "u5-l3-delays-emergencies",
+        title: "Lesson 5.3 — Delays, Missed Stops & Emergencies",
+        objectives:
+          "Follow Calm Commuter steps for late arrival; know who to call when lost.",
+        desired_outcomes:
+          "Participant delivers a late-arrival script with reason and ETA.",
+        facilitator_notes:
+          "Stress calling supervisor as soon as you know — many GA jobs require 15+ minutes notice when possible.",
+        citations: "GVRA §6000.02 — Problem solving; routine changes.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "Bus late 20 minutes; shift in 10 — panic or plan?",
+          coreBody:
+            "Four steps: breathe/assess → check app or ask driver → call supervisor with ETA → stay visible/safe; add job coach/GVRA if truly lost.",
+          video: { title: "Teamwork under pressure (video model)", url: V_ODEP_TEAM },
+          appliedBody:
+            "Role-play late-arrival call to supervisor using a script card.",
+          wrapBody:
+            "Repeat script including apology and ETA.",
+          printable: { title: "ODEP Problem solving (PDF)", url: ODEP_PROBLEM_PDF },
+        }),
+      },
+    ],
+  },
+  {
+    slug: "gvra-u6-problem-solving",
+    title: "Unit 6 — Workplace Problem Solving, Decisions & Coping",
+    description:
+      "S.T.O.P. framework, receiving feedback, and de-escalation for schedule changes (GVRA §6000.02).",
+    citations: "GVRA Policy 6000.02 — Decision making; Coping & supervision.",
+    lessons: [
+      {
+        slug: "u6-l1-stop-model",
+        title: "Lesson 6.1 — The S.T.O.P. Workplace Problem-Solving Model",
+        objectives:
+          "Apply Stop → Think → Options → Proceed to three common workplace snags.",
+        desired_outcomes:
+          "Participant writes options + chosen proceed for one scenario card.",
+        facilitator_notes:
+          "Use low-stakes props (pens on floor) for the warm-up spill story.",
+        citations: "GVRA §6000.02 — Problem solving.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "Pens scatter before a customer — freeze vs. grab broom/ask teammate.",
+          coreBody:
+            "S.T.O.P.: pause, name problem, list two realistic options, pick the professional one.",
+          video: { title: "Problem solving habits (video context)", url: V_ODEP_TEAM },
+          appliedBody:
+            "Scenario lab: receipt paper empty; lunch mix-up; spill on paperwork — small groups fill S.T.O.P. grid.",
+          wrapBody:
+            "Individual pick: one card, write Option + Proceed.",
+          printable: { title: "ODEP Problem solving (PDF)", url: ODEP_PROBLEM_PDF },
+        }),
+      },
+      {
+        slug: "u6-l2-constructive-feedback",
+        title: "Lesson 6.2 — Handling Constructive Feedback and Supervision",
+        objectives:
+          "Tell feedback apart from insults; use Listen → Acknowledge → Adjust.",
+        desired_outcomes:
+          "Participant practices three-step response to mild correction.",
+        facilitator_notes:
+          "Coach analogy — supervisor wants quality, not personal attack.",
+        citations: "GVRA §6000.02 — Receptivity to supervision.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "Sports coach adjusts grip — is that insult or help?",
+          coreBody:
+            "Why feedback exists. Three steps: listen without interrupting; thank or acknowledge; ask clarification and adjust.",
+          video: { title: "Professionalism & feedback (video model)", url: V_ODEP_PROF },
+          appliedBody:
+            "Fold drill: facilitator gives neutral corrections (fold shirts tag-down). Client responds with the three-step script.",
+          wrapBody:
+            "Self-rate difficulty receiving feedback 1–5; name one calming tool.",
+          printable: { title: "ODEP Professionalism (PDF)", url: ODEP_PROFESSIONALISM_PDF },
+        }),
+      },
+      {
+        slug: "u6-l3-flexibility-frustration",
+        title: "Lesson 6.3 — Schedule Changes, Redirections & Frustration",
+        objectives:
+          "Recognize early body signs of frustration; pick two on-the-job calming strategies.",
+        desired_outcomes:
+          "Participant completes a Calm at Work card and demonstrates one breathing technique.",
+        facilitator_notes:
+          "Offer break-card language aligned with employer policy.",
+        citations: "GVRA §6000.02 — Rigidity; coping strategies.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "Body clues before anger — jaw, fists, heat in face.",
+          coreBody:
+            "Box breathing; short water walk if allowed; self-talk: ‘Change in plans — I can do the next step.’",
+          video: { title: "Enthusiasm & attitude under stress (video model)", url: V_ODEP_ENTHUSIASM },
+          appliedBody:
+            "Personal Coping Plan card: warning sign, two-minute tool, how to ask supervisor for brief pause.",
+          wrapBody:
+            "Demonstrate one breath pattern aloud with group.",
+          printable: { title: "ODEP Problem solving (PDF)", url: ODEP_PROBLEM_PDF },
+        }),
+      },
+    ],
+  },
+  {
+    slug: "gvra-u7-financial-literacy",
+    title: "Unit 7 — Workplace Financial Literacy & Money Management",
+    description:
+      "Pay stubs, banking basics, and simple budgeting (GVRA §6000.02).",
+    citations: "GVRA Policy 6000.02 — Money management; Daily life decisions.",
+    lessons: [
+      {
+        slug: "u7-l1-pay-stub-basics",
+        title: "Lesson 7.1 — Gross vs. Net Pay, Taxes & Deductions",
+        objectives:
+          "Locate gross, net, and common deductions on a sample Georgia pay stub.",
+        desired_outcomes:
+          "Participant answers which amount deposits to the bank and why net is smaller.",
+        facilitator_notes:
+          "Use rounded fake numbers; not tax advice.",
+        citations: "GVRA §6000.02 — Money management.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "10 hours × $10 = $100 — will the check equal $100? Why not?",
+          coreBody:
+            "Gross = before deductions; deductions include federal, Georgia state, FICA; net = take-home.",
+          video: { title: "Professionalism & responsibility (video model)", url: V_ODEP_PROF },
+          appliedBody:
+            "Highlight scavenger hunt on sample stub: gross (yellow), taxes (red box concept), net (green).",
+          wrapBody:
+            "Three questions: bank gets gross or net? Where is net? One reason net is smaller.",
+          printable: { title: "CFPB budgeting activity (PDF)", url: CFPB_BUDGET },
+        }),
+      },
+      {
+        slug: "u7-l2-banking-debit",
+        title: "Lesson 7.2 — Direct Deposit, Checking & Debit Safety",
+        objectives:
+          "Contrast checking vs. savings; explain PIN protection and direct deposit.",
+        desired_outcomes:
+          "Participant spots safe vs. unsafe card/PIN behaviors.",
+        facilitator_notes:
+          "No real account numbers in class; use blanks.",
+        citations: "GVRA §6000.02 — Independent living; money safety.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "Safest place for paycheck — cash in pocket vs. insured account.",
+          coreBody:
+            "Direct deposit flow; checking for spending; savings for goals/emergencies; shield PIN; never share PIN with coworkers.",
+          video: { title: "Teamwork & trust (video model)", url: V_ODEP_TEAM },
+          appliedBody:
+            "Role-play ATM keypad shield; mark sample form fields for routing/account.",
+          wrapBody:
+            "Quiz: safe vs. unsafe behaviors (PIN on card, balance check on official app, etc.).",
+          printable: { title: "CFPB budgeting activity (PDF)", url: CFPB_BUDGET },
+        }),
+      },
+      {
+        slug: "u7-l3-needs-wants-budget",
+        title: "Lesson 7.3 — Needs vs. Wants & Simple Budget",
+        objectives:
+          "Sort expenses; split a sample paycheck across needs, savings, and wants.",
+        desired_outcomes:
+          "Participant funds all needs without negative balance on paper exercise.",
+        facilitator_notes:
+          "Use $300 sample; include rural gas/longer commute line item in discussion.",
+        citations: "GVRA §6000.02 — Money management.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "Apple vs. candy bar — need vs. want framing.",
+          coreBody:
+            "Needs: housing, utilities, food, transit, phone for work, medicine. Wants: extras. Three jars method: needs / savings / fun.",
+          video: { title: "Communication about money choices (video model)", url: V_ODEP_COMM },
+          appliedBody:
+            "Envelope or table budget with play dollars — pay needs first, then allocate savings and wants.",
+          wrapBody:
+            "Submit plan photo or ES tally — needs must balance.",
+          printable: { title: "CFPB budgeting activity (PDF)", url: CFPB_BUDGET },
+        }),
+      },
+    ],
+  },
+  {
+    slug: "gvra-u8-health-wellness",
+    title: "Unit 8 — Health, Energy & Medication Management on the Job",
+    description:
+      "Med timing around shifts, fueling the body, safe lifting (GVRA §6000.02).",
+    citations: "GVRA Policy 6000.02 — Health & medicine; Workplace stamina.",
+    lessons: [
+      {
+        slug: "u8-l1-med-scheduling",
+        title: "Lesson 8.1 — Prescriptions, Labels & Shift Alignment",
+        objectives:
+          "Read warning labels; plan reminders that respect shift tasks.",
+        desired_outcomes:
+          "Participant states one reminder method and one privacy boundary with coworkers.",
+        facilitator_notes:
+          "No med names required aloud; focus on schedule patterns.",
+        citations: "GVRA §6000.02 — Health management.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "Drowsy medication before equipment — why timing matters.",
+          coreBody:
+            "Label basics: with food, morning/night, drowsy warnings; alarms, pillbox, coach check-in; privacy — coworkers do not need diagnosis details.",
+          video: { title: "Professional responsibility (video model)", url: V_ODEP_PROF },
+          appliedBody:
+            "Sketch 24-hour timeline: sleep, shift, meals, med slots (generic).",
+          wrapBody:
+            "State reminder plan in one sentence.",
+          printable: { title: "ODEP Problem solving (PDF)", url: ODEP_PROBLEM_PDF },
+        }),
+      },
+      {
+        slug: "u8-l2-nutrition-hydration",
+        title: "Lesson 8.2 — Stamina, Nutrition & Hydration",
+        objectives:
+          "Pick balanced shift meals/snacks; set a simple water goal.",
+        desired_outcomes:
+          "Participant builds one lunch + two snacks that avoid sugar crash.",
+        facilitator_notes:
+          "Acknowledge food access differences urban vs. rural convenience stores.",
+        citations: "GVRA §6000.02 — Health & stamina.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "Donut + energy drink vs. sandwich + fruit + water — how you feel hour 4.",
+          coreBody:
+            "Steady fuel, hydration, breaks where offered; pack insulated lunch for long rural commutes.",
+          video: { title: "Energy & attitude (video model)", url: V_ODEP_ENTHUSIASM },
+          appliedBody:
+            "Pantry pick: build a meal + two snacks from printed options.",
+          wrapBody:
+            "Exit: two snacks that hold energy without heavy sugar.",
+          printable: { title: "CFPB budgeting (food & meal planning tie-in)", url: CFPB_BUDGET },
+        }),
+      },
+      {
+        slug: "u8-l3-safe-lifting-ergonomics",
+        title: "Lesson 8.3 — Safe Lifting, Posture & Asking for Help",
+        objectives:
+          "Demonstrate five-step safe lift; request team lift using a script.",
+        desired_outcomes:
+          "Participant performs lift steps with a light prop and says the team-lift ask.",
+        facilitator_notes:
+          "Supervised practice only; empty/light boxes.",
+        citations: "GVRA §6000.02 — Safety & self-advocacy.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "Locked knees and twisted back vs. knees bent, load close.",
+          coreBody:
+            "Check weight, feet shoulder width, bend knees, neutral spine, turn feet not waist; ask: “This is heavy — can we team lift?”",
+          video: { title: "Teamwork on physical tasks (video model)", url: V_ODEP_TEAM },
+          appliedBody:
+            "Practice with light props; ergonomic tweaks for chair/desk mock.",
+          wrapBody:
+            "Rubric: five steps + team-lift phrase.",
+          printable: { title: "ODEP Problem solving (PDF)", url: ODEP_PROBLEM_PDF },
+        }),
+      },
+    ],
+  },
+  {
+    slug: "gvra-u9-independent-living-resources",
+    title: "Unit 9 — Independent Living, Community Resources & Routines",
+    description:
+      "24-hour scheduling, assistive tech and Georgia resources, emergency cards (GVRA §6000.02).",
+    citations: "GVRA Policy 6000.02 — Community living; Resource utilization.",
+    lessons: [
+      {
+        slug: "u9-l1-daily-schedule",
+        title: "Lesson 9.1 — Daily Routines & Reverse Planning",
+        objectives:
+          "Build a weekday schedule with commute buffer and sleep window.",
+        desired_outcomes:
+          "Participant states bedtime and wake time for a sample shift with 8 hours sleep target.",
+        facilitator_notes:
+          "Math forward from shift start; add rural drive time generously.",
+        citations: "GVRA §6000.02 — Routines & time management.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "Shift at 8:00, 45-minute ride, wake 7:30 — will it work?",
+          coreBody:
+            "Reverse plan: buffer, commute, breakfast/hygiene, alarm; prep night before (clothes, lunch, fare).",
+          video: { title: "Professionalism & reliability (video model)", url: V_ODEP_PROF },
+          appliedBody:
+            "Color-wheel or timeline worksheet for one realistic shift.",
+          wrapBody:
+            "Target bedtime/wake for sample 9 a.m. shift.",
+          printable: { title: "ODEP Professionalism (PDF)", url: ODEP_PROFESSIONALISM_PDF },
+        }),
+      },
+      {
+        slug: "u9-l2-assistive-tech-resources",
+        title: "Lesson 9.2 — Assistive Technology & Georgia Supports",
+        objectives:
+          "Name two AT tools and two Georgia-facing resources that help independence or work.",
+        desired_outcomes:
+          "Participant picks two tools/resources tied to personal goals.",
+        facilitator_notes:
+          "Mention GVRA, CILs, Tools for Life at high level — details in external link.",
+        citations: "GVRA §6000.02 — Adaptive equipment; resource use.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "Show speech-to-text or large text on phone — tools many workers use.",
+          coreBody:
+            "AT defined broadly: apps, grips, visual timers, hearing aids integration. Community orgs help test equipment.",
+          video: { title: "Communication supports at work (video model)", url: V_ODEP_COMM },
+          appliedBody:
+            "Pick two items from categories: communication, sensory, mobility, memory.",
+          wrapBody:
+            "Exit slip: one org and one tool to explore.",
+          printable: { title: "JAN — job accommodation ideas (web, print-friendly)", url: JAN_HOME },
+        }),
+      },
+      {
+        slug: "u9-l3-emergency-plans",
+        title: "Lesson 9.3 — Emergency Planning & Community Resources",
+        objectives:
+          "Differentiate 911 vs. 988 vs. supervisor help; build a wallet card outline.",
+        desired_outcomes:
+          "Participant lists two emergencies vs. two non-emergencies correctly.",
+        facilitator_notes:
+          "Keep medical info optional on cards.",
+        citations: "GVRA §6000.02 — Safety & resource navigation.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "Fire vs. late bus — different responses.",
+          coreBody:
+            "911 for imminent danger; 988 mental health crisis; supervisor for worksite injury process; coach for logistics.",
+          video: { title: "Team support & asking for help (video model)", url: V_ODEP_TEAM },
+          appliedBody:
+            "Fill emergency card: contacts, allergies optional, transit police when relevant.",
+          wrapBody:
+            "Explain when card is shown — consent and privacy.",
+          printable: { title: "ODEP Problem solving (PDF)", url: ODEP_PROBLEM_PDF },
+        }),
+      },
+    ],
+  },
+  {
+    slug: "gvra-u10-rights-accommodations",
+    title: "Unit 10 — Disability Rights, Accommodations & Career Supports",
+    description:
+      "ADA basics at work, accommodation scripts, GVRA team roles (GVRA §6000.02).",
+    citations: "GVRA Policy 6000.02 — Rights & responsibilities; Supports planning.",
+    lessons: [
+      {
+        slug: "u10-l1-ada-basics",
+        title: "Lesson 10.1 — Rights and Responsibilities (ADA Intro)",
+        objectives:
+          "State one right and one responsibility on the job; define ADA in plain words.",
+        desired_outcomes:
+          "Participant sorts scenario cards into rights vs. responsibilities.",
+        facilitator_notes:
+          "Not legal advice; encourage questions to GVRA counselor.",
+        citations: "GVRA §6000.02 — Knowledge of rights.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "Short anchor: civil rights law helps qualified workers access jobs and reasonable accommodations.",
+          coreBody:
+            "Rights: apply/hire free from discrimination; reasonable accommodation; freedom from harassment. Responsibilities: essential job functions, safety rules, punctuality.",
+          video: { title: "Professionalism & workplace expectations (video model)", url: V_ODEP_PROF },
+          appliedBody:
+            "Card sort: on time (responsibility); ask for stool for standing limit (right); follow PPE (responsibility).",
+          wrapBody:
+            "Exit: ADA stands for ___; name one protection.",
+          printable: { title: "JAN — accommodation ideas", url: JAN_HOME },
+        }),
+      },
+      {
+        slug: "u10-l2-accommodation-request",
+        title: "Lesson 10.2 — Requesting Reasonable Accommodations",
+        objectives:
+          "Draft a three-part script: strength — barrier — proposed support without oversharing diagnoses.",
+        desired_outcomes:
+          "Participant produces a short written or dictated request.",
+        facilitator_notes:
+          "Use functional language only.",
+        citations: "GVRA §6000.02 — Supports planning; informed choice.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "You do not owe your whole medical file to get a tool that helps you work.",
+          coreBody:
+            "When to disclose: need for accommodation or safety. Formula: eager to do well → functional barrier → proposed tool/change.",
+          video: { title: "Clear, respectful communication (video model)", url: V_ODEP_COMM },
+          appliedBody:
+            "Write/dictate one accommodation email outline with facilitator coaching.",
+          wrapBody:
+            "Read-back of three-part script.",
+          printable: { title: "JAN — sample accommodation language (resource)", url: JAN_HOME },
+        }),
+      },
+      {
+        slug: "u10-l3-gvra-team",
+        title: "Lesson 10.3 — Your GVRA Team & Natural Supports",
+        objectives:
+          "Name roles: VRC, job coach/ES, supervisor, natural supports; plan check-in habits.",
+        desired_outcomes:
+          "Participant lists who helps with which problem and one coaching reach-out line.",
+        facilitator_notes:
+          "Align with Joshua Tree roles actually on the case.",
+        citations: "GVRA §6000.02 — Support planning.",
+        default_duration_minutes: 60,
+        blocks: lessonPhases({
+          warmBody:
+            "Even elite athletes use coaches — who is on your work team?",
+          coreBody:
+            "VRC authorizations; ES/TS training supports; supervisor sets tasks; natural supports are trusted friends/family for morale or rides — not HR replacements.",
+          video: { title: "Teamwork & asking for help (video model)", url: V_ODEP_TEAM },
+          appliedBody:
+            "Map names (when known) next to roles; script reaching out before quitting a shift.",
+          wrapBody:
+            "Career Launch checkpoint: strengths card, transit/delay plan, emergency card, support contacts (integrate prior outputs if collected).",
+          printable: { title: "ODEP Networking (PDF)", url: ODEP_NETWORKING_PDF },
+        }),
       },
     ],
   },

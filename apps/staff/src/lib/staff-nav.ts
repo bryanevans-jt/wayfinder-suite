@@ -534,34 +534,6 @@ export function staffNavSectionsForRole(
     );
   }
 
-  if (isWrtAdminRole(staffRole)) {
-    return withHelpAndProfile(
-      [
-        {
-          label: "WRT",
-          items: [
-            {
-              href: "/dashboard/wrt",
-              label: "WRT Facilitation",
-              match: (p) => p === "/dashboard/wrt",
-            },
-            {
-              href: "/dashboard/wrt/curriculum",
-              label: "WRT Curriculum",
-              match: (p) => p.startsWith("/dashboard/wrt/curriculum"),
-            },
-            billableHoursNav,
-          ],
-        },
-        {
-          label: "Reference",
-          items: withTraining(maybePartners([communityPartnersNav], showCp)),
-        },
-      ],
-      staffRole
-    );
-  }
-
   // Transition Specialist: ES shell + Pre-ETS (always when enabled for role / settings)
   if (isTransitionSpecialistRole(staffRole)) {
     return withHelpAndProfile(
@@ -597,8 +569,8 @@ export function staffNavSectionsForRole(
     );
   }
 
-  // Employment Specialist — no Pre-ETS
-  if (isEsRole(staffRole)) {
+  // Employment Specialist — no Pre-ETS (legacy wrt_admin uses the same shell; WRT Preview is admin-only)
+  if (isEsRole(staffRole) || isWrtAdminRole(staffRole)) {
     return withHelpAndProfile(
       [
         {

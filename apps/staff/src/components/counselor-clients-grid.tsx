@@ -17,6 +17,9 @@ export type CounselorClientCard = {
   latestStatus: string | null;
   /** Optional service track shown under the stage (demo + live when available). */
   serviceName?: string | null;
+  /** Assigned Employment Specialist or Transition Specialist (when linked). */
+  fieldSpecialistName?: string | null;
+  fieldSpecialistEmail?: string | null;
 };
 
 type Props = {
@@ -48,7 +51,14 @@ export function CounselorClientsGrid({ clients, getClientHref }: Props) {
     const matched = !q
       ? clients
       : clients.filter((c) => {
-          const haystack = [c.displayName, c.stageLabel, c.serviceName, c.latestStatus]
+          const haystack = [
+            c.displayName,
+            c.stageLabel,
+            c.serviceName,
+            c.latestStatus,
+            c.fieldSpecialistName,
+            c.fieldSpecialistEmail,
+          ]
             .filter(Boolean)
             .join(" ")
             .toLowerCase();
@@ -138,6 +148,29 @@ export function CounselorClientsGrid({ clients, getClientHref }: Props) {
                     <p className="mt-2 text-sm text-brand-black/70">
                       <span className="font-medium text-brand-green">Current stage</span> · {c.stageLabel}
                     </p>
+                    {(c.fieldSpecialistName || c.fieldSpecialistEmail) && (
+                      <div className="mt-3 rounded-lg bg-neutral-50 px-3 py-2 text-sm text-brand-black/85">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-brand-black/50">
+                          Joshua Tree specialist
+                        </p>
+                        {c.fieldSpecialistName ? (
+                          <p className="mt-0.5 font-medium text-brand-black">{c.fieldSpecialistName}</p>
+                        ) : null}
+                        {c.fieldSpecialistEmail ? (
+                          <p className="mt-1">
+                            <a
+                              href={`mailto:${c.fieldSpecialistEmail}`}
+                              className="font-medium text-brand-green underline underline-offset-2 hover:text-brand-green/80"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {c.fieldSpecialistEmail}
+                            </a>
+                          </p>
+                        ) : (
+                          <p className="mt-1 text-brand-black/60">Email on file will appear when available.</p>
+                        )}
+                      </div>
+                    )}
                     <dl className="mt-4 space-y-1 border-t border-neutral-100 pt-4 text-sm text-brand-black/80">
                       <div className="flex justify-between gap-2">
                         <dt>Applications submitted</dt>

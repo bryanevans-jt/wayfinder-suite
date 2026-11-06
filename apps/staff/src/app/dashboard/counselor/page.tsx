@@ -1,4 +1,8 @@
 import { createServerClient } from "@wayfinder/supabase";
+import {
+  loadFieldSpecialistContactsByClientIds,
+  type FieldSpecialistContact,
+} from "@wayfinder/supabase/es-field-specialist-contact";
 import { clientDisplayName } from "@wayfinder/branding";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -145,6 +149,12 @@ export default async function CounselorPortalPage({
     }
   }
 
+  let fieldByClientId = new Map<string, FieldSpecialistContact | null>();
+  if (admin && clients.length > 0) {
+    const clientRowIds = clients.map((c) => c.linkId);
+    fieldByClientId = await loadFieldSpecialistContactsByClientIds(admin, clientRowIds);
+  }
+
   return (
     <main className="px-6 py-10" aria-labelledby="counselor-clients-heading">
       <header className="max-w-5xl">
@@ -245,6 +255,7 @@ export default async function CounselorPortalPage({
             });
             const last = lastLogAt.get(c.linkId);
             const latest = latestAppByClient.get(c.linkId);
+            const fs = fieldByClientId.get(c.linkId);
             return {
               linkId: c.linkId,
               displayName,
@@ -252,6 +263,8 @@ export default async function CounselorPortalPage({
               applicationCount: appCount.get(c.linkId) ?? 0,
               lastActivityLabel: last ? formatPortalDateTime(last) : "—",
               latestStatus: latest?.status ?? null,
+              fieldSpecialistName: fs?.fullName ?? null,
+              fieldSpecialistEmail: fs?.email ?? null,
             };
           })}
         />

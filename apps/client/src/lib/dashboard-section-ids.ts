@@ -4,6 +4,8 @@ export const CLIENT_DASHBOARD_SECTION_IDS = {
   todayHeading: "today-heading",
   yourPath: "your-path",
   yourPathHeading: "your-path-heading",
+  specialist: "specialist-contact",
+  specialistHeading: "specialist-contact-heading",
   messages: "messages",
   messagesHeading: "messages-heading",
   applications: "applications",

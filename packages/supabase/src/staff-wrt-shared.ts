@@ -1,4 +1,4 @@
-import { isAdminTierRole, isWrtAdminRole } from "./roles";
+import { isAdminTierRole } from "./roles";
 
 export const WRT_BLOCK_TYPES = [
   "rich_text",
@@ -58,18 +58,19 @@ export type WrtLessonWithBlocks = WrtLessonRow & { blocks: WrtLessonBlockRow[] }
 
 export type WrtModuleWithLessons = WrtModuleRow & { lessons: WrtLessonWithBlocks[] };
 
-/** Admin tier + WRT Admin curriculum / facilitation access. */
+/** WRT Preview (facilitation + curriculum): Super Admin and Admin only until wider rollout. */
 export function isWrtCurriculumPreviewUnlocked(role: string | null | undefined): boolean {
-  return isAdminTierRole(role) || isWrtAdminRole(role);
+  return isAdminTierRole(role);
 }
 
+/** Editing modules, lessons, and blocks — Super Admin and Admin only. */
 export function canManageWrtCurriculum(role: string | null | undefined): boolean {
-  return isWrtCurriculumPreviewUnlocked(role);
+  return isAdminTierRole(role);
 }
 
-/** ES/TS facilitation UI is built; access is admin tier + WRT Admin. */
+/** Facilitation / presentation preview — same gate as curriculum for now. */
 export function canUseWrtFacilitationPreview(role: string | null | undefined): boolean {
-  return isWrtCurriculumPreviewUnlocked(role);
+  return isAdminTierRole(role);
 }
 
 export const WRT_DELIVERY_MODES = ["in_person", "virtual"] as const;
