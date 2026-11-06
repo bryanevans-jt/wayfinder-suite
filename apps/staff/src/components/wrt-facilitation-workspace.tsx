@@ -42,7 +42,12 @@ type GroupMember = {
 
 type RubricCellState = { level: 0 | 1 | 2 | 3; notes: string };
 
-export function WrtFacilitationWorkspace() {
+type WorkspaceProps = {
+  /** Admins / Super Admins: show WRT Demo Sandbox (synthetic client + auto-enrollment). */
+  showDemoSandbox?: boolean;
+};
+
+export function WrtFacilitationWorkspace({ showDemoSandbox = false }: WorkspaceProps) {
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [query, setQuery] = useState("");
   const [clientId, setClientId] = useState<string | null>(null);
@@ -80,6 +85,7 @@ export function WrtFacilitationWorkspace() {
   const [groupQuery, setGroupQuery] = useState("");
   const [presenting, setPresenting] = useState(false);
   const [presentationCompletedIds, setPresentationCompletedIds] = useState<string[]>([]);
+  const [demoBusy, setDemoBusy] = useState(false);
 
   const loadClients = useCallback(async (q: string) => {
     const res = await fetch(`/api/wrt/facilitation?q=${encodeURIComponent(q)}`);
@@ -429,6 +435,29 @@ export function WrtFacilitationWorkspace() {
     });
   }
 
+  async function openDemoSandbox() {
+    setDemoBusy(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/wrt/facilitation/demo-sandbox", { method: "POST" });
+      const data = (await res.json()) as { clientId?: string; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Could not open demo sandbox.");
+      if (!data.clientId) throw new Error("Demo sandbox did not return a client id.");
+      setClientId(data.clientId);
+      setQuery("");
+      await loadClients("");
+      setMessage(
+        "Demo sandbox ready — enrolled in all WRT modules. Curriculum edits appear here on refresh."
+      );
+      await loadSnapshot(data.clientId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not open demo sandbox.");
+    } finally {
+      setDemoBusy(false);
+    }
+  }
+
   function startPresentation() {
     if (!snap?.enrollment || presentCount === 0) return;
     setPresentationCompletedIds(snap.completedLessonIds ?? []);
@@ -461,6 +490,24 @@ export function WrtFacilitationWorkspace() {
           Workplace Readiness Training for field staff and supervisors. Enrollments are opt-in and do
           not change a client&apos;s service assignment.
         </p>
+        {showDemoSandbox ? (
+          <div className="mt-3 rounded-lg border border-brand-gold/40 bg-amber-50/80 p-3 text-sm text-brand-black/85">
+            <p className="font-semibold text-brand-black">Admin demo sandbox</p>
+            <p className="mt-1">
+              Open a synthetic client with a full WRT enrollment so you can explore the portal without
+              picking a real person. The client stays in sync with curriculum changes (all published
+              modules are reassigned when you open the sandbox).
+            </p>
+            <button
+              type="button"
+              disabled={demoBusy || busy}
+              onClick={() => void openDemoSandbox()}
+              className="mt-3 rounded-lg bg-brand-gold px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {demoBusy ? "Preparing sandbox…" : "Open WRT Demo Sandbox"}
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <div className="mt-4 rounded-lg border border-brand-green/25 bg-white p-4 text-sm">

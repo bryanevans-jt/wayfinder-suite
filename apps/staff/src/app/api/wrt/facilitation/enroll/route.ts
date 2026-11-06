@@ -1,4 +1,10 @@
-import { jsonWrtError, requireWrtFacilitationSession, wrtOk } from "@/lib/staff-wrt-auth";
+import {
+  assertWrtDemoClientAllowedForRole,
+  assertWrtDemoEnrollmentAllowedForRole,
+  jsonWrtError,
+  requireWrtFacilitationSession,
+  wrtOk,
+} from "@/lib/staff-wrt-auth";
 import {
   createEnrollment,
   endEnrollment,
@@ -10,7 +16,7 @@ import { NextRequest } from "next/server";
 export async function POST(request: NextRequest) {
   const route = "api/wrt/facilitation/enroll";
   try {
-    const { admin, userId } = await requireWrtFacilitationSession(true);
+    const { admin, userId, role } = await requireWrtFacilitationSession(true);
     const body = (await request.json()) as {
       clientId?: string;
       deliveryMode?: WrtDeliveryMode;
@@ -25,6 +31,7 @@ export async function POST(request: NextRequest) {
     if (!Number.isFinite(requestedHours) || requestedHours < 0) {
       return wrtOk({ error: "Requested hours must be a non-negative number." }, { status: 400 });
     }
+    await assertWrtDemoClientAllowedForRole(admin, role, clientId);
     const enrollment = await createEnrollment(admin, {
       clientId,
       deliveryMode: body.deliveryMode === "virtual" ? "virtual" : "in_person",
@@ -41,7 +48,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   const route = "api/wrt/facilitation/enroll";
   try {
-    const { admin } = await requireWrtFacilitationSession(true);
+    const { admin, role } = await requireWrtFacilitationSession(true);
     const body = (await request.json()) as {
       enrollmentId?: string;
       action?: string;
@@ -53,6 +60,8 @@ export async function PATCH(request: NextRequest) {
     if (!enrollmentId) {
       return wrtOk({ error: "Enrollment is required." }, { status: 400 });
     }
+
+    await assertWrtDemoEnrollmentAllowedForRole(admin, role, enrollmentId);
 
     if (body.action === "end") {
       await endEnrollment(admin, enrollmentId);

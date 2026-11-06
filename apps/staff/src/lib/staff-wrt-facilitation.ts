@@ -2,14 +2,16 @@ import type { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { todayLocalDate } from "@wayfinder/supabase";
 import {
   WRT_ACTIVITY_CODE,
+  WRT_DEMO_SANDBOX_EMAIL,
   WRT_RUBRIC_DOMAIN_KEYS,
+  canManageWrtCurriculum,
   type WrtDeliveryMode,
   type WrtEnrollmentRow,
   type WrtModuleWithLessons,
   type WrtRubricDomainKey,
   type WrtSessionRow,
 } from "@wayfinder/supabase/staff-wrt-shared";
-import { loadWrtCurriculumTree } from "@/lib/staff-wrt-data";
+import { loadWrtCurriculumTree, seedWrtCurriculumIfEmpty } from "@/lib/staff-wrt-data";
 import { saveClientContactLog } from "@/lib/save-client-contact-log";
 
 type Admin = ReturnType<typeof createServiceRoleClient>;
@@ -660,9 +662,80 @@ export async function markLessonCompleteForClients(
   return { completedClientIds, skipped };
 }
 
+/**
+ * Ensures a login-less demo client exists and has an active WRT enrollment that includes every
+ * published module, so curriculum edits immediately show in the facilitation workspace.
+ * Admin-only (caller must enforce).
+ */
+export async function ensureWrtDemoSandboxClient(
+  admin: Admin,
+  enrolledBy: string
+): Promise<{ clientId: string; clientName: string; enrollmentId: string; moduleIds: string[] }> {
+  await seedWrtCurriculumIfEmpty(admin);
+  const curriculum = await loadWrtCurriculumTree(admin);
+  const moduleIds = curriculum.filter((m) => m.published).map((m) => m.id);
+
+  const demoName = "WRT Demo Sandbox";
+  const demoEmail = WRT_DEMO_SANDBOX_EMAIL;
+
+  const { data: existingClient } = await admin
+    .from("clients")
+    .select("id, full_name")
+    .eq("contact_email", demoEmail)
+    .maybeSingle();
+
+  let clientId: string;
+  if (existingClient?.id) {
+    clientId = String(existingClient.id);
+    await admin
+      .from("clients")
+      .update({ full_name: demoName, archived_at: null })
+      .eq("id", clientId);
+  } else {
+    const { data: inserted, error: insErr } = await admin
+      .from("clients")
+      .insert({
+        full_name: demoName,
+        contact_email: demoEmail,
+        user_id: null,
+        profile_id: null,
+      })
+      .select("id")
+      .single();
+    if (insErr) throw new Error(insErr.message);
+    clientId = String(inserted.id);
+  }
+
+  let enrollment = await loadActiveEnrollmentForClient(admin, clientId);
+  const now = new Date().toISOString();
+  if (!enrollment) {
+    enrollment = await createEnrollment(admin, {
+      clientId,
+      deliveryMode: "in_person",
+      requestedHours: 40,
+      moduleIds,
+      enrolledBy,
+    });
+  } else {
+    await updateEnrollmentModules(admin, enrollment.id, moduleIds);
+    const { error: upErr } = await admin
+      .from("wrt_enrollments")
+      .update({
+        requested_hours: 40,
+        delivery_mode: "in_person",
+        updated_at: now,
+      })
+      .eq("id", enrollment.id);
+    if (upErr) throw new Error(upErr.message);
+  }
+
+  return { clientId, clientName: demoName, enrollmentId: enrollment.id, moduleIds };
+}
+
 export async function searchClientsForWrt(
   admin: Admin,
-  query: string
+  query: string,
+  staffRole?: string | null
 ): Promise<Array<{ id: string; name: string }>> {
   const q = query.trim();
   let builder = admin
@@ -676,7 +749,11 @@ export async function searchClientsForWrt(
   }
   const { data, error } = await builder;
   if (error) throw new Error(error.message);
-  return (data ?? []).map((c) => ({
+  let rows = data ?? [];
+  if (!canManageWrtCurriculum(staffRole)) {
+    rows = rows.filter((c) => (c.contact_email as string | null) !== WRT_DEMO_SANDBOX_EMAIL);
+  }
+  return rows.map((c) => ({
     id: String(c.id),
     name:
       (c.full_name as string | null)?.trim() ||

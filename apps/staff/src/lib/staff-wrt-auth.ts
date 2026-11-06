@@ -5,10 +5,14 @@ import {
 } from "@wayfinder/supabase/error-log";
 import { getAppSession, assertNotPreviewMutation } from "@wayfinder/supabase/preview-server";
 import {
+  WRT_DEMO_SANDBOX_EMAIL,
   canManageWrtCurriculum,
   canUseWrtFacilitation,
 } from "@wayfinder/supabase/staff-wrt-shared";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+
+type ServiceAdmin = SupabaseClient;
 
 export class WrtAccessError extends Error {
   status: number;
@@ -70,6 +74,60 @@ export async function requireWrtFacilitationSession(forMutation = false) {
     role,
     userId: session.effectiveUserId,
   };
+}
+
+/**
+ * Blocks non-admin staff from using the WRT Demo Sandbox client (by stable contact_email).
+ * Admins may use it for full portal demos; field roles use real clients only.
+ */
+export async function assertWrtDemoClientAllowedForRole(
+  admin: ServiceAdmin,
+  role: string,
+  clientId: string | null | undefined
+): Promise<void> {
+  const id = clientId?.trim();
+  if (!id || canManageWrtCurriculum(role)) return;
+  const { data } = await admin
+    .from("clients")
+    .select("contact_email")
+    .eq("id", id)
+    .maybeSingle();
+  if (data?.contact_email === WRT_DEMO_SANDBOX_EMAIL) {
+    throw new WrtAccessError(
+      "The WRT Demo Sandbox is only available to Admins and Super Admins.",
+      403
+    );
+  }
+}
+
+export async function assertWrtDemoClientAllowedForRoleMany(
+  admin: ServiceAdmin,
+  role: string,
+  clientIds: Array<string | null | undefined>
+): Promise<void> {
+  if (canManageWrtCurriculum(role)) return;
+  const ids = [...new Set(clientIds.map((c) => c?.trim()).filter(Boolean))] as string[];
+  if (ids.length === 0) return;
+  const { data } = await admin.from("clients").select("id, contact_email").in("id", ids);
+  const hit = (data ?? []).some((r) => r.contact_email === WRT_DEMO_SANDBOX_EMAIL);
+  if (hit) {
+    throw new WrtAccessError(
+      "The WRT Demo Sandbox is only available to Admins and Super Admins.",
+      403
+    );
+  }
+}
+
+export async function assertWrtDemoEnrollmentAllowedForRole(
+  admin: ServiceAdmin,
+  role: string,
+  enrollmentId: string | null | undefined
+): Promise<void> {
+  const id = enrollmentId?.trim();
+  if (!id) return;
+  const { data } = await admin.from("wrt_enrollments").select("client_id").eq("id", id).maybeSingle();
+  const cid = data?.client_id as string | undefined;
+  if (cid) await assertWrtDemoClientAllowedForRole(admin, role, cid);
 }
 
 export async function jsonWrtError(error: unknown, route: string) {

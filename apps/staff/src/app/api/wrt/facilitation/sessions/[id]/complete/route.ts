@@ -1,4 +1,9 @@
-import { jsonWrtError, requireWrtFacilitationSession, wrtOk } from "@/lib/staff-wrt-auth";
+import {
+  assertWrtDemoClientAllowedForRoleMany,
+  jsonWrtError,
+  requireWrtFacilitationSession,
+  wrtOk,
+} from "@/lib/staff-wrt-auth";
 import { completeSession } from "@/lib/staff-wrt-facilitation";
 import type { WrtDeliveryMode, WrtRubricDomainKey } from "@wayfinder/supabase/staff-wrt-shared";
 import { NextRequest } from "next/server";
@@ -9,7 +14,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const route = "api/wrt/facilitation/sessions/[id]/complete";
   try {
     const { id } = await context.params;
-    const { admin, userId } = await requireWrtFacilitationSession(true);
+    const { admin, userId, role } = await requireWrtFacilitationSession(true);
     const body = (await request.json()) as {
       lessonId?: string | null;
       lessonIds?: string[] | null;
@@ -36,6 +41,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const blockMinutes = Number(body.sessionBlockMinutes ?? 0);
     if (!Number.isFinite(blockMinutes) || blockMinutes <= 0) {
       return wrtOk({ error: "Session block minutes must be greater than zero." }, { status: 400 });
+    }
+
+    await assertWrtDemoClientAllowedForRoleMany(
+      admin,
+      role,
+      (body.attendees ?? []).map((a) => a.clientId)
+    );
+    if (body.rubricByClient && typeof body.rubricByClient === "object") {
+      await assertWrtDemoClientAllowedForRoleMany(admin, role, Object.keys(body.rubricByClient));
     }
 
     const result = await completeSession(admin, {

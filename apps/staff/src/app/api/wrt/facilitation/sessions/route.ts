@@ -1,4 +1,9 @@
-import { jsonWrtError, requireWrtFacilitationSession, wrtOk } from "@/lib/staff-wrt-auth";
+import {
+  assertWrtDemoClientAllowedForRoleMany,
+  jsonWrtError,
+  requireWrtFacilitationSession,
+  wrtOk,
+} from "@/lib/staff-wrt-auth";
 import { scheduleSession } from "@/lib/staff-wrt-facilitation";
 import type { WrtDeliveryMode } from "@wayfinder/supabase/staff-wrt-shared";
 import { NextRequest } from "next/server";
@@ -6,7 +11,7 @@ import { NextRequest } from "next/server";
 export async function POST(request: NextRequest) {
   const route = "api/wrt/facilitation/sessions";
   try {
-    const { admin, userId } = await requireWrtFacilitationSession(true);
+    const { admin, userId, role } = await requireWrtFacilitationSession(true);
     const body = (await request.json()) as {
       lessonId?: string | null;
       lessonIds?: string[] | null;
@@ -25,6 +30,12 @@ export async function POST(request: NextRequest) {
     if (!Array.isArray(body.attendees) || body.attendees.length === 0) {
       return wrtOk({ error: "At least one attendee is required." }, { status: 400 });
     }
+
+    await assertWrtDemoClientAllowedForRoleMany(
+      admin,
+      role,
+      body.attendees.map((a) => a.clientId)
+    );
 
     const lessonIds =
       Array.isArray(body.lessonIds) && body.lessonIds.length > 0

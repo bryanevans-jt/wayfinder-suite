@@ -1,11 +1,16 @@
-import { jsonWrtError, requireWrtFacilitationSession, wrtOk } from "@/lib/staff-wrt-auth";
+import {
+  assertWrtDemoClientAllowedForRoleMany,
+  jsonWrtError,
+  requireWrtFacilitationSession,
+  wrtOk,
+} from "@/lib/staff-wrt-auth";
 import { markLessonCompleteForClients } from "@/lib/staff-wrt-facilitation";
 import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
   const route = "api/wrt/facilitation/lessons/complete";
   try {
-    const { admin, userId } = await requireWrtFacilitationSession(true);
+    const { admin, userId, role } = await requireWrtFacilitationSession(true);
     const body = (await request.json()) as {
       lessonId?: string;
       clientIds?: string[];
@@ -22,6 +27,8 @@ export async function POST(request: NextRequest) {
     if (clientIds.length === 0) {
       return wrtOk({ error: "At least one present client is required." }, { status: 400 });
     }
+
+    await assertWrtDemoClientAllowedForRoleMany(admin, role, clientIds);
 
     const result = await markLessonCompleteForClients(admin, {
       lessonId,

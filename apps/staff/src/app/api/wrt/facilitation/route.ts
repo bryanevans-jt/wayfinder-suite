@@ -1,4 +1,9 @@
-import { jsonWrtError, requireWrtFacilitationSession, wrtOk } from "@/lib/staff-wrt-auth";
+import {
+  assertWrtDemoClientAllowedForRole,
+  jsonWrtError,
+  requireWrtFacilitationSession,
+  wrtOk,
+} from "@/lib/staff-wrt-auth";
 import {
   loadClientFacilitationSnapshot,
   searchClientsForWrt,
@@ -9,7 +14,7 @@ import { NextRequest } from "next/server";
 export async function GET(request: NextRequest) {
   const route = "api/wrt/facilitation";
   try {
-    const { admin } = await requireWrtFacilitationSession(false);
+    const { admin, role } = await requireWrtFacilitationSession(false);
 
     try {
       await seedWrtCurriculumIfEmpty(admin);
@@ -32,15 +37,16 @@ export async function GET(request: NextRequest) {
     const q = request.nextUrl.searchParams.get("q");
 
     if (q !== null && !clientId) {
-      const clients = await searchClientsForWrt(admin, q);
+      const clients = await searchClientsForWrt(admin, q, role);
       return wrtOk({ clients });
     }
 
     if (!clientId) {
-      const clients = await searchClientsForWrt(admin, "");
+      const clients = await searchClientsForWrt(admin, "", role);
       return wrtOk({ clients });
     }
 
+    await assertWrtDemoClientAllowedForRole(admin, role, clientId);
     const snapshot = await loadClientFacilitationSnapshot(admin, clientId);
     return wrtOk(snapshot);
   } catch (error) {

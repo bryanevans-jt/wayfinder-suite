@@ -1,6 +1,6 @@
 import { WrtFacilitationWorkspace } from "@/components/wrt-facilitation-workspace";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
-import { canUseWrtFacilitationPreview } from "@wayfinder/supabase/staff-wrt-shared";
+import { canManageWrtCurriculum, canUseWrtFacilitationPreview } from "@wayfinder/supabase/staff-wrt-shared";
 import { staffHomePath } from "@wayfinder/supabase/roles";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -25,7 +25,7 @@ export default async function WrtFacilitationPreviewPage() {
         </Link>
         .
       </p>
-      <WrtFacilitationWorkspace />
+      <WrtFacilitationWorkspace showDemoSandbox={canManageWrtCurriculum(session.effectiveRole)} />
     </main>
   );
 }

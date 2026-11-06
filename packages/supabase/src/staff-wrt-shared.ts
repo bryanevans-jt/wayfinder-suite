@@ -117,6 +117,9 @@ export type WrtSessionRow = {
 
 export const WRT_ACTIVITY_CODE = "JT-ACT-070";
 
+/** Roster email for the admin-only WRT demo sandbox client (no login). */
+export const WRT_DEMO_SANDBOX_EMAIL = "wrt-demo-sandbox@wayfinder.local";
+
 /** Observational Workplace Readiness Rubric — staff-only; levels 1–3. */
 export const WRT_RUBRIC_DOMAIN_KEYS = [
   "punctuality_attendance",
