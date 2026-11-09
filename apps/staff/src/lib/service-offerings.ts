@@ -27,14 +27,9 @@ export function toServiceSelectOptions(
   offerings: ServiceOfferings
 ): ServiceSelectOptions {
   return togglesToServiceSelectOptions({
-    communityPartnersEnabled: false,
     traditionalSupportedEmploymentEnabled: offerings.traditionalSupportedEmploymentEnabled,
     jobCoachingEnabled: offerings.jobCoachingEnabled,
     customizedSupportedEmploymentEnabled: offerings.customizedSupportedEmploymentEnabled,
-    groupmeCelebrationsEnabled: true,
-    celebrationBirthdayTemplate: "",
-    celebrationAnniversaryTemplate: "",
-    directReferralAssignEnabled: false,
   });
 }
 

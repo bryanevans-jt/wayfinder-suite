@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --rv-green: #3c6c25;
+  --rv-green-dark: #2f541c;
+  --rv-gold: #b68035;
+  --rv-ink: #1a1f16;
+  --rv-paper: #f4f7f1;
+  --rv-mist: #e3ebdc;
+}
+
+body {
+  color: var(--rv-ink);
+  background:
+    radial-gradient(1200px 500px at 10% -10%, #dfe9d4 0%, transparent 55%),
+    radial-gradient(900px 400px at 100% 0%, #efe4d0 0%, transparent 50%),
+    var(--rv-paper);
+  min-height: 100vh;
+}
+
+.rv-btn {
+  @apply inline-flex items-center justify-center rounded-lg px-5 py-3 text-base font-semibold transition;
+}
+
+.rv-btn-primary {
+  @apply rv-btn bg-brand-green text-white hover:brightness-110;
+}
+
+.rv-btn-secondary {
+  @apply rv-btn border border-brand-green/30 bg-white text-brand-green hover:bg-brand-green/5;
+}
