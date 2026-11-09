@@ -1,5 +1,5 @@
 import { requireRendezvousAccess } from "@/lib/session";
-import { createAdminClient, rendezvousSchema } from "@/lib/supabase/admin";
+import { createUserDb } from "@/lib/supabase/admin";
 import { isValidSlug, slugifyName } from "@/lib/scheduling/slug";
 import { NextResponse } from "next/server";
 
@@ -9,8 +9,7 @@ export async function GET() {
     return NextResponse.json({ error: "Not found" }, { status: gate.status });
   }
 
-  const admin = createAdminClient();
-  const db = rendezvousSchema(admin);
+  const { db } = await createUserDb();
   const { data: schedules, error } = await db
     .from("staff_schedules")
     .select("*")
@@ -42,8 +41,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "staffUserId is required" }, { status: 400 });
   }
 
-  const admin = createAdminClient();
-  const { data: profile } = await admin
+  const { supabase, db } = await createUserDb();
+  const { data: profile } = await supabase
     .from("profiles")
     .select("id, full_name, role")
     .eq("id", staffUserId)
@@ -84,7 +83,6 @@ export async function POST(request: Request) {
         : "America/New_York",
   };
 
-  const db = rendezvousSchema(admin);
   const { data: schedule, error } = await db
     .from("staff_schedules")
     .upsert(row, { onConflict: "staff_user_id" })
@@ -157,8 +155,7 @@ export async function PATCH(request: Request) {
   }
   if (typeof body?.timezone === "string") patch.timezone = body.timezone.trim();
 
-  const admin = createAdminClient();
-  const db = rendezvousSchema(admin);
+  const { db } = await createUserDb();
   const { data, error } = await db
     .from("staff_schedules")
     .update(patch)
