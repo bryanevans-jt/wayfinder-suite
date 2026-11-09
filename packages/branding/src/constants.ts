@@ -26,6 +26,12 @@ export const STAFF_APP_URL_SLUG = "wayfinder-pro";
 /** Production URL for integrated formal reporting (`apps/reports`). */
 export const WAYFINDER_REPORTS_URL = "https://wayfinder-reports.thejoshuatree.org";
 
+/** Product name for the Rendezvous scheduling app (`apps/rendezvous`). */
+export const RENDEZVOUS_APP_PRODUCT_NAME = "Rendezvous";
+
+/** Suggested production URL for Rendezvous (own Vercel project). */
+export const WAYFINDER_RENDEZVOUS_URL = "https://rendezvous.thejoshuatree.org";
+
 /** Primary product mark (add `wayfinder-logo.png` to each app's `public/` folder). */
 export const WAYFINDER_LOGO_PATH = "/wayfinder-logo.png";
 

@@ -1,0 +1,12 @@
+{
+  "framework": "nextjs",
+  "regions": ["iad1"],
+  "installCommand": "cd ../.. && npm ci",
+  "buildCommand": "cd ../.. && npm run build -w @wayfinder/rendezvous",
+  "crons": [
+    {
+      "path": "/api/cron/renew-watches",
+      "schedule": "0 */12 * * *"
+    }
+  ]
+}

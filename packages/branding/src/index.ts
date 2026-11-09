@@ -8,9 +8,11 @@ export {
   LEGAL_ENTITY,
   PRIVACY_POLICY_LAST_UPDATED,
   REPORTS_APP_PRODUCT_NAME,
+  RENDEZVOUS_APP_PRODUCT_NAME,
   STAFF_APP_PRODUCT_NAME,
   JOSHUA_TREE_ORG_EMAIL_DOMAIN,
   WAYFINDER_REPORTS_URL,
+  WAYFINDER_RENDEZVOUS_URL,
   WAYFINDER_LOGO_ALT,
   STAFF_APP_URL_SLUG,
   SUPPORT_CONTACT_EMAIL,
@@ -23,6 +25,7 @@ export {
   CONTACT_LOG_NOTES_LABEL,
 } from "./constants";
 export { buildJtReportsPrefillUrl, buildReportsAppUrl, reportsAppBaseUrl, type JtReportPrefillType } from "./jt-reports-prefill";
+export { buildRendezvousAppUrl, rendezvousAppBaseUrl } from "./rendezvous-url";
 export { ClientActivityTimeline, type ClientActivityFeedItem } from "./client-activity-timeline";
 export {
   buildClientActivityFeed,
