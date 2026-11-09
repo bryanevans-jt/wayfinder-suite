@@ -203,6 +203,16 @@ body {
   overflow: hidden;
 }
 
+.rv-hero-plane-compact {
+  min-height: 0;
+  align-items: flex-start;
+}
+
+.rv-hero-plane-compact .rv-hero-content {
+  padding-top: clamp(1.25rem, 3vw, 2rem);
+  padding-bottom: clamp(1.25rem, 3vw, 2rem);
+}
+
 .rv-hero-plane::before {
   content: "";
   position: absolute;

@@ -1,10 +1,5 @@
 import { google } from "googleapis";
-
-function requireEnv(name: string): string {
-  const value = process.env[name]?.trim();
-  if (!value) throw new Error(`Missing required env: ${name}`);
-  return value;
-}
+import { googleServiceAccountCredentials } from "./credentials";
 
 export function emailsEnabled(): boolean {
   return process.env.RENDEZVOUS_EMAILS_ENABLED === "true";
@@ -20,8 +15,7 @@ export function schedulingFromAddress(): string {
 
 /** Gmail send via the same Workspace service account (domain-wide delegation). */
 function getGmailAuth() {
-  const clientEmail = requireEnv("GOOGLE_SERVICE_ACCOUNT_EMAIL");
-  const privateKey = requireEnv("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY").replace(/\\n/g, "\n");
+  const { clientEmail, privateKey } = googleServiceAccountCredentials();
   const subject = schedulingFromAddress();
   return new google.auth.JWT({
     email: clientEmail,
