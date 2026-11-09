@@ -1,6 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
-import { WAYFINDER_LOGO_ALT, WAYFINDER_LOGO_PATH } from "@wayfinder/branding";
+import { SiteFooter } from "@/components/SiteFooter";
 
 type Props = {
   children: React.ReactNode;
@@ -11,20 +10,12 @@ type Props = {
 
 export function AppShell({ children, showStaffNav = false, signOutSlot }: Props) {
   return (
-    <div className="rv-atmosphere">
+    <div className="rv-atmosphere flex min-h-screen flex-col">
       {showStaffNav ? (
         <header className="relative z-10 border-b border-[color:var(--rv-line)] bg-white/40 backdrop-blur-md">
           <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-            <Link href="/" className="flex items-center gap-3">
-              <Image
-                src={WAYFINDER_LOGO_PATH}
-                alt={WAYFINDER_LOGO_ALT}
-                width={36}
-                height={36}
-                className="h-9 w-9 object-contain"
-                priority
-              />
-              <span className="rv-brand text-2xl sm:text-3xl">Rendezvous</span>
+            <Link href="/" className="rv-brand text-2xl sm:text-3xl">
+              Rendezvous
             </Link>
             <nav className="flex items-center gap-4 sm:gap-5">
               <Link href="/calendar" className="rv-nav-link">
@@ -38,7 +29,8 @@ export function AppShell({ children, showStaffNav = false, signOutSlot }: Props)
           </div>
         </header>
       ) : null}
-      {children}
+      <div className="relative z-10 flex-1">{children}</div>
+      <SiteFooter />
     </div>
   );
 }

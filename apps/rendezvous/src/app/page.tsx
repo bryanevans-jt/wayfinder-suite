@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { redirect } from "next/navigation";
 import { requireRendezvousAccess } from "@/lib/session";
 import { createUserDb } from "@/lib/supabase/admin";
@@ -7,7 +6,6 @@ import { buildPublicBookingUrl } from "@/lib/env";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { AppShell } from "@/components/AppShell";
 import { SignOutButton } from "@wayfinder/auth-ui";
-import { WAYFINDER_LOGO_ALT, WAYFINDER_LOGO_PATH } from "@wayfinder/branding";
 
 export default async function HomePage() {
   const gate = await requireRendezvousAccess();
@@ -37,17 +35,7 @@ export default async function HomePage() {
     <AppShell showStaffNav signOutSlot={<SignOutButton />}>
       <section className="rv-hero-plane">
         <div className="rv-hero-content mx-auto max-w-5xl">
-          <div className="rv-rise flex items-end gap-4">
-            <Image
-              src={WAYFINDER_LOGO_PATH}
-              alt={WAYFINDER_LOGO_ALT}
-              width={72}
-              height={72}
-              className="mb-1 h-14 w-14 object-contain sm:h-16 sm:w-16"
-              priority
-            />
-            <h1 className="rv-brand text-6xl sm:text-7xl md:text-8xl">Rendezvous</h1>
-          </div>
+          <h1 className="rv-rise rv-brand text-6xl sm:text-7xl md:text-8xl">Rendezvous</h1>
           <p className="rv-rise rv-rise-delay-1 mt-5 max-w-xl text-lg text-brand-black/75 sm:text-xl">
             Simple scheduling for GVRA counselors—share a link, meet on time.
           </p>
