@@ -14,20 +14,26 @@ export async function GET(request: Request) {
   const rangeStart = now;
   const rangeEnd = new Date(now.getTime() + days * 86_400_000);
 
-  const admin = createAdminClient();
-  const result = await loadPublicSlots({ admin, slug, rangeStart, rangeEnd, now });
-  if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
-  }
+  try {
+    const admin = createAdminClient();
+    const result = await loadPublicSlots({ admin, slug, rangeStart, rangeEnd, now });
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
+    }
 
-  return NextResponse.json({
-    staffName: result.staffName,
-    defaultLocation: result.defaultLocation,
-    meetingLengthMinutes: result.schedule.meeting_length_minutes,
-    timezone: result.schedule.timezone,
-    slots: result.slots.map((s) => ({
-      start: s.start.toISOString(),
-      end: s.end.toISOString(),
-    })),
-  });
+    return NextResponse.json({
+      staffName: result.staffName,
+      defaultLocation: result.defaultLocation,
+      meetingLengthMinutes: result.schedule.meeting_length_minutes,
+      timezone: result.schedule.timezone,
+      slots: result.slots.map((s) => ({
+        start: s.start.toISOString(),
+        end: s.end.toISOString(),
+      })),
+    });
+  } catch (err) {
+    console.error("GET /api/slots failed:", err);
+    const message = err instanceof Error ? err.message : "Unable to load times";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

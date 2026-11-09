@@ -145,12 +145,19 @@ export async function getBusyTimesCached(opts: {
     }
   }
 
-  const busy = await fetchFreeBusy({
-    staffEmail,
-    calendarId,
-    timeMin,
-    timeMax,
-  });
+  let busy: BusyRange[] = [];
+  try {
+    busy = await fetchFreeBusy({
+      staffEmail,
+      calendarId,
+      timeMin,
+      timeMax,
+    });
+  } catch (err) {
+    // Keep weekly-hour slots available even when Google DWD/key setup is incomplete.
+    console.error("Google freebusy unavailable; returning schedule without calendar busy:", err);
+    return [];
+  }
 
   await db.from("busy_cache").upsert(
     {

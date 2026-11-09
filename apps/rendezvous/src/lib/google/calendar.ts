@@ -1,20 +1,14 @@
 import { google, type calendar_v3 } from "googleapis";
 import { createHash, randomUUID } from "node:crypto";
+import { googleServiceAccountCredentials } from "./credentials";
 
 const FREEBUSY_CACHE_TTL_MS = 90_000; // short TTL; push watches invalidate sooner
 
 export type FreeBusyInterval = { start: Date; end: Date };
 
-function requireEnv(name: string): string {
-  const value = process.env[name]?.trim();
-  if (!value) throw new Error(`Missing required env: ${name}`);
-  return value;
-}
-
 /** Service account auth with domain-wide delegation, impersonating a Workspace user. */
 export function getCalendarAuthForUser(userEmail: string) {
-  const clientEmail = requireEnv("GOOGLE_SERVICE_ACCOUNT_EMAIL");
-  const privateKey = requireEnv("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY").replace(/\\n/g, "\n");
+  const { clientEmail, privateKey } = googleServiceAccountCredentials();
   const subject = userEmail.trim().toLowerCase();
   if (!subject) throw new Error("Staff Google email required for Calendar impersonation");
 

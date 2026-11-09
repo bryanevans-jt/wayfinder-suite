@@ -125,18 +125,18 @@ export function BookingPage({
   if (done) {
     return (
       <AppShell>
-        <section className="rv-hero-plane min-h-[min(58vh,520px)]">
+        <section className="rv-hero-plane rv-hero-plane-compact">
           <div className="rv-hero-content mx-auto max-w-5xl">
             <p className="rv-kicker rv-rise">Confirmed</p>
-            <h1 className="rv-brand rv-rise rv-rise-delay-1 mt-3 text-5xl sm:text-6xl md:text-7xl">
+            <h1 className="rv-brand rv-rise rv-rise-delay-1 mt-2 text-4xl sm:text-5xl">
               You&apos;re Booked
             </h1>
-            <p className="rv-rise rv-rise-delay-2 mt-5 max-w-xl text-lg text-brand-black/75">
+            <p className="rv-rise rv-rise-delay-2 mt-3 max-w-xl text-brand-black/75">
               Meeting with <strong>{staffName}</strong> on {done.whenLabel}.
             </p>
           </div>
         </section>
-        <div className="rv-shell -mt-10 space-y-4 pb-16">
+        <div className="rv-shell space-y-4 pb-16 pt-6">
           <p className="text-sm text-brand-black/70">
             A confirmation email is on the way when email sending is enabled.
           </p>
@@ -159,25 +159,30 @@ export function BookingPage({
 
   return (
     <AppShell>
-      <section className="rv-hero-plane min-h-[min(62vh,560px)]">
+      <section className="rv-hero-plane rv-hero-plane-compact">
         <div className="rv-hero-content mx-auto max-w-5xl">
-          <p className="rv-rise rv-brand text-4xl sm:text-5xl">Rendezvous</p>
-          <h1 className="rv-display rv-rise rv-rise-delay-1 mt-6 text-4xl sm:text-5xl md:text-6xl">
+          <p className="rv-rise rv-brand text-3xl sm:text-4xl">Rendezvous</p>
+          <h1 className="rv-display rv-rise rv-rise-delay-1 mt-3 text-3xl sm:text-4xl md:text-5xl">
             Book With {staffName}
           </h1>
-          <p className="rv-rise rv-rise-delay-2 mt-4 max-w-2xl text-lg text-brand-black/75">
+          <p className="rv-rise rv-rise-delay-2 mt-3 max-w-2xl text-brand-black/75">
             Pick a time that works for you. Times are shown in Eastern Time.
           </p>
         </div>
       </section>
 
-      <div className="rv-shell -mt-8 space-y-8 pb-16">
-        <p className="rounded-2xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
-          Please do <strong>not</strong> enter sensitive client information on this form.
-        </p>
+      <div className="rv-shell space-y-6 pb-16 pt-6">
+        <div className="space-y-3">
+          <p className="rounded-2xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
+            Please do <strong>not</strong> enter sensitive client information on this form.
+          </p>
+          <p className="rounded-2xl border border-[color:var(--rv-line)] bg-white/70 px-4 py-3 text-sm text-brand-black/70">
+            Availability is subject to change.
+          </p>
+        </div>
 
         {loading ? <p className="text-brand-black/60">Loading Open Times…</p> : null}
-        {!loading && slots.length === 0 ? (
+        {!loading && slots.length === 0 && !status ? (
           <div className="rv-panel rounded-3xl px-6 py-12 text-center">
             <p className="rv-display text-2xl">No Open Times Right Now</p>
             <p className="mt-2 text-brand-black/65">Please check back later.</p>
