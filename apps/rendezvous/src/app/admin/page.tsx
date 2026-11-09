@@ -6,6 +6,7 @@ import { AdminScheduleForm } from "@/components/AdminScheduleForm";
 import { buildPublicBookingUrl } from "@/lib/env";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { AppShell } from "@/components/AppShell";
+import { RendezvousLogo } from "@/components/RendezvousLogo";
 import { SignOutButton } from "@wayfinder/auth-ui";
 import { isFieldSpecialistRole } from "@wayfinder/supabase/roles";
 
@@ -48,11 +49,14 @@ export default async function AdminPage() {
         <Link href="/" className="rv-nav-link">
           ← Home
         </Link>
-        <p className="rv-kicker rv-rise mt-8">Configuration</p>
-        <h1 className="rv-display rv-rise rv-rise-delay-1 mt-2 text-4xl sm:text-5xl md:text-6xl">
+        <div className="rv-rise mt-8">
+          <RendezvousLogo priority />
+        </div>
+        <p className="rv-kicker rv-rise rv-rise-delay-1 mt-6">Configuration</p>
+        <h1 className="rv-display rv-rise rv-rise-delay-2 mt-2 text-4xl sm:text-5xl md:text-6xl">
           Admin Setup
         </h1>
-        <p className="rv-rise rv-rise-delay-2 mt-3 max-w-2xl text-lg text-brand-black/70">
+        <p className="rv-rise rv-rise-delay-3 mt-3 max-w-2xl text-lg text-brand-black/70">
           Add or edit staff booking pages. Pages stay closed until you turn them on.
         </p>
 
