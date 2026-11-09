@@ -13,8 +13,10 @@ export type FeatureToggles = {
   celebrationBirthdayTemplate: string;
   celebrationAnniversaryTemplate: string;
   directReferralAssignEnabled: boolean;
-  /** Rendezvous scheduling — off by default; staff UI still super-admin-only. */
+  /** Rendezvous scheduling — off by default. */
   rendezvousEnabled: boolean;
+  /** When true (and enabled), ES/TS/supervisors/admins may use Rendezvous. */
+  rendezvousOpenToAll: boolean;
 };
 
 export const FEATURE_TOGGLES_CACHE_TAG = "staff-feature-toggles";
@@ -25,22 +27,28 @@ export const DEFAULT_ANNIVERSARY_TEMPLATE =
   "Today {name} celebrates {years} years at Joshua Tree! Happy work anniversary, {first_name}!";
 
 const TOGGLE_SELECT =
-  "community_partners_enabled, traditional_supported_employment_enabled, job_coaching_enabled, customized_supported_employment_enabled, groupme_celebrations_enabled, celebration_birthday_template, celebration_anniversary_template, direct_referral_assign_enabled, rendezvous_enabled";
+  "community_partners_enabled, traditional_supported_employment_enabled, job_coaching_enabled, customized_supported_employment_enabled, groupme_celebrations_enabled, celebration_birthday_template, celebration_anniversary_template, direct_referral_assign_enabled, rendezvous_enabled, rendezvous_open_to_all";
 
 export async function loadFeatureToggles(admin: SupabaseClient): Promise<FeatureToggles> {
   let { data, error } = await admin.from("admin_config").select(TOGGLE_SELECT).limit(1).maybeSingle();
 
-  if (error?.message.includes("rendezvous_enabled") || error?.message.includes("direct_referral_assign")) {
+  if (
+    error?.message.includes("rendezvous_open_to_all") ||
+    error?.message.includes("rendezvous_enabled") ||
+    error?.message.includes("direct_referral_assign")
+  ) {
     const fallback = await admin
       .from("admin_config")
       .select(
-        "community_partners_enabled, traditional_supported_employment_enabled, job_coaching_enabled, customized_supported_employment_enabled, groupme_celebrations_enabled, celebration_birthday_template, celebration_anniversary_template, direct_referral_assign_enabled"
+        "community_partners_enabled, traditional_supported_employment_enabled, job_coaching_enabled, customized_supported_employment_enabled, groupme_celebrations_enabled, celebration_birthday_template, celebration_anniversary_template, direct_referral_assign_enabled, rendezvous_enabled"
       )
       .limit(1)
       .maybeSingle();
     data = {
       ...(fallback.data as Record<string, unknown> | null),
-      rendezvous_enabled: false,
+      rendezvous_enabled:
+        (fallback.data as { rendezvous_enabled?: boolean } | null)?.rendezvous_enabled === true,
+      rendezvous_open_to_all: false,
     } as typeof data;
     error = fallback.error;
   }
@@ -61,12 +69,13 @@ export async function loadFeatureToggles(admin: SupabaseClient): Promise<Feature
       DEFAULT_ANNIVERSARY_TEMPLATE,
     directReferralAssignEnabled: data?.direct_referral_assign_enabled === true,
     rendezvousEnabled: data?.rendezvous_enabled === true,
+    rendezvousOpenToAll: data?.rendezvous_open_to_all === true,
   };
 }
 
 export const loadCachedFeatureToggles = unstable_cache(
   async () => loadFeatureToggles(createServiceRoleClient()),
-  ["staff-feature-toggles-v1"],
+  ["staff-feature-toggles-v2"],
   { revalidate: 60, tags: [FEATURE_TOGGLES_CACHE_TAG] }
 );
 

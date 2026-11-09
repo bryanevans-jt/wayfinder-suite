@@ -54,7 +54,10 @@ export function BookingPage({
     "in_person"
   );
   const [location, setLocation] = useState("");
-  const [reason, setReason] = useState("");
+  const [reason, setReason] = useState<"Intake" | "Progress Meeting" | "Other" | "">(
+    ""
+  );
+  const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [done, setDone] = useState<{ whenLabel: string; cancelUrl: string; rescheduleUrl: string } | null>(
@@ -113,6 +116,7 @@ export function BookingPage({
         meetingFormat,
         location: meetingFormat === "in_person" ? location || defaultLocation : null,
         reason,
+        notes,
       }),
     });
     const data = (await res.json()) as {
@@ -328,24 +332,55 @@ export function BookingPage({
               </div>
             ) : null}
 
+            <fieldset className="space-y-3">
+              <legend className="rv-label">Reason</legend>
+              <div className="rv-reason-row">
+                {(
+                  [
+                    ["Intake", "Intake"],
+                    ["Progress Meeting", "Progress Meeting"],
+                    ["Other", "Other"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <label
+                    key={value}
+                    className={`rv-format-option${reason === value ? " is-active" : ""}`}
+                  >
+                    <input
+                      type="radio"
+                      name="reason"
+                      checked={reason === value}
+                      onChange={() => setReason(value)}
+                    />
+                    <span>{label}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
             <div>
-              <label className="rv-label" htmlFor="meeting-reason">
-                Short Reason (Optional)
+              <label className="rv-label" htmlFor="meeting-notes">
+                Notes (Optional)
               </label>
               <textarea
-                id="meeting-reason"
+                id="meeting-notes"
                 className="rv-input"
                 rows={2}
                 maxLength={500}
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
               />
             </div>
 
             <button
               type="button"
               className="rv-btn-primary w-full sm:w-auto"
-              disabled={submitting || !counselorName.trim() || !counselorEmail.trim()}
+              disabled={
+                submitting ||
+                !counselorName.trim() ||
+                !counselorEmail.trim() ||
+                !reason
+              }
               onClick={() => void book()}
             >
               {submitting ? "Booking…" : "Confirm Booking"}

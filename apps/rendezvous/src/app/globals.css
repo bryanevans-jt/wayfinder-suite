@@ -378,6 +378,18 @@ body {
   gap: 0.65rem;
 }
 
+.rv-reason-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
+}
+
+@media (min-width: 640px) {
+  .rv-reason-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 .rv-format-option {
   display: flex;
   align-items: center;

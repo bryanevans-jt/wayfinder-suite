@@ -1,25 +1,46 @@
 import { buildRendezvousAppUrl } from "@wayfinder/branding";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
-import { isSuperAdminRole } from "@wayfinder/supabase/roles";
+import {
+  isAdminTierRole,
+  isFieldSpecialistRole,
+  isSuperAdminRole,
+  isSupervisorRole,
+} from "@wayfinder/supabase/roles";
 import { loadFeatureToggles } from "@/lib/feature-toggles";
 import { notFound, redirect } from "next/navigation";
 
+function canEnterRendezvous(opts: {
+  role: string | null;
+  openToAll: boolean;
+}): boolean {
+  if (isSuperAdminRole(opts.role)) return true;
+  if (!opts.openToAll) return false;
+  return (
+    isFieldSpecialistRole(opts.role) ||
+    isSupervisorRole(opts.role) ||
+    isAdminTierRole(opts.role)
+  );
+}
+
 /**
- * Hidden entry point. Returns 404 for anyone who is not a super admin or when
- * the org flag is off — so the feature stays undiscoverable.
+ * Entry point into the Rendezvous app.
+ * Hidden (404) when the org flag is off or the caller is outside the allowed audience.
  */
 export default async function RendezvousEntryPage() {
   const session = await getAppSession();
   const role = session?.effectiveRole ?? null;
 
-  if (!session || !isSuperAdminRole(role)) {
+  if (!session) {
     notFound();
   }
 
   const admin = createServiceRoleClient();
   const toggles = await loadFeatureToggles(admin);
   if (!toggles.rendezvousEnabled) {
+    notFound();
+  }
+  if (!canEnterRendezvous({ role, openToAll: toggles.rendezvousOpenToAll })) {
     notFound();
   }
 

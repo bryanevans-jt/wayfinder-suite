@@ -13,6 +13,8 @@ type Booking = {
   meeting_format: string;
   location: string | null;
   meet_link: string | null;
+  reason: string | null;
+  notes: string | null;
 };
 
 type ViewMode = "day" | "week" | "month";
@@ -194,7 +196,11 @@ export function TeamCalendar() {
               {b.meeting_format === "google_meet"
                 ? b.meet_link || "Virtual"
                 : b.location || "In Person"}
+              {b.reason ? ` · ${b.reason}` : ""}
             </p>
+            {b.notes ? (
+              <p className="mt-1 text-sm text-brand-black/55">Notes: {b.notes}</p>
+            ) : null}
           </article>
         ))}
       </div>

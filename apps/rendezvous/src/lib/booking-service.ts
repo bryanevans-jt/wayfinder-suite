@@ -95,7 +95,8 @@ export async function createPublicBooking(opts: {
   counselorEmail: string;
   meetingFormat: "in_person" | "google_meet";
   locationOverride?: string | null;
-  reason?: string | null;
+  reason: "Intake" | "Progress Meeting" | "Other";
+  notes?: string | null;
   forceTestEmail?: boolean;
 }) {
   const featureEnabled = await loadRendezvousFeatureEnabled(opts.admin);
@@ -115,8 +116,9 @@ export async function createPublicBooking(opts: {
   if (!counselorName || !counselorEmail.includes("@")) {
     return { ok: false as const, status: 400 as const, error: "Name and email are required" };
   }
-  if (opts.reason && opts.reason.length > 500) {
-    return { ok: false as const, status: 400 as const, error: "Reason is too long" };
+  const notes = opts.notes?.trim() || null;
+  if (notes && notes.length > 500) {
+    return { ok: false as const, status: 400 as const, error: "Notes are too long" };
   }
 
   const staff = await getStaffEmail(opts.admin, schedule.staff_user_id);
@@ -202,7 +204,8 @@ export async function createPublicBooking(opts: {
       summary: `Rendezvous: ${counselorName} ↔ ${staffName}`,
       description: [
         `Counselor: ${counselorName} <${counselorEmail}>`,
-        opts.reason?.trim() ? `Note: ${opts.reason.trim()}` : null,
+        `Reason: ${opts.reason}`,
+        notes ? `Notes: ${notes}` : null,
         "Booked via Joshua Tree Rendezvous.",
         "Do not include sensitive client information in calendar notes.",
       ]
@@ -235,7 +238,8 @@ export async function createPublicBooking(opts: {
       meeting_format: opts.meetingFormat,
       location,
       meet_link: meetLink,
-      reason: opts.reason?.trim() || null,
+      reason: opts.reason,
+      notes,
       status: "confirmed",
       google_event_id: googleEventId,
       cancel_token_hash: cancel.hash,
@@ -286,6 +290,7 @@ export async function createPublicBooking(opts: {
     cancelUrl,
     rescheduleUrl,
     reason: opts.reason,
+    notes,
   });
 
   await sendSchedulingEmail({

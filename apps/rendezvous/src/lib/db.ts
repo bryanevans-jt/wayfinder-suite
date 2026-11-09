@@ -30,6 +30,7 @@ export type BookingRow = {
   location: string | null;
   meet_link: string | null;
   reason: string | null;
+  notes: string | null;
   status: "confirmed" | "cancelled" | "rescheduled";
   google_event_id: string | null;
   cancel_token_hash: string;
