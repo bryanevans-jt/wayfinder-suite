@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { PORTAL_DISPLAY_TIME_ZONE } from "@wayfinder/branding";
 import { AppShell } from "@/components/AppShell";
+import { RendezvousLogo } from "@/components/RendezvousLogo";
 
 type Slot = { start: string; end: string };
 
@@ -141,11 +142,14 @@ export function BookingPage({
       <AppShell>
         <section className="rv-book-header">
           <div className="rv-shell !py-8 sm:!py-10">
-            <p className="rv-kicker rv-rise">Confirmed</p>
-            <h1 className="rv-brand rv-rise rv-rise-delay-1 mt-2 text-4xl sm:text-5xl">
+            <div className="rv-rise">
+              <RendezvousLogo priority />
+            </div>
+            <p className="rv-kicker rv-rise rv-rise-delay-1 mt-6">Confirmed</p>
+            <h1 className="rv-display rv-rise rv-rise-delay-2 mt-2 text-4xl sm:text-5xl">
               You&apos;re Booked
             </h1>
-            <p className="rv-rise rv-rise-delay-2 mt-3 max-w-xl text-lg text-[color:var(--rv-ink-soft)]">
+            <p className="rv-rise rv-rise-delay-3 mt-3 max-w-xl text-lg text-[color:var(--rv-ink-soft)]">
               Meeting with <strong className="text-[color:var(--rv-ink)]">{staffName}</strong> on{" "}
               {done.whenLabel}.
             </p>
@@ -181,8 +185,10 @@ export function BookingPage({
     <AppShell>
       <section className="rv-book-header">
         <div className="rv-shell !py-8 sm:!py-10">
-          <p className="rv-rise rv-brand text-3xl sm:text-4xl">Rendezvous</p>
-          <h1 className="rv-display rv-rise rv-rise-delay-1 mt-3 text-3xl sm:text-4xl md:text-[2.75rem]">
+          <div className="rv-rise">
+            <RendezvousLogo priority />
+          </div>
+          <h1 className="rv-display rv-rise rv-rise-delay-1 mt-5 text-3xl sm:text-4xl md:text-[2.75rem]">
             Book With {staffName}
           </h1>
           <p className="rv-rise rv-rise-delay-2 mt-3 max-w-xl text-[color:var(--rv-ink-soft)]">

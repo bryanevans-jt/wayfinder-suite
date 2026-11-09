@@ -451,3 +451,11 @@ body {
 .rv-nav-link:hover {
   color: var(--rv-green);
 }
+
+.rv-logo {
+  display: block;
+  width: auto;
+  max-width: min(100%, 40rem);
+  object-fit: contain;
+  object-position: left center;
+}
