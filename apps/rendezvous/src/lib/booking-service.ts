@@ -190,10 +190,11 @@ export async function createPublicBooking(opts: {
 
   const staffName = schedule.display_name?.trim() || staff.fullName;
   const whenLabel = formatSlotEastern({ start: startsAt, end: endsAt });
-  const formatLabel = opts.meetingFormat === "in_person" ? "In person" : "Google Meet";
+  const formatLabel = opts.meetingFormat === "in_person" ? "In Person" : "Virtual";
 
   let googleEventId: string | null = null;
   let meetLink: string | null = null;
+  let calendarSyncWarning: string | null = null;
   try {
     const event = await createBookingEvent({
       staffEmail: staff.email,
@@ -217,11 +218,10 @@ export async function createPublicBooking(opts: {
     googleEventId = event.eventId;
     meetLink = event.meetLink;
   } catch (err) {
-    return {
-      ok: false as const,
-      status: 502 as const,
-      error: err instanceof Error ? err.message : "Google Calendar error",
-    };
+    // Keep the booking even when Google DWD/key setup is incomplete.
+    console.error("Google Calendar create failed; saving booking without calendar event:", err);
+    calendarSyncWarning =
+      "Booking saved, but Google Calendar sync is unavailable. Check GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY in Vercel.";
   }
 
   const { data: booking, error } = await bookingsTable(opts.admin)
@@ -273,7 +273,9 @@ export async function createPublicBooking(opts: {
   const cancelUrl = buildManageUrl("cancel", cancel.token);
   const rescheduleUrl = buildManageUrl("reschedule", reschedule.token);
   const locationOrMeet =
-    opts.meetingFormat === "in_person" ? location || "To be confirmed" : meetLink || "Google Meet link pending";
+    opts.meetingFormat === "in_person"
+      ? location || "To be confirmed"
+      : meetLink || "Virtual meeting link pending";
 
   const bodies = buildBookingEmailBodies({
     staffName,
@@ -320,6 +322,7 @@ export async function createPublicBooking(opts: {
     manage: { cancelUrl, rescheduleUrl },
     publicUrl: buildPublicBookingUrl(schedule.slug),
     appUrl: rendezvousAppBaseUrl(),
+    calendarSyncWarning,
   };
 }
 

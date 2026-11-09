@@ -192,7 +192,7 @@ export function TeamCalendar() {
             </p>
             <p className="mt-1 text-sm text-brand-black/55">
               {b.meeting_format === "google_meet"
-                ? b.meet_link || "Google Meet"
+                ? b.meet_link || "Virtual"
                 : b.location || "In Person"}
             </p>
           </article>

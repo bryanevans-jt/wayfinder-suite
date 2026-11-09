@@ -49,5 +49,6 @@ export async function POST(request: Request) {
     staffName: result.staffName,
     cancelUrl: result.manage.cancelUrl,
     rescheduleUrl: result.manage.rescheduleUrl,
+    calendarSyncWarning: result.calendarSyncWarning,
   });
 }

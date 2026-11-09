@@ -1,3 +1,4 @@
+import { googlePrivateKeyLooksValid } from "@/lib/google/credentials";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
@@ -27,9 +28,11 @@ function urlProjectRef(url: string | undefined): string | null {
 }
 
 export async function GET() {
-  const googleSa = Boolean(
+  const googleSaConfigured = Boolean(
     process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY
   );
+  const googlePrivateKeyValid = googlePrivateKeyLooksValid();
+  const googleSa = googleSaConfigured && googlePrivateKeyValid;
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const urlRef = urlProjectRef(supabaseUrl);
@@ -64,6 +67,8 @@ export async function GET() {
     ok,
     app: "rendezvous",
     googleServiceAccount: googleSa,
+    googleServiceAccountConfigured: googleSaConfigured,
+    googlePrivateKeyValid,
     emailsEnabled: process.env.RENDEZVOUS_EMAILS_ENABLED === "true",
     supabase: {
       urlProjectRef: urlRef,
