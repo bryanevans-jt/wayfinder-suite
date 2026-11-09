@@ -21,11 +21,25 @@ What it does:
 
 Apply in the Supabase SQL editor (or CLI) on **Wayfinder-Production** only after review.
 
-### Expose the schema to PostgREST
+### Expose the schema to PostgREST (Data API)
 
-Dashboard → **Project Settings → API → Exposed schemas** → add `rendezvous` (keep `public`, `graphql_public`, etc.).
+In the current Supabase dashboard this is **not** under a top-level “API” page:
 
-Without this, `admin.schema("rendezvous")` calls from the app fail.
+1. Open the **Wayfinder-Production** project.
+2. Click the gear **Project Settings** (bottom-left).
+3. Open **Data API** (sibling of **API Keys** — not “API Keys” itself).
+4. Find **Exposed schemas** and add `rendezvous` (keep existing ones like `public` and `graphql_public`).
+5. Save.
+
+If the UI still doesn’t show it, you can do the same in SQL (review before running):
+
+```sql
+-- Include every schema you already expose, plus rendezvous
+alter role authenticator set pgrst.db_schemas = 'public, graphql_public, rendezvous';
+notify pgrst, 'reload config';
+```
+
+Without this, `admin.schema("rendezvous")` calls from the app fail with a PostgREST “schema must be one of…” error.
 
 ### Auth redirect URLs
 
