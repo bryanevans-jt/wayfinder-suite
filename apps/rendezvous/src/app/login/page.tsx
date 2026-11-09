@@ -1,7 +1,6 @@
-import Image from "next/image";
 import { RendezvousLoginForm } from "@/components/RendezvousLoginForm";
 import { AppShell } from "@/components/AppShell";
-import { JOSHUA_TREE_ORG_EMAIL_DOMAIN, WAYFINDER_LOGO_ALT, WAYFINDER_LOGO_PATH } from "@wayfinder/branding";
+import { JOSHUA_TREE_ORG_EMAIL_DOMAIN } from "@wayfinder/branding";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { isSuperAdminRole } from "@wayfinder/supabase/roles";
@@ -36,17 +35,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
     <AppShell>
       <section className="rv-hero-plane min-h-[min(78vh,720px)]">
         <div className="rv-hero-content mx-auto max-w-5xl">
-          <div className="rv-rise flex items-end gap-4">
-            <Image
-              src={WAYFINDER_LOGO_PATH}
-              alt={WAYFINDER_LOGO_ALT}
-              width={72}
-              height={72}
-              className="mb-1 h-14 w-14 object-contain sm:h-16 sm:w-16"
-              priority
-            />
-            <h1 className="rv-brand text-6xl sm:text-7xl md:text-8xl">Rendezvous</h1>
-          </div>
+          <h1 className="rv-rise rv-brand text-6xl sm:text-7xl md:text-8xl">Rendezvous</h1>
           <p className="rv-rise rv-rise-delay-1 mt-5 max-w-lg text-lg text-brand-black/75 sm:text-xl">
             Sign In With Your Joshua Tree Account.
           </p>

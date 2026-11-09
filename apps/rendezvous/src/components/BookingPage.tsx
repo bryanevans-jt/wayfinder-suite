@@ -1,8 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
-import { PORTAL_DISPLAY_TIME_ZONE, WAYFINDER_LOGO_ALT, WAYFINDER_LOGO_PATH } from "@wayfinder/branding";
+import { PORTAL_DISPLAY_TIME_ZONE } from "@wayfinder/branding";
 import { AppShell } from "@/components/AppShell";
 
 type Slot = { start: string; end: string };
@@ -162,17 +161,7 @@ export function BookingPage({
     <AppShell>
       <section className="rv-hero-plane min-h-[min(62vh,560px)]">
         <div className="rv-hero-content mx-auto max-w-5xl">
-          <div className="rv-rise flex items-end gap-3">
-            <Image
-              src={WAYFINDER_LOGO_PATH}
-              alt={WAYFINDER_LOGO_ALT}
-              width={56}
-              height={56}
-              className="mb-1 h-12 w-12 object-contain sm:h-14 sm:w-14"
-              priority
-            />
-            <p className="rv-brand text-4xl sm:text-5xl">Rendezvous</p>
-          </div>
+          <p className="rv-rise rv-brand text-4xl sm:text-5xl">Rendezvous</p>
           <h1 className="rv-display rv-rise rv-rise-delay-1 mt-6 text-4xl sm:text-5xl md:text-6xl">
             Book With {staffName}
           </h1>
