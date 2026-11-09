@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { isSuperAdminRole } from "@wayfinder/supabase/roles";
 
-type SearchParams = Promise<{ error?: string; next?: string }>;
+type SearchParams = Promise<{ error?: string; next?: string; reason?: string }>;
 
 function safeNextPath(next: string | undefined): string {
   if (!next || !next.startsWith("/") || next.startsWith("//")) return "/";
@@ -12,7 +12,7 @@ function safeNextPath(next: string | undefined): string {
 }
 
 export default async function LoginPage({ searchParams }: { searchParams: SearchParams }) {
-  const { error, next } = await searchParams;
+  const { error, next, reason } = await searchParams;
   const redirectAfterSignIn = safeNextPath(next);
 
   const supabase = await createClient();
@@ -39,6 +39,17 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
       {error === "org_only" ? (
         <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
           Only @thejoshuatree.org accounts can sign in here.
+        </p>
+      ) : null}
+      {error === "not_set_up" ? (
+        <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          This Google account is not provisioned in Wayfinder yet.
+        </p>
+      ) : null}
+      {error === "auth" || error === "forbidden" ? (
+        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+          Sign-in didn&apos;t complete
+          {reason ? `: ${reason}` : ". Check Supabase redirect URLs include this app’s /auth/callback, then clear cookies for rendezvous.thejoshuatree.org and try again."}
         </p>
       ) : null}
       <div className="mt-8 rounded-2xl border border-brand-green/15 bg-white/90 p-6 shadow-sm">
