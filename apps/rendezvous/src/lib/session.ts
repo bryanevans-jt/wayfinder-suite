@@ -1,7 +1,12 @@
 import { createClient } from "./supabase/server";
 import { createAdminClient } from "./supabase/admin";
-import { resolveRendezvousAccess, type RendezvousAccess } from "./access";
+import {
+  canAccessRendezvousStaffApp,
+  resolveRendezvousAccess,
+  type RendezvousAccess,
+} from "./access";
 import { JOSHUA_TREE_ORG_EMAIL_DOMAIN } from "@wayfinder/branding";
+import { isSuperAdminRole } from "@wayfinder/supabase/roles";
 
 export type RendezvousSession = {
   userId: string;
@@ -25,11 +30,28 @@ export async function getRendezvousSession(): Promise<RendezvousSession | null> 
     | { role?: string; full_name?: string | null }
     | undefined;
   const role = row?.role ? String(row.role).toLowerCase() : null;
-  const admin = createAdminClient();
-  const access = await resolveRendezvousAccess(admin, {
-    userId: user.id,
-    role,
-  });
+
+  let access: RendezvousAccess;
+  try {
+    const admin = createAdminClient();
+    access = await resolveRendezvousAccess(admin, {
+      userId: user.id,
+      role,
+    });
+  } catch (err) {
+    // Misconfigured service-role key should not soft-lock the bootstrap super admin.
+    console.error("getRendezvousAccess admin client failed:", err);
+    if (!isSuperAdminRole(role)) return null;
+    access = {
+      featureEnabled: true,
+      canAccessApp: canAccessRendezvousStaffApp({
+        featureEnabled: true,
+        role,
+      }),
+      role,
+      userId: user.id,
+    };
+  }
 
   return {
     userId: user.id,

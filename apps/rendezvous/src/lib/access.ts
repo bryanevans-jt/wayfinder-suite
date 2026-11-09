@@ -24,11 +24,14 @@ export type RendezvousAccess = {
 export async function loadRendezvousFeatureEnabled(
   admin: SupabaseClient
 ): Promise<boolean> {
-  const { data } = await admin
+  const { data, error } = await admin
     .from("admin_config")
     .select("rendezvous_enabled")
     .limit(1)
     .maybeSingle();
+  if (error) {
+    throw new Error(`admin_config read failed: ${error.message}`);
+  }
   return data?.rendezvous_enabled === true;
 }
 
