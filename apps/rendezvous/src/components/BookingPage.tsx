@@ -1,7 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
-import { PORTAL_DISPLAY_TIME_ZONE } from "@wayfinder/branding";
+import { PORTAL_DISPLAY_TIME_ZONE, WAYFINDER_LOGO_ALT, WAYFINDER_LOGO_PATH } from "@wayfinder/branding";
+import { AppShell } from "@/components/AppShell";
 
 type Slot = { start: string; end: string };
 
@@ -15,6 +17,16 @@ function formatEastern(iso: string): string {
     minute: "2-digit",
     timeZoneName: "short",
   }).format(new Date(iso));
+}
+
+function formatDayHeading(isoDay: string): string {
+  const [y, m, d] = isoDay.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  }).format(date);
 }
 
 export function BookingPage({
@@ -54,7 +66,7 @@ export function BookingPage({
         setSlots(data.slots ?? []);
         setDefaultLocation(data.defaultLocation ?? null);
       } else {
-        setStatus(data.error || "Unable to load times");
+        setStatus(data.error || "Unable To Load Times");
       }
       setLoading(false);
     })();
@@ -101,7 +113,7 @@ export function BookingPage({
     };
     setSubmitting(false);
     if (!res.ok) {
-      setStatus(data.error || "Booking failed");
+      setStatus(data.error || "Booking Failed");
       return;
     }
     setDone({
@@ -113,157 +125,193 @@ export function BookingPage({
 
   if (done) {
     return (
-      <div className="mx-auto max-w-xl px-4 py-16">
-        <h1 className="font-[family-name:var(--font-rv-display)] text-4xl text-brand-green">
-          You&apos;re booked
-        </h1>
-        <p className="mt-3 text-lg">
-          Meeting with <strong>{staffName}</strong> on {done.whenLabel}.
-        </p>
-        <p className="mt-4 text-sm text-brand-black/70">
-          A confirmation email is on the way (when email sending is enabled).
-        </p>
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-          {done.cancelUrl ? (
-            <a className="rv-btn-secondary" href={done.cancelUrl}>
-              Cancel meeting
-            </a>
-          ) : null}
-          {done.rescheduleUrl ? (
-            <a className="rv-btn-secondary" href={done.rescheduleUrl}>
-              Reschedule
-            </a>
-          ) : null}
+      <AppShell>
+        <section className="rv-hero-plane min-h-[min(58vh,520px)]">
+          <div className="rv-hero-content mx-auto max-w-5xl">
+            <p className="rv-kicker rv-rise">Confirmed</p>
+            <h1 className="rv-brand rv-rise rv-rise-delay-1 mt-3 text-5xl sm:text-6xl md:text-7xl">
+              You&apos;re Booked
+            </h1>
+            <p className="rv-rise rv-rise-delay-2 mt-5 max-w-xl text-lg text-brand-black/75">
+              Meeting with <strong>{staffName}</strong> on {done.whenLabel}.
+            </p>
+          </div>
+        </section>
+        <div className="rv-shell -mt-10 space-y-4 pb-16">
+          <p className="text-sm text-brand-black/70">
+            A confirmation email is on the way when email sending is enabled.
+          </p>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            {done.cancelUrl ? (
+              <a className="rv-btn-secondary" href={done.cancelUrl}>
+                Cancel Meeting
+              </a>
+            ) : null}
+            {done.rescheduleUrl ? (
+              <a className="rv-btn-secondary" href={done.rescheduleUrl}>
+                Reschedule Meeting
+              </a>
+            ) : null}
+          </div>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12">
-      <p className="text-sm font-semibold uppercase tracking-wide text-brand-gold">Rendezvous</p>
-      <h1 className="mt-2 font-[family-name:var(--font-rv-display)] text-4xl text-brand-green sm:text-5xl">
-        Book with {staffName}
-      </h1>
-      <p className="mt-3 max-w-2xl text-brand-black/75">
-        Pick a time that works for you. Times are shown in Eastern Time.
-      </p>
-      <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-        Please do <strong>not</strong> enter sensitive client information on this form.
-      </p>
-
-      {loading ? <p className="mt-8 text-brand-black/60">Loading open times…</p> : null}
-      {!loading && slots.length === 0 ? (
-        <p className="mt-8 text-brand-black/70">No open times right now. Please check back later.</p>
-      ) : null}
-
-      <div className="mt-8 space-y-6">
-        {grouped.map(([day, daySlots]) => (
-          <div key={day}>
-            <h2 className="text-lg font-semibold">{day}</h2>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {daySlots.map((slot) => (
-                <button
-                  key={slot.start}
-                  type="button"
-                  className={`rounded-lg border px-3 py-2 text-sm ${
-                    selected === slot.start
-                      ? "border-brand-green bg-brand-green text-white"
-                      : "border-brand-green/25 bg-white hover:bg-brand-green/5"
-                  }`}
-                  onClick={() => setSelected(slot.start)}
-                >
-                  {formatEastern(slot.start)}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {selected ? (
-        <div className="mt-10 space-y-4 rounded-2xl border border-brand-green/15 bg-white/90 p-5 shadow-sm">
-          <p className="font-semibold">Selected: {formatEastern(selected)}</p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-semibold">Your name</label>
-              <input
-                className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2"
-                value={counselorName}
-                onChange={(e) => setCounselorName(e.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold">Your email</label>
-              <input
-                type="email"
-                className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2"
-                value={counselorEmail}
-                onChange={(e) => setCounselorEmail(e.target.value)}
-                required
-              />
-            </div>
-          </div>
-
-          <fieldset className="space-y-2">
-            <legend className="text-sm font-semibold">Meeting format</legend>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="format"
-                checked={meetingFormat === "google_meet"}
-                onChange={() => setMeetingFormat("google_meet")}
-              />
-              Google Meet
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="format"
-                checked={meetingFormat === "in_person"}
-                onChange={() => setMeetingFormat("in_person")}
-              />
-              In person
-            </label>
-          </fieldset>
-
-          {meetingFormat === "in_person" ? (
-            <div>
-              <label className="block text-sm font-semibold">Location (optional override)</label>
-              <input
-                className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder={defaultLocation || "Meeting location"}
-              />
-            </div>
-          ) : null}
-
-          <div>
-            <label className="block text-sm font-semibold">Short reason (optional)</label>
-            <textarea
-              className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2"
-              rows={2}
-              maxLength={500}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Do not include client names or sensitive details"
+    <AppShell>
+      <section className="rv-hero-plane min-h-[min(62vh,560px)]">
+        <div className="rv-hero-content mx-auto max-w-5xl">
+          <div className="rv-rise flex items-end gap-3">
+            <Image
+              src={WAYFINDER_LOGO_PATH}
+              alt={WAYFINDER_LOGO_ALT}
+              width={56}
+              height={56}
+              className="mb-1 h-12 w-12 object-contain sm:h-14 sm:w-14"
+              priority
             />
+            <p className="rv-brand text-4xl sm:text-5xl">Rendezvous</p>
           </div>
-
-          <button
-            type="button"
-            className="rv-btn-primary"
-            disabled={submitting || !counselorName.trim() || !counselorEmail.trim()}
-            onClick={() => void book()}
-          >
-            {submitting ? "Booking…" : "Confirm booking"}
-          </button>
+          <h1 className="rv-display rv-rise rv-rise-delay-1 mt-6 text-4xl sm:text-5xl md:text-6xl">
+            Book With {staffName}
+          </h1>
+          <p className="rv-rise rv-rise-delay-2 mt-4 max-w-2xl text-lg text-brand-black/75">
+            Pick a time that works for you. Times are shown in Eastern Time.
+          </p>
         </div>
-      ) : null}
+      </section>
 
-      {status ? <p className="mt-4 text-sm text-red-700">{status}</p> : null}
-    </div>
+      <div className="rv-shell -mt-8 space-y-8 pb-16">
+        <p className="rounded-2xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
+          Please do <strong>not</strong> enter sensitive client information on this form.
+        </p>
+
+        {loading ? <p className="text-brand-black/60">Loading Open Times…</p> : null}
+        {!loading && slots.length === 0 ? (
+          <div className="rv-panel rounded-3xl px-6 py-12 text-center">
+            <p className="rv-display text-2xl">No Open Times Right Now</p>
+            <p className="mt-2 text-brand-black/65">Please check back later.</p>
+          </div>
+        ) : null}
+
+        <div className="space-y-8">
+          {grouped.map(([day, daySlots]) => (
+            <div key={day}>
+              <h2 className="rv-display text-2xl">{formatDayHeading(day)}</h2>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {daySlots.map((slot) => (
+                  <button
+                    key={slot.start}
+                    type="button"
+                    className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition ${
+                      selected === slot.start
+                        ? "border-transparent text-white"
+                        : "border-[color:var(--rv-line)] bg-white/80 hover:bg-white"
+                    }`}
+                    style={
+                      selected === slot.start
+                        ? {
+                            background:
+                              "linear-gradient(135deg, #3C6C25, #2a6a3a 55%, #1f5c6b)",
+                          }
+                        : undefined
+                    }
+                    onClick={() => setSelected(slot.start)}
+                  >
+                    {formatEastern(slot.start)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {selected ? (
+          <div className="rv-panel space-y-5 rounded-3xl p-6">
+            <h2 className="rv-display text-2xl">Confirm Details</h2>
+            <p className="font-semibold text-brand-green">Selected: {formatEastern(selected)}</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-semibold">Your Name</label>
+                <input
+                  className="rv-input"
+                  value={counselorName}
+                  onChange={(e) => setCounselorName(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold">Your Email</label>
+                <input
+                  type="email"
+                  className="rv-input"
+                  value={counselorEmail}
+                  onChange={(e) => setCounselorEmail(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-semibold">Meeting Format</legend>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="format"
+                  checked={meetingFormat === "google_meet"}
+                  onChange={() => setMeetingFormat("google_meet")}
+                />
+                Google Meet
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="format"
+                  checked={meetingFormat === "in_person"}
+                  onChange={() => setMeetingFormat("in_person")}
+                />
+                In Person
+              </label>
+            </fieldset>
+
+            {meetingFormat === "in_person" ? (
+              <div>
+                <label className="block text-sm font-semibold">Location (Optional Override)</label>
+                <input
+                  className="rv-input"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder={defaultLocation || "Meeting Location"}
+                />
+              </div>
+            ) : null}
+
+            <div>
+              <label className="block text-sm font-semibold">Short Reason (Optional)</label>
+              <textarea
+                className="rv-input"
+                rows={2}
+                maxLength={500}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Do not include client names or sensitive details"
+              />
+            </div>
+
+            <button
+              type="button"
+              className="rv-btn-primary"
+              disabled={submitting || !counselorName.trim() || !counselorEmail.trim()}
+              onClick={() => void book()}
+            >
+              {submitting ? "Booking…" : "Confirm Booking"}
+            </button>
+          </div>
+        ) : null}
+
+        {status ? <p className="text-sm text-red-700">{status}</p> : null}
+      </div>
+    </AppShell>
   );
 }

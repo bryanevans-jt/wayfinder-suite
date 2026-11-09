@@ -3,31 +3,231 @@
 @tailwind utilities;
 
 :root {
-  --rv-green: #3c6c25;
-  --rv-green-dark: #2f541c;
-  --rv-gold: #b68035;
-  --rv-ink: #1a1f16;
-  --rv-paper: #f4f7f1;
-  --rv-mist: #e3ebdc;
+  --rv-green: #2f5a1f;
+  --rv-green-mid: #3c6c25;
+  --rv-green-soft: #6f9a55;
+  --rv-sky: #7eb6c9;
+  --rv-sky-soft: #c9e3eb;
+  --rv-sand: #d8c7a8;
+  --rv-ink: #152018;
+  --rv-paper: #eef3ea;
+  --rv-mist: #d7e4d0;
+  --rv-panel: rgba(255, 255, 255, 0.78);
+  --rv-line: rgba(47, 90, 31, 0.16);
+  --font-rv-display: var(--font-rv-display);
+  --font-rv-sans: var(--font-rv-sans);
+}
+
+@keyframes rv-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rv-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(1.5%, -1.2%, 0) scale(1.04);
+  }
+}
+
+@keyframes rv-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 body {
   color: var(--rv-ink);
-  background:
-    radial-gradient(1200px 500px at 10% -10%, #dfe9d4 0%, transparent 55%),
-    radial-gradient(900px 400px at 100% 0%, #efe4d0 0%, transparent 50%),
-    var(--rv-paper);
+  background: var(--rv-paper);
   min-height: 100vh;
 }
 
+.rv-atmosphere {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(920px 520px at 8% -8%, rgba(126, 182, 201, 0.42), transparent 58%),
+    radial-gradient(780px 460px at 96% 4%, rgba(216, 199, 168, 0.38), transparent 52%),
+    radial-gradient(640px 420px at 70% 110%, rgba(111, 154, 85, 0.28), transparent 55%),
+    linear-gradient(165deg, #f5f8f2 0%, #e8f0e4 48%, #e4ece8 100%);
+}
+
+.rv-atmosphere::before {
+  content: "";
+  position: absolute;
+  inset: -10% -5% auto;
+  height: min(62vh, 560px);
+  z-index: -2;
+  background:
+    radial-gradient(ellipse at 30% 40%, rgba(60, 108, 37, 0.18), transparent 55%),
+    radial-gradient(ellipse at 72% 30%, rgba(126, 182, 201, 0.22), transparent 50%);
+  filter: blur(8px);
+  animation: rv-drift 18s ease-in-out infinite;
+}
+
+.rv-atmosphere::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.35;
+  background-image:
+    linear-gradient(rgba(47, 90, 31, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(47, 90, 31, 0.045) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 78%);
+  pointer-events: none;
+}
+
+.rv-rise {
+  animation: rv-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.rv-rise-delay-1 {
+  animation-delay: 0.08s;
+}
+
+.rv-rise-delay-2 {
+  animation-delay: 0.16s;
+}
+
+.rv-rise-delay-3 {
+  animation-delay: 0.24s;
+}
+
+.rv-brand {
+  font-family: var(--font-rv-display), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 0.92;
+  background: linear-gradient(120deg, var(--rv-green) 0%, #4f8a34 45%, #2a6f7e 100%);
+  background-size: 180% 180%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: rv-shimmer 10s ease-in-out infinite alternate;
+}
+
+.rv-display {
+  font-family: var(--font-rv-display), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  color: var(--rv-green);
+}
+
+.rv-kicker {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--rv-green) 70%, #1f4e79);
+}
+
+.rv-panel {
+  background: var(--rv-panel);
+  border: 1px solid var(--rv-line);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.rv-shell {
+  @apply mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14;
+}
+
 .rv-btn {
-  @apply inline-flex items-center justify-center rounded-lg px-5 py-3 text-base font-semibold transition;
+  @apply inline-flex items-center justify-center rounded-xl px-5 py-3 text-base font-semibold transition duration-200;
 }
 
 .rv-btn-primary {
-  @apply rv-btn bg-brand-green text-white hover:brightness-110;
+  @apply rv-btn text-white shadow-sm;
+  background: linear-gradient(135deg, var(--rv-green-mid), #2a6a3a 55%, #1f5c6b);
+  background-size: 160% 160%;
+}
+
+.rv-btn-primary:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
 }
 
 .rv-btn-secondary {
-  @apply rv-btn border border-brand-green/30 bg-white text-brand-green hover:bg-brand-green/5;
+  @apply rv-btn text-[color:var(--rv-green)];
+  border: 1px solid color-mix(in srgb, var(--rv-green) 28%, transparent);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.rv-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.95);
+  transform: translateY(-1px);
+}
+
+.rv-input {
+  @apply mt-1 w-full rounded-xl border px-3 py-2.5 outline-none transition;
+  border-color: color-mix(in srgb, var(--rv-green) 22%, #c9cfc4);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.rv-input:focus {
+  border-color: var(--rv-green-mid);
+  box-shadow: 0 0 0 3px rgba(60, 108, 37, 0.15);
+}
+
+.rv-hero-plane {
+  position: relative;
+  min-height: min(72vh, 640px);
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+.rv-hero-plane::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    linear-gradient(180deg, rgba(238, 243, 234, 0.15) 0%, rgba(238, 243, 234, 0.82) 72%, var(--rv-paper) 100%),
+    radial-gradient(120% 80% at 70% 20%, rgba(126, 182, 201, 0.45), transparent 55%),
+    radial-gradient(90% 70% at 15% 80%, rgba(60, 108, 37, 0.35), transparent 50%),
+    linear-gradient(135deg, #8fb39a 0%, #5f8f72 35%, #3c6c25 68%, #1f4e4a 100%);
+  animation: rv-drift 22s ease-in-out infinite;
+}
+
+.rv-hero-content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  padding: clamp(2rem, 6vw, 4.5rem) clamp(1rem, 4vw, 2rem) clamp(2rem, 5vw, 3.5rem);
+}
+
+.rv-nav-link {
+  @apply text-sm font-semibold transition;
+  color: color-mix(in srgb, var(--rv-green) 85%, black);
+}
+
+.rv-nav-link:hover {
+  color: var(--rv-green);
 }

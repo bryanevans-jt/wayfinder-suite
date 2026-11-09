@@ -12,9 +12,15 @@ const config: Config = {
         brand: {
           green: "#3C6C25",
           gold: "#B68035",
-          black: "#000000",
+          black: "#152018",
           white: "#FFFFFF",
+          sky: "#7EB6C9",
+          sand: "#D8C7A8",
         },
+      },
+      fontFamily: {
+        display: ["var(--font-rv-display)", "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ["var(--font-rv-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
       },
     },
   },

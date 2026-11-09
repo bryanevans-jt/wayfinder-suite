@@ -1,19 +1,24 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { requireRendezvousAccess } from "@/lib/session";
 import { createUserDb } from "@/lib/supabase/admin";
 import { buildPublicBookingUrl } from "@/lib/env";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
+import { AppShell } from "@/components/AppShell";
 import { SignOutButton } from "@wayfinder/auth-ui";
+import { WAYFINDER_LOGO_ALT, WAYFINDER_LOGO_PATH } from "@wayfinder/branding";
 
 export default async function HomePage() {
   const gate = await requireRendezvousAccess();
   if (!gate.ok) {
     if (gate.status === 401) redirect("/login");
     return (
-      <main className="mx-auto max-w-lg px-4 py-24 text-center">
-        <h1 className="text-2xl font-semibold">Not Found</h1>
-      </main>
+      <AppShell>
+        <main className="rv-shell text-center">
+          <h1 className="rv-display text-3xl">Not Found</h1>
+        </main>
+      </AppShell>
     );
   }
 
@@ -29,53 +34,63 @@ export default async function HomePage() {
     : null;
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-12">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="font-[family-name:var(--font-rv-display)] text-5xl text-brand-green">
-            Rendezvous
-          </p>
-          <p className="mt-2 text-brand-black/70">
-            Simple scheduling for GVRA counselors.
-          </p>
-        </div>
-        <SignOutButton />
-      </div>
-
-      {bookingUrl ? (
-        <section className="mt-10 rounded-2xl border border-brand-green/15 bg-white/90 p-6 shadow-sm">
-          <h2 className="text-xl font-semibold">My Booking Page</h2>
-          <p className="mt-2 text-sm text-brand-black/70">
-            Share this link with a GVRA counselor so they can pick a time.
-          </p>
-          <p className="mt-4 break-all rounded-lg bg-[var(--rv-mist)] px-3 py-2 text-sm">
-            {bookingUrl}
-          </p>
-          <div className="mt-4">
-            <CopyLinkButton url={bookingUrl} />
+    <AppShell showStaffNav signOutSlot={<SignOutButton />}>
+      <section className="rv-hero-plane">
+        <div className="rv-hero-content mx-auto max-w-5xl">
+          <div className="rv-rise flex items-end gap-4">
+            <Image
+              src={WAYFINDER_LOGO_PATH}
+              alt={WAYFINDER_LOGO_ALT}
+              width={72}
+              height={72}
+              className="mb-1 h-14 w-14 object-contain sm:h-16 sm:w-16"
+              priority
+            />
+            <h1 className="rv-brand text-6xl sm:text-7xl md:text-8xl">Rendezvous</h1>
           </div>
-          <p className="mt-3 text-sm text-brand-black/60">
-            Status:{" "}
-            <strong>{mySchedule?.enabled ? "Open for booking" : "Closed"}</strong>
+          <p className="rv-rise rv-rise-delay-1 mt-5 max-w-xl text-lg text-brand-black/75 sm:text-xl">
+            Simple scheduling for GVRA counselors—share a link, meet on time.
           </p>
-        </section>
-      ) : (
-        <section className="mt-10 rounded-2xl border border-brand-green/15 bg-white/90 p-6 shadow-sm">
-          <h2 className="text-xl font-semibold">My Booking Page</h2>
-          <p className="mt-2 text-sm text-brand-black/70">
-            No booking page is set up for your account yet. Use Admin setup to add one.
-          </p>
-        </section>
-      )}
+          <div className="rv-rise rv-rise-delay-2 mt-8 flex flex-col gap-3 sm:flex-row">
+            <Link href="/calendar" className="rv-btn-primary">
+              Open Team Calendar
+            </Link>
+            <Link href="/admin" className="rv-btn-secondary">
+              Admin Setup
+            </Link>
+          </div>
+        </div>
+      </section>
 
-      <nav className="mt-10 flex flex-col gap-3 sm:flex-row">
-        <Link href="/calendar" className="rv-btn-primary">
-          Team calendar
-        </Link>
-        <Link href="/admin" className="rv-btn-secondary">
-          Admin setup
-        </Link>
-      </nav>
-    </main>
+      <main className="rv-shell pt-4 sm:pt-6">
+        <section className="rv-rise rv-rise-delay-3">
+          <p className="rv-kicker">Your Page</p>
+          <h2 className="rv-display mt-2 text-3xl sm:text-4xl">My Booking Page</h2>
+          {bookingUrl ? (
+            <div className="mt-6 space-y-4">
+              <p className="max-w-2xl text-brand-black/70">
+                Share this link with a GVRA counselor so they can pick a time.
+              </p>
+              <p className="break-all rounded-2xl bg-[color:var(--rv-mist)]/80 px-4 py-3 font-mono text-sm">
+                {bookingUrl}
+              </p>
+              <div className="flex flex-wrap items-center gap-4">
+                <CopyLinkButton url={bookingUrl} />
+                <p className="text-sm text-brand-black/65">
+                  Status:{" "}
+                  <strong className="text-brand-green">
+                    {mySchedule?.enabled ? "Open For Booking" : "Closed"}
+                  </strong>
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-4 max-w-2xl text-brand-black/70">
+              No booking page is set up for your account yet. Use Admin Setup to add one.
+            </p>
+          )}
+        </section>
+      </main>
+    </AppShell>
   );
 }

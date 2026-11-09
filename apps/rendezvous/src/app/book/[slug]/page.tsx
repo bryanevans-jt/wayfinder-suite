@@ -5,6 +5,7 @@ import {
   loadRendezvousFeatureEnabled,
 } from "@/lib/access";
 import { BookingPage } from "@/components/BookingPage";
+import { AppShell } from "@/components/AppShell";
 
 type Params = Promise<{ slug: string }>;
 
@@ -19,12 +20,14 @@ export default async function PublicBookPage({ params }: { params: Params }) {
     !isPublicBookingAllowed({ featureEnabled, scheduleEnabled: schedule.enabled })
   ) {
     return (
-      <main className="mx-auto max-w-lg px-4 py-24 text-center">
-        <h1 className="text-2xl font-semibold">Booking unavailable</h1>
-        <p className="mt-2 text-brand-black/70">
-          This scheduling page is not open right now.
-        </p>
-      </main>
+      <AppShell>
+        <main className="rv-shell text-center">
+          <h1 className="rv-display text-3xl sm:text-4xl">Booking Unavailable</h1>
+          <p className="mt-3 text-brand-black/70">
+            This scheduling page is not open right now.
+          </p>
+        </main>
+      </AppShell>
     );
   }
 

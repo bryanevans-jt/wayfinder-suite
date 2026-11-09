@@ -1,6 +1,7 @@
 import { createAdminClient, rendezvousSchema } from "@/lib/supabase/admin";
 import { hashBookingToken } from "@/lib/scheduling/tokens";
 import { ManageCancel, ManageReschedule } from "@/components/ManageBooking";
+import { AppShell } from "@/components/AppShell";
 
 type Params = Promise<{ token: string }>;
 type SearchParams = Promise<{ token?: string; action?: string }>;
@@ -31,9 +32,11 @@ export default async function ManagePage({
 
   if (!token) {
     return (
-      <main className="mx-auto max-w-lg px-4 py-24 text-center">
-        <h1 className="text-2xl font-semibold">Link incomplete</h1>
-      </main>
+      <AppShell>
+        <main className="rv-shell text-center">
+          <h1 className="rv-display text-3xl">Link Incomplete</h1>
+        </main>
+      </AppShell>
     );
   }
 
@@ -48,10 +51,12 @@ export default async function ManagePage({
 
   if (!booking || booking.status !== "confirmed") {
     return (
-      <main className="mx-auto max-w-lg px-4 py-24 text-center">
-        <h1 className="text-2xl font-semibold">Booking not found</h1>
-        <p className="mt-2 text-brand-black/70">This link may have already been used.</p>
-      </main>
+      <AppShell>
+        <main className="rv-shell text-center">
+          <h1 className="rv-display text-3xl">Booking Not Found</h1>
+          <p className="mt-3 text-brand-black/70">This link may have already been used.</p>
+        </main>
+      </AppShell>
     );
   }
 
@@ -62,18 +67,24 @@ export default async function ManagePage({
     .maybeSingle();
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-12">
-      <p className="text-sm font-semibold uppercase tracking-wide text-brand-gold">Rendezvous</p>
-      <h1 className="mt-2 font-[family-name:var(--font-rv-display)] text-4xl text-brand-green">
-        {kind === "cancel" ? "Cancel meeting" : "Reschedule meeting"}
-      </h1>
-      <div className="mt-8 rounded-2xl border border-brand-green/15 bg-white/90 p-6 shadow-sm">
-        {kind === "cancel" ? (
-          <ManageCancel token={token} />
-        ) : (
-          <ManageReschedule token={token} slug={(schedule?.slug as string) || ""} />
-        )}
-      </div>
-    </main>
+    <AppShell>
+      <section className="rv-hero-plane min-h-[min(48vh,420px)]">
+        <div className="rv-hero-content mx-auto max-w-5xl">
+          <p className="rv-kicker rv-rise">Rendezvous</p>
+          <h1 className="rv-brand rv-rise rv-rise-delay-1 mt-3 text-5xl sm:text-6xl">
+            {kind === "cancel" ? "Cancel Meeting" : "Reschedule Meeting"}
+          </h1>
+        </div>
+      </section>
+      <main className="rv-shell -mt-10 pb-16">
+        <div className="rv-panel rounded-3xl p-6">
+          {kind === "cancel" ? (
+            <ManageCancel token={token} />
+          ) : (
+            <ManageReschedule token={token} slug={(schedule?.slug as string) || ""} />
+          )}
+        </div>
+      </main>
+    </AppShell>
   );
 }
