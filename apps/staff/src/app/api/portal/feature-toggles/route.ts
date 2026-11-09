@@ -27,6 +27,7 @@ export async function GET() {
     celebration_anniversary_template: toggles.celebrationAnniversaryTemplate,
     direct_referral_assign_enabled: toggles.directReferralAssignEnabled,
     rendezvous_enabled: toggles.rendezvousEnabled,
+    rendezvous_open_to_all: toggles.rendezvousOpenToAll,
   });
 }
 
@@ -51,6 +52,7 @@ export async function PATCH(request: Request) {
     "groupme_celebrations_enabled",
     "direct_referral_assign_enabled",
     "rendezvous_enabled",
+    "rendezvous_open_to_all",
   ] as const;
 
   for (const key of boolKeys) {

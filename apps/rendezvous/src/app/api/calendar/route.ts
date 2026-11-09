@@ -25,7 +25,7 @@ export async function GET(request: Request) {
   let query = db
     .from("bookings")
     .select(
-      "id, staff_user_id, starts_at, ends_at, counselor_name, meeting_format, location, meet_link, status, reason"
+      "id, staff_user_id, starts_at, ends_at, counselor_name, meeting_format, location, meet_link, status, reason, notes"
     )
     .eq("status", "confirmed")
     .gte("starts_at", from)

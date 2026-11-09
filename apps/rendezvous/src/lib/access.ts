@@ -7,54 +7,85 @@ import {
 } from "@wayfinder/supabase/roles";
 import { loadSupervisorScope } from "@wayfinder/supabase/supervisor-client-scope";
 
-/**
- * Rollout mode. Until broader launch, only Wayfinder super admins may discover
- * or use authenticated Rendezvous surfaces — even if the org flag is on.
- */
-export const RENDEZVOUS_STAFF_ACCESS_MODE = "super_admin_only" as const;
-
 export type RendezvousAccess = {
   featureEnabled: boolean;
+  openToAll: boolean;
   /** True only when the caller may see that Rendezvous exists. */
   canAccessApp: boolean;
   role: string | null;
   userId: string | null;
 };
 
-export async function loadRendezvousFeatureEnabled(
+export type RendezvousFeatureFlags = {
+  featureEnabled: boolean;
+  openToAll: boolean;
+};
+
+export async function loadRendezvousFeatureFlags(
   admin: SupabaseClient
-): Promise<boolean> {
+): Promise<RendezvousFeatureFlags> {
   const { data, error } = await admin
     .from("admin_config")
-    .select("rendezvous_enabled")
+    .select("rendezvous_enabled, rendezvous_open_to_all")
     .limit(1)
     .maybeSingle();
   if (error) {
+    // Older DBs may lack the open_to_all column briefly.
+    if (error.message.includes("rendezvous_open_to_all")) {
+      const fallback = await admin
+        .from("admin_config")
+        .select("rendezvous_enabled")
+        .limit(1)
+        .maybeSingle();
+      if (fallback.error) {
+        throw new Error(`admin_config read failed: ${fallback.error.message}`);
+      }
+      return {
+        featureEnabled: fallback.data?.rendezvous_enabled === true,
+        openToAll: false,
+      };
+    }
     throw new Error(`admin_config read failed: ${error.message}`);
   }
-  return data?.rendezvous_enabled === true;
+  return {
+    featureEnabled: data?.rendezvous_enabled === true,
+    openToAll: data?.rendezvous_open_to_all === true,
+  };
+}
+
+export async function loadRendezvousFeatureEnabled(
+  admin: SupabaseClient
+): Promise<boolean> {
+  const flags = await loadRendezvousFeatureFlags(admin);
+  return flags.featureEnabled;
 }
 
 export function canAccessRendezvousStaffApp(opts: {
   featureEnabled: boolean;
+  openToAll?: boolean;
   role: string | null | undefined;
 }): boolean {
   if (!opts.featureEnabled) return false;
-  if (RENDEZVOUS_STAFF_ACCESS_MODE === "super_admin_only") {
-    return isSuperAdminRole(opts.role);
-  }
-  return isFieldSpecialistRole(opts.role) || isSupervisorRole(opts.role) || isAdminTierRole(opts.role);
+  if (isSuperAdminRole(opts.role)) return true;
+  if (!opts.openToAll) return false;
+  return (
+    isFieldSpecialistRole(opts.role) ||
+    isSupervisorRole(opts.role) ||
+    isAdminTierRole(opts.role)
+  );
 }
 
 export async function resolveRendezvousAccess(
   admin: SupabaseClient,
   opts: { userId: string | null; role: string | null }
 ): Promise<RendezvousAccess> {
-  const featureEnabled = await loadRendezvousFeatureEnabled(admin);
+  const flags = await loadRendezvousFeatureFlags(admin);
   return {
-    featureEnabled,
+    featureEnabled: flags.featureEnabled,
+    openToAll: flags.openToAll,
     canAccessApp: canAccessRendezvousStaffApp({
-      featureEnabled,
+      featureEnabled: flags.featureEnabled,
+      openToAll: flags.openToAll,
       role: opts.role,
     }),
     role: opts.role,
@@ -65,7 +96,6 @@ export async function resolveRendezvousAccess(
 /**
  * Who may view bookings for a staff member once Rendezvous is rolled out.
  * Super admin / admin: everyone. Supervisor: self + direct reports. Specialist: self.
- * During super_admin_only mode the staff app gate still blocks non–super-admins.
  */
 export async function canViewStaffBookings(
   admin: SupabaseClient,

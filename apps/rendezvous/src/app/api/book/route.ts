@@ -18,10 +18,15 @@ export async function POST(request: Request) {
       : null;
   const locationOverride =
     typeof body.location === "string" ? body.location : null;
-  const reason = typeof body.reason === "string" ? body.reason : null;
+  const reasonRaw = typeof body.reason === "string" ? body.reason.trim() : "";
+  const reason =
+    reasonRaw === "Intake" || reasonRaw === "Progress Meeting" || reasonRaw === "Other"
+      ? reasonRaw
+      : null;
+  const notes = typeof body.notes === "string" ? body.notes : null;
   const forceTestEmail = body.forceTestEmail === true && process.env.RENDEZVOUS_ALLOW_TEST_EMAIL === "true";
 
-  if (!slug || !startsAt || !meetingFormat) {
+  if (!slug || !startsAt || !meetingFormat || !reason) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
@@ -35,6 +40,7 @@ export async function POST(request: Request) {
     meetingFormat,
     locationOverride,
     reason,
+    notes,
     forceTestEmail,
   });
 

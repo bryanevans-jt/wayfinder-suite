@@ -85,10 +85,12 @@ export function buildBookingEmailBodies(opts: {
   cancelUrl: string;
   rescheduleUrl: string;
   reason?: string | null;
+  notes?: string | null;
 }) {
-  const reasonLine = opts.reason?.trim()
-    ? `\nReason (optional note): ${opts.reason.trim()}\n`
-    : "";
+  const reasonLines = [
+    opts.reason?.trim() ? `Reason: ${opts.reason.trim()}` : null,
+    opts.notes?.trim() ? `Notes: ${opts.notes.trim()}` : null,
+  ].filter(Boolean);
 
   const counselorText = [
     `Hi ${opts.counselorName},`,
@@ -98,7 +100,8 @@ export function buildBookingEmailBodies(opts: {
     `When: ${opts.whenLabel}`,
     `Format: ${opts.formatLabel}`,
     `${opts.formatLabel === "In Person" ? "Location" : "Join"}: ${opts.locationOrMeet}`,
-    reasonLine,
+    ...reasonLines,
+    "",
     "Need to change it?",
     `Cancel: ${opts.cancelUrl}`,
     `Reschedule: ${opts.rescheduleUrl}`,
@@ -118,7 +121,8 @@ export function buildBookingEmailBodies(opts: {
     `When: ${opts.whenLabel}`,
     `Format: ${opts.formatLabel}`,
     `${opts.formatLabel === "In Person" ? "Location" : "Join"}: ${opts.locationOrMeet}`,
-    reasonLine,
+    ...reasonLines,
+    "",
     "Open Rendezvous to see your team calendar.",
     "",
     "— Joshua Tree Service Group Scheduling",

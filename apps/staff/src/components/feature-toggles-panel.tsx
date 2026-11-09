@@ -10,6 +10,7 @@ type ToggleState = {
   groupme_celebrations_enabled: boolean;
   direct_referral_assign_enabled: boolean;
   rendezvous_enabled: boolean;
+  rendezvous_open_to_all: boolean;
   celebration_birthday_template: string;
   celebration_anniversary_template: string;
 };
@@ -22,6 +23,7 @@ const EMPTY: ToggleState = {
   groupme_celebrations_enabled: true,
   direct_referral_assign_enabled: false,
   rendezvous_enabled: false,
+  rendezvous_open_to_all: false,
   celebration_birthday_template: "Happy Birthday, {first_name}! Hope you have a fantastic day!",
   celebration_anniversary_template:
     "Today {name} celebrates {years} years at Joshua Tree! Happy work anniversary, {first_name}!",
@@ -49,6 +51,7 @@ export function FeatureTogglesPanel() {
             groupme_celebrations_enabled: data.groupme_celebrations_enabled !== false,
             direct_referral_assign_enabled: data.direct_referral_assign_enabled === true,
             rendezvous_enabled: data.rendezvous_enabled === true,
+            rendezvous_open_to_all: data.rendezvous_open_to_all === true,
             celebration_birthday_template:
               data.celebration_birthday_template?.trim() || EMPTY.celebration_birthday_template,
             celebration_anniversary_template:
@@ -122,11 +125,33 @@ export function FeatureTogglesPanel() {
             type="checkbox"
             className="mt-0.5"
             checked={form.rendezvous_enabled}
-            onChange={(e) => setForm((f) => ({ ...f, rendezvous_enabled: e.target.checked }))}
+            onChange={(e) =>
+              setForm((f) => ({
+                ...f,
+                rendezvous_enabled: e.target.checked,
+                rendezvous_open_to_all: e.target.checked ? f.rendezvous_open_to_all : false,
+              }))
+            }
           />
           <span>
-            Enable Rendezvous (super admin only for now — no nav for other roles; public pages stay
-            closed until each schedule is turned on)
+            Enable Rendezvous (public booking pages stay closed until each schedule is turned on)
+          </span>
+        </label>
+        <label
+          className={`flex items-start gap-2 text-sm font-medium ${
+            form.rendezvous_enabled ? "" : "opacity-50"
+          }`}
+        >
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={form.rendezvous_open_to_all}
+            disabled={!form.rendezvous_enabled}
+            onChange={(e) => setForm((f) => ({ ...f, rendezvous_open_to_all: e.target.checked }))}
+          />
+          <span>
+            Make Rendezvous visible to everyone (ES, TS, supervisors, and admins — not just super
+            admins)
           </span>
         </label>
         {form.rendezvous_enabled ? (
@@ -135,6 +160,9 @@ export function FeatureTogglesPanel() {
             <a className="font-semibold text-brand-green underline" href="/dashboard/rendezvous">
               Rendezvous
             </a>
+            {form.rendezvous_open_to_all
+              ? " · open to ES/TS/supervisors/admins"
+              : " · super admin only until opened to everyone"}
           </p>
         ) : null}
 
