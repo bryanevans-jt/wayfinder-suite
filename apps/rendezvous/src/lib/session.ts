@@ -44,8 +44,10 @@ export async function getRendezvousSession(): Promise<RendezvousSession | null> 
     if (!isSuperAdminRole(role)) return null;
     access = {
       featureEnabled: true,
+      openToAll: false,
       canAccessApp: canAccessRendezvousStaffApp({
         featureEnabled: true,
+        openToAll: false,
         role,
       }),
       role,
