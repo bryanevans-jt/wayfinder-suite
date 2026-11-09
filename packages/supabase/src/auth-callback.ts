@@ -225,12 +225,30 @@ export async function handleWayfinderAuthCallback(
   }
 
   if (options?.requireProvisionedProfile) {
-    const admin = createServiceRoleClient();
-    const { data: profile } = await admin
+    // Prefer the just-established user session (profiles_select_own). Falling back
+    // to the service-role client keeps invite-only enforcement working even when
+    // SUPABASE_SERVICE_ROLE_KEY is missing/mismatched during app bootstrap.
+    let profile: { id: string } | null = null;
+    const { data: ownProfile, error: ownProfileError } = await supabase
       .from("profiles")
       .select("id")
       .eq("id", user.id)
       .maybeSingle();
+    if (!ownProfileError && ownProfile) {
+      profile = ownProfile;
+    } else {
+      try {
+        const admin = createServiceRoleClient();
+        const { data: adminProfile } = await admin
+          .from("profiles")
+          .select("id")
+          .eq("id", user.id)
+          .maybeSingle();
+        profile = adminProfile;
+      } catch (err) {
+        console.error("auth callback requireProvisionedProfile service-role fallback:", err);
+      }
+    }
 
     if (!profile) {
       await supabase.auth.signOut();
