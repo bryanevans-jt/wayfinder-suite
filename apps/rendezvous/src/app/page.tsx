@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireRendezvousAccess } from "@/lib/session";
-import { createAdminClient, rendezvousSchema } from "@/lib/supabase/admin";
+import { createUserDb } from "@/lib/supabase/admin";
 import { buildPublicBookingUrl } from "@/lib/env";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { SignOutButton } from "@wayfinder/auth-ui";
@@ -17,8 +17,8 @@ export default async function HomePage() {
     );
   }
 
-  const admin = createAdminClient();
-  const { data: mySchedule } = await rendezvousSchema(admin)
+  const { db } = await createUserDb();
+  const { data: mySchedule } = await db
     .from("staff_schedules")
     .select("*")
     .eq("staff_user_id", gate.session.userId)

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireRendezvousAccess } from "@/lib/session";
-import { createAdminClient, rendezvousSchema } from "@/lib/supabase/admin";
+import { createUserDb } from "@/lib/supabase/admin";
 import { AdminScheduleForm } from "@/components/AdminScheduleForm";
 import { buildPublicBookingUrl } from "@/lib/env";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
@@ -18,8 +18,8 @@ export default async function AdminPage() {
     );
   }
 
-  const admin = createAdminClient();
-  const { data: profiles } = await admin
+  const { supabase, db } = await createUserDb();
+  const { data: profiles } = await supabase
     .from("profiles")
     .select("id, full_name, role, is_active")
     .eq("is_active", true)
@@ -32,16 +32,10 @@ export default async function AdminPage() {
       label: `${(p.full_name as string) || "Staff"} (${p.role})`,
     }));
 
-  const { data: schedules } = await rendezvousSchema(admin)
-    .from("staff_schedules")
-    .select("*")
-    .order("slug");
+  const { data: schedules } = await db.from("staff_schedules").select("*").order("slug");
   const scheduleIds = (schedules ?? []).map((s) => s.id as string);
   const { data: hours } = scheduleIds.length
-    ? await rendezvousSchema(admin)
-        .from("weekly_hours")
-        .select("*")
-        .in("schedule_id", scheduleIds)
+    ? await db.from("weekly_hours").select("*").in("schedule_id", scheduleIds)
     : { data: [] };
 
   return (
