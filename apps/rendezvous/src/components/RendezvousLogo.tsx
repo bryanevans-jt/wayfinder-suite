@@ -20,10 +20,11 @@ export function RendezvousLogo({
   priority = false,
 }: Props) {
   // Wide lockup — size by height so the mark stays readable on light pages.
+  // Hero scale is ~75% of the first ship size for better page balance.
   const sizeClass =
     size === "hero"
-      ? "h-[4.5rem] sm:h-24 md:h-28 lg:h-32"
-      : "h-11 sm:h-12";
+      ? "h-[3.375rem] sm:h-[4.5rem] md:h-[5.25rem] lg:h-24"
+      : "h-8 sm:h-9";
 
   return (
     <Image
