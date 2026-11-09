@@ -1,5 +1,7 @@
+import Image from "next/image";
 import { RendezvousLoginForm } from "@/components/RendezvousLoginForm";
-import { JOSHUA_TREE_ORG_EMAIL_DOMAIN } from "@wayfinder/branding";
+import { AppShell } from "@/components/AppShell";
+import { JOSHUA_TREE_ORG_EMAIL_DOMAIN, WAYFINDER_LOGO_ALT, WAYFINDER_LOGO_PATH } from "@wayfinder/branding";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { isSuperAdminRole } from "@wayfinder/supabase/roles";
@@ -31,34 +33,53 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
   const staffBase = process.env.NEXT_PUBLIC_STAFF_APP_URL?.replace(/\/$/, "");
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-4 py-16">
-      <p className="font-[family-name:var(--font-rv-display)] text-4xl font-semibold text-brand-green">
-        Rendezvous
-      </p>
-      <p className="mt-2 text-brand-black/70">Sign in with your Joshua Tree account.</p>
-      {error === "org_only" ? (
-        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
-          Only @thejoshuatree.org accounts can sign in here.
-        </p>
-      ) : null}
-      {error === "not_set_up" ? (
-        <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          This Google account is not provisioned in Wayfinder yet.
-        </p>
-      ) : null}
-      {error === "auth" || error === "forbidden" ? (
-        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
-          Sign-in didn&apos;t complete
-          {reason ? `: ${reason}` : ". Check Supabase redirect URLs include this app’s /auth/callback, then clear cookies for rendezvous.thejoshuatree.org and try again."}
-        </p>
-      ) : null}
-      <div className="mt-8 rounded-2xl border border-brand-green/15 bg-white/90 p-6 shadow-sm">
-        <RendezvousLoginForm
-          redirectAfterSignIn={redirectAfterSignIn}
-          termsHref={staffBase ? `${staffBase}/terms` : undefined}
-          privacyHref={staffBase ? `${staffBase}/privacy` : undefined}
-        />
+    <AppShell>
+      <section className="rv-hero-plane min-h-[min(78vh,720px)]">
+        <div className="rv-hero-content mx-auto max-w-5xl">
+          <div className="rv-rise flex items-end gap-4">
+            <Image
+              src={WAYFINDER_LOGO_PATH}
+              alt={WAYFINDER_LOGO_ALT}
+              width={72}
+              height={72}
+              className="mb-1 h-14 w-14 object-contain sm:h-16 sm:w-16"
+              priority
+            />
+            <h1 className="rv-brand text-6xl sm:text-7xl md:text-8xl">Rendezvous</h1>
+          </div>
+          <p className="rv-rise rv-rise-delay-1 mt-5 max-w-lg text-lg text-brand-black/75 sm:text-xl">
+            Sign In With Your Joshua Tree Account.
+          </p>
+        </div>
+      </section>
+
+      <div className="rv-shell relative z-10 -mt-16 pb-16 pt-0 sm:-mt-20">
+        {error === "org_only" ? (
+          <p className="rv-rise mb-4 rounded-2xl border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-900">
+            Only @thejoshuatree.org accounts can sign in here.
+          </p>
+        ) : null}
+        {error === "not_set_up" ? (
+          <p className="rv-rise mb-4 rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
+            This Google account is not provisioned in Wayfinder yet.
+          </p>
+        ) : null}
+        {error === "auth" || error === "forbidden" ? (
+          <p className="rv-rise mb-4 rounded-2xl border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-900">
+            Sign-In Didn&apos;t Complete
+            {reason
+              ? `: ${reason}`
+              : ". Check Supabase redirect URLs include this app’s /auth/callback, then clear cookies for rendezvous.thejoshuatree.org and try again."}
+          </p>
+        ) : null}
+        <div className="rv-rise rv-rise-delay-2 rv-panel mx-auto max-w-md rounded-3xl p-2 sm:p-3">
+          <RendezvousLoginForm
+            redirectAfterSignIn={redirectAfterSignIn}
+            termsHref={staffBase ? `${staffBase}/terms` : undefined}
+            privacyHref={staffBase ? `${staffBase}/privacy` : undefined}
+          />
+        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }

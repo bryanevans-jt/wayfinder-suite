@@ -92,11 +92,11 @@ export function AdminScheduleForm({ staffOptions, initial }: Props) {
   }
 
   return (
-    <div className="space-y-5 rounded-2xl border border-brand-green/15 bg-white/90 p-5 shadow-sm">
+    <div className="rv-panel space-y-5 rounded-3xl p-5 sm:p-6">
       <div>
-        <label className="block text-sm font-semibold">Staff member</label>
+        <label className="block text-sm font-semibold">Staff Member</label>
         <select
-          className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2"
+          className="rv-input"
           value={staffUserId}
           onChange={(e) => setStaffUserId(e.target.value)}
           disabled={Boolean(initial?.id)}
@@ -112,17 +112,17 @@ export function AdminScheduleForm({ staffOptions, initial }: Props) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="block text-sm font-semibold">Display name</label>
+          <label className="block text-sm font-semibold">Display Name</label>
           <input
-            className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2"
+            className="rv-input"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
           />
         </div>
         <div>
-          <label className="block text-sm font-semibold">Booking page link name</label>
+          <label className="block text-sm font-semibold">Booking Page Link Name</label>
           <input
-            className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2"
+            className="rv-input"
             value={slug}
             onChange={(e) => setSlug(e.target.value)}
             placeholder="jane-doe"
@@ -137,20 +137,20 @@ export function AdminScheduleForm({ staffOptions, initial }: Props) {
           onChange={(e) => setEnabled(e.target.checked)}
           className="h-5 w-5"
         />
-        Booking page is ON (counselors can book)
+        Booking Page Is On (Counselors Can Book)
       </label>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <NumberField label="Meeting length (minutes)" value={meetingLengthMinutes} onChange={setMeetingLengthMinutes} />
-        <NumberField label="Buffer (minutes)" value={bufferMinutes} onChange={setBufferMinutes} />
-        <NumberField label="Minimum notice (hours)" value={minNoticeHours} onChange={setMinNoticeHours} />
-        <NumberField label="Booking window (days)" value={bookingWindowDays} onChange={setBookingWindowDays} />
+        <NumberField label="Meeting Length (Minutes)" value={meetingLengthMinutes} onChange={setMeetingLengthMinutes} />
+        <NumberField label="Buffer (Minutes)" value={bufferMinutes} onChange={setBufferMinutes} />
+        <NumberField label="Minimum Notice (Hours)" value={minNoticeHours} onChange={setMinNoticeHours} />
+        <NumberField label="Booking Window (Days)" value={bookingWindowDays} onChange={setBookingWindowDays} />
       </div>
 
       <div>
-        <label className="block text-sm font-semibold">Default in-person location</label>
+        <label className="block text-sm font-semibold">Default In-Person Location</label>
         <input
-          className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2"
+          className="rv-input"
           value={defaultLocation}
           onChange={(e) => setDefaultLocation(e.target.value)}
           placeholder="Office address or meeting place"
@@ -158,7 +158,7 @@ export function AdminScheduleForm({ staffOptions, initial }: Props) {
       </div>
 
       <div>
-        <p className="text-sm font-semibold">Weekly hours (Eastern Time)</p>
+        <p className="text-sm font-semibold">Weekly Hours (Eastern Time)</p>
         <div className="mt-2 space-y-2">
           {DAYS.map((day) => {
             const active = weeklyHours.find((h) => h.dayOfWeek === day.value);
@@ -196,7 +196,7 @@ export function AdminScheduleForm({ staffOptions, initial }: Props) {
       </div>
 
       <button type="button" className="rv-btn-primary" disabled={saving} onClick={() => void save()}>
-        {saving ? "Saving…" : "Save schedule"}
+        {saving ? "Saving…" : "Save Schedule"}
       </button>
       {status ? <p className="text-sm text-brand-black/70">{status}</p> : null}
     </div>
@@ -217,7 +217,7 @@ function NumberField({
       <label className="block text-sm font-semibold">{label}</label>
       <input
         type="number"
-        className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2"
+        className="rv-input"
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
       />

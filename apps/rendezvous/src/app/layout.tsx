@@ -1,21 +1,22 @@
 import type { Metadata } from "next";
-import { Source_Sans_3, Fraunces } from "next/font/google";
+import { Outfit, Syne } from "next/font/google";
 import "./globals.css";
 import { WAYFINDER_FAVICON_PATH } from "@wayfinder/branding";
 
-const sans = Source_Sans_3({
+const sans = Outfit({
   subsets: ["latin"],
   variable: "--font-rv-sans",
 });
 
-const display = Fraunces({
+const display = Syne({
   subsets: ["latin"],
   variable: "--font-rv-display",
+  weight: ["600", "700", "800"],
 });
 
 export const metadata: Metadata = {
   title: "Rendezvous",
-  description: "Schedule meetings with Joshua Tree Service Group specialists",
+  description: "Schedule Meetings With Joshua Tree Service Group Specialists",
   robots: { index: false, follow: false },
   icons: {
     icon: [{ url: WAYFINDER_FAVICON_PATH, type: "image/png" }],

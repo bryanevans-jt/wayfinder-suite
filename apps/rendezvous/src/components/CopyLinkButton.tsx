@@ -17,7 +17,7 @@ export function CopyLinkButton({ url }: { url: string }) {
 
   return (
     <button type="button" className="rv-btn-primary w-full sm:w-auto" onClick={() => void copy()}>
-      {copied ? "Copied!" : "Copy link"}
+      {copied ? "Copied!" : "Copy Link"}
     </button>
   );
 }
