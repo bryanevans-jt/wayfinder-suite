@@ -6,6 +6,10 @@ import {
   preEtsReleasedAuthorizationGateApplies,
 } from "@/lib/pre-ets-field-gate";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
+import {
+  isPreEtsServiceMonthFilterOmitted,
+  parsePreEtsServiceMonthFilter,
+} from "@/lib/pre-ets-service-month";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
@@ -51,6 +55,15 @@ export async function GET(request: Request) {
       return NextResponse.json({ authorizations: visibleEntries, ytd });
     }
 
+    let serviceMonthFilter: string | null = null;
+    if (!isPreEtsServiceMonthFilterOmitted(month)) {
+      const parsed = parsePreEtsServiceMonthFilter(month);
+      if (!parsed.ok) {
+        return NextResponse.json({ error: parsed.error }, { status: 400 });
+      }
+      serviceMonthFilter = parsed.serviceMonth;
+    }
+
     let query = admin
       .from("pre_ets_authorizations")
       .select(
@@ -60,9 +73,8 @@ export async function GET(request: Request) {
       .limit(100);
 
     if (schoolId) query = query.eq("school_id", schoolId);
-    if (month) {
-      const serviceMonth = month.length === 7 ? `${month}-01` : month;
-      query = query.eq("service_month", serviceMonth);
+    if (serviceMonthFilter) {
+      query = query.eq("service_month", serviceMonthFilter);
     }
     if (authType && authType !== "all") {
       query = query.eq("auth_type", authType);
