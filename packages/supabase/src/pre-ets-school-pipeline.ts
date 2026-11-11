@@ -4,6 +4,7 @@ import {
   fetchAllPostgrestRows,
   fetchAllPostgrestRowsByIn,
 } from "./postgrest-fetch-all";
+import { normalizePreEtsServiceMonth } from "./pre-ets-service-month";
 import { loadPreEtsAssignedSchoolIds } from "./pre-ets-upload-scope";
 import {
   authorizationMatchesProgramGroupHeader,
@@ -32,10 +33,6 @@ export type PreEtsPipelineRow = {
   mergedIntoProgramGroupId: string | null;
   mergedIntoGroupName: string | null;
 };
-
-function normalizeServiceMonth(month: string): string {
-  return month.length === 7 ? `${month}-01` : month.slice(0, 10);
-}
 
 /** Same auth pick as Schools & groups (group/pending authorization when present). */
 export function pickRepresentativePreEtsAuthorization<
@@ -72,7 +69,7 @@ export async function loadPreEtsSchoolPipeline(
     includeHidden?: boolean;
   }
 ): Promise<PreEtsPipelineRow[]> {
-  const serviceMonth = normalizeServiceMonth(input.serviceMonth);
+  const serviceMonth = normalizePreEtsServiceMonth(input.serviceMonth);
   const scopedSchoolIds = await loadPreEtsAssignedSchoolIds(admin, input.userId, input.role);
 
   if (scopedSchoolIds !== null && scopedSchoolIds.length === 0) {

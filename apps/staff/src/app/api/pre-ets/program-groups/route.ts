@@ -5,6 +5,10 @@ import {
   preEtsReleasedAuthorizationGateApplies,
 } from "@/lib/pre-ets-field-gate";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
+import {
+  isPreEtsServiceMonthFilterOmitted,
+  parsePreEtsServiceMonthFilter,
+} from "@/lib/pre-ets-service-month";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
@@ -15,6 +19,14 @@ export async function GET(request: Request) {
   if (isPreEtsApiError(auth)) return auth;
 
   const month = url.searchParams.get("month");
+  let serviceMonthFilter: string | null = null;
+  if (!isPreEtsServiceMonthFilterOmitted(month)) {
+    const parsed = parsePreEtsServiceMonthFilter(month);
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+    serviceMonthFilter = parsed.serviceMonth;
+  }
 
   try {
     const admin = createServiceRoleClient();
@@ -27,9 +39,8 @@ export async function GET(request: Request) {
       .order("service_month", { ascending: false })
       .limit(200);
 
-    if (month) {
-      const serviceMonth = month.length === 7 ? `${month}-01` : month;
-      query = query.eq("service_month", serviceMonth);
+    if (serviceMonthFilter) {
+      query = query.eq("service_month", serviceMonthFilter);
     }
     if (schoolId) {
       query = query.eq("school_id", schoolId);

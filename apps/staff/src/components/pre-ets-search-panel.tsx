@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  isPreEtsServiceMonthFilterOmitted,
+  parsePreEtsServiceMonthFilter,
+} from "@/lib/pre-ets-service-month";
 import { useState } from "react";
 
 type SearchResult = {
@@ -10,21 +14,64 @@ type SearchResult = {
 
 export function PreEtsSearchPanel() {
   const [query, setQuery] = useState("");
-  const [month, setMonth] = useState("");
+  /** Display value for the month control (may be incomplete while typing in Firefox). */
+  const [monthInput, setMonthInput] = useState("");
+  /** Only valid YYYY-MM (or empty) — drives month search fetches. */
+  const [monthFilter, setMonthFilter] = useState("");
+  const [monthError, setMonthError] = useState<string | null>(null);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [studentDetail, setStudentDetail] = useState<Record<string, unknown> | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
+
+  function onMonthInputChange(value: string) {
+    setMonthInput(value);
+    if (isPreEtsServiceMonthFilterOmitted(value)) {
+      setMonthFilter("");
+      setMonthError(null);
+      return;
+    }
+    const parsed = parsePreEtsServiceMonthFilter(value);
+    if (parsed.ok) {
+      setMonthFilter(parsed.inputMonth);
+      setMonthError(null);
+      return;
+    }
+    // Incomplete / invalid typing: keep last applied filter; do not fetch with garbage.
+    setMonthError(parsed.error);
+  }
 
   async function search() {
     setStudentDetail(null);
-    if (month) {
-      const res = await fetch(`/api/pre-ets/search?type=month&month=${encodeURIComponent(month)}`);
-      const data = (await res.json()) as { results?: SearchResult[] };
+    setSearchError(null);
+
+    if (!isPreEtsServiceMonthFilterOmitted(monthInput)) {
+      const parsed = parsePreEtsServiceMonthFilter(monthInput);
+      if (!parsed.ok) {
+        setMonthError(parsed.error);
+        setSearchError(parsed.error);
+        return;
+      }
+      const res = await fetch(
+        `/api/pre-ets/search?type=month&month=${encodeURIComponent(parsed.inputMonth)}`
+      );
+      const data = (await res.json()) as { results?: SearchResult[]; error?: string };
+      if (!res.ok) {
+        setSearchError(data.error ?? "Search failed.");
+        setResults([]);
+        return;
+      }
       setResults(data.results ?? []);
       return;
     }
+
     if (!query.trim()) return;
     const res = await fetch(`/api/pre-ets/search?q=${encodeURIComponent(query.trim())}`);
-    const data = (await res.json()) as { results?: SearchResult[] };
+    const data = (await res.json()) as { results?: SearchResult[]; error?: string };
+    if (!res.ok) {
+      setSearchError(data.error ?? "Search failed.");
+      setResults([]);
+      return;
+    }
     setResults(data.results ?? []);
   }
 
@@ -54,8 +101,8 @@ export function PreEtsSearchPanel() {
         <input
           type="month"
           className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-          value={month}
-          onChange={(e) => setMonth(e.target.value)}
+          value={monthInput}
+          onChange={(e) => onMonthInputChange(e.target.value)}
         />
         <button
           type="button"
@@ -65,6 +112,11 @@ export function PreEtsSearchPanel() {
           Search
         </button>
       </div>
+      {monthError ? <p className="text-sm text-red-700">{monthError}</p> : null}
+      {searchError ? <p className="text-sm text-red-700">{searchError}</p> : null}
+      {monthFilter && !monthError ? (
+        <p className="text-xs text-brand-black/55">Browsing month {monthFilter}</p>
+      ) : null}
 
       <ul className="space-y-2">
         {results.map((r) => (

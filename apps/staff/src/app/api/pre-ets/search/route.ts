@@ -1,6 +1,11 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
+import { buildPreEtsSearchIlikeOrFilter } from "@/lib/pre-ets-search-query";
+import {
+  isPreEtsServiceMonthFilterOmitted,
+  parsePreEtsServiceMonthFilter,
+} from "@/lib/pre-ets-service-month";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
@@ -13,8 +18,17 @@ export async function GET(request: Request) {
   const type = url.searchParams.get("type") ?? "all";
   const month = url.searchParams.get("month");
 
-  if (!q && !month) {
+  if (!q && isPreEtsServiceMonthFilterOmitted(month)) {
     return NextResponse.json({ results: [] });
+  }
+
+  let serviceMonthFilter: string | null = null;
+  if (!isPreEtsServiceMonthFilterOmitted(month)) {
+    const parsed = parsePreEtsServiceMonthFilter(month);
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+    serviceMonthFilter = parsed.serviceMonth;
   }
 
   try {
@@ -25,7 +39,7 @@ export async function GET(request: Request) {
       const { data } = await admin
         .from("pre_ets_students")
         .select("id, participant_id, full_name, school_year")
-        .or(`full_name.ilike.%${q}%,participant_id.ilike.%${q}%`)
+        .or(buildPreEtsSearchIlikeOrFilter(["full_name", "participant_id"], q))
         .limit(25);
       for (const row of data ?? []) {
         results.push({ kind: "student", ...row });
@@ -56,14 +70,13 @@ export async function GET(request: Request) {
       }
     }
 
-    if (type === "month" && month) {
-      const serviceMonth = month.length === 7 ? `${month}-01` : month;
+    if (type === "month" && serviceMonthFilter) {
       const { data } = await admin
         .from("pre_ets_authorizations")
         .select(
           "id, auth_number, auth_type, service_code, service_month, pre_ets_schools(name)"
         )
-        .eq("service_month", serviceMonth)
+        .eq("service_month", serviceMonthFilter)
         .limit(100);
       for (const row of data ?? []) {
         results.push({ kind: "month_auth", ...row });

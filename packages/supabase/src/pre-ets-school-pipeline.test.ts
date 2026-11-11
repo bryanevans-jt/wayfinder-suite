@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { authorizationMatchesProgramGroupHeader } from "./pre-ets-program-group-roster";
 import { pickRepresentativePreEtsAuthorization } from "./pre-ets-school-pipeline";
+import { normalizePreEtsServiceMonth } from "./pre-ets-service-month";
 
 test("pickRepresentativePreEtsAuthorization prefers group then pending", () => {
   const auths = [
@@ -47,4 +48,12 @@ test("pipeline auth pick ignores authorizations from another group header line",
     authorizationMatchesProgramGroupHeader(programGroup, a.worksheet_header_key)
   );
   assert.equal(pickRepresentativePreEtsAuthorization(scoped)?.id, "g2");
+});
+
+test("normalizePreEtsServiceMonth rejects invalid months before date filters", () => {
+  assert.equal(normalizePreEtsServiceMonth("2026-10"), "2026-10-01");
+  assert.equal(normalizePreEtsServiceMonth("2026-10-01"), "2026-10-01");
+  for (const bad of ["d", "doollxx", "2026-13", "2026-02-30"]) {
+    assert.throws(() => normalizePreEtsServiceMonth(bad), /YYYY-MM/, bad);
+  }
 });

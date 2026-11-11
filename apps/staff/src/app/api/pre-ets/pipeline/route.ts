@@ -14,6 +14,7 @@ import { isAdminRole, isSuperAdminRole } from "@wayfinder/supabase/roles";
 import { isPreEtsAuthorizationReleasedToField } from "@wayfinder/supabase/pre-ets-release";
 import { preEtsUnreleasedRosterHiddenFromRole } from "@/lib/pre-ets-field-gate";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
+import { parsePreEtsServiceMonthFilter } from "@/lib/pre-ets-service-month";
 import { NextResponse } from "next/server";
 
 function canViewPreEtsPipeline(role: string, settings: Awaited<ReturnType<typeof loadPreEtsSettings>>): boolean {
@@ -35,9 +36,17 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
-  const month = url.searchParams.get("month")?.trim();
-  if (!month) {
-    return NextResponse.json({ error: "month is required (YYYY-MM)" }, { status: 400 });
+  const monthRaw = url.searchParams.get("month");
+  const monthParsed = parsePreEtsServiceMonthFilter(monthRaw);
+  if (!monthParsed.ok) {
+    return NextResponse.json(
+      {
+        error: monthRaw == null || String(monthRaw).trim() === ""
+          ? "month is required (YYYY-MM)"
+          : monthParsed.error,
+      },
+      { status: 400 }
+    );
   }
 
   const statusParam = url.searchParams.get("status")?.trim() ?? "all";
@@ -61,7 +70,7 @@ export async function GET(request: Request) {
     let allRows = await loadPreEtsSchoolPipeline(admin, {
       userId: auth.userId,
       role: auth.role,
-      serviceMonth: month,
+      serviceMonth: monthParsed.serviceMonth,
       includeHidden,
     });
 

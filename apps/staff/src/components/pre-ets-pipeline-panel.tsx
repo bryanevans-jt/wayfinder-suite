@@ -4,6 +4,10 @@ import { PreEtsAuthorizationFinalizeModal } from "@/components/pre-ets-authoriza
 import { PreEtsProgramGroupCombineModal } from "@/components/pre-ets-program-group-combine-modal";
 import { PreEtsProgramGroupLabelsModal } from "@/components/pre-ets-program-group-labels-modal";
 import { PreEtsServiceCodeDisplay } from "@/components/pre-ets-service-code-display";
+import {
+  isPreEtsServiceMonthFilterOmitted,
+  parsePreEtsServiceMonthFilter,
+} from "@/lib/pre-ets-service-month";
 import type { PreEtsServiceCodeRow } from "@wayfinder/supabase/pre-ets-settings";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -61,7 +65,11 @@ export function PreEtsPipelinePanel() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   }, []);
 
-  const [month, setMonth] = useState(defaultMonth);
+  /** Display value for the month control (may be incomplete while typing in Firefox). */
+  const [monthInput, setMonthInput] = useState(defaultMonth);
+  /** Only valid YYYY-MM — drives pipeline fetches. Pipeline always requires a month. */
+  const [monthFilter, setMonthFilter] = useState(defaultMonth);
+  const [monthError, setMonthError] = useState<string | null>(null);
   const [status, setStatus] = useState<PipelineStatus | "all">("all");
   const [search, setSearch] = useState("");
   const [searchDebounced, setSearchDebounced] = useState("");
@@ -93,7 +101,7 @@ export function PreEtsPipelinePanel() {
 
   useEffect(() => {
     setPage(1);
-  }, [month, status, searchDebounced, pageSize, includeHidden]);
+  }, [monthFilter, status, searchDebounced, pageSize, includeHidden]);
 
   useEffect(() => {
     void (async () => {
@@ -128,10 +136,27 @@ export function PreEtsPipelinePanel() {
     })();
   }, []);
 
+  function onMonthInputChange(value: string) {
+    setMonthInput(value);
+    if (isPreEtsServiceMonthFilterOmitted(value)) {
+      setMonthError("month is required (YYYY-MM)");
+      return;
+    }
+    const parsed = parsePreEtsServiceMonthFilter(value);
+    if (parsed.ok) {
+      setMonthFilter(parsed.inputMonth);
+      setMonthError(null);
+      return;
+    }
+    // Incomplete / invalid typing: keep last applied filter; do not fetch with garbage.
+    setMonthError(parsed.error);
+  }
+
   const load = useCallback(async () => {
+    if (!monthFilter) return;
     setLoading(true);
     const params = new URLSearchParams({
-      month,
+      month: monthFilter,
       page: String(page),
       pageSize: String(pageSize),
       status,
@@ -152,7 +177,7 @@ export function PreEtsPipelinePanel() {
       setTotalPages(data.totalPages ?? 1);
     }
     setLoading(false);
-  }, [month, page, pageSize, status, searchDebounced, includeHidden]);
+  }, [monthFilter, page, pageSize, status, searchDebounced, includeHidden]);
 
   useEffect(() => {
     void load();
@@ -205,9 +230,9 @@ export function PreEtsPipelinePanel() {
   }
 
   async function openCombine(row: PipelineRow) {
-    if (!row.programGroupId) return;
+    if (!row.programGroupId || !monthFilter) return;
     const res = await fetch(
-      `/api/pre-ets/program-groups?month=${encodeURIComponent(month)}&schoolId=${encodeURIComponent(row.schoolId)}`
+      `/api/pre-ets/program-groups?month=${encodeURIComponent(monthFilter)}&schoolId=${encodeURIComponent(row.schoolId)}`
     );
     const data = (await res.json()) as {
       groups?: Array<{ id: string; group_name: string; instructor_name: string | null }>;
@@ -273,9 +298,10 @@ export function PreEtsPipelinePanel() {
           <input
             type="month"
             className="mt-1 block rounded-lg border border-neutral-300 px-3 py-2"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
+            value={monthInput}
+            onChange={(e) => onMonthInputChange(e.target.value)}
           />
+          {monthError ? <span className="mt-1 block text-xs text-red-700">{monthError}</span> : null}
         </label>
         <label className="min-w-[12rem] flex-1 text-sm">
           <span className="font-medium">Search</span>
