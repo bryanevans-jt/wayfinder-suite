@@ -2,6 +2,10 @@
 
 import { PreEtsAuthorizationFinalizeModal } from "@/components/pre-ets-authorization-finalize-modal";
 import { PreEtsServiceCodeDisplay } from "@/components/pre-ets-service-code-display";
+import {
+  isPreEtsServiceMonthFilterOmitted,
+  parsePreEtsServiceMonthFilter,
+} from "@/lib/pre-ets-service-month";
 import { Fragment, useCallback, useEffect, useState } from "react";
 
 type Authorization = {
@@ -34,7 +38,12 @@ function schoolName(auth: Authorization): string {
 
 export function PreEtsAuthorizationsPanel() {
   const [authorizations, setAuthorizations] = useState<Authorization[]>([]);
-  const [month, setMonth] = useState("");
+  /** Display value for the month control (may be incomplete while typing in Firefox). */
+  const [monthInput, setMonthInput] = useState("");
+  /** Only valid YYYY-MM (or empty) — drives fetches. Never set to free-text fragments. */
+  const [monthFilter, setMonthFilter] = useState("");
+  const [monthError, setMonthError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState<AuthTab>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [roster, setRoster] = useState<RosterRow[]>([]);
@@ -52,7 +61,18 @@ export function PreEtsAuthorizationsPanel() {
     if (authType === "pending" || authType === "group" || authType === "individual") {
       setTab(authType);
     }
-    if (monthParam) setMonth(monthParam);
+    if (monthParam && !isPreEtsServiceMonthFilterOmitted(monthParam)) {
+      const parsed = parsePreEtsServiceMonthFilter(monthParam);
+      if (parsed.ok) {
+        setMonthInput(parsed.inputMonth);
+        setMonthFilter(parsed.inputMonth);
+        setMonthError(null);
+      } else {
+        setMonthInput(monthParam);
+        setMonthFilter("");
+        setMonthError(parsed.error);
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -79,17 +99,39 @@ export function PreEtsAuthorizationsPanel() {
 
   const load = useCallback(async () => {
     const params = new URLSearchParams();
-    if (month) params.set("month", month);
+    if (monthFilter) params.set("month", monthFilter);
     if (tab !== "all") params.set("authType", tab);
     const qs = params.toString() ? `?${params.toString()}` : "";
     const res = await fetch(`/api/pre-ets/authorizations${qs}`);
-    const data = (await res.json()) as { authorizations?: Authorization[] };
-    if (res.ok) setAuthorizations(data.authorizations ?? []);
-  }, [month, tab]);
+    const data = (await res.json()) as { authorizations?: Authorization[]; error?: string };
+    if (res.ok) {
+      setAuthorizations(data.authorizations ?? []);
+      setLoadError(null);
+      return;
+    }
+    setLoadError(data.error ?? "Could not load authorizations.");
+  }, [monthFilter, tab]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  function onMonthInputChange(value: string) {
+    setMonthInput(value);
+    if (isPreEtsServiceMonthFilterOmitted(value)) {
+      setMonthFilter("");
+      setMonthError(null);
+      return;
+    }
+    const parsed = parsePreEtsServiceMonthFilter(value);
+    if (parsed.ok) {
+      setMonthFilter(parsed.inputMonth);
+      setMonthError(null);
+      return;
+    }
+    // Incomplete / invalid typing: keep last applied filter; do not fetch with garbage.
+    setMonthError(parsed.error);
+  }
 
   async function toggleRoster(authId: string) {
     if (expandedId === authId) {
@@ -123,12 +165,24 @@ export function PreEtsAuthorizationsPanel() {
           <span className="font-medium">Filter month</span>
           <input
             type="month"
+            pattern="[0-9]{4}-[0-9]{2}"
+            placeholder="YYYY-MM"
+            title="Enter a month as YYYY-MM"
             className="mt-1 block rounded-lg border border-neutral-300 px-3 py-2"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
+            value={monthInput}
+            onChange={(e) => onMonthInputChange(e.target.value)}
           />
+          {monthError ? (
+            <span className="mt-1 block text-xs text-red-700">{monthError}</span>
+          ) : null}
         </label>
       </div>
+
+      {loadError ? (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+          {loadError}
+        </p>
+      ) : null}
 
       <nav className="flex flex-wrap gap-2">
         {tabs.map((t) => (
