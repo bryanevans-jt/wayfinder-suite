@@ -1,3 +1,4 @@
+import { WAYFINDER_RENDEZVOUS_URL } from "@wayfinder/branding";
 import { createServerClient } from "@wayfinder/supabase";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
@@ -9,6 +10,35 @@ import {
 import { canEditOwnStaffProfile } from "@wayfinder/supabase/roles";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { loadFeatureToggles } from "@/lib/feature-toggles";
+
+function buildPublicBookingUrl(slug: string): string {
+  const raw =
+    process.env.NEXT_PUBLIC_RENDEZVOUS_APP_URL?.trim() || WAYFINDER_RENDEZVOUS_URL;
+  return `${raw.replace(/\/$/, "")}/book/${encodeURIComponent(slug)}`;
+}
+
+async function loadRendezvousBookingLink(
+  admin: SupabaseClient,
+  userId: string
+): Promise<{ url: string; enabled: boolean } | null> {
+  const toggles = await loadFeatureToggles(admin);
+  if (!toggles.rendezvousEnabled) return null;
+
+  const { data, error } = await admin
+    .schema("rendezvous")
+    .from("staff_schedules")
+    .select("slug, enabled")
+    .eq("staff_user_id", userId)
+    .maybeSingle();
+
+  if (error || !data?.slug) return null;
+
+  return {
+    url: buildPublicBookingUrl(String(data.slug)),
+    enabled: data.enabled === true,
+  };
+}
 
 const PROFILE_SELECT =
   "id, full_name, first_name, last_name, phone, home_city, bio, role";
@@ -97,9 +127,13 @@ export async function GET() {
       return NextResponse.json({ error: USER_FACING_FORBIDDEN }, { status: 403 });
     }
 
+    const rendezvousBooking = await loadRendezvousBookingLink(admin, user.id);
+
     return NextResponse.json({
       profile,
       email: user.email ?? null,
+      rendezvousBookingUrl: rendezvousBooking?.url ?? null,
+      rendezvousBookingEnabled: rendezvousBooking?.enabled ?? null,
     });
   } catch (err) {
     return respondWithLoggedError("staff", route, err);
