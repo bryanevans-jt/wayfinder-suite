@@ -1,6 +1,16 @@
 import { requireRendezvousAccess } from "@/lib/session";
-import { createUserDb } from "@/lib/supabase/admin";
-import { isValidSlug, slugifyName } from "@/lib/scheduling/slug";
+import { createAdminClient, createUserDb } from "@/lib/supabase/admin";
+import { isValidSlug } from "@/lib/scheduling/slug";
+import {
+  DEFAULT_BOOKING_WINDOW_DAYS,
+  DEFAULT_BUFFER_MINUTES,
+  DEFAULT_MEETING_LENGTH_MINUTES,
+  DEFAULT_MIN_NOTICE_HOURS,
+  DEFAULT_WEEKLY_HOURS,
+  displayNameForMember,
+  isRendezvousTeamMemberRole,
+  slugFromPersonName,
+} from "@/lib/scheduling/schedule-defaults";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -41,40 +51,69 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "staffUserId is required" }, { status: 400 });
   }
 
-  const { supabase, db } = await createUserDb();
-  const { data: profile } = await supabase
+  const admin = createAdminClient();
+  const { db } = await createUserDb();
+  const { data: profile } = await admin
     .from("profiles")
-    .select("id, full_name, role")
+    .select("id, full_name, first_name, last_name, role")
     .eq("id", staffUserId)
     .maybeSingle();
   if (!profile) {
-    return NextResponse.json({ error: "Staff profile not found" }, { status: 404 });
+    return NextResponse.json({ error: "Team member profile not found" }, { status: 404 });
   }
+  if (!isRendezvousTeamMemberRole(profile.role as string | null)) {
+    return NextResponse.json(
+      { error: "Schedules are only for Wayfinder team members" },
+      { status: 400 }
+    );
+  }
+
+  const member = {
+    id: profile.id as string,
+    full_name: (profile.full_name as string | null) ?? null,
+    first_name: (profile.first_name as string | null) ?? null,
+    last_name: (profile.last_name as string | null) ?? null,
+    role: (profile.role as string | null) ?? null,
+  };
 
   const slug =
     typeof body.slug === "string" && body.slug.trim()
       ? body.slug.trim().toLowerCase()
-      : slugifyName((profile.full_name as string) || "staff");
+      : slugFromPersonName({
+          firstName: member.first_name,
+          lastName: member.last_name,
+          fullName: member.full_name,
+        });
   if (!isValidSlug(slug)) {
     return NextResponse.json({ error: "Invalid slug" }, { status: 400 });
   }
 
-  const weeklyHours = Array.isArray(body.weeklyHours) ? body.weeklyHours : [];
+  const weeklyHours = Array.isArray(body.weeklyHours)
+    ? body.weeklyHours
+    : DEFAULT_WEEKLY_HOURS;
 
   const row = {
     staff_user_id: staffUserId,
     slug,
     display_name:
-      typeof body.displayName === "string"
+      typeof body.displayName === "string" && body.displayName.trim()
         ? body.displayName.trim()
-        : (profile.full_name as string | null),
+        : displayNameForMember(member),
     enabled: body.enabled === true,
     meeting_length_minutes:
-      typeof body.meetingLengthMinutes === "number" ? body.meetingLengthMinutes : 60,
-    buffer_minutes: typeof body.bufferMinutes === "number" ? body.bufferMinutes : 0,
-    min_notice_hours: typeof body.minNoticeHours === "number" ? body.minNoticeHours : 24,
+      typeof body.meetingLengthMinutes === "number"
+        ? body.meetingLengthMinutes
+        : DEFAULT_MEETING_LENGTH_MINUTES,
+    buffer_minutes:
+      typeof body.bufferMinutes === "number" ? body.bufferMinutes : DEFAULT_BUFFER_MINUTES,
+    min_notice_hours:
+      typeof body.minNoticeHours === "number"
+        ? body.minNoticeHours
+        : DEFAULT_MIN_NOTICE_HOURS,
     booking_window_days:
-      typeof body.bookingWindowDays === "number" ? body.bookingWindowDays : 14,
+      typeof body.bookingWindowDays === "number"
+        ? body.bookingWindowDays
+        : DEFAULT_BOOKING_WINDOW_DAYS,
     default_location:
       typeof body.defaultLocation === "string" ? body.defaultLocation.trim() : null,
     timezone:
@@ -92,30 +131,28 @@ export async function POST(request: Request) {
 
   await db.from("weekly_hours").delete().eq("schedule_id", schedule.id);
 
-  if (weeklyHours.length > 0) {
-    const inserts = weeklyHours
-      .map((wh) => {
-        const rec = wh as Record<string, unknown>;
-        return {
-          schedule_id: schedule.id as string,
-          day_of_week: Number(rec.dayOfWeek),
-          start_time: String(rec.startTime),
-          end_time: String(rec.endTime),
-        };
-      })
-      .filter(
-        (wh) =>
-          Number.isFinite(wh.day_of_week) &&
-          wh.day_of_week >= 0 &&
-          wh.day_of_week <= 6 &&
-          wh.start_time &&
-          wh.end_time
-      );
-    if (inserts.length) {
-      const { error: hoursErr } = await db.from("weekly_hours").insert(inserts);
-      if (hoursErr) {
-        return NextResponse.json({ error: hoursErr.message }, { status: 500 });
-      }
+  const inserts = weeklyHours
+    .map((wh) => {
+      const rec = wh as Record<string, unknown>;
+      return {
+        schedule_id: schedule.id as string,
+        day_of_week: Number(rec.dayOfWeek),
+        start_time: String(rec.startTime),
+        end_time: String(rec.endTime),
+      };
+    })
+    .filter(
+      (wh) =>
+        Number.isFinite(wh.day_of_week) &&
+        wh.day_of_week >= 0 &&
+        wh.day_of_week <= 6 &&
+        wh.start_time &&
+        wh.end_time
+    );
+  if (inserts.length) {
+    const { error: hoursErr } = await db.from("weekly_hours").insert(inserts);
+    if (hoursErr) {
+      return NextResponse.json({ error: hoursErr.message }, { status: 500 });
     }
   }
 

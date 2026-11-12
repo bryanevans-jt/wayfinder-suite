@@ -1,14 +1,18 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireRendezvousAccess } from "@/lib/session";
-import { createUserDb } from "@/lib/supabase/admin";
+import { createAdminClient, rendezvousSchema } from "@/lib/supabase/admin";
 import { AdminScheduleForm } from "@/components/AdminScheduleForm";
 import { buildPublicBookingUrl } from "@/lib/env";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { AppShell } from "@/components/AppShell";
 import { RendezvousLogo } from "@/components/RendezvousLogo";
 import { SignOutButton } from "@wayfinder/auth-ui";
-import { isFieldSpecialistRole } from "@wayfinder/supabase/roles";
+import {
+  displayNameForMember,
+  ensureTeamMemberSchedules,
+  listEligibleTeamMembers,
+} from "@/lib/scheduling/team-schedules";
 
 export default async function AdminPage() {
   const gate = await requireRendezvousAccess();
@@ -23,25 +27,29 @@ export default async function AdminPage() {
     );
   }
 
-  const { supabase, db } = await createUserDb();
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, full_name, role, is_active")
-    .eq("is_active", true)
-    .order("full_name");
+  const admin = createAdminClient();
+  await ensureTeamMemberSchedules(admin);
 
-  const staffOptions = (profiles ?? [])
-    .filter((p) => isFieldSpecialistRole(p.role as string) || p.role === "super_admin")
-    .map((p) => ({
-      id: p.id as string,
-      label: `${(p.full_name as string) || "Staff"} (${p.role})`,
-    }));
+  const members = await listEligibleTeamMembers(admin);
+  const staffOptions = members.map((p) => ({
+    id: p.id,
+    label: `${displayNameForMember(p)} (${p.role})`,
+    firstName: p.first_name,
+    lastName: p.last_name,
+    fullName: p.full_name,
+  }));
 
+  const db = rendezvousSchema(admin);
   const { data: schedules } = await db.from("staff_schedules").select("*").order("slug");
   const scheduleIds = (schedules ?? []).map((s) => s.id as string);
   const { data: hours } = scheduleIds.length
     ? await db.from("weekly_hours").select("*").in("schedule_id", scheduleIds)
     : { data: [] };
+
+  const scheduledUserIds = new Set(
+    (schedules ?? []).map((s) => s.staff_user_id as string)
+  );
+  const addOptions = staffOptions.filter((s) => !scheduledUserIds.has(s.id));
 
   return (
     <AppShell showStaffNav signOutSlot={<SignOutButton />}>
@@ -57,7 +65,8 @@ export default async function AdminPage() {
           Admin Setup
         </h1>
         <p className="rv-rise rv-rise-delay-3 mt-3 max-w-2xl text-lg text-brand-black/70">
-          Add or edit staff booking pages. Pages stay closed until you turn them on.
+          Team booking pages are created automatically for every Wayfinder team member.
+          Pages stay closed until you turn them on.
         </p>
 
         <section className="rv-rise rv-rise-delay-3 mt-12">
@@ -75,6 +84,7 @@ export default async function AdminPage() {
                     startTime: String(h.start_time).slice(0, 5),
                     endTime: String(h.end_time).slice(0, 5),
                   }));
+                const member = staffOptions.find((o) => o.id === s.staff_user_id);
                 return (
                   <div key={s.id as string} className="space-y-4">
                     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:var(--rv-line)] pb-4">
@@ -89,7 +99,7 @@ export default async function AdminPage() {
                       <CopyLinkButton url={url} />
                     </div>
                     <AdminScheduleForm
-                      staffOptions={staffOptions}
+                      staffOptions={member ? [member] : staffOptions}
                       initial={{
                         id: s.id as string,
                         staffUserId: s.staff_user_id as string,
@@ -111,12 +121,14 @@ export default async function AdminPage() {
           )}
         </section>
 
-        <section className="mt-16 border-t border-[color:var(--rv-line)] pt-12">
-          <h2 className="rv-display text-2xl sm:text-3xl">Add A New Schedule</h2>
-          <div className="mt-6">
-            <AdminScheduleForm staffOptions={staffOptions} />
-          </div>
-        </section>
+        {addOptions.length > 0 ? (
+          <section className="mt-16 border-t border-[color:var(--rv-line)] pt-12">
+            <h2 className="rv-display text-2xl sm:text-3xl">Add A New Schedule</h2>
+            <div className="mt-6">
+              <AdminScheduleForm staffOptions={addOptions} />
+            </div>
+          </section>
+        ) : null}
       </main>
     </AppShell>
   );
