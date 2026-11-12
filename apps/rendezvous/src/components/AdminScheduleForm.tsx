@@ -1,6 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import {
+  DEFAULT_BOOKING_WINDOW_DAYS,
+  DEFAULT_BUFFER_MINUTES,
+  DEFAULT_MEETING_LENGTH_MINUTES,
+  DEFAULT_MIN_NOTICE_HOURS,
+  DEFAULT_WEEKLY_END,
+  DEFAULT_WEEKLY_HOURS,
+  DEFAULT_WEEKLY_START,
+  slugFromPersonName,
+} from "@/lib/scheduling/schedule-defaults";
 
 const DAYS = [
   { value: 1, label: "Monday" },
@@ -12,8 +22,16 @@ const DAYS = [
 
 type WeeklyHour = { dayOfWeek: number; startTime: string; endTime: string };
 
+type StaffOption = {
+  id: string;
+  label: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  fullName?: string | null;
+};
+
 type Props = {
-  staffOptions: { id: string; label: string }[];
+  staffOptions: StaffOption[];
   initial?: {
     id?: string;
     staffUserId?: string;
@@ -35,27 +53,64 @@ export function AdminScheduleForm({ staffOptions, initial }: Props) {
   const [displayName, setDisplayName] = useState(initial?.displayName ?? "");
   const [enabled, setEnabled] = useState(initial?.enabled ?? false);
   const [meetingLengthMinutes, setMeetingLengthMinutes] = useState(
-    initial?.meetingLengthMinutes ?? 60
+    initial?.meetingLengthMinutes ?? DEFAULT_MEETING_LENGTH_MINUTES
   );
-  const [bufferMinutes, setBufferMinutes] = useState(initial?.bufferMinutes ?? 0);
-  const [minNoticeHours, setMinNoticeHours] = useState(initial?.minNoticeHours ?? 24);
+  const [bufferMinutes, setBufferMinutes] = useState(
+    initial?.bufferMinutes ?? DEFAULT_BUFFER_MINUTES
+  );
+  const [minNoticeHours, setMinNoticeHours] = useState(
+    initial?.minNoticeHours ?? DEFAULT_MIN_NOTICE_HOURS
+  );
   const [bookingWindowDays, setBookingWindowDays] = useState(
-    initial?.bookingWindowDays ?? 14
+    initial?.bookingWindowDays ?? DEFAULT_BOOKING_WINDOW_DAYS
   );
   const [defaultLocation, setDefaultLocation] = useState(initial?.defaultLocation ?? "");
   const [weeklyHours, setWeeklyHours] = useState<WeeklyHour[]>(
     initial?.weeklyHours?.length
       ? initial.weeklyHours
-      : DAYS.map((d) => ({ dayOfWeek: d.value, startTime: "09:00", endTime: "16:00" }))
+      : DEFAULT_WEEKLY_HOURS.map((h) => ({ ...h }))
   );
   const [status, setStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [slugTouched, setSlugTouched] = useState(Boolean(initial?.slug));
+  const [displayNameTouched, setDisplayNameTouched] = useState(Boolean(initial?.displayName));
+
+  const optionsById = useMemo(
+    () => new Map(staffOptions.map((s) => [s.id, s])),
+    [staffOptions]
+  );
+
+  function selectTeamMember(id: string) {
+    setStaffUserId(id);
+    const selected = optionsById.get(id);
+    if (!selected) return;
+
+    if (!displayNameTouched) {
+      const composed = [selected.firstName, selected.lastName]
+        .map((p) => (p ?? "").trim())
+        .filter(Boolean)
+        .join(" ");
+      setDisplayName(composed || selected.fullName || selected.label);
+    }
+    if (!slugTouched) {
+      setSlug(
+        slugFromPersonName({
+          firstName: selected.firstName,
+          lastName: selected.lastName,
+          fullName: selected.fullName || selected.label,
+        })
+      );
+    }
+  }
 
   function toggleDay(dayOfWeek: number) {
     setWeeklyHours((prev) => {
       const exists = prev.some((h) => h.dayOfWeek === dayOfWeek);
       if (exists) return prev.filter((h) => h.dayOfWeek !== dayOfWeek);
-      return [...prev, { dayOfWeek, startTime: "09:00", endTime: "16:00" }];
+      return [
+        ...prev,
+        { dayOfWeek, startTime: DEFAULT_WEEKLY_START, endTime: DEFAULT_WEEKLY_END },
+      ];
     });
   }
 
@@ -89,16 +144,19 @@ export function AdminScheduleForm({ staffOptions, initial }: Props) {
     const data = (await res.json()) as { error?: string; ok?: boolean };
     setSaving(false);
     setStatus(res.ok ? "Saved." : data.error || "Save failed");
+    if (res.ok && !initial?.id) {
+      window.location.reload();
+    }
   }
 
   return (
     <div className="rv-panel space-y-5 rounded-3xl p-5 sm:p-6">
       <div>
-        <label className="block text-sm font-semibold">Staff Member</label>
+        <label className="block text-sm font-semibold">Team Member</label>
         <select
           className="rv-input"
           value={staffUserId}
-          onChange={(e) => setStaffUserId(e.target.value)}
+          onChange={(e) => selectTeamMember(e.target.value)}
           disabled={Boolean(initial?.id)}
         >
           <option value="">Select…</option>
@@ -116,7 +174,10 @@ export function AdminScheduleForm({ staffOptions, initial }: Props) {
           <input
             className="rv-input"
             value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
+            onChange={(e) => {
+              setDisplayNameTouched(true);
+              setDisplayName(e.target.value);
+            }}
           />
         </div>
         <div>
@@ -124,7 +185,10 @@ export function AdminScheduleForm({ staffOptions, initial }: Props) {
           <input
             className="rv-input"
             value={slug}
-            onChange={(e) => setSlug(e.target.value)}
+            onChange={(e) => {
+              setSlugTouched(true);
+              setSlug(e.target.value);
+            }}
             placeholder="jane-doe"
           />
         </div>
@@ -141,10 +205,22 @@ export function AdminScheduleForm({ staffOptions, initial }: Props) {
       </label>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <NumberField label="Meeting Length (Minutes)" value={meetingLengthMinutes} onChange={setMeetingLengthMinutes} />
+        <NumberField
+          label="Meeting Length (Minutes)"
+          value={meetingLengthMinutes}
+          onChange={setMeetingLengthMinutes}
+        />
         <NumberField label="Buffer (Minutes)" value={bufferMinutes} onChange={setBufferMinutes} />
-        <NumberField label="Minimum Notice (Hours)" value={minNoticeHours} onChange={setMinNoticeHours} />
-        <NumberField label="Booking Window (Days)" value={bookingWindowDays} onChange={setBookingWindowDays} />
+        <NumberField
+          label="Minimum Notice (Hours)"
+          value={minNoticeHours}
+          onChange={setMinNoticeHours}
+        />
+        <NumberField
+          label="Booking Window (Days)"
+          value={bookingWindowDays}
+          onChange={setBookingWindowDays}
+        />
       </div>
 
       <div>
