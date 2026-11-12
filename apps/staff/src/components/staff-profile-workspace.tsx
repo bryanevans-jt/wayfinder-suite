@@ -22,6 +22,11 @@ export function StaffProfileWorkspace() {
   });
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState<string | null>(null);
+  const [rendezvousBookingUrl, setRendezvousBookingUrl] = useState<string | null>(null);
+  const [rendezvousBookingEnabled, setRendezvousBookingEnabled] = useState<boolean | null>(
+    null
+  );
+  const [copiedLink, setCopiedLink] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -33,6 +38,8 @@ export function StaffProfileWorkspace() {
     const data = (await res.json()) as {
       profile?: ProfileForm & { full_name?: string | null };
       email?: string | null;
+      rendezvousBookingUrl?: string | null;
+      rendezvousBookingEnabled?: boolean | null;
       error?: string;
     };
     if (!res.ok) {
@@ -54,6 +61,12 @@ export function StaffProfileWorkspace() {
       })
     );
     setEmail(data.email ?? null);
+    setRendezvousBookingUrl(data.rendezvousBookingUrl ?? null);
+    setRendezvousBookingEnabled(
+      typeof data.rendezvousBookingEnabled === "boolean"
+        ? data.rendezvousBookingEnabled
+        : null
+    );
   }, []);
 
   useEffect(() => {
@@ -118,6 +131,47 @@ export function StaffProfileWorkspace() {
         <p className="rounded-lg border border-brand-green/30 bg-brand-green/5 px-3 py-2 text-sm text-brand-black">
           {message}
         </p>
+      ) : null}
+
+      {rendezvousBookingUrl ? (
+        <section className="space-y-3 rounded-xl border border-neutral-200 bg-white p-5">
+          <div>
+            <h2 className="text-sm font-semibold text-brand-black">Rendezvous booking link</h2>
+            <p className="mt-1 text-sm text-brand-black/70">
+              Share this link with a GVRA counselor so they can book time with you.
+            </p>
+          </div>
+          <p className="break-all rounded-lg bg-neutral-50 px-3 py-2 text-sm text-brand-black">
+            {rendezvousBookingUrl}
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              className="rounded-lg bg-brand-gold px-4 py-2 text-sm font-semibold text-white"
+              onClick={() => {
+                void (async () => {
+                  try {
+                    await navigator.clipboard.writeText(rendezvousBookingUrl);
+                    setCopiedLink(true);
+                    setTimeout(() => setCopiedLink(false), 2000);
+                  } catch {
+                    setCopiedLink(false);
+                  }
+                })();
+              }}
+            >
+              {copiedLink ? "Copied!" : "Copy link"}
+            </button>
+            {rendezvousBookingEnabled !== null ? (
+              <p className="text-sm text-brand-black/60">
+                Status:{" "}
+                <span className="font-medium text-brand-black">
+                  {rendezvousBookingEnabled ? "Open for booking" : "Closed"}
+                </span>
+              </p>
+            ) : null}
+          </div>
+        </section>
       ) : null}
 
       <form onSubmit={(e) => void save(e)} className="space-y-4 rounded-xl border border-neutral-200 bg-white p-5">
