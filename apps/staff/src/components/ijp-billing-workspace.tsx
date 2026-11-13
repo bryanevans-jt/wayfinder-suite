@@ -448,7 +448,7 @@ export function IjpBillingWorkspace() {
                   offset = data.nextOffset ?? offset;
                 }
                 setMessage(
-                  `Month generate finished for ${total} unbilled-hours client(s): created ${created}, refreshed ${refreshed}, compiled ${compiled} PDF(s).`
+                  `Generate Invoices finished for ${total} client(s) with unbilled hours: created ${created}, refreshed ${refreshed}, compiled ${compiled} PDF(s).`
                 );
                 await load();
                 await loadCompleteness();
@@ -457,7 +457,7 @@ export function IjpBillingWorkspace() {
               }
             }}
           >
-            Generate month
+            Generate Invoices
           </button>
         ) : null}
       </div>
