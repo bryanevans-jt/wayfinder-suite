@@ -1,6 +1,7 @@
 "use client";
 
 import { filterGaReferralServiceLabels } from "@/lib/feature-toggles";
+import { serviceSupportsAuthorizedHoursFields } from "@wayfinder/supabase/referral-authorization-fields";
 import { GA_REFERRAL_SERVICE_LABELS } from "@wayfinder/supabase/referral-services";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
@@ -38,6 +39,8 @@ export type ReferralInfoEditInitial = {
   meeting_preference: string | null;
   counselor_availability: string | null;
   authorization_number: string | null;
+  authorized_hours: number | null;
+  authorization_end_date: string | null;
   counselorName: string | null;
   counselorEmail: string | null;
   serviceName: string | null;
@@ -74,6 +77,11 @@ export function ReferralInfoEditForm({ initial }: Props) {
     meetingPreference: initial.meeting_preference ?? "",
     counselorAvailability: initial.counselor_availability ?? "",
     authorizationNumber: initial.authorization_number ?? "",
+    authorizedHours:
+      initial.authorized_hours == null || Number.isNaN(Number(initial.authorized_hours))
+        ? ""
+        : String(initial.authorized_hours),
+    authorizationEndDate: (initial.authorization_end_date ?? "").slice(0, 10),
     referralState: "GA" as const,
     counselorName: initial.counselorName ?? "",
     counselorEmail: initial.counselorEmail ?? "",
@@ -115,6 +123,8 @@ export function ReferralInfoEditForm({ initial }: Props) {
     return filtered;
   }, [toggles, form.serviceLabel]);
 
+  const showAuthorizedHoursFields = serviceSupportsAuthorizedHoursFields(form.serviceLabel);
+
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
@@ -148,6 +158,12 @@ export function ReferralInfoEditForm({ initial }: Props) {
             meetingPreference: form.meetingPreference,
             counselorAvailability: form.counselorAvailability,
             authorizationNumber: form.authorizationNumber,
+            ...(showAuthorizedHoursFields
+              ? {
+                  authorizedHours: form.authorizedHours,
+                  authorizationEndDate: form.authorizationEndDate,
+                }
+              : {}),
             referralState: form.referralState,
             counselorName: form.counselorName,
             counselorEmail: form.counselorEmail,
@@ -219,6 +235,32 @@ export function ReferralInfoEditForm({ initial }: Props) {
               onChange={(e) => update("authorizationNumber", e.target.value)}
             />
           </label>
+          {showAuthorizedHoursFields ? (
+            <>
+              <label className="text-sm">
+                <span className="font-medium">Authorized hours (optional)</span>
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  inputMode="decimal"
+                  className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2"
+                  value={form.authorizedHours}
+                  onChange={(e) => update("authorizedHours", e.target.value)}
+                  placeholder="e.g. 40"
+                />
+              </label>
+              <label className="text-sm">
+                <span className="font-medium">Authorization end date (optional)</span>
+                <input
+                  type="date"
+                  className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2"
+                  value={form.authorizationEndDate}
+                  onChange={(e) => update("authorizationEndDate", e.target.value)}
+                />
+              </label>
+            </>
+          ) : null}
         </div>
       </section>
 

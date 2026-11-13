@@ -31,6 +31,10 @@ import {
   GA_REFERRAL_SERVICE_LABELS,
   GA_WEBSITE_REFERRAL_SERVICES,
 } from "./referral-services";
+import {
+  parseAuthorizationEndDate,
+  parseAuthorizedHours,
+} from "./referral-authorization-fields";
 
 export { loadDirectReferralAssignEnabled } from "./referral-field-specialists";
 export {
@@ -1751,6 +1755,10 @@ export type ReferralClientInfoUpdate = {
   meetingPreference?: string | null;
   counselorAvailability?: string | null;
   authorizationNumber?: string | null;
+  /** Optional; shown for WRT / IJP / Job Coaching only in the UI. */
+  authorizedHours?: number | string | null;
+  /** Optional ISO date YYYY-MM-DD; shown for WRT / IJP / Job Coaching only in the UI. */
+  authorizationEndDate?: string | null;
   referralState?: ReferralState | null;
   counselorName?: string | null;
   counselorEmail?: string | null;
@@ -1832,6 +1840,16 @@ export async function updateReferralClientInfo(
   }
   if (p.authorizationNumber !== undefined) {
     update.authorization_number = (p.authorizationNumber ?? "").trim() || null;
+  }
+  if (p.authorizedHours !== undefined) {
+    const parsedHours = parseAuthorizedHours(p.authorizedHours);
+    if (!parsedHours.ok) return { error: parsedHours.error };
+    update.authorized_hours = parsedHours.value;
+  }
+  if (p.authorizationEndDate !== undefined) {
+    const parsedEnd = parseAuthorizationEndDate(p.authorizationEndDate);
+    if (!parsedEnd.ok) return { error: parsedEnd.error };
+    update.authorization_end_date = parsedEnd.value;
   }
   if (p.referralState !== undefined) {
     if (p.referralState !== "GA" && p.referralState !== null) {
@@ -1943,6 +1961,17 @@ export async function updateReferralClientInfo(
       return {
         error:
           "Supervisor assignment requires a database update. Ask an admin to run migration 20260827120000_clients_supervisor_user_id.",
+      };
+    }
+    if (
+      (update.authorized_hours !== undefined || update.authorization_end_date !== undefined) &&
+      /authorized_hours|authorization_end_date|does not exist|Could not find the '|schema cache/i.test(
+        error.message
+      )
+    ) {
+      return {
+        error:
+          "Authorized hours fields require a database update. Ask an admin to run migration 20261113120000_client_authorized_hours (do not apply from this PR automatically).",
       };
     }
     return { error: error.message };
