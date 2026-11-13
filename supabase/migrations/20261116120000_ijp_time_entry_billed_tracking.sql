@@ -20,10 +20,14 @@ comment on column public.es_time_entries.ijp_billed_invoice_id is
 comment on column public.es_time_entries.ijp_billed_at is
   'When this entry was linked to an IJP invoice for billing.';
 
--- Authenticated ES/supervisor must not edit or delete billed entries (would
--- silently desync a billed invoice). Admin tier may still update via RLS for
--- exceptional corrections; app APIs block/flag billed edits by default.
--- Service role (staff APIs) is unaffected by these policies.
+-- Authenticated ES/supervisor must not update billed entries (would silently
+-- desync a billed invoice). Admin tier may still update via RLS for exceptional
+-- corrections; app APIs block/flag billed edits by default.
+-- Service role (staff APIs / timesheet submit-approve) is unaffected by RLS.
+--
+-- Match live production update policy shape: USING qual only (WITH CHECK null so
+-- Postgres reuses USING for the new row). Do NOT add a DELETE policy — production
+-- has none, so authenticated deletes stay blocked.
 
 drop policy if exists es_time_entries_update on public.es_time_entries;
 create policy es_time_entries_update on public.es_time_entries
@@ -32,21 +36,7 @@ create policy es_time_entries_update on public.es_time_entries
     (
       es_user_id = auth.uid()
       and public.get_auth_user_role() = 'es'
-      and status in ('draft', 'rejected')
-      and ijp_billed_invoice_id is null
-    )
-    or (
-      public.get_auth_user_role() = 'supervisor'
-      and es_user_id in (select public.auth_user_supervised_es_ids())
-      and ijp_billed_invoice_id is null
-    )
-    or public.auth_user_is_admin_tier()
-  )
-  with check (
-    (
-      es_user_id = auth.uid()
-      and public.get_auth_user_role() = 'es'
-      and status in ('draft', 'rejected')
+      and status = any (array['draft'::text, 'rejected'::text])
       and ijp_billed_invoice_id is null
     )
     or (
@@ -57,20 +47,5 @@ create policy es_time_entries_update on public.es_time_entries
     or public.auth_user_is_admin_tier()
   );
 
+-- Intentionally no es_time_entries_delete policy (prod has none).
 drop policy if exists es_time_entries_delete on public.es_time_entries;
-create policy es_time_entries_delete on public.es_time_entries
-  for delete to authenticated
-  using (
-    (
-      es_user_id = auth.uid()
-      and public.get_auth_user_role() = 'es'
-      and status in ('draft', 'rejected')
-      and ijp_billed_invoice_id is null
-    )
-    or (
-      public.get_auth_user_role() = 'supervisor'
-      and es_user_id in (select public.auth_user_supervised_es_ids())
-      and ijp_billed_invoice_id is null
-    )
-    or public.auth_user_is_admin_tier()
-  );
