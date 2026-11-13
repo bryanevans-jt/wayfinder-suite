@@ -161,7 +161,7 @@ export async function syncIjpInvoiceLineItemsFromBillable(
     esNameByUserId,
   });
   const lines = built.lines;
-  const totals = sumIjpLineItems(lines);
+  const totals = sumIjpLineItems(lines, opts.settings.hourly_rate_cents);
 
   const { data: existing } = await admin
     .from("ijp_billing_invoices")
@@ -339,7 +339,7 @@ export async function compileIjpInvoicePdf(
   const lines = ((invoice.line_items as IjpInvoiceLineItem[]) ?? []).map((line) =>
     recalcLineAmount(line, settings.hourly_rate_cents)
   );
-  const totals = sumIjpLineItems(lines);
+  const totals = sumIjpLineItems(lines, settings.hourly_rate_cents);
   const instructors = [...new Set(lines.map((l) => l.instructorName).filter(Boolean))].join(", ");
 
   const templateId =

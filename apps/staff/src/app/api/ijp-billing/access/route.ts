@@ -1,4 +1,7 @@
-import { canAccessIjpBilling } from "@wayfinder/supabase/ijp-billing-settings";
+import {
+  canAccessIjpBilling,
+  canEditIjpBilling,
+} from "@wayfinder/supabase/ijp-billing-settings";
 import { createServerClient } from "@wayfinder/supabase";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { USER_FACING_AUTH_REQUIRED } from "@wayfinder/supabase/error-log";
@@ -20,8 +23,10 @@ export async function GET() {
     .maybeSingle();
 
   const role = session.isPreviewing ? session.effectiveRole : (profile?.role as string);
+  const active = Boolean(profile?.is_active);
   return NextResponse.json({
-    canAccess: Boolean(profile?.is_active) && canAccessIjpBilling(role),
+    canAccess: active && canAccessIjpBilling(role),
+    canEdit: active && canEditIjpBilling(role),
     role,
   });
 }

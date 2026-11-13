@@ -219,19 +219,50 @@ export async function buildIjpInvoiceLineItems(
   };
 }
 
-export function sumIjpLineItems(lines: IjpInvoiceLineItem[]): {
+/**
+ * Round hours UP to the next whole hour for invoice / packet totals.
+ * Exact whole hours stay the same (3.0 → 3). Null / NaN / negative → 0.
+ * Line-item hours are not modified by this helper — only totals.
+ */
+export function ceilIjpTotalHours(hours: number | null | undefined): number {
+  if (hours == null) return 0;
+  const n = Number(hours);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  // Line hours are stored at one decimal; snap before ceil to avoid FP false ups.
+  const oneDecimal = Math.round(n * 10) / 10;
+  return Math.ceil(oneDecimal);
+}
+
+/**
+ * Sum line items into invoice totals.
+ * - Preserves per-line `hours` / `amountCents` as-is on the lines themselves.
+ * - `totalHours` is the ceiled sum of line hours (whole hours).
+ * - When `hourlyRateCents` is provided, `totalAmountCents` is billed from the
+ *   ceiled hours so PDF/header totals agree with the billed hour total.
+ * - Without a rate, amount falls back to the sum of line amounts.
+ */
+export function sumIjpLineItems(
+  lines: IjpInvoiceLineItem[],
+  hourlyRateCents?: number | null
+): {
   totalHours: number;
   totalAmountCents: number;
 } {
-  let totalHours = 0;
-  let totalAmountCents = 0;
-  for (const line of lines) {
-    totalHours += line.hours;
-    totalAmountCents += line.amountCents;
+  let rawHours = 0;
+  let lineAmountSum = 0;
+  for (const line of lines ?? []) {
+    rawHours += Number(line?.hours) || 0;
+    lineAmountSum += Number(line?.amountCents) || 0;
   }
+  const totalHours = ceilIjpTotalHours(rawHours);
+  const rate =
+    hourlyRateCents == null || !Number.isFinite(Number(hourlyRateCents))
+      ? null
+      : Number(hourlyRateCents);
   return {
-    totalHours: Math.round(totalHours * 10) / 10,
-    totalAmountCents,
+    totalHours,
+    totalAmountCents:
+      rate == null ? lineAmountSum : Math.round(totalHours * rate),
   };
 }
 
@@ -270,7 +301,9 @@ export function buildIjpInvoiceHeaderPlaceholders(opts: {
     GroupMark: "☐",
     AuthTypeIndividual: "☑",
     AuthTypeGroup: "☐",
-    TotalHours: opts.totalHours.toFixed(1),
+    TotalHours: Number.isInteger(opts.totalHours)
+      ? String(opts.totalHours)
+      : opts.totalHours.toFixed(1),
     TotalAmount: formatIjpInvoiceAmount(opts.totalAmountCents),
     RateDollars: formatIjpRateDollars(opts.hourlyRateCents),
     InstructorFacilitatorName: opts.instructorFacilitatorSummary,

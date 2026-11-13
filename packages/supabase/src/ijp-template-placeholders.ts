@@ -10,7 +10,7 @@ export const IJP_INVOICE_PLACEHOLDERS: PreEtsTemplatePlaceholder[] = [
   { token: "ServiceMonth", description: "e.g. March 2026" },
   { token: "IndividualMark", description: "☑ for Individual" },
   { token: "GroupMark", description: "☐ for Group" },
-  { token: "TotalHours", description: "Sum of line hours" },
+  { token: "TotalHours", description: "Sum of line hours, rounded up to whole hours" },
   { token: "TotalAmount", description: "Total dollars" },
   { token: "RateDollars", description: "Hourly rate from settings" },
   { token: "InstructorFacilitatorName", description: "Unique ES names on invoice (optional header)" },

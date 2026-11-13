@@ -304,9 +304,10 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Sidebar Layout",
         body:
-          "Accounts Specialist tools focus on intake billing, timesheets, Time Clock, and payment/billing exports. Community Partners is shared reference data.",
+          "Accounts Specialist tools focus on intake billing, IJP billing, timesheets, Time Clock, and payment/billing exports. Community Partners is shared reference data.",
         steps: [
           "Accounts → Intake Billing (this is your home screen after login).",
+          "Accounts → IJP Billing — add and edit GA IJP invoices (hour totals round up to whole hours).",
           "Accounts → Weekly Timesheet, Time Clock, Download Exports.",
           "Account → My Profile to update your name, city, and contact details.",
           "Reference → Community Partners.",

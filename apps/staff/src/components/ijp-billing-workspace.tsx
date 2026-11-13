@@ -30,6 +30,7 @@ export function IjpBillingWorkspace() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [canTest, setCanTest] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
   const [testClientId, setTestClientId] = useState("");
   const [testMonth, setTestMonth] = useState(priorServiceMonthStart());
   const [testSignature, setTestSignature] = useState("");
@@ -53,8 +54,12 @@ export function IjpBillingWorkspace() {
     void load();
     void (async () => {
       const access = await fetch("/api/ijp-billing/access");
-      const json = (await access.json()) as { role?: string };
+      const json = (await access.json()) as {
+        role?: string;
+        canEdit?: boolean;
+      };
       setCanTest(json.role === "super_admin" || json.role === "admin");
+      setCanEdit(Boolean(json.canEdit));
     })();
   }, [load]);
 
@@ -221,42 +226,44 @@ export function IjpBillingWorkspace() {
         ) : null}
       </div>
 
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-50/80 p-4">
-        <IjpBillingClientPicker
-          label="Add invoice row"
-          value={addClientId}
-          onChange={setAddClientId}
-          disabled={busy}
-        />
-        <button
-          type="button"
-          disabled={busy}
-          className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-          onClick={async () => {
-            if (!addClientId.trim()) {
-              setError("Select a client.");
-              return;
-            }
-            setBusy(true);
-            const res = await fetch("/api/ijp-billing/invoices", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ clientId: addClientId.trim(), serviceMonth: month, isTest: false }),
-            });
-            setBusy(false);
-            const data = (await res.json()) as { error?: string };
-            if (!res.ok) {
-              setError(data.error ?? USER_FACING_SYSTEM_ERROR);
-              return;
-            }
-            setMessage("Invoice row added.");
-            setAddClientId("");
-            void load();
-          }}
-        >
-          Add invoice
-        </button>
-      </div>
+      {canEdit ? (
+        <div className="flex flex-wrap items-end gap-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-50/80 p-4">
+          <IjpBillingClientPicker
+            label="Add invoice row"
+            value={addClientId}
+            onChange={setAddClientId}
+            disabled={busy}
+          />
+          <button
+            type="button"
+            disabled={busy}
+            className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            onClick={async () => {
+              if (!addClientId.trim()) {
+                setError("Select a client.");
+                return;
+              }
+              setBusy(true);
+              const res = await fetch("/api/ijp-billing/invoices", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ clientId: addClientId.trim(), serviceMonth: month, isTest: false }),
+              });
+              setBusy(false);
+              const data = (await res.json()) as { error?: string };
+              if (!res.ok) {
+                setError(data.error ?? USER_FACING_SYSTEM_ERROR);
+                return;
+              }
+              setMessage("Invoice row added.");
+              setAddClientId("");
+              void load();
+            }}
+          >
+            Add invoice
+          </button>
+        </div>
+      ) : null}
 
       <div className="overflow-x-auto rounded-xl border border-neutral-200">
         <table className="min-w-full text-left text-sm">
@@ -282,30 +289,38 @@ export function IjpBillingWorkspace() {
                 <tr key={inv.id} className="border-t border-neutral-100">
                   <td className="px-3 py-2">{inv.clientName}</td>
                   <td className="px-3 py-2">
-                    <input
-                      className="w-full min-w-[7rem] rounded border border-neutral-200 px-2 py-1 text-xs"
-                      value={inv.provider_invoice_number ?? ""}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setInvoices((prev) =>
-                          prev.map((row) =>
-                            row.id === inv.id ? { ...row, provider_invoice_number: v || null } : row
-                          )
-                        );
-                      }}
-                      onBlur={async (e) => {
-                        await fetch(`/api/ijp-billing/invoices/${inv.id}`, {
-                          method: "PATCH",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            provider_invoice_number: e.target.value,
-                          }),
-                        });
-                        void load();
-                      }}
-                    />
+                    {canEdit ? (
+                      <input
+                        className="w-full min-w-[7rem] rounded border border-neutral-200 px-2 py-1 text-xs"
+                        value={inv.provider_invoice_number ?? ""}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setInvoices((prev) =>
+                            prev.map((row) =>
+                              row.id === inv.id ? { ...row, provider_invoice_number: v || null } : row
+                            )
+                          );
+                        }}
+                        onBlur={async (e) => {
+                          await fetch(`/api/ijp-billing/invoices/${inv.id}`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              provider_invoice_number: e.target.value,
+                            }),
+                          });
+                          void load();
+                        }}
+                      />
+                    ) : (
+                      <span>{inv.provider_invoice_number ?? "—"}</span>
+                    )}
                   </td>
-                  <td className="px-3 py-2">{Number(inv.total_hours).toFixed(1)}</td>
+                  <td className="px-3 py-2">
+                    {Number.isInteger(Number(inv.total_hours))
+                      ? String(Number(inv.total_hours))
+                      : Number(inv.total_hours).toFixed(1)}
+                  </td>
                   <td className="px-3 py-2">
                     {inv.hasAttestation ? (
                       "On file"
@@ -316,29 +331,35 @@ export function IjpBillingWorkspace() {
                   <td className="px-3 py-2">{inv.status}</td>
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        className="text-brand-green underline"
-                        onClick={() => void loadDetail(inv.id)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="text-brand-green underline"
-                        disabled={busy}
-                        onClick={() => void compile(inv.id)}
-                      >
-                        Compile PDF
-                      </button>
-                      <button
-                        type="button"
-                        className="text-brand-green underline"
-                        disabled={busy}
-                        onClick={() => void archive(inv.id)}
-                      >
-                        Archive combined
-                      </button>
+                      {canEdit ? (
+                        <button
+                          type="button"
+                          className="text-brand-green underline"
+                          onClick={() => void loadDetail(inv.id)}
+                        >
+                          Edit
+                        </button>
+                      ) : null}
+                      {canEdit ? (
+                        <button
+                          type="button"
+                          className="text-brand-green underline"
+                          disabled={busy}
+                          onClick={() => void compile(inv.id)}
+                        >
+                          Compile PDF
+                        </button>
+                      ) : null}
+                      {canEdit ? (
+                        <button
+                          type="button"
+                          className="text-brand-green underline"
+                          disabled={busy}
+                          onClick={() => void archive(inv.id)}
+                        >
+                          Archive combined
+                        </button>
+                      ) : null}
                       <a
                         href={`/api/ijp-billing/invoices/${inv.id}/download`}
                         className="text-brand-green underline"
@@ -354,11 +375,12 @@ export function IjpBillingWorkspace() {
         </table>
       </div>
 
-      {selectedId ? (
+      {selectedId && canEdit ? (
         <section className="rounded-xl border border-neutral-200 bg-white p-4">
           <h2 className="text-lg font-semibold">Edit invoice</h2>
           <p className="mt-1 text-xs text-brand-black/60">
-            Adjust billing fields and line hours (including zero). Totals recalculate on save.
+            Adjust billing fields and line hours (including zero). Invoice hour totals round up to
+            whole hours on save; per-line hours stay as entered.
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <label className="text-xs">
