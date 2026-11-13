@@ -345,17 +345,17 @@ export function staffNavSectionsForRole(
           items: withTraining(
             maybePartners(
               [
-                billableHoursNav,
+                referralQueueNav,
+                intakeBillingNav,
+                ijpBillingNav,
                 {
                   href: "/dashboard/wrt",
                   label: "WRT",
                   match: (p) => p.startsWith("/dashboard/wrt"),
                 },
+                billableHoursNav,
                 reportingNav,
-                referralQueueNav,
                 ...(hideIntake ? [] : [intakeCallsNav]),
-                intakeBillingNav,
-                ijpBillingNav,
                 ...(showPreEtsNav ? [preEtsNav] : []),
                 communityPartnersNav,
               ],
@@ -390,17 +390,17 @@ export function staffNavSectionsForRole(
           items: withTraining(
             maybePartners(
               [
-                billableHoursNav,
+                referralQueueNav,
+                intakeBillingNav,
+                ijpBillingNav,
                 {
                   href: "/dashboard/wrt",
                   label: "WRT",
                   match: (p) => p.startsWith("/dashboard/wrt"),
                 },
+                billableHoursNav,
                 reportingNav,
-                referralQueueNav,
                 ...(hideIntake ? [] : [intakeCallsNav]),
-                intakeBillingNav,
-                ijpBillingNav,
                 ...(showPreEtsNav ? [preEtsNav] : []),
                 communityPartnersNav,
               ],
