@@ -17,6 +17,8 @@ export type ReferralExportRow = {
   meeting_preference: string | null;
   counselor_availability: string | null;
   authorization_number: string | null;
+  authorized_hours: number | null;
+  authorization_end_date: string | null;
   authorization_override_reason: string | null;
   employment_goal_primary: string | null;
   home_address_line1: string | null;
@@ -35,7 +37,12 @@ export type ReferralExportRow = {
 };
 
 const CLIENT_FIELDS =
-  "id, full_name, contact_email, intake_status, referral_state, referred_at, date_of_birth, primary_phone, secondary_phone, gender, ethnicity, disability_history, meeting_preference, counselor_availability, authorization_number, authorization_override_reason, employment_goal_primary, home_address_line1, home_city, home_state, home_zip, current_service_id, current_stage_id, counselor_id, office_id, supervisor_user_id";
+  "id, full_name, contact_email, intake_status, referral_state, referred_at, date_of_birth, primary_phone, secondary_phone, gender, ethnicity, disability_history, meeting_preference, counselor_availability, authorization_number, authorized_hours, authorization_end_date, authorization_override_reason, employment_goal_primary, home_address_line1, home_city, home_state, home_zip, current_service_id, current_stage_id, counselor_id, office_id, supervisor_user_id";
+
+const CLIENT_FIELDS_WITHOUT_AUTH_HOURS = CLIENT_FIELDS.replace(
+  ", authorized_hours, authorization_end_date",
+  ""
+);
 
 function formatAddress(row: {
   home_address_line1: string | null;
@@ -61,7 +68,10 @@ export async function loadReferralExportRows(
 ): Promise<ReferralExportRow[]> {
   if (clientIds.length === 0) return [];
 
-  const CLIENT_FIELDS_CORE = CLIENT_FIELDS.replace(", supervisor_user_id", "");
+  const CLIENT_FIELDS_CORE = CLIENT_FIELDS_WITHOUT_AUTH_HOURS.replace(
+    ", supervisor_user_id",
+    ""
+  );
 
   let ordered: Array<Record<string, unknown>> = [];
   {
@@ -72,13 +82,68 @@ export async function loadReferralExportRows(
       ordered = clientIds.map((id) => byId.get(id)).filter(Boolean) as Array<Record<string, unknown>>;
     } else if (
       full.error &&
+      /authorized_hours|authorization_end_date|does not exist|Could not find the '|schema cache/i.test(
+        full.error.message
+      )
+    ) {
+      const withoutAuthHours = await admin
+        .from("clients")
+        .select(CLIENT_FIELDS_WITHOUT_AUTH_HOURS)
+        .in("id", clientIds);
+      if (!withoutAuthHours.error && withoutAuthHours.data?.length) {
+        const rows = withoutAuthHours.data as unknown as Array<Record<string, unknown>>;
+        const byId = new Map(
+          rows.map((r) => [
+            String(r.id),
+            { ...r, authorized_hours: null, authorization_end_date: null },
+          ])
+        );
+        ordered = clientIds
+          .map((id) => byId.get(id))
+          .filter(Boolean) as Array<Record<string, unknown>>;
+      } else if (
+        withoutAuthHours.error &&
+        /supervisor_user_id|does not exist|Could not find the '|schema cache/i.test(
+          withoutAuthHours.error.message
+        )
+      ) {
+        const core = await admin.from("clients").select(CLIENT_FIELDS_CORE).in("id", clientIds);
+        if (core.error || !core.data?.length) return [];
+        const coreRows = core.data as unknown as Array<Record<string, unknown>>;
+        const byId = new Map(
+          coreRows.map((r) => [
+            String(r.id),
+            {
+              ...r,
+              supervisor_user_id: null,
+              authorized_hours: null,
+              authorization_end_date: null,
+            },
+          ])
+        );
+        ordered = clientIds
+          .map((id) => byId.get(id))
+          .filter(Boolean) as Array<Record<string, unknown>>;
+      } else {
+        return [];
+      }
+    } else if (
+      full.error &&
       /supervisor_user_id|does not exist|Could not find the '|schema cache/i.test(full.error.message)
     ) {
       const core = await admin.from("clients").select(CLIENT_FIELDS_CORE).in("id", clientIds);
       if (core.error || !core.data?.length) return [];
       const coreRows = core.data as unknown as Array<Record<string, unknown>>;
       const byId = new Map(
-        coreRows.map((r) => [String(r.id), { ...r, supervisor_user_id: null }])
+        coreRows.map((r) => [
+          String(r.id),
+          {
+            ...r,
+            supervisor_user_id: null,
+            authorized_hours: null,
+            authorization_end_date: null,
+          },
+        ])
       );
       ordered = clientIds.map((id) => byId.get(id)).filter(Boolean) as Array<Record<string, unknown>>;
     } else {
@@ -163,6 +228,12 @@ export async function loadReferralExportRows(
       meeting_preference: (row.meeting_preference as string | null) ?? null,
       counselor_availability: (row.counselor_availability as string | null) ?? null,
       authorization_number: (row.authorization_number as string | null) ?? null,
+      authorized_hours: (() => {
+        if (row.authorized_hours == null || row.authorized_hours === "") return null;
+        const n = Number(row.authorized_hours);
+        return Number.isFinite(n) ? n : null;
+      })(),
+      authorization_end_date: (row.authorization_end_date as string | null) ?? null,
       authorization_override_reason: (row.authorization_override_reason as string | null) ?? null,
       employment_goal_primary: (row.employment_goal_primary as string | null) ?? null,
       home_address_line1: (row.home_address_line1 as string | null) ?? null,

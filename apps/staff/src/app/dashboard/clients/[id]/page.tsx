@@ -39,7 +39,13 @@ import { ClientIntakeSchedulePanel } from "@/components/client-intake-schedule-p
 import { clientPresentGuidanceTarget } from "@/lib/client-present-guidance";
 import { EmployerMatchPanel } from "@/components/employer-match-panel";
 import { ClientDisabilityHistoryPanel } from "@/components/client-disability-history-panel";
+import { ClientAuthorizedHoursPanel } from "@/components/client-authorized-hours-panel";
 import { ClientStaffNotesPanel } from "@/components/client-staff-notes-panel";
+import {
+  canEditClientAuthorizedHoursFields,
+  canViewClientAuthorizedHoursFields,
+  serviceSupportsAuthorizedHoursFields,
+} from "@wayfinder/supabase/referral-authorization-fields";
 import { HospitalityCheckInPanel } from "@/components/hospitality-check-in-panel";
 import { ClientJobStartDateForm } from "./client-job-start-date-form";
 import { ClientApplicationForm } from "./client-application-form";
@@ -87,10 +93,17 @@ type ClientDetailRow = {
   intake_status?: string | null;
   intake_scheduling_needed?: boolean | null;
   disability_history?: string | null;
+  authorized_hours?: number | null;
+  authorization_end_date?: string | null;
 };
 
 const CLIENT_SELECT_FULL =
-  "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, office_id, counselor_id, job_start_date, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other, prior_client_id, intake_status, intake_scheduling_needed, disability_history";
+  "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, office_id, counselor_id, job_start_date, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other, prior_client_id, intake_status, intake_scheduling_needed, disability_history, authorized_hours, authorization_end_date";
+
+const CLIENT_SELECT_FULL_WITHOUT_AUTH_HOURS = CLIENT_SELECT_FULL.replace(
+  ", authorized_hours, authorization_end_date",
+  ""
+);
 
 const CLIENT_SELECT_CORE =
   "id, user_id, profile_id, contact_email, current_service_id, current_stage_id, office_id, counselor_id, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other";
@@ -109,6 +122,21 @@ async function loadClientDetailRow(
     return null;
   }
 
+  if (/authorized_hours|authorization_end_date/i.test(message)) {
+    const withoutAuth = await admin
+      .from("clients")
+      .select(CLIENT_SELECT_FULL_WITHOUT_AUTH_HOURS)
+      .eq("id", clientId)
+      .maybeSingle();
+    if (!withoutAuth.error && withoutAuth.data) {
+      return {
+        ...(withoutAuth.data as unknown as ClientDetailRow),
+        authorized_hours: null,
+        authorization_end_date: null,
+      };
+    }
+  }
+
   const core = await admin.from("clients").select(CLIENT_SELECT_CORE).eq("id", clientId).maybeSingle();
   if (core.error || !core.data) {
     return null;
@@ -118,6 +146,8 @@ async function loadClientDetailRow(
     ...(core.data as Omit<ClientDetailRow, "full_name" | "job_start_date">),
     full_name: null,
     job_start_date: null,
+    authorized_hours: null,
+    authorization_end_date: null,
   };
 }
 
@@ -455,6 +485,11 @@ export default async function EsClientDetailPage({ params }: PageProps) {
   const showDisabilityHistory = canViewStaffOnlyDisabilityHistory(role);
   const canEditDisabilityHistory =
     canEditStaffOnlyDisabilityHistory(role) && !session.isPreviewing;
+  const showAuthorizedHoursFields =
+    canViewClientAuthorizedHoursFields(role) &&
+    serviceSupportsAuthorizedHoursFields(service?.name ?? null);
+  const canEditAuthorizedHours =
+    canEditClientAuthorizedHoursFields(role) && canWriteCasework;
   const canWriteNotes = canWriteStaffOnlyClientNotes(role) && !session.isPreviewing;
   const showCheckIns = canLogHospitalityCheckIns(role) || showStaffNotes;
   const showSubmittedFormalReports =
@@ -601,6 +636,18 @@ export default async function EsClientDetailPage({ params }: PageProps) {
           missingGoals={missingGoals}
           missingGeocode={missingGeocode}
         />
+
+        {showAuthorizedHoursFields ? (
+          <ClientAuthorizedHoursPanel
+            clientId={client.id as string}
+            serviceName={service?.name ?? null}
+            initialAuthorizedHours={
+              client.authorized_hours == null ? null : Number(client.authorized_hours)
+            }
+            initialAuthorizationEndDate={client.authorization_end_date ?? null}
+            canWrite={canEditAuthorizedHours}
+          />
+        ) : null}
 
         {showDisabilityHistory ? (
           <ClientDisabilityHistoryPanel

@@ -94,6 +94,8 @@ export default async function IntakeCallDetailPage({ params }: PageProps) {
               meeting_preference: row.meeting_preference,
               counselor_availability: row.counselor_availability,
               authorization_number: row.authorization_number,
+              authorized_hours: row.authorized_hours,
+              authorization_end_date: row.authorization_end_date,
               counselorName: row.counselorName,
               counselorEmail: row.counselorEmail,
               serviceName: row.serviceName,
