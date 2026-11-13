@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { PortalBootstrap } from "@/lib/portal-data";
 import { clientDisplayName } from "@wayfinder/branding";
+import { AuthorizationWarningBadge } from "@/components/authorization-warning-badge";
 import {
   clientPipelineWhere,
   CLIENT_PIPELINE_WHERE_LABELS,
@@ -17,6 +18,7 @@ type Props = {
   esLabel: (id: string | null) => string;
   onManage: () => void;
   ijpSignatureMonthLabel?: string | null;
+  authorizationWarning?: { label: string; tone: "none" | "info" | "warn" | "alert" } | null;
 };
 
 export function ClientListRow({
@@ -26,6 +28,7 @@ export function ClientListRow({
   esLabel,
   onManage,
   ijpSignatureMonthLabel,
+  authorizationWarning,
 }: Props) {
   const displayName = clientDisplayName(client);
   const where = clientPipelineWhere(client);
@@ -42,6 +45,10 @@ export function ClientListRow({
           >
             {displayName}
           </button>
+          <AuthorizationWarningBadge
+            label={authorizationWarning?.label}
+            tone={authorizationWarning?.tone}
+          />
           {ijpSignatureMonthLabel ? (
             <span
               className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900"

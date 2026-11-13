@@ -490,6 +490,9 @@ export function PortalWorkspace({
 
   const [ijpSignatureFlags, setIjpSignatureFlags] = useState<Record<string, string>>({});
   const [ijpSignatureFlagsRefreshKey, setIjpSignatureFlagsRefreshKey] = useState(0);
+  const [authorizationWarningFlags, setAuthorizationWarningFlags] = useState<
+    Record<string, { label: string; tone: "none" | "info" | "warn" | "alert" }>
+  >({});
   // Stable dependency: sliceClientListPage returns a new array every render, which would
   // re-fire this effect forever if we depended on pagedClients directly.
   const pagedClientIdsKey = useMemo(
@@ -501,28 +504,49 @@ export function PortalWorkspace({
     const ids = pagedClientIdsKey ? pagedClientIdsKey.split(",") : [];
     if (ids.length === 0) {
       setIjpSignatureFlags({});
+      setAuthorizationWarningFlags({});
       return;
     }
     const controller = new AbortController();
     void (async () => {
       try {
-        const res = await fetch("/api/ijp-attestation/signature-flags", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ clientIds: ids }),
-          signal: controller.signal,
-        });
-        if (!res.ok) {
+        const [ijpRes, authRes] = await Promise.all([
+          fetch("/api/ijp-attestation/signature-flags", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ clientIds: ids }),
+            signal: controller.signal,
+          }),
+          fetch("/api/authorization-warnings/flags", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ clientIds: ids }),
+            signal: controller.signal,
+          }),
+        ]);
+        if (!ijpRes.ok) {
           // Failures (incl. 429) show no badges; do not retry-loop.
           if (!controller.signal.aborted) setIjpSignatureFlags({});
-          return;
+        } else {
+          const data = (await ijpRes.json()) as { flags?: Record<string, string> };
+          if (!controller.signal.aborted) setIjpSignatureFlags(data.flags ?? {});
         }
-        const data = (await res.json()) as { flags?: Record<string, string> };
-        if (!controller.signal.aborted) setIjpSignatureFlags(data.flags ?? {});
+        if (!authRes.ok) {
+          if (!controller.signal.aborted) setAuthorizationWarningFlags({});
+        } else {
+          const data = (await authRes.json()) as {
+            flags?: Record<
+              string,
+              { label: string; tone: "none" | "info" | "warn" | "alert" }
+            >;
+          };
+          if (!controller.signal.aborted) setAuthorizationWarningFlags(data.flags ?? {});
+        }
       } catch {
         if (!controller.signal.aborted) {
-          // Non-blocking — list still renders without IJP badges.
+          // Non-blocking — list still renders without badges.
           setIjpSignatureFlags({});
+          setAuthorizationWarningFlags({});
         }
       }
     })();
@@ -1298,6 +1322,7 @@ export function PortalWorkspace({
                       esLabel={esLabel}
                       onManage={() => setDrawerClient(c)}
                       ijpSignatureMonthLabel={ijpSignatureFlags[c.id] ?? null}
+                      authorizationWarning={authorizationWarningFlags[c.id] ?? null}
                     />
                   ))
                 )}
