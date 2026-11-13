@@ -5,7 +5,10 @@ import {
   isSuperAdminRole,
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
-import { loadSupervisorScope } from "@wayfinder/supabase/supervisor-client-scope";
+import {
+  canViewTeamCalendarStaff,
+  listTeamCalendarVisibleStaffUserIds,
+} from "./team-calendar-visibility";
 
 export type RendezvousAccess = {
   featureEnabled: boolean;
@@ -94,37 +97,29 @@ export async function resolveRendezvousAccess(
 }
 
 /**
- * Who may view bookings for a staff member once Rendezvous is rolled out.
- * Super admin / admin: everyone. Supervisor: self + direct reports. Specialist: self.
+ * Who may view bookings for a staff member on Team Calendar.
+ * Admin / super_admin: ES + Transition Specialist + Supervisor calendars.
+ * Supervisor: self + loadSupervisorScope (assignments + office-shared TS/instructors).
+ * Everyone else: self only.
  */
 export async function canViewStaffBookings(
   admin: SupabaseClient,
   viewer: { userId: string; role: string | null },
   targetStaffUserId: string
 ): Promise<boolean> {
-  if (isAdminTierRole(viewer.role)) return true;
-  if (viewer.userId === targetStaffUserId) return true;
-  if (isSupervisorRole(viewer.role)) {
-    const scope = await loadSupervisorScope(admin, viewer.userId);
-    return (
-      targetStaffUserId === scope.supervisorUserId ||
-      scope.esUserIds.includes(targetStaffUserId)
-    );
-  }
-  return false;
+  return canViewTeamCalendarStaff(admin, viewer, targetStaffUserId);
 }
 
-/** Staff user IDs the viewer may include on the team calendar. */
+/**
+ * Staff user IDs the viewer may include on the team calendar.
+ * Always an explicit list (admins get active ES/TS/supervisor IDs, not unbounded "all").
+ */
 export async function listVisibleStaffUserIds(
   admin: SupabaseClient,
   viewer: { userId: string; role: string | null }
-): Promise<string[] | "all"> {
-  if (isAdminTierRole(viewer.role)) return "all";
-  if (isSupervisorRole(viewer.role)) {
-    const scope = await loadSupervisorScope(admin, viewer.userId);
-    return Array.from(new Set([viewer.userId, ...scope.esUserIds]));
-  }
-  return [viewer.userId];
+): Promise<string[]> {
+  const visibility = await listTeamCalendarVisibleStaffUserIds(admin, viewer);
+  return visibility.staffUserIds;
 }
 
 /** Public booking pages require the org flag AND an explicitly enabled schedule. */
