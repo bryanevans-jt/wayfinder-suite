@@ -21,4 +21,4 @@ curl -sI "https://wayfinder-pro.thejoshuatree.org/login" | grep -i x-wayfinder
 curl -s "https://wayfinder-pro.thejoshuatree.org/api/health"
 ```
 
-Expect `X-Wayfinder-Version: 1.2.5` (or current `APP_VERSION`) and JSON from `/api/health` with matching `version` and `gitCommit`.
+Expect `X-Wayfinder-Version: 1.3.1` (or current `APP_VERSION`) and JSON from `/api/health` with matching `version` and `gitCommit`.

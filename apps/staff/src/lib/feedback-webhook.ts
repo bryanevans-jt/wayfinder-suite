@@ -5,7 +5,8 @@
 
 import type { FeedbackType } from "./feedback";
 
-export const FEEDBACK_WEBHOOK_TIMEOUT_MS = 5_000;
+export const FEEDBACK_WEBHOOK_TIMEOUT_MS = 15_000;
+export const FEEDBACK_WEBHOOK_MAX_ATTEMPTS = 2;
 export const DEFAULT_FEEDBACK_WEBHOOK_KEY_HEADER = "Authorization";
 
 export type FeedbackWebhookPayload = {
@@ -26,6 +27,8 @@ export type FeedbackWebhookEnv = {
   keyHeader?: string | null;
   staffAppUrl?: string | null;
 };
+
+export type FeedbackWebhookLog = (message: string, detail?: unknown) => void;
 
 function readEnvOverride(
   override: string | null | undefined,
@@ -48,10 +51,11 @@ export function resolveFeedbackWebhookConfig(env: FeedbackWebhookEnv = {}): {
   const keyHeader =
     readEnvOverride(env.keyHeader, process.env.FEEDBACK_WEBHOOK_KEY_HEADER) ||
     DEFAULT_FEEDBACK_WEBHOOK_KEY_HEADER;
-  const staffAppUrl = readEnvOverride(
-    env.staffAppUrl,
-    process.env.NEXT_PUBLIC_STAFF_APP_URL
-  )?.replace(/\/$/, "") || null;
+  const staffAppUrl =
+    readEnvOverride(env.staffAppUrl, process.env.NEXT_PUBLIC_STAFF_APP_URL)?.replace(
+      /\/$/,
+      ""
+    ) || null;
   return { url, key, keyHeader, staffAppUrl };
 }
 
@@ -100,9 +104,64 @@ export function buildFeedbackWebhookAuthHeader(
   return { name: keyHeader, value: key };
 }
 
+/** Host-only label for logs — never the full webhook URL or key. */
+export function feedbackWebhookHostLabel(url: string): string {
+  try {
+    return new URL(url).host || "webhook-host";
+  } catch {
+    return "webhook-host";
+  }
+}
+
+export function isRetriableFeedbackWebhookFailure(opts: {
+  status?: number | null;
+  error?: unknown;
+}): boolean {
+  if (opts.status != null && opts.status >= 500) return true;
+  const err = opts.error;
+  if (!err) return false;
+  if (err instanceof Error) {
+    const name = err.name.toLowerCase();
+    const message = err.message.toLowerCase();
+    if (name.includes("abort") || message.includes("aborted")) return true;
+    if (message.includes("timeout") || message.includes("timed out")) return true;
+  }
+  return false;
+}
+
+async function postFeedbackWebhookOnce(opts: {
+  url: string;
+  auth: { name: string; value: string };
+  payload: FeedbackWebhookPayload;
+  timeoutMs: number;
+  fetchImpl: typeof fetch;
+}): Promise<{ ok: boolean; status: number | null; bodyPreview: string; error?: unknown }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), opts.timeoutMs);
+  try {
+    const res = await opts.fetchImpl(opts.url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        [opts.auth.name]: opts.auth.value,
+      },
+      body: JSON.stringify(opts.payload),
+      signal: controller.signal,
+    });
+    const bodyPreview = (await res.text().catch(() => "")).slice(0, 200);
+    return { ok: res.ok, status: res.status, bodyPreview };
+  } catch (error) {
+    return { ok: false, status: null, bodyPreview: "", error };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
- * Fire-and-forget style notify. Never throws to the caller for missing config
- * or HTTP failures — logs instead. Returns whether the POST succeeded.
+ * Deliver feedback to Radar. Never throws for missing config or HTTP failures —
+ * logs instead. Retries once on timeout/abort or 5xx.
+ * Prefer scheduling via Next.js `after()` so the serverless response can return
+ * quickly without aborting the POST.
  */
 export async function notifyFeedbackWebhook(
   payload: FeedbackWebhookPayload,
@@ -110,10 +169,16 @@ export async function notifyFeedbackWebhook(
     fetchImpl?: typeof fetch;
     env?: FeedbackWebhookEnv;
     timeoutMs?: number;
-    log?: (message: string, detail?: unknown) => void;
+    maxAttempts?: number;
+    log?: FeedbackWebhookLog;
   }
-): Promise<{ sent: boolean; skipped?: string; error?: string }> {
-  const log = opts?.log ?? ((message, detail) => console.error(message, detail ?? ""));
+): Promise<{ sent: boolean; skipped?: string; error?: string; attempts?: number }> {
+  const log =
+    opts?.log ??
+    ((message, detail) => {
+      if (detail === undefined) console.error(message);
+      else console.error(message, detail);
+    });
   const config = resolveFeedbackWebhookConfig(opts?.env);
   if (!config.url) {
     return { sent: false, skipped: "FEEDBACK_WEBHOOK_URL not set" };
@@ -124,38 +189,61 @@ export async function notifyFeedbackWebhook(
 
   const auth = buildFeedbackWebhookAuthHeader(config.keyHeader, config.key);
   const timeoutMs = opts?.timeoutMs ?? FEEDBACK_WEBHOOK_TIMEOUT_MS;
+  const maxAttempts = opts?.maxAttempts ?? FEEDBACK_WEBHOOK_MAX_ATTEMPTS;
   const fetchImpl = opts?.fetchImpl ?? fetch;
+  const host = feedbackWebhookHostLabel(config.url);
 
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const res = await fetchImpl(config.url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          [auth.name]: auth.value,
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
+  let lastError: string | undefined;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const result = await postFeedbackWebhookOnce({
+      url: config.url,
+      auth,
+      payload,
+      timeoutMs,
+      fetchImpl,
+    });
+
+    if (result.ok) {
+      log("feedback webhook POST ok", {
+        submissionId: payload.id,
+        host,
+        status: result.status,
+        attempt,
+        bodyPreview: result.bodyPreview,
       });
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        log("feedback webhook POST failed", {
-          status: res.status,
-          bodyPreview: text.slice(0, 200),
-        });
-        return { sent: false, error: `HTTP ${res.status}` };
-      }
-      return { sent: true };
-    } finally {
-      clearTimeout(timer);
+      return { sent: true, attempts: attempt };
     }
-  } catch (err) {
-    log("feedback webhook POST error", err);
-    return {
-      sent: false,
-      error: err instanceof Error ? err.message : "webhook failed",
-    };
+
+    if (result.error) {
+      lastError =
+        result.error instanceof Error ? result.error.message : "webhook failed";
+      log("feedback webhook POST error", {
+        submissionId: payload.id,
+        host,
+        attempt,
+        error: lastError,
+      });
+    } else {
+      lastError = `HTTP ${result.status}`;
+      log("feedback webhook POST failed", {
+        submissionId: payload.id,
+        host,
+        status: result.status,
+        attempt,
+        bodyPreview: result.bodyPreview,
+      });
+    }
+
+    const shouldRetry =
+      attempt < maxAttempts &&
+      isRetriableFeedbackWebhookFailure({
+        status: result.status,
+        error: result.error,
+      });
+    if (!shouldRetry) {
+      return { sent: false, error: lastError, attempts: attempt };
+    }
   }
+
+  return { sent: false, error: lastError, attempts: maxAttempts };
 }
