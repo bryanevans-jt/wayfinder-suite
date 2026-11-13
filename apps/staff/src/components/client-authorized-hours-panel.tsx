@@ -1,5 +1,6 @@
 "use client";
 
+import { displayServiceCatalogName } from "@wayfinder/branding";
 import { friendlyClientError, USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -60,7 +61,7 @@ export function ClientAuthorizedHoursPanel({
     }
   }
 
-  const serviceLabel = (serviceName ?? "").replace(/\s*\(GA\)\s*$/i, "").trim() || "this service";
+  const serviceLabel = displayServiceCatalogName(serviceName) || "this service";
 
   return (
     <form

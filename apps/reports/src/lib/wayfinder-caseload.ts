@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { clientDisplayName, employmentCategoryLabel } from "@wayfinder/branding";
+import {
+  clientDisplayName,
+  displayServiceCatalogName,
+  employmentCategoryLabel,
+} from "@wayfinder/branding";
 import {
   filterRetiredMarketClients,
   retiredMarketContextFromOffices,
@@ -214,7 +218,10 @@ async function hydrateClients(
       }),
       officeState: state === "GA" ? state : null,
       officeName: office?.name ?? null,
-      serviceName: c.current_service_id ? (serviceById.get(c.current_service_id as string) ?? null) : null,
+      serviceName: c.current_service_id
+        ? displayServiceCatalogName(serviceById.get(c.current_service_id as string) ?? null) ||
+          null
+        : null,
       counselorName: c.counselor_id ? (counselorById.get(c.counselor_id as string) ?? null) : null,
       employmentGoal: employmentCategoryLabel(
         c.employment_goal_primary as string | null,
