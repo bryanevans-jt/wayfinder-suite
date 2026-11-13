@@ -7,6 +7,7 @@ import {
   buildIjpAttestationPlaceholders,
   buildIjpInvoiceHeaderPlaceholders,
   buildIjpInvoiceLineItems,
+  isIjpInvoiceEligibleForDraftLineRefresh,
   recalcLineAmount,
   sumIjpLineItems,
   type IjpInvoiceLineItem,
@@ -161,7 +162,7 @@ export async function syncIjpInvoiceLineItemsFromBillable(
     esNameByUserId,
   });
   const lines = built.lines;
-  const totals = sumIjpLineItems(lines);
+  const totals = sumIjpLineItems(lines, opts.settings.hourly_rate_cents);
 
   const { data: existing } = await admin
     .from("ijp_billing_invoices")
@@ -257,6 +258,92 @@ export async function ensureIjpInvoiceRow(
   return { id: synced.id, line_items: synced.line_items };
 }
 
+export type IjpDraftMonthRefreshResult = {
+  month: string;
+  refreshed: number;
+  skippedManual: number;
+  skippedIneligible: number;
+  errors: Array<{ invoiceId: string; clientId: string; error: string }>;
+};
+
+/**
+ * Rebuild line items from billable ES time for draft, non-compiled, non-archived
+ * invoices in a single service month. Skips invoices whose lines were manually
+ * adjusted (manuallyAdjusted on any line_item). Does not touch other months.
+ */
+export async function refreshDraftIjpInvoiceLinesForMonth(
+  admin: SupabaseClient,
+  opts: {
+    serviceMonth: string;
+    isTest: boolean;
+    settings: IjpBillingSettingsRow;
+  }
+): Promise<IjpDraftMonthRefreshResult> {
+  const monthStart = serviceMonthStartFromYmd(opts.serviceMonth);
+  const { data: rows, error } = await admin
+    .from("ijp_billing_invoices")
+    .select("id, client_id, status, compiled_at, archived_at, line_items")
+    .eq("service_month", monthStart)
+    .eq("is_test", opts.isTest);
+
+  if (error) throw new Error(error.message);
+
+  let refreshed = 0;
+  let skippedManual = 0;
+  let skippedIneligible = 0;
+  const errors: IjpDraftMonthRefreshResult["errors"] = [];
+
+  for (const row of rows ?? []) {
+    const invoiceId = row.id as string;
+    const clientId = row.client_id as string;
+    const lineItems = (row.line_items as IjpInvoiceLineItem[]) ?? [];
+    if (
+      !isIjpInvoiceEligibleForDraftLineRefresh({
+        status: row.status as string,
+        compiled_at: row.compiled_at as string | null,
+        archived_at: row.archived_at as string | null,
+        line_items: lineItems,
+      })
+    ) {
+      if (
+        (row.status ?? "draft") === "draft" &&
+        !row.compiled_at &&
+        !row.archived_at &&
+        lineItems.some((line) => line?.manuallyAdjusted === true)
+      ) {
+        skippedManual += 1;
+      } else {
+        skippedIneligible += 1;
+      }
+      continue;
+    }
+
+    try {
+      await syncIjpInvoiceLineItemsFromBillable(admin, {
+        clientId,
+        serviceMonth: monthStart,
+        isTest: opts.isTest,
+        settings: opts.settings,
+      });
+      refreshed += 1;
+    } catch (e) {
+      errors.push({
+        invoiceId,
+        clientId,
+        error: e instanceof Error ? e.message : "Refresh failed.",
+      });
+    }
+  }
+
+  return {
+    month: monthStart,
+    refreshed,
+    skippedManual,
+    skippedIneligible,
+    errors,
+  };
+}
+
 export async function previewIjpAttestationPdf(
   admin: SupabaseClient,
   opts: {
@@ -339,7 +426,7 @@ export async function compileIjpInvoicePdf(
   const lines = ((invoice.line_items as IjpInvoiceLineItem[]) ?? []).map((line) =>
     recalcLineAmount(line, settings.hourly_rate_cents)
   );
-  const totals = sumIjpLineItems(lines);
+  const totals = sumIjpLineItems(lines, settings.hourly_rate_cents);
   const instructors = [...new Set(lines.map((l) => l.instructorName).filter(Boolean))].join(", ");
 
   const templateId =

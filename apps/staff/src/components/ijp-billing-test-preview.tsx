@@ -127,7 +127,10 @@ export function IjpBillingTestPreview({
               {serviceMonth.slice(0, 7)} (non-rejected) · {preview.billableEntryCount} client
               billable · {preview.lineItems.length} invoice{" "}
               {preview.lineItems.length === 1 ? "line" : "lines"} ·{" "}
-              {preview.totalHours.toFixed(2)} h · {formatIjpInvoiceAmount(preview.totalAmountCents)}
+              {Number.isInteger(preview.totalHours)
+                ? String(preview.totalHours)
+                : preview.totalHours.toFixed(1)}{" "}
+              h · {formatIjpInvoiceAmount(preview.totalAmountCents)}
             </p>
             {preview.approvedEntryCount === 0 ? (
               <p className="mt-2 text-sm text-amber-900">

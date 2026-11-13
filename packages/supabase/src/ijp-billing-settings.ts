@@ -55,8 +55,12 @@ export async function resolveGaIjpServiceId(admin: SupabaseClient): Promise<stri
   return (data?.id as string) ?? null;
 }
 
-/** IJP Billing workspace — Accounts Specialist, Admin, Super Admin. */
-export function canAccessIjpBilling(role: string | null | undefined): boolean {
+/**
+ * Add / edit IJP Billing invoice rows (create, patch line hours / billing fields).
+ * Accounts Specialist (`accountant`), Admin, and Super Admin.
+ * Does not include delete, settings, bulk generate, or sandbox test tools.
+ */
+export function canEditIjpBilling(role: string | null | undefined): boolean {
   const r = normalizeRole(role);
   if (isSuperAdminRole(r)) return true;
   if (isAdminRole(r)) return true;
@@ -64,8 +68,43 @@ export function canAccessIjpBilling(role: string | null | undefined): boolean {
   return false;
 }
 
+/** IJP Billing workspace — same roles as edit (no view-only role today). */
+export function canAccessIjpBilling(role: string | null | undefined): boolean {
+  return canEditIjpBilling(role);
+}
+
 export function canManageIjpBillingSettings(role: string | null | undefined): boolean {
   return isSuperAdminRole(role);
+}
+
+/**
+ * Whether line-item / invoice field edits are locked by invoice lifecycle.
+ * Current product rules do not lock draft, ready, or archived for PATCH — keep UI aligned.
+ */
+export function isIjpInvoiceLockedForLineEdits(invoice: {
+  status?: string | null;
+  compiled_at?: string | null;
+  archived_at?: string | null;
+} | null | undefined): boolean {
+  void invoice;
+  return false;
+}
+
+/** How the list Hours cell expansion behaves for the current viewer. */
+export type IjpHoursExpandMode = "edit" | "readonly";
+
+export function ijpHoursExpandMode(opts: {
+  canEdit: boolean;
+  locked?: boolean;
+}): IjpHoursExpandMode {
+  if (opts.locked) return "readonly";
+  return opts.canEdit ? "edit" : "readonly";
+}
+
+export function formatIjpListHours(totalHours: number | null | undefined): string {
+  const n = Number(totalHours);
+  if (!Number.isFinite(n)) return "0";
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
 export function formatIjpRateDollars(hourlyRateCents: number): string {

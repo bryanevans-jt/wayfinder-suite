@@ -1,5 +1,7 @@
 import { clientDisplayName } from "@wayfinder/branding";
 import { priorServiceMonthStart } from "@wayfinder/supabase/ijp-billing-eligibility";
+import { canEditIjpBilling } from "@wayfinder/supabase/ijp-billing-settings";
+import { USER_FACING_FORBIDDEN } from "@wayfinder/supabase/error-log";
 import { requireIjpBillingApi } from "@/lib/ijp-billing-access";
 import { ensureIjpInvoiceRow } from "@/lib/ijp-billing-service";
 import { NextRequest, NextResponse } from "next/server";
@@ -62,6 +64,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: Request) {
   const auth = await requireIjpBillingApi();
   if ("error" in auth) return auth.error;
+  if (!canEditIjpBilling(auth.role)) {
+    return NextResponse.json({ error: USER_FACING_FORBIDDEN }, { status: 403 });
+  }
 
   const body = (await request.json()) as {
     clientId?: string;

@@ -1,4 +1,11 @@
-import { recalcLineAmount, sumIjpLineItems, type IjpInvoiceLineItem } from "@wayfinder/supabase/ijp-billing-lines";
+import {
+  markIjpLinesManuallyAdjusted,
+  recalcLineAmount,
+  sumIjpLineItems,
+  type IjpInvoiceLineItem,
+} from "@wayfinder/supabase/ijp-billing-lines";
+import { canEditIjpBilling } from "@wayfinder/supabase/ijp-billing-settings";
+import { USER_FACING_FORBIDDEN } from "@wayfinder/supabase/error-log";
 import { requireIjpBillingApi } from "@/lib/ijp-billing-access";
 import {
   compileIjpInvoicePdf,
@@ -23,6 +30,9 @@ export async function GET(_request: Request, ctx: Ctx) {
 export async function PATCH(request: Request, ctx: Ctx) {
   const auth = await requireIjpBillingApi();
   if ("error" in auth) return auth.error;
+  if (!canEditIjpBilling(auth.role)) {
+    return NextResponse.json({ error: USER_FACING_FORBIDDEN }, { status: 403 });
+  }
   const { id } = await ctx.params;
   const body = (await request.json()) as {
     provider_invoice_number?: string;
@@ -40,8 +50,15 @@ export async function PATCH(request: Request, ctx: Ctx) {
   if (!existing) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
   let lines = (body.line_items ?? (existing.line_items as IjpInvoiceLineItem[]) ?? []) as IjpInvoiceLineItem[];
-  lines = lines.map((line) => recalcLineAmount(line, auth.settings.hourly_rate_cents));
-  const totals = sumIjpLineItems(lines);
+  if (body.line_items) {
+    // Manual hour edits snap to half hours and mark the invoice so draft auto-refresh skips it.
+    lines = markIjpLinesManuallyAdjusted(lines).map((line) =>
+      recalcLineAmount(line, auth.settings.hourly_rate_cents)
+    );
+  } else {
+    lines = lines.map((line) => recalcLineAmount(line, auth.settings.hourly_rate_cents));
+  }
+  const totals = sumIjpLineItems(lines, auth.settings.hourly_rate_cents);
 
   const patch: Record<string, unknown> = {
     updated_at: new Date().toISOString(),

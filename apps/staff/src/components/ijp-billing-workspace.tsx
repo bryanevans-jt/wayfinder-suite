@@ -1,9 +1,19 @@
 "use client";
 
 import type { IjpInvoiceLineItem } from "@wayfinder/supabase/ijp-billing-lines";
+import {
+  IJP_INVOICE_SERVICE_CODE,
+  roundIjpLineHours,
+} from "@wayfinder/supabase/ijp-billing-lines";
 import { priorServiceMonthStart } from "@wayfinder/supabase/ijp-billing-eligibility";
+import {
+  formatIjpInvoiceAmount,
+  formatIjpListHours,
+  ijpHoursExpandMode,
+  isIjpInvoiceLockedForLineEdits,
+} from "@wayfinder/supabase/ijp-billing-settings";
 import { USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { IjpBillingClientPicker } from "@/components/ijp-billing-client-picker";
 import { IjpBillingTestPreview } from "@/components/ijp-billing-test-preview";
 
@@ -19,17 +29,23 @@ type InvoiceRow = {
   total_amount_cents: number;
   missing_attestation: boolean;
   hasAttestation: boolean;
+  compiled_at?: string | null;
+  archived_at?: string | null;
 };
 
 export function IjpBillingWorkspace() {
   const [month, setMonth] = useState(priorServiceMonthStart());
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [lineItems, setLineItems] = useState<IjpInvoiceLineItem[]>([]);
+  const [expandedLines, setExpandedLines] = useState<IjpInvoiceLineItem[]>([]);
+  const [linesLoadingId, setLinesLoadingId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [canTest, setCanTest] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
   const [testClientId, setTestClientId] = useState("");
   const [testMonth, setTestMonth] = useState(priorServiceMonthStart());
   const [testSignature, setTestSignature] = useState("");
@@ -49,14 +65,62 @@ export function IjpBillingWorkspace() {
     setError(null);
   }, [month]);
 
+  /** One batched draft-line refresh for the viewed month, then reload the list. */
+  const refreshDraftsThenLoad = useCallback(
+    async (editAllowed: boolean) => {
+      if (editAllowed) {
+        const refreshRes = await fetch("/api/ijp-billing/invoices/refresh-month", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ serviceMonth: month }),
+        });
+        if (!refreshRes.ok) {
+          const data = (await refreshRes.json()) as { error?: string };
+          setError(data.error ?? USER_FACING_SYSTEM_ERROR);
+        }
+      }
+      await load();
+    },
+    [load, month]
+  );
+
   useEffect(() => {
-    void load();
+    setExpandedId(null);
+    setExpandedLines([]);
+    setSelectedId(null);
+  }, [month]);
+
+  useEffect(() => {
     void (async () => {
       const access = await fetch("/api/ijp-billing/access");
-      const json = (await access.json()) as { role?: string };
+      const json = (await access.json()) as {
+        role?: string;
+        canEdit?: boolean;
+      };
+      const editAllowed = Boolean(json.canEdit);
       setCanTest(json.role === "super_admin" || json.role === "admin");
+      setCanEdit(editAllowed);
+      await refreshDraftsThenLoad(editAllowed);
     })();
-  }, [load]);
+  }, [refreshDraftsThenLoad]);
+
+  async function fetchInvoiceLines(id: string): Promise<IjpInvoiceLineItem[] | null> {
+    const res = await fetch(`/api/ijp-billing/invoices/${id}`);
+    const data = (await res.json()) as {
+      invoice?: {
+        line_items: IjpInvoiceLineItem[];
+        provider_invoice_number: string | null;
+        authorization_number: string | null;
+        invoice_date: string | null;
+      };
+      error?: string;
+    };
+    if (!res.ok || !data.invoice) {
+      setError(data.error ?? USER_FACING_SYSTEM_ERROR);
+      return null;
+    }
+    return data.invoice.line_items ?? [];
+  }
 
   async function loadDetail(id: string) {
     setSelectedId(id);
@@ -77,14 +141,76 @@ export function IjpBillingWorkspace() {
     }
   }
 
+  async function toggleHoursExpand(inv: InvoiceRow) {
+    if (expandedId === inv.id) {
+      setExpandedId(null);
+      setExpandedLines([]);
+      return;
+    }
+    setExpandedId(inv.id);
+    setLinesLoadingId(inv.id);
+    setError(null);
+    const lines = await fetchInvoiceLines(inv.id);
+    setLinesLoadingId(null);
+    if (lines) setExpandedLines(lines);
+    else {
+      setExpandedId(null);
+      setExpandedLines([]);
+    }
+  }
+
+  async function saveExpandedLines(invoiceId: string) {
+    const inv = invoices.find((row) => row.id === invoiceId);
+    const mode = ijpHoursExpandMode({
+      canEdit,
+      locked: isIjpInvoiceLockedForLineEdits(inv),
+    });
+    if (mode !== "edit") return;
+
+    setBusy(true);
+    const snapped = expandedLines.map((line) => ({
+      ...line,
+      hours: roundIjpLineHours(line.hours),
+    }));
+    setExpandedLines(snapped);
+    const res = await fetch(`/api/ijp-billing/invoices/${invoiceId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ line_items: snapped }),
+    });
+    const data = (await res.json()) as {
+      error?: string;
+      invoice?: {
+        total_hours?: number;
+        total_amount_cents?: number;
+        line_items?: IjpInvoiceLineItem[];
+      };
+    };
+    setBusy(false);
+    if (!res.ok) {
+      setError(data.error ?? USER_FACING_SYSTEM_ERROR);
+      return;
+    }
+    if (data.invoice?.line_items) setExpandedLines(data.invoice.line_items);
+    setMessage(
+      "Line hours saved. Totals updated; recompile the PDF if you need the packet refreshed."
+    );
+    void load();
+  }
+
   async function saveDetail() {
     if (!selectedId) return;
     setBusy(true);
+    const snapped = lineItems.map((line) => ({
+      ...line,
+      hours: roundIjpLineHours(line.hours),
+    }));
+    setLineItems(snapped);
     const res = await fetch(`/api/ijp-billing/invoices/${selectedId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        line_items: lineItems,
+        line_items: snapped,
         provider_invoice_number: detailProviderInvoice,
         authorization_number: detailAuth,
         invoice_date: detailInvoiceDate || null,
@@ -221,42 +347,44 @@ export function IjpBillingWorkspace() {
         ) : null}
       </div>
 
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-50/80 p-4">
-        <IjpBillingClientPicker
-          label="Add invoice row"
-          value={addClientId}
-          onChange={setAddClientId}
-          disabled={busy}
-        />
-        <button
-          type="button"
-          disabled={busy}
-          className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-          onClick={async () => {
-            if (!addClientId.trim()) {
-              setError("Select a client.");
-              return;
-            }
-            setBusy(true);
-            const res = await fetch("/api/ijp-billing/invoices", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ clientId: addClientId.trim(), serviceMonth: month, isTest: false }),
-            });
-            setBusy(false);
-            const data = (await res.json()) as { error?: string };
-            if (!res.ok) {
-              setError(data.error ?? USER_FACING_SYSTEM_ERROR);
-              return;
-            }
-            setMessage("Invoice row added.");
-            setAddClientId("");
-            void load();
-          }}
-        >
-          Add invoice
-        </button>
-      </div>
+      {canEdit ? (
+        <div className="flex flex-wrap items-end gap-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-50/80 p-4">
+          <IjpBillingClientPicker
+            label="Add invoice row"
+            value={addClientId}
+            onChange={setAddClientId}
+            disabled={busy}
+          />
+          <button
+            type="button"
+            disabled={busy}
+            className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            onClick={async () => {
+              if (!addClientId.trim()) {
+                setError("Select a client.");
+                return;
+              }
+              setBusy(true);
+              const res = await fetch("/api/ijp-billing/invoices", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ clientId: addClientId.trim(), serviceMonth: month, isTest: false }),
+              });
+              setBusy(false);
+              const data = (await res.json()) as { error?: string };
+              if (!res.ok) {
+                setError(data.error ?? USER_FACING_SYSTEM_ERROR);
+                return;
+              }
+              setMessage("Invoice row added.");
+              setAddClientId("");
+              void load();
+            }}
+          >
+            Add invoice
+          </button>
+        </div>
+      ) : null}
 
       <div className="overflow-x-auto rounded-xl border border-neutral-200">
         <table className="min-w-full text-left text-sm">
@@ -278,87 +406,219 @@ export function IjpBillingWorkspace() {
                 </td>
               </tr>
             ) : (
-              invoices.map((inv) => (
-                <tr key={inv.id} className="border-t border-neutral-100">
-                  <td className="px-3 py-2">{inv.clientName}</td>
-                  <td className="px-3 py-2">
-                    <input
-                      className="w-full min-w-[7rem] rounded border border-neutral-200 px-2 py-1 text-xs"
-                      value={inv.provider_invoice_number ?? ""}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setInvoices((prev) =>
-                          prev.map((row) =>
-                            row.id === inv.id ? { ...row, provider_invoice_number: v || null } : row
-                          )
-                        );
-                      }}
-                      onBlur={async (e) => {
-                        await fetch(`/api/ijp-billing/invoices/${inv.id}`, {
-                          method: "PATCH",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            provider_invoice_number: e.target.value,
-                          }),
-                        });
-                        void load();
-                      }}
-                    />
-                  </td>
-                  <td className="px-3 py-2">{Number(inv.total_hours).toFixed(1)}</td>
-                  <td className="px-3 py-2">
-                    {inv.hasAttestation ? (
-                      "On file"
-                    ) : (
-                      <span className="text-amber-800">Missing — download shows notice</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">{inv.status}</td>
-                  <td className="px-3 py-2">
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        className="text-brand-green underline"
-                        onClick={() => void loadDetail(inv.id)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="text-brand-green underline"
-                        disabled={busy}
-                        onClick={() => void compile(inv.id)}
-                      >
-                        Compile PDF
-                      </button>
-                      <button
-                        type="button"
-                        className="text-brand-green underline"
-                        disabled={busy}
-                        onClick={() => void archive(inv.id)}
-                      >
-                        Archive combined
-                      </button>
-                      <a
-                        href={`/api/ijp-billing/invoices/${inv.id}/download`}
-                        className="text-brand-green underline"
-                      >
-                        Download
-                      </a>
-                    </div>
-                  </td>
-                </tr>
-              ))
+              invoices.map((inv) => {
+                const locked = isIjpInvoiceLockedForLineEdits(inv);
+                const expandMode = ijpHoursExpandMode({ canEdit, locked });
+                const isExpanded = expandedId === inv.id;
+                return (
+                  <Fragment key={inv.id}>
+                    <tr className="border-t border-neutral-100">
+                      <td className="px-3 py-2">{inv.clientName}</td>
+                      <td className="px-3 py-2">
+                        {canEdit && !locked ? (
+                          <input
+                            className="w-full min-w-[7rem] rounded border border-neutral-200 px-2 py-1 text-xs"
+                            value={inv.provider_invoice_number ?? ""}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setInvoices((prev) =>
+                                prev.map((row) =>
+                                  row.id === inv.id
+                                    ? { ...row, provider_invoice_number: v || null }
+                                    : row
+                                )
+                              );
+                            }}
+                            onBlur={async (e) => {
+                              await fetch(`/api/ijp-billing/invoices/${inv.id}`, {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  provider_invoice_number: e.target.value,
+                                }),
+                              });
+                              void load();
+                            }}
+                          />
+                        ) : (
+                          <span>{inv.provider_invoice_number ?? "—"}</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        <button
+                          type="button"
+                          className="text-left font-medium text-brand-green underline"
+                          aria-expanded={isExpanded}
+                          onClick={() => void toggleHoursExpand(inv)}
+                        >
+                          {formatIjpListHours(inv.total_hours)}
+                        </button>
+                      </td>
+                      <td className="px-3 py-2">
+                        {inv.hasAttestation ? (
+                          "On file"
+                        ) : (
+                          <span className="text-amber-800">Missing — download shows notice</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">{inv.status}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-wrap gap-2">
+                          {canEdit ? (
+                            <button
+                              type="button"
+                              className="text-brand-green underline"
+                              onClick={() => void loadDetail(inv.id)}
+                            >
+                              Edit
+                            </button>
+                          ) : null}
+                          {canEdit ? (
+                            <button
+                              type="button"
+                              className="text-brand-green underline"
+                              disabled={busy}
+                              onClick={() => void compile(inv.id)}
+                            >
+                              Compile PDF
+                            </button>
+                          ) : null}
+                          {canEdit ? (
+                            <button
+                              type="button"
+                              className="text-brand-green underline"
+                              disabled={busy}
+                              onClick={() => void archive(inv.id)}
+                            >
+                              Archive combined
+                            </button>
+                          ) : null}
+                          <a
+                            href={`/api/ijp-billing/invoices/${inv.id}/download`}
+                            className="text-brand-green underline"
+                          >
+                            Download
+                          </a>
+                        </div>
+                      </td>
+                    </tr>
+                    {isExpanded ? (
+                      <tr className="border-t border-neutral-100 bg-neutral-50/70">
+                        <td colSpan={6} className="px-3 py-3">
+                          <div className="space-y-2">
+                            <p className="text-xs text-brand-black/65">
+                              Invoice lines
+                              {expandMode === "edit"
+                                ? " — edit hours in half-hour steps; totals round up to whole hours."
+                                : " — read-only."}
+                            </p>
+                            {linesLoadingId === inv.id ? (
+                              <p className="text-xs text-brand-black/60">Loading lines…</p>
+                            ) : expandedLines.length === 0 ? (
+                              <p className="text-xs text-brand-black/60">No line items on this invoice.</p>
+                            ) : (
+                              <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+                                <table className="min-w-full text-left text-xs">
+                                  <thead className="bg-neutral-50">
+                                    <tr>
+                                      <th className="px-2 py-1.5 font-semibold">Date</th>
+                                      <th className="px-2 py-1.5 font-semibold">Code</th>
+                                      <th className="px-2 py-1.5 font-semibold">Description</th>
+                                      <th className="px-2 py-1.5 font-semibold">Start</th>
+                                      <th className="px-2 py-1.5 font-semibold">End</th>
+                                      <th className="px-2 py-1.5 font-semibold text-right">Hours</th>
+                                      <th className="px-2 py-1.5 font-semibold text-right">Amount</th>
+                                      <th className="px-2 py-1.5 font-semibold">Instructor</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {expandedLines.map((line, idx) => (
+                                      <tr key={line.entryId} className="border-t border-neutral-100">
+                                        <td className="whitespace-nowrap px-2 py-1.5">
+                                          {line.serviceDate || "—"}
+                                        </td>
+                                        <td className="whitespace-nowrap px-2 py-1.5">
+                                          {line.serviceCode || IJP_INVOICE_SERVICE_CODE}
+                                        </td>
+                                        <td className="max-w-xs px-2 py-1.5">
+                                          {line.description || "—"}
+                                        </td>
+                                        <td className="whitespace-nowrap px-2 py-1.5">
+                                          {line.startTime || "—"}
+                                        </td>
+                                        <td className="whitespace-nowrap px-2 py-1.5">
+                                          {line.endTime || "—"}
+                                        </td>
+                                        <td className="px-2 py-1.5 text-right">
+                                          {expandMode === "edit" ? (
+                                            <input
+                                              type="number"
+                                              step="0.5"
+                                              min={0}
+                                              className="w-20 rounded border border-neutral-200 px-1.5 py-1 text-right"
+                                              value={line.hours}
+                                              onChange={(e) => {
+                                                const next = [...expandedLines];
+                                                next[idx] = {
+                                                  ...line,
+                                                  hours: Number(e.target.value) || 0,
+                                                };
+                                                setExpandedLines(next);
+                                              }}
+                                              onBlur={(e) => {
+                                                const snapped = roundIjpLineHours(Number(e.target.value) || 0);
+                                                setExpandedLines((prev) => {
+                                                  const next = [...prev];
+                                                  const current = next[idx];
+                                                  if (!current) return prev;
+                                                  next[idx] = { ...current, hours: snapped };
+                                                  return next;
+                                                });
+                                              }}
+                                            />
+                                          ) : (
+                                            <span>{Number(line.hours).toFixed(1)}</span>
+                                          )}
+                                        </td>
+                                        <td className="whitespace-nowrap px-2 py-1.5 text-right">
+                                          {formatIjpInvoiceAmount(line.amountCents)}
+                                        </td>
+                                        <td className="px-2 py-1.5">{line.instructorName || "—"}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                            {expandMode === "edit" && expandedLines.length > 0 ? (
+                              <button
+                                type="button"
+                                disabled={busy}
+                                className="rounded-lg bg-brand-green px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                                onClick={() => void saveExpandedLines(inv.id)}
+                              >
+                                Save line hours
+                              </button>
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
+                );
+              })
             )}
           </tbody>
         </table>
       </div>
 
-      {selectedId ? (
+      {selectedId && canEdit ? (
         <section className="rounded-xl border border-neutral-200 bg-white p-4">
           <h2 className="text-lg font-semibold">Edit invoice</h2>
           <p className="mt-1 text-xs text-brand-black/60">
-            Adjust billing fields and line hours (including zero). Totals recalculate on save.
+            Adjust billing fields and line hours (including zero). Line hours snap to the nearest
+            half hour (round half up); invoice totals round up to whole hours on save. Manual line
+            edits are kept until you refresh from billable time.
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <label className="text-xs">
@@ -393,7 +653,7 @@ export function IjpBillingWorkspace() {
                 <span className="text-xs sm:col-span-2">{line.description}</span>
                 <input
                   type="number"
-                  step="0.1"
+                  step="0.5"
                   min={0}
                   className="rounded border px-2 py-1 text-sm"
                   value={line.hours}
@@ -401,6 +661,16 @@ export function IjpBillingWorkspace() {
                     const next = [...lineItems];
                     next[idx] = { ...line, hours: Number(e.target.value) || 0 };
                     setLineItems(next);
+                  }}
+                  onBlur={(e) => {
+                    const snapped = roundIjpLineHours(Number(e.target.value) || 0);
+                    setLineItems((prev) => {
+                      const next = [...prev];
+                      const current = next[idx];
+                      if (!current) return prev;
+                      next[idx] = { ...current, hours: snapped };
+                      return next;
+                    });
                   }}
                 />
                 <span className="text-xs text-brand-black/60">{line.instructorName}</span>
