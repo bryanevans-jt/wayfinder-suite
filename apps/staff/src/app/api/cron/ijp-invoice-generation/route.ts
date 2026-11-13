@@ -3,13 +3,13 @@ import { respondWithCronLoggedError } from "@wayfinder/supabase/error-log";
 import { priorServiceMonthStart } from "@wayfinder/supabase/ijp-billing-eligibility";
 import { loadIjpBillingSettings } from "@wayfinder/supabase/ijp-billing-settings";
 import {
-  IJP_BILLING_MONTH_MAX_DURATION_SEC,
   runIjpBillingMonthChunk,
   runIjpBillingMonthUntilBudget,
 } from "@/lib/ijp-billing-month-run";
 import { NextResponse } from "next/server";
 
-export const maxDuration = IJP_BILLING_MONTH_MAX_DURATION_SEC;
+/** Vercel Pro ceiling — must be a numeric literal for Next.js segment config. */
+export const maxDuration = 300;
 
 function authorizeCron(request: Request): boolean {
   const secret = process.env.CRON_SECRET;

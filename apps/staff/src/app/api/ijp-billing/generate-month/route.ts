@@ -2,14 +2,14 @@ import { assertNotPreviewMutation } from "@wayfinder/supabase/preview-server";
 import { canGenerateIjpBilling } from "@wayfinder/supabase/ijp-billing-settings";
 import { requireIjpBillingApi } from "@/lib/ijp-billing-access";
 import {
-  IJP_BILLING_MONTH_MAX_DURATION_SEC,
   runIjpBillingMonthChunk,
   runIjpBillingMonthUntilBudget,
   type IjpBillingMonthPhase,
 } from "@/lib/ijp-billing-month-run";
 import { NextRequest, NextResponse } from "next/server";
 
-export const maxDuration = IJP_BILLING_MONTH_MAX_DURATION_SEC;
+/** Vercel Pro ceiling — must be a numeric literal for Next.js segment config. */
+export const maxDuration = 300;
 
 /**
  * Generate / resume invoice rows + optional PDF compile for a service month.
