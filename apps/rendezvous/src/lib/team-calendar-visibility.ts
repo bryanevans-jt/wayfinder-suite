@@ -1,20 +1,21 @@
 /**
  * Team Calendar visibility (server-side).
  *
- * Uses the existing Wayfinder link table `public.supervisor_es_assignments`
- * (supervisor_user_id → es_user_id). The column name is historical: the
- * supervisee may be an Employment Specialist or a Transition Specialist.
- * Do not invent a second assignment mechanism for calendar (no office-share
- * expansion here — that belongs to other Wayfinder caseload helpers).
+ * Supervisor scope reuses the existing Wayfinder helper `loadSupervisorScope`:
+ * - `public.supervisor_es_assignments` (supervisor_user_id → es_user_id;
+ *   supervisee may be ES or Transition Specialist)
+ * - plus office-shared Transition Specialists / Instructors in the supervisor's
+ *   offices (same rules as other Wayfinder caseload surfaces)
  *
  * Rules:
  * - Admin / super_admin: every active ES, Transition Specialist, and Supervisor
- * - Supervisor: self + assigned ES/TS from supervisor_es_assignments
+ * - Supervisor: self + loadSupervisorScope staff (assignments + office-shared TS/instructors)
  * - Everyone else (ES/TS, …): self only
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isAdminTierRole, isSupervisorRole, normalizeRole } from "@wayfinder/supabase/roles";
+import { loadSupervisorScope } from "@wayfinder/supabase/supervisor-client-scope";
 
 /** Roles whose calendars admins may browse on Team Calendar. */
 export const TEAM_CALENDAR_ADMIN_VISIBLE_ROLES = [
@@ -51,22 +52,15 @@ export function isTeamCalendarAdminVisibleRole(role: string | null | undefined):
 }
 
 /**
- * Load assigned ES/TS user IDs for a supervisor from supervisor_es_assignments only.
+ * Staff user IDs a supervisor may see on Team Calendar — same as Wayfinder
+ * `loadSupervisorScope.esUserIds` (assignments + office-shared TS/instructors).
  */
-export async function loadSupervisorAssignedStaffUserIds(
+export async function loadSupervisorTeamCalendarStaffUserIds(
   admin: SupabaseClient,
   supervisorUserId: string
 ): Promise<string[]> {
-  const { data, error } = await admin
-    .from("supervisor_es_assignments")
-    .select("es_user_id")
-    .eq("supervisor_user_id", supervisorUserId);
-  if (error) {
-    throw new Error(`supervisor_es_assignments read failed: ${error.message}`);
-  }
-  return Array.from(
-    new Set((data ?? []).map((row) => row.es_user_id as string).filter(Boolean))
-  );
+  const scope = await loadSupervisorScope(admin, supervisorUserId);
+  return scope.esUserIds;
 }
 
 /**
@@ -120,10 +114,10 @@ export async function listTeamCalendarVisibleStaffUserIds(
     };
   }
   if (mode === "supervisor_reports") {
-    const assigned = await loadSupervisorAssignedStaffUserIds(admin, viewer.userId);
+    const scoped = await loadSupervisorTeamCalendarStaffUserIds(admin, viewer.userId);
     return {
       mode,
-      staffUserIds: Array.from(new Set([viewer.userId, ...assigned])),
+      staffUserIds: Array.from(new Set([viewer.userId, ...scoped])),
     };
   }
   return { mode: "self", staffUserIds: [viewer.userId] };

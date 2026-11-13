@@ -99,7 +99,7 @@ export async function resolveRendezvousAccess(
 /**
  * Who may view bookings for a staff member on Team Calendar.
  * Admin / super_admin: ES + Transition Specialist + Supervisor calendars.
- * Supervisor: self + supervisor_es_assignments reports (ES or TS).
+ * Supervisor: self + loadSupervisorScope (assignments + office-shared TS/instructors).
  * Everyone else: self only.
  */
 export async function canViewStaffBookings(

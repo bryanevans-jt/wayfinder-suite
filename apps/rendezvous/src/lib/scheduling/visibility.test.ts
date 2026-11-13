@@ -7,11 +7,12 @@ import {
 
 /**
  * Team Calendar visibility mirrors listTeamCalendarVisibleStaffUserIds.
- * Supervisor reports come only from supervisor_es_assignments (not office share).
+ * Supervisor reports match loadSupervisorScope: assignments + office-shared TS/instructors.
  */
 function visibleStaffIds(opts: {
   viewer: { userId: string; role: string };
-  assignedEsUserIds?: string[];
+  /** Combined loadSupervisorScope.esUserIds (assignments + office share). */
+  supervisorScopeEsUserIds?: string[];
   adminTeamIds?: string[];
 }): string[] {
   const mode = resolveTeamCalendarVisibilityMode(opts.viewer.role);
@@ -22,7 +23,7 @@ function visibleStaffIds(opts: {
   }
   if (mode === "supervisor_reports") {
     return Array.from(
-      new Set([opts.viewer.userId, ...(opts.assignedEsUserIds ?? [])])
+      new Set([opts.viewer.userId, ...(opts.supervisorScopeEsUserIds ?? [])])
     );
   }
   return [opts.viewer.userId];
@@ -43,25 +44,24 @@ describe("team calendar visibility rules", () => {
     assert.equal(resolveTeamCalendarVisibilityMode("super_admin"), "admin_team");
   });
 
-  it("supervisors see self + supervisor_es_assignments reports only", () => {
+  it("supervisors see self + assigned ES/TS + office-shared TS/instructors", () => {
     assert.deepEqual(
       visibleStaffIds({
         viewer: { userId: "sup-1", role: "supervisor" },
-        assignedEsUserIds: ["es-1", "ts-1"],
-      }),
-      ["sup-1", "es-1", "ts-1"]
+        // es-1 from supervisor_es_assignments; ts-office + instructor-1 from office share
+        supervisorScopeEsUserIds: ["es-1", "ts-office", "instructor-1"],
+      }).sort(),
+      ["sup-1", "es-1", "ts-office", "instructor-1"].sort()
     );
   });
 
-  it("does not invent office-shared staff for supervisors on the calendar", () => {
-    // Office-shared TS would appear in loadSupervisorScope for caseload, but
-    // Team Calendar must not include them unless they are also in assignments.
+  it("keeps office-shared staff that loadSupervisorScope already includes", () => {
     assert.deepEqual(
       visibleStaffIds({
         viewer: { userId: "sup-1", role: "supervisor" },
-        assignedEsUserIds: ["es-1"],
-      }),
-      ["sup-1", "es-1"]
+        supervisorScopeEsUserIds: ["es-1", "ts-shared"],
+      }).sort(),
+      ["sup-1", "es-1", "ts-shared"].sort()
     );
   });
 

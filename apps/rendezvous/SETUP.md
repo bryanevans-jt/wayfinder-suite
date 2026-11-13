@@ -158,7 +158,7 @@ Do not add Google service account keys to the staff project unless you later sha
 | Role | Calendar / bookings |
 |------|---------------------|
 | Super admin / admin | All active **Employment Specialists**, **Transition Specialists**, and **Supervisors** |
-| Supervisor | Self + ES/TS linked in `public.supervisor_es_assignments` (existing Wayfinder assignment; `es_user_id` may be ES or TS) |
+| Supervisor | Self + staff from existing `loadSupervisorScope`: ES/TS in `supervisor_es_assignments` **and** office-shared Transition Specialists / Instructors |
 | ES / Transition Specialist (and others) | Own calendar only |
 
 Staff app entry is still gated by the Rendezvous feature flag / `rendezvous_open_to_all` (super admin always; broader roles when open). Calendar queries always use an explicit staff-ID allow-list — never UI-only filtering.

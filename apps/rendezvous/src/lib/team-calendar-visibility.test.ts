@@ -12,7 +12,7 @@ describe("resolveTeamCalendarVisibilityMode", () => {
     assert.equal(resolveTeamCalendarVisibilityMode("super_admin"), "admin_team");
   });
 
-  it("gives supervisors the assignment-scoped reports mode", () => {
+  it("gives supervisors the reports mode (assignments + office share)", () => {
     assert.equal(resolveTeamCalendarVisibilityMode("supervisor"), "supervisor_reports");
   });
 
@@ -37,15 +37,16 @@ describe("isTeamCalendarAdminVisibleRole", () => {
   });
 });
 
-describe("supervisor assignment source (documented contract)", () => {
-  it("uses supervisor_es_assignments as the only calendar assignment table", () => {
-    // Pure contract test: calendar visibility must not invent a second link table.
-    // loadSupervisorAssignedStaffUserIds reads supervisor_es_assignments.es_user_id
-    // (supervisee may be ES or Transition Specialist).
+describe("supervisor calendar scope source (documented contract)", () => {
+  it("reuses Wayfinder loadSupervisorScope (assignments + office-shared TS/instructors)", () => {
+    // Contract: listTeamCalendarVisibleStaffUserIds for supervisors calls
+    // loadSupervisorTeamCalendarStaffUserIds → loadSupervisorScope.esUserIds.
+    // That set is supervisor_es_assignments plus office-shared transition_specialist
+    // and instructor profiles — not a second invented link table.
     assert.equal(
-      "supervisor_es_assignments",
-      "supervisor_es_assignments",
-      "calendar assignment source must remain supervisor_es_assignments"
+      "loadSupervisorScope",
+      "loadSupervisorScope",
+      "calendar supervisor scope must remain loadSupervisorScope"
     );
   });
 });
