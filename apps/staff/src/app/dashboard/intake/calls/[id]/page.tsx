@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { displayServiceCatalogName } from "@wayfinder/branding";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { canAccessHospitalityIntake } from "@wayfinder/supabase/referral-intake";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
@@ -50,7 +51,7 @@ export default async function IntakeCallDetailPage({ params }: PageProps) {
       <p className="mt-1 text-sm text-brand-black/70">
         {row.stageLabel}
         {row.referral_state ? ` · ${row.referral_state}` : ""}
-        {row.serviceName ? ` · ${row.serviceName}` : ""}
+        {row.serviceName ? ` · ${displayServiceCatalogName(row.serviceName)}` : ""}
       </p>
 
       <section className="mt-8 max-w-3xl">

@@ -229,7 +229,7 @@ export function referralQueueListFilter(includeActive: boolean): string {
 }
 
 const REFERRAL_QUEUE_CLIENT_SELECT =
-  "id, full_name, contact_email, intake_status, referral_state, referred_at, intake_status_changed_at, current_service_id, current_stage_id, office_id, counselor_id, authorization_number, date_of_birth, primary_phone, gender, ethnicity, disability_history, created_at, prior_client_id, archived_at";
+  "id, full_name, contact_email, intake_status, referral_state, referred_at, intake_status_changed_at, current_service_id, current_stage_id, office_id, counselor_id, authorization_number, authorized_hours, authorization_end_date, date_of_birth, primary_phone, gender, ethnicity, disability_history, created_at, prior_client_id, archived_at";
 
 const REFERRAL_QUEUE_CLIENT_SELECT_NO_PRIOR = REFERRAL_QUEUE_CLIENT_SELECT.replace(
   ", prior_client_id",
@@ -328,14 +328,18 @@ export async function loadReferralQueueEsAssignedExtras(
     .in("id", candidateIds);
   if (
     error?.message.includes("prior_client_id") ||
-    error?.message.includes("archived_at")
+    error?.message.includes("archived_at") ||
+    /authorized_hours|authorization_end_date/i.test(error?.message ?? "")
   ) {
     let selectCols = REFERRAL_QUEUE_CLIENT_SELECT;
-    if (error.message.includes("prior_client_id")) {
+    if (error?.message.includes("prior_client_id")) {
       selectCols = selectCols.replace(", prior_client_id", "");
     }
-    if (error.message.includes("archived_at")) {
+    if (error?.message.includes("archived_at")) {
       selectCols = selectCols.replace(", archived_at", "");
+    }
+    if (/authorized_hours|authorization_end_date/i.test(error?.message ?? "")) {
+      selectCols = selectCols.replace(", authorized_hours, authorization_end_date", "");
     }
     const fallback = await admin.from("clients").select(selectCols).in("id", candidateIds);
     rows = fallback.data as typeof rows;

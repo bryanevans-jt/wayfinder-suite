@@ -56,6 +56,23 @@ export function formatServiceLabel(baseName: string, state: string | null): stri
   return state ? `${baseName} (${state})` : baseName;
 }
 
+/** Canonical on-screen label — never show "(GA)" or "IJP" abbreviation. */
+export const INDIVIDUAL_JOB_PLACEMENT_DISPLAY_NAME = "Individual Job Placement";
+
+/**
+ * True for every IJP catalog / form / abbreviation variant.
+ * "IJP", "Individual Job Placement", and "Individual Job Placement (GA)" are the same service.
+ */
+export function isIndividualJobPlacementServiceName(
+  serviceName: string | null | undefined
+): boolean {
+  return /individual job placement|\bijp\b/i.test((serviceName ?? "").trim());
+}
+
+export function isIndividualJobPlacementService(row: ServiceRowInput): boolean {
+  return isIndividualJobPlacementServiceName(row.name);
+}
+
 /** Legacy TN TSE row superseded by "Supported Employment (TN)". */
 export function isDeprecatedTnTraditionalService(row: ServiceRowInput): boolean {
   const { baseName, state } = parseServiceParts(row.name, row.state);
@@ -160,7 +177,21 @@ function activeServicesForSelect(
 
 /** Display label for any service row (client tables, etc.). */
 export function serviceDisplayName(row: ServiceRowInput): string {
+  if (isIndividualJobPlacementService(row)) {
+    return INDIVIDUAL_JOB_PLACEMENT_DISPLAY_NAME;
+  }
   const { baseName, state } = parseServiceParts(row.name, row.state);
+  return formatServiceLabel(baseName, state);
+}
+
+/** Display label when only the services.name / form string is available. */
+export function displayServiceCatalogName(name: string | null | undefined): string {
+  const trimmed = (name ?? "").trim();
+  if (!trimmed) return "";
+  if (isIndividualJobPlacementServiceName(trimmed)) {
+    return INDIVIDUAL_JOB_PLACEMENT_DISPLAY_NAME;
+  }
+  const { baseName, state } = parseServiceParts(trimmed, null);
   return formatServiceLabel(baseName, state);
 }
 
@@ -184,9 +215,10 @@ function pickPreferredService(
 
 /**
  * Collapse legacy duplicate services for dropdowns:
- * - "Individual Job Placement" + "Individual Job Placement (GA)" → one GA row
+ * - "Individual Job Placement" + "Individual Job Placement (GA)" (+ "IJP") → one
+ *   option labeled "Individual Job Placement" (no "(GA)")
  * - Exact duplicate names → one row
- * - Different states (GA vs TN) stay separate
+ * - Different states (GA vs TN) stay separate for non-IJP services
  */
 export function dedupeServicesForSelect(
   rows: ServiceRowInput[],
@@ -199,7 +231,10 @@ export function dedupeServicesForSelect(
 
   for (const row of activeServicesForSelect(rows, options)) {
     const parts = parseServiceParts(row.name, row.state);
-    const key = canonicalServiceBaseName(parts.baseName).toLowerCase();
+    // All IJP variants share one key so bare + "(GA)" never both appear.
+    const key = isIndividualJobPlacementService(row)
+      ? "individual job placement"
+      : canonicalServiceBaseName(parts.baseName).toLowerCase();
     const list = byBase.get(key) ?? [];
     list.push({ row, parts });
     byBase.set(key, list);
@@ -207,7 +242,16 @@ export function dedupeServicesForSelect(
 
   const selectOptions: ServiceSelectOption[] = [];
 
-  for (const entries of byBase.values()) {
+  for (const [baseKey, entries] of byBase.entries()) {
+    if (baseKey === "individual job placement") {
+      const row = pickPreferredService(entries);
+      selectOptions.push({
+        id: row.id,
+        name: INDIVIDUAL_JOB_PLACEMENT_DISPLAY_NAME,
+      });
+      continue;
+    }
+
     const byState = new Map<
       string,
       Array<{ row: ServiceRowInput; parts: ReturnType<typeof parseServiceParts> }>

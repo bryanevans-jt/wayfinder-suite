@@ -5,9 +5,12 @@ import {
   canEditIjpBilling,
   canManageIjpBillingSettings,
   formatIjpListHours,
+  GA_IJP_SERVICE_NAME,
+  GA_IJP_SERVICE_NAME_VARIANTS,
   ijpHoursExpandMode,
   isIjpInvoiceLockedForLineEdits,
 } from "./ijp-billing-settings";
+import { isIndividualJobPlacementServiceName } from "./ijp-stages";
 
 describe("IJP Billing role gates", () => {
   it("allows Accounts Specialist (accountant), Admin, and Super Admin to access and edit", () => {
@@ -81,5 +84,16 @@ describe("IJP Billing role gates", () => {
     assert.equal(formatIjpListHours(4), "4");
     assert.equal(formatIjpListHours(3.1), "3.1");
     assert.equal(formatIjpListHours(null), "0");
+  });
+});
+
+describe("IJP service name variants", () => {
+  it("lists bare and (GA) as the same logical service", () => {
+    assert.ok(GA_IJP_SERVICE_NAME_VARIANTS.includes("Individual Job Placement"));
+    assert.ok(GA_IJP_SERVICE_NAME_VARIANTS.includes(GA_IJP_SERVICE_NAME));
+    assert.ok(GA_IJP_SERVICE_NAME_VARIANTS.includes("IJP"));
+    for (const name of GA_IJP_SERVICE_NAME_VARIANTS) {
+      assert.equal(isIndividualJobPlacementServiceName(name), true);
+    }
   });
 });

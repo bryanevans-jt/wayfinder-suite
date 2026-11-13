@@ -170,12 +170,20 @@ export async function GET(request: Request) {
       rows = await filterSearchRows(matched);
     }
   }
-  if (error?.message.includes("prior_client_id")) {
+  if (
+    error?.message.includes("prior_client_id") ||
+    /authorized_hours|authorization_end_date/i.test(error?.message ?? "")
+  ) {
+    const errMsg = error?.message ?? "";
+    const fallbackSelect = errMsg.includes("prior_client_id")
+      ? "id, full_name, contact_email, intake_status, referral_state, referred_at, intake_status_changed_at, current_service_id, current_stage_id, office_id, counselor_id, authorization_number, authorized_hours, authorization_end_date, date_of_birth, primary_phone, gender, ethnicity, disability_history, created_at"
+      : referralQueueClientSelectColumns().replace(
+          ", authorized_hours, authorization_end_date",
+          ""
+        );
     const fallback = admin
       .from("clients")
-      .select(
-        "id, full_name, contact_email, intake_status, referral_state, referred_at, intake_status_changed_at, current_service_id, current_stage_id, office_id, counselor_id, authorization_number, date_of_birth, primary_phone, gender, ethnicity, disability_history, created_at"
-      )
+      .select(fallbackSelect)
       .order("referred_at", { ascending: true, nullsFirst: false });
     let retriedQuery = fallback.order("referred_at", { ascending: false, nullsFirst: false });
     if (status && ["new_referral", "pending_authorization", "active"].includes(status)) {
@@ -187,14 +195,12 @@ export async function GET(request: Request) {
       retriedQuery = retriedQuery.or(referralQueueListFilter(includeActive));
     }
     const retried = await retriedQuery.limit(500);
-    rows = (retried.data ?? []) as ClientListRow[];
+    rows = (retried.data ?? []) as unknown as ClientListRow[];
     error = retried.error;
     if (!error && explicitId) {
       const { data: byId, error: byIdErr } = await admin
         .from("clients")
-        .select(
-          "id, full_name, contact_email, intake_status, referral_state, referred_at, intake_status_changed_at, current_service_id, current_stage_id, office_id, counselor_id, authorization_number, date_of_birth, primary_phone, gender, ethnicity, disability_history, created_at"
-        )
+        .select(fallbackSelect)
         .eq("id", explicitId)
         .maybeSingle();
       if (byIdErr) error = byIdErr;

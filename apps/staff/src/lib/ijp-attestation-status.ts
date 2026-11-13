@@ -15,7 +15,7 @@ import {
   type GaIjpEpisodeRow,
   type GaIjpServiceRow,
 } from "@wayfinder/supabase/ijp-billing-eligibility";
-import { resolveGaIjpServiceId } from "@wayfinder/supabase/ijp-billing-settings";
+import { resolveGaIjpServiceIds } from "@wayfinder/supabase/ijp-billing-settings";
 import { localDateStringInTz, STAFF_CLOCK_TIMEZONE } from "@wayfinder/supabase/staff-time-clock-shared";
 
 export type IjpSignatureUiStatus = {
@@ -50,7 +50,7 @@ function isOnOrAfter25thForMonth(monthStart: string, now: Date): boolean {
 function onIjpForMonth(
   snapshot: IjpSignatureClientSnapshot,
   monthStart: string,
-  gaIjpServiceId: string
+  gaIjpServiceId: string | readonly string[]
 ): boolean {
   return clientOnGaIjpDuringMonthFromRows(
     snapshot.episodes,
@@ -64,7 +64,7 @@ function onIjpForMonth(
 function statusForMonth(
   snapshot: IjpSignatureClientSnapshot,
   monthStart: string,
-  gaIjpServiceId: string,
+  gaIjpServiceId: string | readonly string[],
   now: Date
 ): IjpSignatureUiStatus | null {
   if (!onIjpForMonth(snapshot, monthStart, gaIjpServiceId)) return null;
@@ -95,7 +95,7 @@ function statusForMonth(
  */
 export function computeIjpSignatureUiStatusFromSnapshot(
   snapshot: IjpSignatureClientSnapshot,
-  gaIjpServiceId: string,
+  gaIjpServiceId: string | readonly string[],
   now = new Date()
 ): IjpSignatureUiStatus | null {
   const monthStart = currentServiceMonthStart(now);
@@ -125,7 +125,7 @@ export function computeIjpSignatureUiStatusFromSnapshot(
 /** Pure batch: same logic as computing each client independently. */
 export function computeIjpSignatureListFlagsFromSnapshots(
   snapshotsByClientId: Record<string, IjpSignatureClientSnapshot>,
-  gaIjpServiceId: string,
+  gaIjpServiceId: string | readonly string[],
   now = new Date()
 ): Record<string, string> {
   const out: Record<string, string> = {};
@@ -143,7 +143,7 @@ async function loadForMonth(
   clientId: string,
   monthStart: string,
   now: Date,
-  gaIjpServiceId: string
+  gaIjpServiceId: string | readonly string[]
 ): Promise<IjpSignatureUiStatus | null> {
   const onIjp = await clientOnGaIjpDuringMonth(admin, clientId, monthStart, gaIjpServiceId);
   if (!onIjp) return null;
@@ -181,13 +181,18 @@ export async function loadIjpSignatureUiStatus(
   admin: SupabaseClient,
   clientId: string,
   now = new Date(),
-  gaIjpServiceIdResolved?: string | null
+  gaIjpServiceIdResolved?: string | readonly string[] | null
 ): Promise<IjpSignatureUiStatus | null> {
   const gaIjpServiceId =
     gaIjpServiceIdResolved === undefined
-      ? await resolveGaIjpServiceId(admin)
+      ? await resolveGaIjpServiceIds(admin)
       : gaIjpServiceIdResolved;
-  if (!gaIjpServiceId) return null;
+  if (
+    gaIjpServiceId == null ||
+    (Array.isArray(gaIjpServiceId) ? gaIjpServiceId.length === 0 : !gaIjpServiceId)
+  ) {
+    return null;
+  }
 
   const monthStart = currentServiceMonthStart(now);
   const onIjp = await clientOnGaIjpDuringMonth(admin, clientId, monthStart, gaIjpServiceId);
@@ -256,13 +261,13 @@ async function loadIjpSignatureSnapshotsBatched(
   clientIds: string[],
   now: Date
 ): Promise<{
-  gaIjpServiceId: string;
+  gaIjpServiceId: string | string[];
   snapshotsByClientId: Record<string, IjpSignatureClientSnapshot>;
 } | null> {
   if (clientIds.length === 0) return null;
 
-  const gaIjpServiceId = await resolveGaIjpServiceId(admin);
-  if (!gaIjpServiceId) return null;
+  const gaIjpServiceId = await resolveGaIjpServiceIds(admin);
+  if (gaIjpServiceId.length === 0) return null;
 
   const months = monthsNeededForFlags(now);
 
@@ -295,11 +300,12 @@ async function loadIjpSignatureSnapshotsBatched(
     episodesByClient.set(clientId, list);
   }
 
+  const ijpIdSet = new Set(gaIjpServiceId);
   const serviceIds = [
     ...new Set(
       (clients ?? [])
         .map((c) => c.current_service_id as string | null)
-        .filter((id): id is string => Boolean(id) && id !== gaIjpServiceId)
+        .filter((id): id is string => typeof id === "string" && id.length > 0 && !ijpIdSet.has(id))
     ),
   ];
   const { data: services } = serviceIds.length

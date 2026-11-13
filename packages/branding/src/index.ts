@@ -64,11 +64,15 @@ export {
 } from "./portal-datetime";
 export {
   dedupeServicesForSelect,
+  displayServiceCatalogName,
   filterServicesForOfficeState,
   flattenServiceGroups,
   formatServiceLabel,
+  INDIVIDUAL_JOB_PLACEMENT_DISPLAY_NAME,
   isCustomizedSupportedEmploymentService,
   isDeprecatedTnTraditionalService,
+  isIndividualJobPlacementService,
+  isIndividualJobPlacementServiceName,
   parseServiceParts,
   resolveClientServiceIdForEdit,
   serviceDisplayName,

@@ -8,8 +8,14 @@ import {
   fetchAllPostgrestRowsByIn,
 } from "./postgrest-fetch-all";
 import { localDateStringInTz, STAFF_CLOCK_TIMEZONE } from "./staff-time-clock-shared";
-import { resolveGaIjpServiceId } from "./ijp-billing-settings";
+import { resolveGaIjpServiceIds } from "./ijp-billing-settings";
 import { isIndividualJobPlacementServiceName } from "./ijp-stages";
+
+function asIjpServiceIdSet(gaIjpServiceId: string | readonly string[]): Set<string> {
+  return new Set(
+    (Array.isArray(gaIjpServiceId) ? gaIjpServiceId : [gaIjpServiceId]).filter(Boolean)
+  );
+}
 
 export function serviceMonthStartFromYmd(ymd: string): string {
   const [y, m] = ymd.split("-");
@@ -75,12 +81,13 @@ export function clientOnGaIjpDuringMonthFromRows(
   client: GaIjpClientRow | null | undefined,
   service: GaIjpServiceRow | null | undefined,
   monthStart: string,
-  gaIjpServiceId: string
+  gaIjpServiceId: string | readonly string[]
 ): boolean {
   const monthEnd = serviceMonthEndYmd(monthStart);
+  const ijpIds = asIjpServiceIdSet(gaIjpServiceId);
 
   for (const ep of episodes) {
-    if ((ep.service_id as string) !== gaIjpServiceId) continue;
+    if (!ijpIds.has((ep.service_id as string) ?? "")) continue;
     const start = (ep.started_at as string)?.slice(0, 10) ?? "";
     const end = (ep.ended_at as string)?.slice(0, 10) ?? monthEnd;
     if (start <= monthEnd && end >= monthStart) {
@@ -89,18 +96,16 @@ export function clientOnGaIjpDuringMonthFromRows(
   }
 
   if (!client || client.is_demo) return false;
-  if ((client.current_service_id as string) === gaIjpServiceId) {
+  if (ijpIds.has((client.current_service_id as string) ?? "")) {
     const archived = client.archived_at as string | null;
     if (archived && archived.slice(0, 10) < monthStart) return false;
     return true;
   }
 
-  if (
-    service &&
-    (service.state as string) === "GA" &&
-    isIndividualJobPlacementServiceName(service.name as string)
-  ) {
-    return true;
+  // Name-based fallback when catalog has multiple IJP rows and ids were incomplete.
+  if (service && isIndividualJobPlacementServiceName(service.name as string)) {
+    const state = ((service.state as string) ?? "").trim().toUpperCase();
+    if (!state || state === "GA") return true;
   }
 
   return false;
@@ -126,8 +131,9 @@ export async function clientOnGaIjpDuringMonth(
   admin: SupabaseClient,
   clientId: string,
   monthStart: string,
-  gaIjpServiceId: string
+  gaIjpServiceId: string | readonly string[]
 ): Promise<boolean> {
+  const ijpIds = asIjpServiceIdSet(gaIjpServiceId);
   const { data: episodes } = await admin
     .from("service_episodes")
     .select("service_id, started_at, ended_at, status")
@@ -140,11 +146,12 @@ export async function clientOnGaIjpDuringMonth(
     .maybeSingle();
 
   let service: GaIjpServiceRow | null = null;
-  if (client?.current_service_id && (client.current_service_id as string) !== gaIjpServiceId) {
+  const currentServiceId = (client?.current_service_id as string | null) ?? null;
+  if (currentServiceId && !ijpIds.has(currentServiceId)) {
     const { data: svc } = await admin
       .from("services")
       .select("name, state")
-      .eq("id", client.current_service_id)
+      .eq("id", currentServiceId)
       .maybeSingle();
     service = (svc as GaIjpServiceRow | null) ?? null;
   }
@@ -154,7 +161,7 @@ export async function clientOnGaIjpDuringMonth(
     client as GaIjpClientRow | null,
     service,
     monthStart,
-    gaIjpServiceId
+    [...ijpIds]
   );
 }
 
@@ -188,8 +195,9 @@ export type GaIjpEligibilitySnapshot = {
 export async function loadGaIjpEligibilitySnapshots(
   admin: SupabaseClient,
   clientIds: string[],
-  gaIjpServiceId: string
+  gaIjpServiceId: string | readonly string[]
 ): Promise<Record<string, GaIjpEligibilitySnapshot>> {
+  const ijpIds = asIjpServiceIdSet(gaIjpServiceId);
   const uniqueIds = [...new Set(clientIds.filter(Boolean))];
   const out: Record<string, GaIjpEligibilitySnapshot> = {};
   for (const id of uniqueIds) {
@@ -241,7 +249,7 @@ export async function loadGaIjpEligibilitySnapshots(
     ...new Set(
       clients
         .map((c) => c.current_service_id as string | null)
-        .filter((id): id is string => Boolean(id) && id !== gaIjpServiceId)
+        .filter((id): id is string => typeof id === "string" && id.length > 0 && !ijpIds.has(id))
     ),
   ];
   if (serviceIds.length > 0) {
@@ -255,7 +263,7 @@ export async function loadGaIjpEligibilitySnapshots(
     const servicesById = new Map(services.map((s) => [s.id as string, s as GaIjpServiceRow]));
     for (const clientId of uniqueIds) {
       const currentServiceId = out[clientId]?.client?.current_service_id ?? null;
-      if (currentServiceId && currentServiceId !== gaIjpServiceId) {
+      if (currentServiceId && !ijpIds.has(currentServiceId)) {
         out[clientId].currentService = servicesById.get(currentServiceId) ?? null;
       }
     }
@@ -267,7 +275,7 @@ export async function loadGaIjpEligibilitySnapshots(
 export function filterClientIdsOnGaIjpDuringMonth(
   snapshots: Record<string, GaIjpEligibilitySnapshot>,
   monthStart: string,
-  gaIjpServiceId: string
+  gaIjpServiceId: string | readonly string[]
 ): string[] {
   const ids: string[] = [];
   for (const [clientId, snap] of Object.entries(snapshots)) {
@@ -340,8 +348,8 @@ export async function loadEligibleIjpClientIdsForMonth(
   admin: SupabaseClient,
   monthStart: string
 ): Promise<string[]> {
-  const gaIjpServiceId = await resolveGaIjpServiceId(admin);
-  if (!gaIjpServiceId) return [];
+  const gaIjpServiceIds = await resolveGaIjpServiceIds(admin);
+  if (gaIjpServiceIds.length === 0) return [];
 
   const clients = await fetchAllPostgrestRows<{ id: string }>(
     admin,
@@ -357,8 +365,8 @@ export async function loadEligibleIjpClientIdsForMonth(
   const ids = clients.map((c) => c.id as string);
   if (ids.length === 0) return [];
 
-  const snapshots = await loadGaIjpEligibilitySnapshots(admin, ids, gaIjpServiceId);
-  return filterClientIdsOnGaIjpDuringMonth(snapshots, monthStart, gaIjpServiceId);
+  const snapshots = await loadGaIjpEligibilitySnapshots(admin, ids, gaIjpServiceIds);
+  return filterClientIdsOnGaIjpDuringMonth(snapshots, monthStart, gaIjpServiceIds);
 }
 
 export function attestationCaptureWindowOpen(monthStart: string, now = new Date()): boolean {

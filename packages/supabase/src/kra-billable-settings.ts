@@ -19,6 +19,7 @@ export const DEFAULT_KRA_HOURS_PER_CLIENT = 10;
 
 export const KRA_GVRA_SERVICE_NAMES = [
   "Individual Job Placement (GA)",
+  "Individual Job Placement",
   "Traditional Supported Employment (GA)",
 ] as const;
 

@@ -46,6 +46,30 @@ describe("IJP eligibility pure helpers", () => {
     );
   });
 
+  it("treats bare and (GA) IJP service ids as the same service", () => {
+    const bareIjp = "svc-bare-ijp";
+    assert.equal(
+      clientOnGaIjpDuringMonthFromRows(
+        [{ service_id: bareIjp, started_at: "2026-09-20", ended_at: null }],
+        { current_service_id: bareIjp, archived_at: null, is_demo: false },
+        { name: "Individual Job Placement", state: "GA" },
+        "2026-10-01",
+        [GA_IJP, bareIjp]
+      ),
+      true
+    );
+    assert.equal(
+      clientOnGaIjpDuringMonthFromRows(
+        [],
+        { current_service_id: bareIjp, archived_at: null, is_demo: false },
+        { name: "Individual Job Placement", state: "GA" },
+        "2026-10-01",
+        GA_IJP
+      ),
+      true
+    );
+  });
+
   it("detects billable minutes from activity embed", () => {
     assert.equal(
       clientHasBillableTimeFromEntries([

@@ -7,6 +7,14 @@
     "./constants": "./src/constants.ts",
     "./security-headers": "./src/security-headers.ts"
   },
+  "scripts": {
+    "test": "node --import tsx --test src/**/*.test.ts",
+    "lint": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  },
   "peerDependencies": {
     "next": "^15.0.0",
     "react": "^19.0.0"

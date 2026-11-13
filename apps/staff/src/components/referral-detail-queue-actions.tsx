@@ -4,12 +4,16 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ReferralFieldSpecialistSelect } from "@/components/referral-field-specialist-select";
 import { confirmDiscardReferral } from "@/lib/referral-discard-prompt";
+import { serviceSupportsAuthorizedHoursFields } from "@wayfinder/supabase/referral-authorization-fields";
 
 type Props = {
   clientId: string;
   officeId: string | null;
   intakeStatus: string;
   authorizationNumber: string | null;
+  authorizedHours?: number | null;
+  authorizationEndDate?: string | null;
+  serviceName?: string | null;
   directReferralAssignEnabled: boolean;
   canAssignFieldSpecialist: boolean;
   initialAssigneeUserId: string | null;
@@ -20,12 +24,23 @@ export function ReferralDetailQueueActions({
   officeId,
   intakeStatus,
   authorizationNumber,
+  authorizedHours = null,
+  authorizationEndDate = null,
+  serviceName = null,
   directReferralAssignEnabled,
   canAssignFieldSpecialist,
   initialAssigneeUserId,
 }: Props) {
   const router = useRouter();
   const [authNumber, setAuthNumber] = useState(authorizationNumber ?? "");
+  const [authorizedHoursValue, setAuthorizedHoursValue] = useState(
+    authorizedHours == null || Number.isNaN(Number(authorizedHours))
+      ? ""
+      : String(authorizedHours)
+  );
+  const [authorizationEndDateValue, setAuthorizationEndDateValue] = useState(
+    (authorizationEndDate ?? "").slice(0, 10)
+  );
   const [overrideReason, setOverrideReason] = useState("");
   const [assigneeUserId, setAssigneeUserId] = useState(initialAssigneeUserId ?? "");
   const [busy, setBusy] = useState(false);
@@ -34,6 +49,7 @@ export function ReferralDetailQueueActions({
 
   const queueOpen =
     intakeStatus === "new_referral" || intakeStatus === "pending_authorization";
+  const showAuthorizedHoursFields = serviceSupportsAuthorizedHoursFields(serviceName);
 
   const authReady = Boolean(authNumber.trim() || overrideReason.trim());
   const assigneeReady = !directReferralAssignEnabled || Boolean(assigneeUserId.trim());
@@ -65,6 +81,12 @@ export function ReferralDetailQueueActions({
       action: "update_info",
       info: {
         authorizationNumber: authNumber.trim() || null,
+        ...(showAuthorizedHoursFields
+          ? {
+              authorizedHours: authorizedHoursValue,
+              authorizationEndDate: authorizationEndDateValue,
+            }
+          : {}),
       },
     });
     if (ok) setSaved(true);
@@ -116,6 +138,32 @@ export function ReferralDetailQueueActions({
             onChange={(e) => setOverrideReason(e.target.value)}
           />
         </label>
+        {showAuthorizedHoursFields ? (
+          <>
+            <label className="text-sm">
+              <span className="font-medium">Authorized hours (optional)</span>
+              <input
+                type="number"
+                min={0}
+                step="any"
+                inputMode="decimal"
+                className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2"
+                placeholder="e.g. 40"
+                value={authorizedHoursValue}
+                onChange={(e) => setAuthorizedHoursValue(e.target.value)}
+              />
+            </label>
+            <label className="text-sm">
+              <span className="font-medium">Authorization end date (optional)</span>
+              <input
+                type="date"
+                className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2"
+                value={authorizationEndDateValue}
+                onChange={(e) => setAuthorizationEndDateValue(e.target.value)}
+              />
+            </label>
+          </>
+        ) : null}
       </div>
 
       <button
