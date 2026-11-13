@@ -153,15 +153,15 @@ Do not add Google service account keys to the staff project unless you later sha
 7. Open `/book/<slug>` in a private window (no staff session required).
 8. Keep `RENDEZVOUS_EMAILS_ENABLED=false` until mailbox + SPF/DKIM look good; use `forceTestEmail` sparingly.
 
-### Visibility rules (already coded; staff UI still super-admin-gated)
+### Team Calendar visibility (server-enforced on `GET /api/calendar`)
 
 | Role | Calendar / bookings |
 |------|---------------------|
-| Super admin / admin | Everyone |
-| Supervisor | Self + `supervisor_es_assignments` reports (+ office-shared TS/instructors per Wayfinder scope helper) |
-| ES / Transition Specialist | Own only |
+| Super admin / admin | All active **Employment Specialists**, **Transition Specialists**, and **Supervisors** |
+| Supervisor | Self + ES/TS linked in `public.supervisor_es_assignments` (existing Wayfinder assignment; `es_user_id` may be ES or TS) |
+| ES / Transition Specialist (and others) | Own calendar only |
 
-Rollout mode constant: `RENDEZVOUS_STAFF_ACCESS_MODE = "super_admin_only"` in `src/lib/access.ts`.
+Staff app entry is still gated by the Rendezvous feature flag / `rendezvous_open_to_all` (super admin always; broader roles when open). Calendar queries always use an explicit staff-ID allow-list — never UI-only filtering.
 
 ---
 
