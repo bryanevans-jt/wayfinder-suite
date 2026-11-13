@@ -353,10 +353,10 @@ export function staffNavSectionsForRole(
                   label: "WRT",
                   match: (p) => p.startsWith("/dashboard/wrt"),
                 },
+                ...(showPreEtsNav ? [preEtsNav] : []),
                 billableHoursNav,
                 reportingNav,
                 ...(hideIntake ? [] : [intakeCallsNav]),
-                ...(showPreEtsNav ? [preEtsNav] : []),
                 communityPartnersNav,
               ],
               showCp
@@ -398,10 +398,10 @@ export function staffNavSectionsForRole(
                   label: "WRT",
                   match: (p) => p.startsWith("/dashboard/wrt"),
                 },
+                ...(showPreEtsNav ? [preEtsNav] : []),
                 billableHoursNav,
                 reportingNav,
                 ...(hideIntake ? [] : [intakeCallsNav]),
-                ...(showPreEtsNav ? [preEtsNav] : []),
                 communityPartnersNav,
               ],
               showCp
