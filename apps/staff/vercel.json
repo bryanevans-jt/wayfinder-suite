@@ -59,6 +59,10 @@
     {
       "path": "/api/cron/ijp-invoice-generation",
       "schedule": "0 6 1 * *"
+    },
+    {
+      "path": "/api/cron/authorization-warnings",
+      "schedule": "0 12 * * *"
     }
   ]
 }

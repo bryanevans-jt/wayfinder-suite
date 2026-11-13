@@ -29,6 +29,11 @@ import { loadCaseloadTriageFlags } from "@/lib/caseload-operations";
 import { fetchEsCaseloadClients, getEsCaseloadAdmin } from "@/lib/es-caseload-data";
 import { filterSunsetServices, loadSunsetKeepIds } from "@/lib/sunset-tn";
 import { loadIjpSignatureUiStatusesBatched } from "@/lib/ijp-attestation-status";
+import {
+  authorizationWarningListFlag,
+  syncAuthorizationWarningsForClients,
+} from "@wayfinder/supabase/authorization-warnings";
+import type { AuthorizationWarningListFlag } from "@wayfinder/supabase/authorization-warnings-shared";
 
 type PageProps = {
   searchParams: Promise<{ archived?: string }>;
@@ -134,6 +139,9 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
       s.id,
       serviceDisplayName({ id: s.id, name: s.name, state: s.state ?? null }),
     ])
+  );
+  const serviceCatalogName = new Map(
+    serviceRowsResolved.map((s) => [s.id, s.name as string])
   );
 
   const stageIds = [...new Set(clients.map((c) => c.current_stage_id).filter(Boolean))] as string[];
@@ -262,6 +270,29 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
     }
   }
 
+  const authorizationWarningsByClient = new Map<string, AuthorizationWarningListFlag>();
+  if (admin && sortedClients.length > 0) {
+    const evaluations = await syncAuthorizationWarningsForClients(
+      admin,
+      sortedClients.map((c) => ({
+        id: c.id,
+        authorized_hours:
+          c.authorized_hours == null ? null : Number(c.authorized_hours),
+        authorization_end_date: c.authorization_end_date ?? null,
+        serviceName: c.current_service_id
+          ? (serviceCatalogName.get(c.current_service_id) ?? null)
+          : null,
+        displayName: c.displayName,
+      })),
+      // Soft notify assigned ES/TS when thresholds first cross; cheap on caseload load.
+      { notify: !session.isPreviewing }
+    );
+    for (const [clientId, evaluation] of evaluations) {
+      const flag = authorizationWarningListFlag(evaluation);
+      if (flag) authorizationWarningsByClient.set(clientId, flag);
+    }
+  }
+
   return (
     <main className="px-4 py-8 sm:px-6 sm:py-10">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -333,6 +364,7 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
             triageFlags: triageFlagsByClient.get(c.id) ?? [],
             ijpSignatureMonthLabel: ijpSignatureByClient.get(c.id) ?? null,
             ijpCollectSignatureOpen: ijpCollectByClient.has(c.id),
+            authorizationWarning: authorizationWarningsByClient.get(c.id) ?? null,
           }))}
         />
       </div>

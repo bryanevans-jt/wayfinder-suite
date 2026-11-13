@@ -18,6 +18,8 @@ export type EsCaseloadClientRow = {
   intake_status?: string | null;
   job_start_date?: string | null;
   is_demo?: boolean | null;
+  authorized_hours?: number | null;
+  authorization_end_date?: string | null;
 };
 
 export type FetchEsCaseloadOptions = {
@@ -119,11 +121,40 @@ export async function fetchEsCaseloadClients(
   const { data: clientRows, error: clientsErr } = await admin
     .from("clients")
     .select(
-      "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, archived_at, intake_status, job_start_date, office_id, referral_state, is_demo"
+      "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, archived_at, intake_status, job_start_date, office_id, referral_state, is_demo, authorized_hours, authorization_end_date"
     )
     .in("id", clientIds);
 
-  // Older databases may lack roster / archive / job_start_date columns; retry without them.
+  // Older databases may lack roster / archive / job_start_date / auth-hours columns; retry without them.
+  if (
+    clientsErr?.message.includes("authorized_hours") ||
+    clientsErr?.message.includes("authorization_end_date")
+  ) {
+    const fallback = await admin
+      .from("clients")
+      .select(
+        "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, archived_at, intake_status, job_start_date, office_id, referral_state, is_demo"
+      )
+      .in("id", clientIds);
+    if (!fallback.error) {
+      const rows: EsCaseloadClientRow[] = (fallback.data ?? []).map((c) => ({
+        ...(c as EsCaseloadClientRow),
+        authorized_hours: null,
+        authorization_end_date: null,
+      }));
+      let clients = filterCaseloadDemoClients(rows, trainingDemoHandoff);
+      clients = includeArchived
+        ? clients
+        : clients.filter(
+            (c) =>
+              !isRemovedFromEsCaseload(c.archived_at) &&
+              intakeVisibleToFieldStaff((c as EsCaseloadClientRow).intake_status)
+          );
+      clients = await dropRetiredMarketClients(admin, clients);
+      return { clients, error: null };
+    }
+  }
+
   if (
     clientsErr?.message.includes("archived_at") ||
     clientsErr?.message.includes("full_name") ||

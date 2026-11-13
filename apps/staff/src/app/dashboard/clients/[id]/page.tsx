@@ -45,7 +45,9 @@ import { clientPresentGuidanceTarget } from "@/lib/client-present-guidance";
 import { EmployerMatchPanel } from "@/components/employer-match-panel";
 import { ClientDisabilityHistoryPanel } from "@/components/client-disability-history-panel";
 import { ClientAuthorizedHoursPanel } from "@/components/client-authorized-hours-panel";
+import { ClientAuthorizationWarningBanner } from "@/components/client-authorization-warning-banner";
 import { ClientStaffNotesPanel } from "@/components/client-staff-notes-panel";
+import { syncClientAuthorizationWarnings } from "@wayfinder/supabase/authorization-warnings";
 import {
   canEditClientAuthorizedHoursFields,
   canViewClientAuthorizedHoursFields,
@@ -505,6 +507,19 @@ export default async function EsClientDetailPage({ params }: PageProps) {
     !session.isPreviewing &&
     (hasWriteAccess || canAssignClientEs(role) || canLogHospitalityCheckIns(role));
 
+  const authorizationWarning =
+    showAuthorizedHoursFields
+      ? await syncClientAuthorizationWarnings(admin, {
+          clientId: client.id as string,
+          authorizedHours:
+            client.authorized_hours == null ? null : Number(client.authorized_hours),
+          authorizationEndDate: client.authorization_end_date ?? null,
+          serviceName: service?.name ?? null,
+          clientName: displayName,
+          notify: !session.isPreviewing && !auditPreview,
+        })
+      : null;
+
   const episodeContext = await loadClientEpisodeContext(client.id as string);
   const exportEpisode = episodeContext.currentEpisode ?? episodeContext.activeEpisodes[0] ?? null;
 
@@ -575,6 +590,9 @@ export default async function EsClientDetailPage({ params }: PageProps) {
             />
           ) : null}
         </div>
+        {showAuthorizedHoursFields ? (
+          <ClientAuthorizationWarningBanner evaluation={authorizationWarning} />
+        ) : null}
       </header>
 
       {readOnly && !session.isPreviewing && !canEditEsAssignment && !canEditIntakeAppt ? (
