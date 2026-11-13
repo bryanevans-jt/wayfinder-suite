@@ -1,6 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ClientActivityFeedItem } from "@wayfinder/branding";
-import { buildClientActivityFeed } from "@wayfinder/branding";
 import {
   entryCountsTowardClientBillableWithActivity,
   formatBillableHours,
@@ -10,6 +8,9 @@ import { serviceMonthStartFromYmd } from "./ijp-billing-eligibility";
 import { formatServiceTimeOfDay } from "./es-time-tracking";
 import { serviceMonthEndYmd } from "./ijp-billing-eligibility";
 import { formatIjpInvoiceAmount, formatIjpRateDollars } from "./ijp-billing-settings";
+
+/** GVRA IJP vocational invoice service code on every line. */
+export const IJP_INVOICE_SERVICE_CODE = "00270";
 
 const IJP_INVOICE_DESCRIPTION_MAX_LINES = 5;
 /** Target characters per line for the invoice table description column (Google Doc PDF). */
@@ -77,26 +78,14 @@ export type IjpInvoiceLineItem = {
   editable: boolean;
 };
 
-export function activityFeedItemSummary(item: ClientActivityFeedItem): string {
-  if (item.kind === "contact") {
-    const parts = [item.public_outcome?.trim(), item.notes?.trim()].filter(Boolean);
-    return parts.join(" — ") || "Contact log";
-  }
-  if (item.kind === "milestone") {
-    return `Milestone: ${item.title}`;
-  }
-  if (item.kind === "application") {
-    const co = item.company_name?.trim() || "Employer";
-    return `Application: ${co} (${item.status?.trim() || "—"})`;
-  }
-  return `Meeting: ${item.service_name?.trim() || "Wayfinder service"}`;
-}
-
-function findFeedItemForContact(
-  feed: ClientActivityFeedItem[],
-  contactLogId: string
-): ClientActivityFeedItem | null {
-  return feed.find((f) => f.kind === "contact" && f.id === contactLogId) ?? null;
+/**
+ * Service Description on IJP invoice lines: contact-log / activity type name only
+ * (e.g. "In-Person Meeting", "Job Canvassing") — no notes or outcome text.
+ */
+export function ijpLineServiceDescription(
+  activityName: string | null | undefined
+): string {
+  return (activityName ?? "").trim();
 }
 
 export type IjpInvoiceLineBuildResult = {
@@ -109,10 +98,10 @@ export type IjpInvoiceLineBuildResult = {
 
 function parseActivityEmbed(
   embed:
-    | { code?: string; counts_toward_client_billable?: boolean }
-    | { code?: string; counts_toward_client_billable?: boolean }[]
+    | { code?: string; name?: string; counts_toward_client_billable?: boolean }
+    | { code?: string; name?: string; counts_toward_client_billable?: boolean }[]
     | null
-): { code?: string; counts_toward_client_billable?: boolean } | null {
+): { code?: string; name?: string; counts_toward_client_billable?: boolean } | null {
   if (!embed) return null;
   return Array.isArray(embed) ? embed[0] ?? null : embed;
 }
@@ -132,9 +121,9 @@ export async function buildIjpInvoiceLineItems(
   const { data: entries, error } = await admin
     .from("es_time_entries")
     .select(
-      `id, es_user_id, service_date, duration_minutes, narrative, service_start_at, service_end_at,
-       linked_source_type, linked_source_id, flags, client_present, delivery_mode, status,
-       service_activity_types ( code, counts_toward_client_billable )`
+      `id, es_user_id, service_date, duration_minutes, service_start_at, service_end_at,
+       flags, client_present, delivery_mode, status,
+       service_activity_types ( code, name, counts_toward_client_billable )`
     )
     .eq("client_id", opts.clientId)
     .neq("status", "rejected")
@@ -145,21 +134,6 @@ export async function buildIjpInvoiceLineItems(
 
   if (error) {
     throw new Error(error.message);
-  }
-
-  const contactIds = (entries ?? [])
-    .filter((e) => e.linked_source_type === "contact_log" && e.linked_source_id)
-    .map((e) => e.linked_source_id as string);
-
-  let feed: ClientActivityFeedItem[] = [];
-  if (contactIds.length > 0) {
-    const { data: logs } = await admin
-      .from("contact_logs")
-      .select("id, created_at, public_outcome, notes, logged_by")
-      .in("id", contactIds);
-    feed = buildClientActivityFeed({
-      logs: (logs ?? []) as Parameters<typeof buildClientActivityFeed>[0]["logs"],
-    });
   }
 
   const lines: IjpInvoiceLineItem[] = [];
@@ -178,14 +152,7 @@ export async function buildIjpInvoiceLineItems(
     const hours = minutes / 60;
     const amountCents = Math.round(hours * opts.hourlyRateCents);
 
-    let description = (row.narrative as string)?.trim() ?? "";
-    if (row.linked_source_type === "contact_log" && row.linked_source_id) {
-      const item = findFeedItemForContact(feed, row.linked_source_id as string);
-      if (item) description = activityFeedItemSummary(item);
-    }
-    if (!description) {
-      description = "Billable service";
-    }
+    const description = ijpLineServiceDescription(activity?.name);
     let startTime = "";
     let endTime = "";
     if (row.service_start_at && row.service_end_at) {
@@ -200,7 +167,7 @@ export async function buildIjpInvoiceLineItems(
     lines.push({
       entryId: row.id as string,
       authorization: opts.authorizationNumber,
-      serviceCode: "IJP",
+      serviceCode: IJP_INVOICE_SERVICE_CODE,
       description,
       serviceDate: row.service_date as string,
       startTime,

@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 import {
   buildIjpInvoiceHeaderPlaceholders,
   ceilIjpTotalHours,
+  IJP_INVOICE_SERVICE_CODE,
+  ijpLineServiceDescription,
   sumIjpLineItems,
   type IjpInvoiceLineItem,
 } from "./ijp-billing-lines";
@@ -11,8 +13,8 @@ function line(partial: Partial<IjpInvoiceLineItem> & { hours: number }): IjpInvo
   return {
     entryId: partial.entryId ?? "e1",
     authorization: partial.authorization ?? "AUTH",
-    serviceCode: partial.serviceCode ?? "IJP",
-    description: partial.description ?? "Service",
+    serviceCode: partial.serviceCode ?? IJP_INVOICE_SERVICE_CODE,
+    description: partial.description ?? "In-Person Meeting",
     serviceDate: partial.serviceDate ?? "2026-10-01",
     startTime: partial.startTime ?? "09:00",
     endTime: partial.endTime ?? "10:00",
@@ -116,5 +118,25 @@ describe("buildIjpInvoiceHeaderPlaceholders TotalHours", () => {
     });
     assert.equal(placeholders.TotalHours, "4");
     assert.equal(placeholders.TotalAmount, "240.00");
+  });
+});
+
+describe("IJP line service code and description", () => {
+  it("uses GVRA service code 00270 on every line", () => {
+    assert.equal(IJP_INVOICE_SERVICE_CODE, "00270");
+    assert.equal(line({ hours: 1 }).serviceCode, "00270");
+  });
+
+  it("keeps only the activity / contact-log type name", () => {
+    assert.equal(ijpLineServiceDescription("In-Person Meeting"), "In-Person Meeting");
+    assert.equal(ijpLineServiceDescription("  Job Canvassing  "), "Job Canvassing");
+    assert.equal(ijpLineServiceDescription("Intake Meeting"), "Intake Meeting");
+  });
+
+  it("does not invent notes or fallback copy when the type is missing", () => {
+    assert.equal(ijpLineServiceDescription(""), "");
+    assert.equal(ijpLineServiceDescription(null), "");
+    assert.equal(ijpLineServiceDescription(undefined), "");
+    assert.equal(ijpLineServiceDescription("   "), "");
   });
 });
