@@ -7,7 +7,9 @@ import {
   buildIjpAttestationPlaceholders,
   buildIjpInvoiceHeaderPlaceholders,
   buildIjpInvoiceLineItems,
+  ensureSingleGvraAllowanceLine,
   isIjpInvoiceEligibleForDraftLineRefresh,
+  mergeIjpInvoiceLinesWithManual,
   recalcLineAmount,
   sumIjpLineItems,
   type IjpInvoiceLineItem,
@@ -161,16 +163,24 @@ export async function syncIjpInvoiceLineItemsFromBillable(
     hourlyRateCents: opts.settings.hourly_rate_cents,
     esNameByUserId,
   });
-  const lines = built.lines;
-  const totals = sumIjpLineItems(lines, opts.settings.hourly_rate_cents);
 
   const { data: existing } = await admin
     .from("ijp_billing_invoices")
-    .select("id")
+    .select("id, line_items")
     .eq("client_id", opts.clientId)
     .eq("service_month", monthStart)
     .eq("is_test", opts.isTest)
     .maybeSingle();
+
+  const existingLines = (existing?.line_items as IjpInvoiceLineItem[] | null) ?? [];
+  const merged = mergeIjpInvoiceLinesWithManual(built.lines, existingLines);
+  const lines = ensureSingleGvraAllowanceLine(merged, {
+    clientId: opts.clientId,
+    monthStart,
+    authorization: authNumber,
+    hourlyRateCents: opts.settings.hourly_rate_cents,
+  }).map((line) => recalcLineAmount(line, opts.settings.hourly_rate_cents));
+  const totals = sumIjpLineItems(lines, opts.settings.hourly_rate_cents);
 
   if (existing?.id) {
     const { error } = await admin
@@ -268,8 +278,8 @@ export type IjpDraftMonthRefreshResult = {
 
 /**
  * Rebuild line items from billable ES time for draft, non-compiled, non-archived
- * invoices in a single service month. Skips invoices whose lines were manually
- * adjusted (manuallyAdjusted on any line_item). Does not touch other months.
+ * invoices in a single service month. Manual invoice-only lines and hour
+ * overrides are preserved via merge. Does not touch other months.
  */
 export async function refreshDraftIjpInvoiceLinesForMonth(
   admin: SupabaseClient,
@@ -289,7 +299,7 @@ export async function refreshDraftIjpInvoiceLinesForMonth(
   if (error) throw new Error(error.message);
 
   let refreshed = 0;
-  let skippedManual = 0;
+  const skippedManual = 0;
   let skippedIneligible = 0;
   const errors: IjpDraftMonthRefreshResult["errors"] = [];
 
@@ -305,16 +315,7 @@ export async function refreshDraftIjpInvoiceLinesForMonth(
         line_items: lineItems,
       })
     ) {
-      if (
-        (row.status ?? "draft") === "draft" &&
-        !row.compiled_at &&
-        !row.archived_at &&
-        lineItems.some((line) => line?.manuallyAdjusted === true)
-      ) {
-        skippedManual += 1;
-      } else {
-        skippedIneligible += 1;
-      }
+      skippedIneligible += 1;
       continue;
     }
 

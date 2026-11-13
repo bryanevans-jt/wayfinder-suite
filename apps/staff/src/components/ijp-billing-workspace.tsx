@@ -2,7 +2,10 @@
 
 import type { IjpInvoiceLineItem } from "@wayfinder/supabase/ijp-billing-lines";
 import {
+  createManualIjpInvoiceLine,
   IJP_INVOICE_SERVICE_CODE,
+  isGvraAllowanceIjpLine,
+  isManualIjpLine,
   roundIjpLineHours,
 } from "@wayfinder/supabase/ijp-billing-lines";
 import { priorServiceMonthStart } from "@wayfinder/supabase/ijp-billing-eligibility";
@@ -16,6 +19,22 @@ import { USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { IjpBillingClientPicker } from "@/components/ijp-billing-client-picker";
 import { IjpBillingTestPreview } from "@/components/ijp-billing-test-preview";
+
+const ACTIVITY_TYPE_SUGGESTIONS = [
+  "In-Person Meeting",
+  "Intake Meeting",
+  "Job Canvassing",
+  "Application Submitted",
+  "Virtual Meeting",
+  "Phone Call",
+  "Case file review / documentation",
+];
+
+function lineSourceLabel(line: IjpInvoiceLineItem): string {
+  if (isManualIjpLine(line)) return "Manual";
+  if (isGvraAllowanceIjpLine(line)) return "Reports allowance";
+  return "Billable time";
+}
 
 type InvoiceRow = {
   id: string;
@@ -53,6 +72,7 @@ export function IjpBillingWorkspace() {
   const [detailProviderInvoice, setDetailProviderInvoice] = useState("");
   const [detailAuth, setDetailAuth] = useState("");
   const [detailInvoiceDate, setDetailInvoiceDate] = useState("");
+  const [hourlyRateCents, setHourlyRateCents] = useState(6000);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/ijp-billing/invoices?month=${encodeURIComponent(month)}`);
@@ -96,10 +116,14 @@ export function IjpBillingWorkspace() {
       const json = (await access.json()) as {
         role?: string;
         canEdit?: boolean;
+        hourlyRateCents?: number;
       };
       const editAllowed = Boolean(json.canEdit);
       setCanTest(json.role === "super_admin" || json.role === "admin");
       setCanEdit(editAllowed);
+      if (typeof json.hourlyRateCents === "number" && json.hourlyRateCents > 0) {
+        setHourlyRateCents(json.hourlyRateCents);
+      }
       await refreshDraftsThenLoad(editAllowed);
     })();
   }, [refreshDraftsThenLoad]);
@@ -509,7 +533,7 @@ export function IjpBillingWorkspace() {
                             <p className="text-xs text-brand-black/65">
                               Invoice lines
                               {expandMode === "edit"
-                                ? " — edit hours in half-hour steps; totals round up to whole hours."
+                                ? " — edit hours in half-hour steps; add invoice-only manual lines; totals round up to whole hours. Manual lines stay through refresh."
                                 : " — read-only."}
                             </p>
                             {linesLoadingId === inv.id ? (
@@ -528,26 +552,92 @@ export function IjpBillingWorkspace() {
                                       <th className="px-2 py-1.5 font-semibold">End</th>
                                       <th className="px-2 py-1.5 font-semibold text-right">Hours</th>
                                       <th className="px-2 py-1.5 font-semibold text-right">Amount</th>
+                                      <th className="px-2 py-1.5 font-semibold">Source</th>
                                       <th className="px-2 py-1.5 font-semibold">Instructor</th>
+                                      {expandMode === "edit" ? (
+                                        <th className="px-2 py-1.5 font-semibold"> </th>
+                                      ) : null}
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {expandedLines.map((line, idx) => (
+                                    {expandedLines.map((line, idx) => {
+                                      const manual = isManualIjpLine(line);
+                                      return (
                                       <tr key={line.entryId} className="border-t border-neutral-100">
                                         <td className="whitespace-nowrap px-2 py-1.5">
-                                          {line.serviceDate || "—"}
+                                          {expandMode === "edit" && manual ? (
+                                            <input
+                                              type="date"
+                                              className="rounded border border-neutral-200 px-1 py-0.5"
+                                              value={line.serviceDate || ""}
+                                              onChange={(e) => {
+                                                setExpandedLines((prev) => {
+                                                  const next = [...prev];
+                                                  next[idx] = { ...line, serviceDate: e.target.value };
+                                                  return next;
+                                                });
+                                              }}
+                                            />
+                                          ) : (
+                                            line.serviceDate || "—"
+                                          )}
                                         </td>
                                         <td className="whitespace-nowrap px-2 py-1.5">
                                           {line.serviceCode || IJP_INVOICE_SERVICE_CODE}
                                         </td>
                                         <td className="max-w-xs px-2 py-1.5">
-                                          {line.description || "—"}
+                                          {expandMode === "edit" && manual ? (
+                                            <input
+                                              list="ijp-activity-types"
+                                              className="w-full min-w-[10rem] rounded border border-neutral-200 px-1.5 py-0.5"
+                                              value={line.description}
+                                              onChange={(e) => {
+                                                setExpandedLines((prev) => {
+                                                  const next = [...prev];
+                                                  next[idx] = { ...line, description: e.target.value };
+                                                  return next;
+                                                });
+                                              }}
+                                            />
+                                          ) : (
+                                            line.description || "—"
+                                          )}
                                         </td>
                                         <td className="whitespace-nowrap px-2 py-1.5">
-                                          {line.startTime || "—"}
+                                          {expandMode === "edit" && manual ? (
+                                            <input
+                                              className="w-20 rounded border border-neutral-200 px-1 py-0.5"
+                                              value={line.startTime}
+                                              placeholder="—"
+                                              onChange={(e) => {
+                                                setExpandedLines((prev) => {
+                                                  const next = [...prev];
+                                                  next[idx] = { ...line, startTime: e.target.value };
+                                                  return next;
+                                                });
+                                              }}
+                                            />
+                                          ) : (
+                                            line.startTime || "—"
+                                          )}
                                         </td>
                                         <td className="whitespace-nowrap px-2 py-1.5">
-                                          {line.endTime || "—"}
+                                          {expandMode === "edit" && manual ? (
+                                            <input
+                                              className="w-20 rounded border border-neutral-200 px-1 py-0.5"
+                                              value={line.endTime}
+                                              placeholder="—"
+                                              onChange={(e) => {
+                                                setExpandedLines((prev) => {
+                                                  const next = [...prev];
+                                                  next[idx] = { ...line, endTime: e.target.value };
+                                                  return next;
+                                                });
+                                              }}
+                                            />
+                                          ) : (
+                                            line.endTime || "—"
+                                          )}
                                         </td>
                                         <td className="px-2 py-1.5 text-right">
                                           {expandMode === "edit" ? (
@@ -583,22 +673,65 @@ export function IjpBillingWorkspace() {
                                         <td className="whitespace-nowrap px-2 py-1.5 text-right">
                                           {formatIjpInvoiceAmount(line.amountCents)}
                                         </td>
+                                        <td className="whitespace-nowrap px-2 py-1.5 text-brand-black/70">
+                                          {lineSourceLabel(line)}
+                                        </td>
                                         <td className="px-2 py-1.5">{line.instructorName || "—"}</td>
+                                        {expandMode === "edit" ? (
+                                          <td className="px-2 py-1.5">
+                                            {manual ? (
+                                              <button
+                                                type="button"
+                                                className="text-red-700 underline"
+                                                onClick={() => {
+                                                  setExpandedLines((prev) =>
+                                                    prev.filter((_, i) => i !== idx)
+                                                  );
+                                                }}
+                                              >
+                                                Remove
+                                              </button>
+                                            ) : null}
+                                          </td>
+                                        ) : null}
                                       </tr>
-                                    ))}
+                                      );
+                                    })}
                                   </tbody>
                                 </table>
                               </div>
                             )}
-                            {expandMode === "edit" && expandedLines.length > 0 ? (
-                              <button
-                                type="button"
-                                disabled={busy}
-                                className="rounded-lg bg-brand-green px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
-                                onClick={() => void saveExpandedLines(inv.id)}
-                              >
-                                Save line hours
-                              </button>
+                            {expandMode === "edit" ? (
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  className="rounded-lg border border-brand-green px-3 py-1.5 text-xs font-semibold text-brand-green"
+                                  onClick={() => {
+                                    setExpandedLines((prev) => [
+                                      ...prev,
+                                      createManualIjpInvoiceLine({
+                                        serviceDate: month.slice(0, 7) + "-01",
+                                        description: "",
+                                        hours: 0.5,
+                                        authorization: inv.authorization_number ?? "",
+                                        hourlyRateCents,
+                                      }),
+                                    ]);
+                                  }}
+                                >
+                                  Add invoice-only line
+                                </button>
+                                {expandedLines.length > 0 ? (
+                                  <button
+                                    type="button"
+                                    disabled={busy}
+                                    className="rounded-lg bg-brand-green px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                                    onClick={() => void saveExpandedLines(inv.id)}
+                                  >
+                                    Save line hours
+                                  </button>
+                                ) : null}
+                              </div>
                             ) : null}
                           </div>
                         </td>
@@ -612,13 +745,20 @@ export function IjpBillingWorkspace() {
         </table>
       </div>
 
+      <datalist id="ijp-activity-types">
+        {ACTIVITY_TYPE_SUGGESTIONS.map((name) => (
+          <option key={name} value={name} />
+        ))}
+      </datalist>
+
       {selectedId && canEdit ? (
         <section className="rounded-xl border border-neutral-200 bg-white p-4">
           <h2 className="text-lg font-semibold">Edit invoice</h2>
           <p className="mt-1 text-xs text-brand-black/60">
-            Adjust billing fields and line hours (including zero). Line hours snap to the nearest
-            half hour (round half up); invoice totals round up to whole hours on save. Manual line
-            edits are kept until you refresh from billable time.
+            Adjust billing fields and line hours. Add invoice-only manual lines (date, activity type,
+            times/hours) — they are not contact logs or ES time and survive refresh. Line hours snap
+            to the nearest half hour; totals round up to whole hours. The GVRA Reports allowance is
+            the 2-hour line dated the last day of the month.
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <label className="text-xs">
@@ -647,44 +787,148 @@ export function IjpBillingWorkspace() {
               />
             </label>
           </div>
-          <div className="mt-4 space-y-2">
-            {lineItems.map((line, idx) => (
-              <div key={line.entryId} className="grid gap-2 border-b border-neutral-100 pb-2 sm:grid-cols-6">
-                <span className="text-xs sm:col-span-2">{line.description}</span>
-                <input
-                  type="number"
-                  step="0.5"
-                  min={0}
-                  className="rounded border px-2 py-1 text-sm"
-                  value={line.hours}
-                  onChange={(e) => {
-                    const next = [...lineItems];
-                    next[idx] = { ...line, hours: Number(e.target.value) || 0 };
-                    setLineItems(next);
-                  }}
-                  onBlur={(e) => {
-                    const snapped = roundIjpLineHours(Number(e.target.value) || 0);
-                    setLineItems((prev) => {
-                      const next = [...prev];
-                      const current = next[idx];
-                      if (!current) return prev;
-                      next[idx] = { ...current, hours: snapped };
-                      return next;
-                    });
-                  }}
-                />
-                <span className="text-xs text-brand-black/60">{line.instructorName}</span>
-              </div>
-            ))}
+          <div className="mt-4 space-y-3">
+            {lineItems.map((line, idx) => {
+              const manual = isManualIjpLine(line);
+              return (
+                <div
+                  key={line.entryId}
+                  className="grid gap-2 border-b border-neutral-100 pb-3 sm:grid-cols-8"
+                >
+                  <label className="text-[11px] text-brand-black/60">
+                    Date
+                    <input
+                      type="date"
+                      disabled={!manual}
+                      className="mt-0.5 w-full rounded border px-2 py-1 text-sm disabled:bg-neutral-50"
+                      value={line.serviceDate || ""}
+                      onChange={(e) => {
+                        setLineItems((prev) => {
+                          const next = [...prev];
+                          next[idx] = { ...line, serviceDate: e.target.value };
+                          return next;
+                        });
+                      }}
+                    />
+                  </label>
+                  <label className="text-[11px] text-brand-black/60 sm:col-span-2">
+                    Activity / description
+                    <input
+                      list="ijp-activity-types"
+                      disabled={!manual}
+                      className="mt-0.5 w-full rounded border px-2 py-1 text-sm disabled:bg-neutral-50"
+                      value={line.description}
+                      onChange={(e) => {
+                        setLineItems((prev) => {
+                          const next = [...prev];
+                          next[idx] = { ...line, description: e.target.value };
+                          return next;
+                        });
+                      }}
+                    />
+                  </label>
+                  <label className="text-[11px] text-brand-black/60">
+                    Start
+                    <input
+                      disabled={!manual}
+                      className="mt-0.5 w-full rounded border px-2 py-1 text-sm disabled:bg-neutral-50"
+                      value={line.startTime}
+                      onChange={(e) => {
+                        setLineItems((prev) => {
+                          const next = [...prev];
+                          next[idx] = { ...line, startTime: e.target.value };
+                          return next;
+                        });
+                      }}
+                    />
+                  </label>
+                  <label className="text-[11px] text-brand-black/60">
+                    End
+                    <input
+                      disabled={!manual}
+                      className="mt-0.5 w-full rounded border px-2 py-1 text-sm disabled:bg-neutral-50"
+                      value={line.endTime}
+                      onChange={(e) => {
+                        setLineItems((prev) => {
+                          const next = [...prev];
+                          next[idx] = { ...line, endTime: e.target.value };
+                          return next;
+                        });
+                      }}
+                    />
+                  </label>
+                  <label className="text-[11px] text-brand-black/60">
+                    Hours
+                    <input
+                      type="number"
+                      step="0.5"
+                      min={0}
+                      className="mt-0.5 w-full rounded border px-2 py-1 text-sm"
+                      value={line.hours}
+                      onChange={(e) => {
+                        const next = [...lineItems];
+                        next[idx] = { ...line, hours: Number(e.target.value) || 0 };
+                        setLineItems(next);
+                      }}
+                      onBlur={(e) => {
+                        const snapped = roundIjpLineHours(Number(e.target.value) || 0);
+                        setLineItems((prev) => {
+                          const next = [...prev];
+                          const current = next[idx];
+                          if (!current) return prev;
+                          next[idx] = { ...current, hours: snapped };
+                          return next;
+                        });
+                      }}
+                    />
+                  </label>
+                  <div className="flex flex-col justify-end gap-1 text-xs text-brand-black/60">
+                    <span>{lineSourceLabel(line)}</span>
+                    <span>{line.instructorName}</span>
+                    {manual ? (
+                      <button
+                        type="button"
+                        className="text-left text-red-700 underline"
+                        onClick={() => {
+                          setLineItems((prev) => prev.filter((_, i) => i !== idx));
+                        }}
+                      >
+                        Remove
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          <button
-            type="button"
-            disabled={busy}
-            className="mt-4 rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white"
-            onClick={() => void saveDetail()}
-          >
-            Save invoice
-          </button>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="rounded-lg border border-brand-green px-4 py-2 text-sm font-semibold text-brand-green"
+              onClick={() => {
+                setLineItems((prev) => [
+                  ...prev,
+                  createManualIjpInvoiceLine({
+                    serviceDate: month.slice(0, 7) + "-01",
+                    description: "",
+                    hours: 0.5,
+                    authorization: detailAuth,
+                    hourlyRateCents,
+                  }),
+                ]);
+              }}
+            >
+              Add invoice-only line
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white"
+              onClick={() => void saveDetail()}
+            >
+              Save invoice
+            </button>
+          </div>
         </section>
       ) : null}
 

@@ -11,6 +11,20 @@ import { formatIjpInvoiceAmount, formatIjpRateDollars } from "./ijp-billing-sett
 /** GVRA IJP vocational invoice service code on every line. */
 export const IJP_INVOICE_SERVICE_CODE = "00270";
 
+/** Hours granted for the monthly GVRA Reports / paperwork allotment. */
+export const IJP_GVRA_ALLOWANCE_HOURS = 2;
+
+/** Invoice description for the GVRA Reports allotment line. */
+export const IJP_GVRA_ALLOWANCE_DESCRIPTION = "GVRA monthly report and paperwork allowance";
+
+/**
+ * Where an invoice line came from.
+ * - billable: synced from an ES time / contact-linked entry
+ * - gvra_allowance: the monthly 2-hour Reports allotment (ES-backed or synthetic)
+ * - manual: invoice-only; never creates contact logs or es_time_entries
+ */
+export type IjpInvoiceLineSource = "billable" | "gvra_allowance" | "manual";
+
 /**
  * Round positive values half-up (away from zero at .5).
  * Matches JavaScript `Math.round` for non-negative inputs — documented so callers
@@ -85,12 +99,202 @@ export type IjpInvoiceLineItem = {
   instructorName: string;
   editable: boolean;
   /**
-   * Set when an editor saves line hours via PATCH. Auto-refresh skips invoices
-   * that still carry this flag so manual adjustments are not overwritten.
-   * Cleared on the next billable-time sync (rebuild replaces the line objects).
+   * Origin of the line. Manual lines are invoice-only and survive billable sync.
+   * Defaults to billable when omitted (legacy rows).
+   */
+  source?: IjpInvoiceLineSource;
+  /**
+   * Set when an editor overrides hours on a billable/gvra line via PATCH.
+   * Sync keeps those hours for the matching entryId; it does not skip the invoice.
    */
   manuallyAdjusted?: boolean;
 };
+
+/** Stable synthetic id for a month's GVRA allowance when no ES entry exists yet. */
+export function ijpGvraAllowanceEntryId(clientId: string, monthStart: string): string {
+  return `gvra-allowance:${clientId}:${serviceMonthStartFromYmd(monthStart)}`;
+}
+
+export function newManualIjpLineEntryId(): string {
+  return `manual:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
+}
+
+export function isManualIjpLine(
+  line: Pick<IjpInvoiceLineItem, "source" | "entryId"> | null | undefined
+): boolean {
+  if (!line) return false;
+  if (line.source === "manual") return true;
+  return typeof line.entryId === "string" && line.entryId.startsWith("manual:");
+}
+
+export function isGvraAllowanceIjpLine(
+  line: Pick<IjpInvoiceLineItem, "source" | "entryId"> | null | undefined
+): boolean {
+  if (!line) return false;
+  if (line.source === "gvra_allowance") return true;
+  return typeof line.entryId === "string" && line.entryId.startsWith("gvra-allowance:");
+}
+
+/** Build an invoice-only manual line (never writes contact logs / ES time). */
+export function createManualIjpInvoiceLine(opts: {
+  serviceDate: string;
+  description: string;
+  hours: number;
+  authorization?: string;
+  hourlyRateCents: number;
+  startTime?: string;
+  endTime?: string;
+  instructorName?: string;
+  entryId?: string;
+}): IjpInvoiceLineItem {
+  const hours = roundIjpLineHours(opts.hours);
+  return {
+    entryId: opts.entryId ?? newManualIjpLineEntryId(),
+    authorization: opts.authorization ?? "",
+    serviceCode: IJP_INVOICE_SERVICE_CODE,
+    description: ijpLineServiceDescription(opts.description),
+    serviceDate: opts.serviceDate,
+    startTime: (opts.startTime ?? "").trim(),
+    endTime: (opts.endTime ?? "").trim(),
+    hours,
+    amountCents: Math.round(hours * opts.hourlyRateCents),
+    instructorName: (opts.instructorName ?? "—").trim() || "—",
+    editable: true,
+    source: "manual",
+  };
+}
+
+/** Synthetic 2-hour Reports allotment dated the last day of the service month. */
+export function createGvraAllowanceIjpInvoiceLine(opts: {
+  clientId: string;
+  monthStart: string;
+  authorization?: string;
+  hourlyRateCents: number;
+  instructorName?: string;
+}): IjpInvoiceLineItem {
+  const monthStart = serviceMonthStartFromYmd(opts.monthStart);
+  const hours = IJP_GVRA_ALLOWANCE_HOURS;
+  return {
+    entryId: ijpGvraAllowanceEntryId(opts.clientId, monthStart),
+    authorization: opts.authorization ?? "",
+    serviceCode: IJP_INVOICE_SERVICE_CODE,
+    description: IJP_GVRA_ALLOWANCE_DESCRIPTION,
+    serviceDate: serviceMonthEndYmd(monthStart),
+    startTime: "—",
+    endTime: "—",
+    hours,
+    amountCents: Math.round(hours * opts.hourlyRateCents),
+    instructorName: (opts.instructorName ?? "—").trim() || "—",
+    editable: true,
+    source: "gvra_allowance",
+  };
+}
+
+/**
+ * Keep at most one GVRA allowance line. Prefer an ES-backed allowance over a
+ * synthetic one. If none exist, append a synthetic last-day-of-month line.
+ */
+export function ensureSingleGvraAllowanceLine(
+  lines: IjpInvoiceLineItem[],
+  opts: {
+    clientId: string;
+    monthStart: string;
+    authorization?: string;
+    hourlyRateCents: number;
+    instructorName?: string;
+  }
+): IjpInvoiceLineItem[] {
+  const monthStart = serviceMonthStartFromYmd(opts.monthStart);
+  const gvra: IjpInvoiceLineItem[] = [];
+  const rest: IjpInvoiceLineItem[] = [];
+  for (const line of lines ?? []) {
+    if (isGvraAllowanceIjpLine(line)) gvra.push({ ...line, source: "gvra_allowance" });
+    else rest.push(line);
+  }
+
+  let chosen: IjpInvoiceLineItem | null = null;
+  for (const line of gvra) {
+    if (!line.entryId.startsWith("gvra-allowance:")) {
+      chosen = {
+        ...line,
+        source: "gvra_allowance",
+        hours: roundIjpLineHours(line.hours) || IJP_GVRA_ALLOWANCE_HOURS,
+        serviceCode: IJP_INVOICE_SERVICE_CODE,
+        description: IJP_GVRA_ALLOWANCE_DESCRIPTION,
+        startTime: line.startTime || "—",
+        endTime: line.endTime || "—",
+      };
+      chosen.amountCents = Math.round(chosen.hours * opts.hourlyRateCents);
+      break;
+    }
+  }
+  if (!chosen && gvra[0]) {
+    chosen = {
+      ...gvra[0],
+      source: "gvra_allowance",
+      entryId: ijpGvraAllowanceEntryId(opts.clientId, monthStart),
+      hours: roundIjpLineHours(gvra[0].hours) || IJP_GVRA_ALLOWANCE_HOURS,
+      serviceDate: serviceMonthEndYmd(monthStart),
+      serviceCode: IJP_INVOICE_SERVICE_CODE,
+      description: IJP_GVRA_ALLOWANCE_DESCRIPTION,
+      startTime: "—",
+      endTime: "—",
+    };
+    chosen.amountCents = Math.round(chosen.hours * opts.hourlyRateCents);
+  }
+  if (!chosen) {
+    chosen = createGvraAllowanceIjpInvoiceLine(opts);
+  }
+
+  return [...rest, chosen];
+}
+
+/**
+ * Merge freshly built billable/gvra lines with prior invoice lines.
+ * Preserves invoice-only manual lines and hour overrides on matching entryIds.
+ */
+export function mergeIjpInvoiceLinesWithManual(
+  builtLines: IjpInvoiceLineItem[],
+  existingLines: IjpInvoiceLineItem[] | null | undefined
+): IjpInvoiceLineItem[] {
+  const existing = existingLines ?? [];
+  const existingById = new Map(existing.map((line) => [line.entryId, line]));
+  const mergedBuilt: IjpInvoiceLineItem[] = [];
+
+  for (const built of builtLines ?? []) {
+    const prev = existingById.get(built.entryId);
+    if (prev?.manuallyAdjusted) {
+      const hours = roundIjpLineHours(prev.hours);
+      mergedBuilt.push({
+        ...built,
+        hours,
+        amountCents: prev.amountCents,
+        manuallyAdjusted: true,
+        description: prev.description || built.description,
+        startTime: prev.startTime || built.startTime,
+        endTime: prev.endTime || built.endTime,
+        source: built.source ?? prev.source ?? "billable",
+      });
+    } else {
+      mergedBuilt.push({
+        ...built,
+        source: built.source ?? (isGvraAllowanceIjpLine(built) ? "gvra_allowance" : "billable"),
+      });
+    }
+  }
+
+  const builtIds = new Set(mergedBuilt.map((line) => line.entryId));
+  const manuals = existing.filter(
+    (line) => isManualIjpLine(line) && !builtIds.has(line.entryId)
+  ).map((line) => ({
+    ...line,
+    source: "manual" as const,
+    serviceCode: IJP_INVOICE_SERVICE_CODE,
+    hours: roundIjpLineHours(line.hours),
+  }));
+
+  return [...mergedBuilt, ...manuals];
+}
 
 /**
  * Round billable minutes to the nearest half hour (0.5 hr / 30 min), round-half-up.
@@ -119,13 +323,39 @@ export function invoiceLinesAreManuallyAdjusted(
   return (lines ?? []).some((line) => line?.manuallyAdjusted === true);
 }
 
-/** Mark lines as manually adjusted after an editor saves hours. */
+/**
+ * Normalize lines after an editor PATCH: snap hours, keep source markers, and
+ * flag non-manual lines as manuallyAdjusted so sync preserves hour overrides.
+ */
 export function markIjpLinesManuallyAdjusted(lines: IjpInvoiceLineItem[]): IjpInvoiceLineItem[] {
-  return (lines ?? []).map((line) => ({
-    ...line,
-    hours: roundIjpLineHours(line.hours),
-    manuallyAdjusted: true,
-  }));
+  return (lines ?? []).map((line) => {
+    const hours = roundIjpLineHours(line.hours);
+    if (isManualIjpLine(line)) {
+      return {
+        ...line,
+        hours,
+        source: "manual" as const,
+        serviceCode: IJP_INVOICE_SERVICE_CODE,
+        manuallyAdjusted: undefined,
+      };
+    }
+    if (isGvraAllowanceIjpLine(line)) {
+      return {
+        ...line,
+        hours,
+        source: "gvra_allowance" as const,
+        serviceCode: IJP_INVOICE_SERVICE_CODE,
+        manuallyAdjusted: true,
+      };
+    }
+    return {
+      ...line,
+      hours,
+      source: line.source ?? "billable",
+      serviceCode: IJP_INVOICE_SERVICE_CODE,
+      manuallyAdjusted: true,
+    };
+  });
 }
 
 /**
@@ -193,6 +423,8 @@ export async function buildIjpInvoiceLineItems(
     const activity = parseActivityEmbed(
       row.service_activity_types as Parameters<typeof parseActivityEmbed>[0]
     );
+    const flags = (row.flags as Record<string, boolean> | null) ?? {};
+    const isGvra = flags.gvra_monthly_admin_allowance === true;
     const billable = entryCountsTowardClientBillableWithActivity(
       row as ClientBillableEntry,
       activity
@@ -202,13 +434,15 @@ export async function buildIjpInvoiceLineItems(
     const hours = roundIjpLineHoursFromMinutes(minutes);
     const amountCents = Math.round(hours * opts.hourlyRateCents);
 
-    const description = ijpLineServiceDescription(activity?.name);
+    const description = isGvra
+      ? IJP_GVRA_ALLOWANCE_DESCRIPTION
+      : ijpLineServiceDescription(activity?.name);
     let startTime = "";
     let endTime = "";
     if (row.service_start_at && row.service_end_at) {
       startTime = formatServiceTimeOfDay(row.service_start_at as string);
       endTime = formatServiceTimeOfDay(row.service_end_at as string);
-    } else if ((row.flags as Record<string, boolean>)?.gvra_monthly_admin_allowance) {
+    } else if (isGvra) {
       startTime = "—";
       endTime = "—";
     }
@@ -226,6 +460,7 @@ export async function buildIjpInvoiceLineItems(
       amountCents,
       instructorName: opts.esNameByUserId.get(esUserId) ?? "—",
       editable: true,
+      source: isGvra ? "gvra_allowance" : "billable",
     });
   }
 
@@ -293,17 +528,21 @@ export function recalcLineAmount(line: IjpInvoiceLineItem, hourlyRateCents: numb
   };
 }
 
-/** Draft / non-compiled / non-archived invoices are eligible for billable-line auto-refresh. */
+/**
+ * Draft / non-compiled / non-archived invoices are eligible for billable-line
+ * auto-refresh. Manual invoice-only lines and hour overrides are preserved by
+ * mergeIjpInvoiceLinesWithManual — they no longer block refresh.
+ */
 export function isIjpInvoiceEligibleForDraftLineRefresh(invoice: {
   status?: string | null;
   compiled_at?: string | null;
   archived_at?: string | null;
-  line_items?: Array<Pick<IjpInvoiceLineItem, "manuallyAdjusted"> | null | undefined> | null;
+  line_items?: Array<Pick<IjpInvoiceLineItem, "manuallyAdjusted" | "source" | "entryId"> | null | undefined> | null;
 }): boolean {
+  void invoice.line_items;
   if ((invoice.status ?? "draft") !== "draft") return false;
   if (invoice.compiled_at) return false;
   if (invoice.archived_at) return false;
-  if (invoiceLinesAreManuallyAdjusted(invoice.line_items)) return false;
   return true;
 }
 
