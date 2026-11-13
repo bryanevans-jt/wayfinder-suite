@@ -3,11 +3,18 @@ import { describe, it } from "node:test";
 import {
   buildIjpInvoiceHeaderPlaceholders,
   ceilIjpTotalHours,
+  createManualIjpInvoiceLine,
+  ensureSingleGvraAllowanceLine,
+  IJP_GVRA_ALLOWANCE_DESCRIPTION,
+  IJP_GVRA_ALLOWANCE_HOURS,
   IJP_INVOICE_SERVICE_CODE,
+  ijpGvraAllowanceEntryId,
   ijpLineServiceDescription,
   invoiceLinesAreManuallyAdjusted,
   isIjpInvoiceEligibleForDraftLineRefresh,
+  isManualIjpLine,
   markIjpLinesManuallyAdjusted,
+  mergeIjpInvoiceLinesWithManual,
   roundIjpLineHours,
   roundIjpLineHoursFromMinutes,
   sumIjpLineItems,
@@ -27,6 +34,7 @@ function line(partial: Partial<IjpInvoiceLineItem> & { hours: number }): IjpInvo
     amountCents: partial.amountCents ?? Math.round(partial.hours * 6000),
     instructorName: partial.instructorName ?? "ES",
     editable: partial.editable ?? true,
+    source: partial.source,
     manuallyAdjusted: partial.manuallyAdjusted,
   };
 }
@@ -76,7 +84,7 @@ describe("manual adjustment markers", () => {
     assert.equal(marked[0].manuallyAdjusted, true);
   });
 
-  it("skips draft auto-refresh when compiled, archived, non-draft, or manually adjusted", () => {
+  it("skips draft auto-refresh when compiled, archived, or non-draft (manual lines no longer block)", () => {
     assert.equal(isIjpInvoiceEligibleForDraftLineRefresh({ status: "draft" }), true);
     assert.equal(
       isIjpInvoiceEligibleForDraftLineRefresh({ status: "draft", compiled_at: "2026-11-01" }),
@@ -90,10 +98,94 @@ describe("manual adjustment markers", () => {
     assert.equal(
       isIjpInvoiceEligibleForDraftLineRefresh({
         status: "draft",
-        line_items: [line({ hours: 1, manuallyAdjusted: true })],
+        line_items: [line({ hours: 1, manuallyAdjusted: true, source: "manual" })],
       }),
-      false
+      true
     );
+  });
+});
+
+describe("manual invoice-only lines and GVRA allowance merge", () => {
+  it("creates manual lines marked source=manual with half-hour hours", () => {
+    const manual = createManualIjpInvoiceLine({
+      serviceDate: "2026-11-12",
+      description: " Job Canvassing ",
+      hours: 1.2,
+      hourlyRateCents: 6000,
+    });
+    assert.equal(manual.source, "manual");
+    assert.equal(isManualIjpLine(manual), true);
+    assert.equal(manual.hours, 1.0);
+    assert.equal(manual.serviceCode, "00270");
+    assert.equal(manual.description, "Job Canvassing");
+    assert.match(manual.entryId, /^manual:/);
+  });
+
+  it("preserves manual lines across billable rebuild merge", () => {
+    const built = [line({ entryId: "es-1", hours: 1.5, source: "billable" })];
+    const existing = [
+      line({ entryId: "es-1", hours: 2, source: "billable", manuallyAdjusted: true }),
+      createManualIjpInvoiceLine({
+        entryId: "manual:keep-me",
+        serviceDate: "2026-11-10",
+        description: "Extra coaching",
+        hours: 1,
+        hourlyRateCents: 6000,
+      }),
+    ];
+    const merged = mergeIjpInvoiceLinesWithManual(built, existing);
+    assert.equal(merged.length, 2);
+    assert.equal(merged[0].hours, 2);
+    assert.equal(merged[0].manuallyAdjusted, true);
+    assert.equal(merged[1].entryId, "manual:keep-me");
+    assert.equal(merged[1].source, "manual");
+  });
+
+  it("ensures exactly one GVRA Reports allowance line dated last day of month", () => {
+    const withEs = ensureSingleGvraAllowanceLine(
+      [
+        line({
+          entryId: "es-gvra",
+          hours: 2,
+          source: "gvra_allowance",
+          serviceDate: "2026-11-30",
+          description: "Case file review / documentation",
+        }),
+        line({
+          entryId: ijpGvraAllowanceEntryId("client-1", "2026-11-01"),
+          hours: 2,
+          source: "gvra_allowance",
+          serviceDate: "2026-11-30",
+        }),
+        line({ entryId: "es-other", hours: 1, source: "billable" }),
+      ],
+      { clientId: "client-1", monthStart: "2026-11-01", hourlyRateCents: 6000 }
+    );
+    const gvra = withEs.filter((l) => l.source === "gvra_allowance");
+    assert.equal(gvra.length, 1);
+    assert.equal(gvra[0].entryId, "es-gvra");
+    assert.equal(gvra[0].hours, IJP_GVRA_ALLOWANCE_HOURS);
+    assert.equal(gvra[0].description, IJP_GVRA_ALLOWANCE_DESCRIPTION);
+
+    const injected = ensureSingleGvraAllowanceLine(
+      [line({ entryId: "es-other", hours: 1, source: "billable" })],
+      { clientId: "client-1", monthStart: "2026-11-01", hourlyRateCents: 6000 }
+    );
+    const only = injected.filter((l) => l.source === "gvra_allowance");
+    assert.equal(only.length, 1);
+    assert.equal(only[0].serviceDate, "2026-11-30");
+    assert.equal(only[0].hours, 2);
+    assert.equal(only[0].entryId, ijpGvraAllowanceEntryId("client-1", "2026-11-01"));
+  });
+
+  it("counts the GVRA allowance once in ceiled totals", () => {
+    const lines = ensureSingleGvraAllowanceLine(
+      [line({ entryId: "a", hours: 1.5, source: "billable" })],
+      { clientId: "c", monthStart: "2026-11-01", hourlyRateCents: 6000 }
+    );
+    const totals = sumIjpLineItems(lines, 6000);
+    assert.equal(totals.totalHours, 4); // 1.5 + 2.0 = 3.5 → 4
+    assert.equal(totals.totalAmountCents, 24000);
   });
 });
 

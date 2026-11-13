@@ -307,7 +307,7 @@ function sectionsForRole(role: string | null): Section[] {
           "Accounts Specialist tools focus on intake billing, IJP billing, timesheets, Time Clock, and payment/billing exports. Community Partners is shared reference data.",
         steps: [
           "Accounts → Intake Billing (this is your home screen after login).",
-          "Accounts → IJP Billing — add and edit GA IJP invoices (line hours nearest half hour; totals round up to whole hours). Draft lines auto-refresh from billable time when you open the month.",
+          "Accounts → IJP Billing — add and edit GA IJP invoices (line hours nearest half hour; totals round up to whole hours). Draft lines auto-refresh from billable time when you open the month. Editors can add invoice-only manual lines that do not create contact logs; each invoice includes the 2-hour GVRA Reports allowance on the last day of the month.",
           "Accounts → Weekly Timesheet, Time Clock, Download Exports.",
           "Account → My Profile to update your name, city, and contact details.",
           "Reference → Community Partners.",
