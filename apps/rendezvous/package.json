@@ -1,6 +1,6 @@
 {
   "name": "@wayfinder/rendezvous",
-  "version": "1.2.5",
+  "version": "1.3.1",
   "private": true,
   "scripts": {
     "dev": "cross-env NEXT_TELEMETRY_DISABLED=1 next dev --port 3003",

@@ -20,7 +20,7 @@ import { createServerClient } from "@wayfinder/supabase";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { isAdminTierRole, roleDisplayName } from "@wayfinder/supabase/roles";
 import { APP_VERSION } from "@wayfinder/branding";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
 export async function GET(request: Request) {
   const route = "api/feedback";
@@ -147,7 +147,11 @@ export async function POST(request: Request) {
       createdAt: data.created_at as string,
       staffAppUrl: webhookConfig.staffAppUrl,
     });
-    void notifyFeedbackWebhook(payload);
+    // Schedule after the response so serverless freeze/abort does not cut off
+    // the Radar POST (production saw AbortError with fire-and-forget void).
+    after(() => {
+      void notifyFeedbackWebhook(payload);
+    });
 
     return NextResponse.json({
       ok: true,
