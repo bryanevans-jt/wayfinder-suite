@@ -67,7 +67,10 @@ const PORTAL_PREFIXES = [
 /** Pre-ETS-only staff (Transition Instructor / legacy instructor) may use these paths only. */
 const PRE_ETS_INSTRUCTOR_ALLOWED_PREFIXES = [
   "/dashboard/pre-ets",
+  "/dashboard/feedback",
+  "/dashboard/help",
   "/api/pre-ets",
+  "/api/feedback",
   "/api/profile",
   "/api/notifications",
   "/api/pre-ets-access",
@@ -175,6 +178,12 @@ const helpNav: StaffNavItem = {
   match: (p) => p === "/dashboard/help",
 };
 
+const feedbackNav: StaffNavItem = {
+  href: "/dashboard/feedback",
+  label: "Report a problem or suggest a feature",
+  match: (p) => p.startsWith("/dashboard/feedback"),
+};
+
 const coreFourNav: StaffNavItem = {
   href: "/dashboard/core-four",
   label: "Core Four",
@@ -231,10 +240,14 @@ function withCultureAndHelp(sections: StaffNavSection[]): StaffNavSection[] {
 }
 
 function withHelpSections(sections: StaffNavSection[]): StaffNavSection[] {
-  if (sections.some((s) => s.items.some((i) => i.href === helpNav.href))) {
-    return sections;
+  let out = sections;
+  if (!out.some((s) => s.items.some((i) => i.href === helpNav.href))) {
+    out = [...out, { items: [helpNav] }];
   }
-  return [...sections, { items: [helpNav] }];
+  if (!out.some((s) => s.items.some((i) => i.href === feedbackNav.href))) {
+    out = [...out, { items: [feedbackNav] }];
+  }
+  return out;
 }
 
 function withHelpAndProfile(sections: StaffNavSection[], role: string | null): StaffNavSection[] {
