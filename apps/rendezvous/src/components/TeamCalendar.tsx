@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { PORTAL_DISPLAY_TIME_ZONE } from "@wayfinder/branding";
+import {
+  resolveTeamCalendarPeoplePickerIds,
+  type TeamCalendarStaffMember,
+} from "@/lib/team-calendar-staff";
 
 type Booking = {
   id: string;
@@ -68,6 +72,7 @@ export function TeamCalendar() {
   const [view, setView] = useState<ViewMode>("week");
   const [anchor, setAnchor] = useState(() => new Date());
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [staff, setStaff] = useState<TeamCalendarStaffMember[]>([]);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -83,22 +88,36 @@ export function TeamCalendar() {
         to: to.toISOString(),
       });
       const res = await fetch(`/api/calendar?${params}`);
-      const data = (await res.json()) as { bookings?: Booking[]; error?: string };
+      const data = (await res.json()) as {
+        bookings?: Booking[];
+        staff?: TeamCalendarStaffMember[];
+        error?: string;
+      };
       if (!res.ok) {
         setError(data.error || "Unable To Load Calendar");
         setBookings([]);
+        setStaff([]);
       } else {
         setBookings(data.bookings ?? []);
+        setStaff(data.staff ?? []);
       }
       setLoading(false);
     })();
   }, [from, to]);
 
   const people = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const b of bookings) map.set(b.staff_user_id, b.staffName);
-    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]));
-  }, [bookings]);
+    const ids = resolveTeamCalendarPeoplePickerIds({
+      staff,
+      bookingStaffUserIds: bookings.map((b) => b.staff_user_id),
+    });
+    const nameById = new Map(staff.map((s) => [s.id, s.name]));
+    for (const b of bookings) {
+      if (!nameById.has(b.staff_user_id)) nameById.set(b.staff_user_id, b.staffName);
+    }
+    return ids
+      .map((id) => [id, nameById.get(id) || "Staff"] as const)
+      .sort((a, b) => a[1].localeCompare(b[1]));
+  }, [staff, bookings]);
 
   const colorByStaff = useMemo(() => {
     const map = new Map<string, string>();
@@ -179,7 +198,11 @@ export function TeamCalendar() {
         {visible.length === 0 && !loading ? (
           <div className="rv-panel rounded-3xl px-6 py-14 text-center">
             <p className="rv-display text-2xl">No Bookings In This Range</p>
-            <p className="mt-2 text-brand-black/65">Try another day, week, or month.</p>
+            <p className="mt-2 text-brand-black/65">
+              {people.length > 1
+                ? "Team members are listed above — try another day, week, or month, or toggle people."
+                : "Try another day, week, or month."}
+            </p>
           </div>
         ) : null}
         {visible.map((b) => (
