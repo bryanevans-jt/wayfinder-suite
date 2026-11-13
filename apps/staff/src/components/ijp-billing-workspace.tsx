@@ -73,6 +73,38 @@ export function IjpBillingWorkspace() {
   const [detailAuth, setDetailAuth] = useState("");
   const [detailInvoiceDate, setDetailInvoiceDate] = useState("");
   const [hourlyRateCents, setHourlyRateCents] = useState(6000);
+  const [completeness, setCompleteness] = useState<{
+    clientsWithBillableHours: number;
+    invoicesPresent: number;
+    missingCount: number;
+    complete: boolean;
+    missingClients: Array<{ id: string; name: string }>;
+  } | null>(null);
+
+  const loadCompleteness = useCallback(async () => {
+    const res = await fetch(
+      `/api/ijp-billing/completeness?month=${encodeURIComponent(month)}`
+    );
+    const data = (await res.json()) as {
+      clientsWithBillableHours?: number;
+      invoicesPresent?: number;
+      missingCount?: number;
+      complete?: boolean;
+      missingClients?: Array<{ id: string; name: string }>;
+      error?: string;
+    };
+    if (!res.ok) {
+      setCompleteness(null);
+      return;
+    }
+    setCompleteness({
+      clientsWithBillableHours: data.clientsWithBillableHours ?? 0,
+      invoicesPresent: data.invoicesPresent ?? 0,
+      missingCount: data.missingCount ?? 0,
+      complete: Boolean(data.complete),
+      missingClients: data.missingClients ?? [],
+    });
+  }, [month]);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/ijp-billing/invoices?month=${encodeURIComponent(month)}`);
@@ -119,14 +151,24 @@ export function IjpBillingWorkspace() {
         hourlyRateCents?: number;
       };
       const editAllowed = Boolean(json.canEdit);
-      setCanTest(json.role === "super_admin" || json.role === "admin");
+      const isAdmin = json.role === "super_admin" || json.role === "admin";
+      setCanTest(isAdmin);
       setCanEdit(editAllowed);
       if (typeof json.hourlyRateCents === "number" && json.hourlyRateCents > 0) {
         setHourlyRateCents(json.hourlyRateCents);
       }
       await refreshDraftsThenLoad(editAllowed);
+      if (isAdmin) await loadCompleteness();
     })();
-  }, [refreshDraftsThenLoad]);
+  }, [loadCompleteness, refreshDraftsThenLoad]);
+
+  useEffect(() => {
+    if (!canTest) {
+      setCompleteness(null);
+      return;
+    }
+    void loadCompleteness();
+  }, [canTest, loadCompleteness, month]);
 
   async function fetchInvoiceLines(id: string): Promise<IjpInvoiceLineItem[] | null> {
     const res = await fetch(`/api/ijp-billing/invoices/${id}`);
@@ -349,27 +391,99 @@ export function IjpBillingWorkspace() {
             className="rounded-lg border border-neutral-300 px-4 py-2 text-sm"
             onClick={async () => {
               setBusy(true);
-              const res = await fetch("/api/ijp-billing/generate-month", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ serviceMonth: month, compile: true }),
-              });
-              setBusy(false);
-              const data = (await res.json()) as { error?: string; rows?: number; compiled?: number };
-              if (!res.ok) {
-                setError(data.error ?? USER_FACING_SYSTEM_ERROR);
-                return;
+              setError(null);
+              try {
+                let phase: "rows" | "compile" = "rows";
+                let offset = 0;
+                let created = 0;
+                let refreshed = 0;
+                let compiled = 0;
+                let total = 0;
+                let safety = 0;
+                while (safety < 500) {
+                  safety += 1;
+                  const res = await fetch("/api/ijp-billing/generate-month", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      serviceMonth: month,
+                      phase,
+                      offset,
+                    }),
+                  });
+                  const data = (await res.json()) as {
+                    error?: string;
+                    created?: number;
+                    refreshed?: number;
+                    compiled?: number;
+                    total?: number;
+                    done?: boolean;
+                    nextOffset?: number | null;
+                    phase?: "rows" | "compile";
+                  };
+                  if (!res.ok) {
+                    setError(data.error ?? USER_FACING_SYSTEM_ERROR);
+                    return;
+                  }
+                  created += data.created ?? 0;
+                  refreshed += data.refreshed ?? 0;
+                  compiled += data.compiled ?? 0;
+                  total = data.total ?? total;
+                  if (data.done) {
+                    if (phase === "rows") {
+                      phase = "compile";
+                      offset = 0;
+                      continue;
+                    }
+                    break;
+                  }
+                  offset = data.nextOffset ?? offset;
+                }
+                setMessage(
+                  `Month generate finished for ${total} billable-hours client(s): created ${created}, refreshed ${refreshed}, compiled ${compiled} PDF(s).`
+                );
+                await load();
+                await loadCompleteness();
+              } finally {
+                setBusy(false);
               }
-              setMessage(
-                `Generated ${data.rows ?? 0} invoice row(s); compiled ${data.compiled ?? 0} PDF(s).`
-              );
-              void load();
             }}
           >
             Generate month
           </button>
         ) : null}
       </div>
+
+      {canTest && completeness ? (
+        <div
+          className={`rounded-xl border px-4 py-3 text-sm ${
+            completeness.complete
+              ? "border-emerald-200 bg-emerald-50 text-emerald-950"
+              : "border-amber-200 bg-amber-50 text-amber-950"
+          }`}
+        >
+          <p className="font-semibold">
+            Completeness (billable hours → invoices)
+          </p>
+          <p className="mt-1">
+            {completeness.invoicesPresent} of {completeness.clientsWithBillableHours} clients with
+            billable hours have an invoice
+            {completeness.complete
+              ? " — complete."
+              : ` — ${completeness.missingCount} missing.`}
+          </p>
+          {!completeness.complete && completeness.missingClients.length > 0 ? (
+            <ul className="mt-2 list-disc space-y-0.5 pl-5">
+              {completeness.missingClients.slice(0, 40).map((c) => (
+                <li key={c.id}>{c.name}</li>
+              ))}
+              {completeness.missingClients.length > 40 ? (
+                <li>…and {completeness.missingClients.length - 40} more</li>
+              ) : null}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
 
       {canEdit ? (
         <div className="flex flex-wrap items-end gap-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-50/80 p-4">

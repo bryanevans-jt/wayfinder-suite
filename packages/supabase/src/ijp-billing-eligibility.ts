@@ -344,7 +344,85 @@ export function filterClientIdsWithBillableTime(
   return ids;
 }
 
-export async function loadEligibleIjpClientIdsForMonth(
+/** Sorted unique union — used for month eligibility (hours ∪ IJP-episode). */
+export function unionClientIdLists(...lists: Array<readonly string[]>): string[] {
+  return Array.from(new Set(lists.flat().filter(Boolean))).sort();
+}
+
+/**
+ * Sum billable hours from time-entry rows (same billable rules as invoice lines).
+ * Pure helper for tests / completeness.
+ */
+export function sumBillableHoursFromEntries(rows: BillableTimeEntryRow[]): number {
+  let minutes = 0;
+  for (const row of rows) {
+    const embed = row.service_activity_types;
+    const activity = Array.isArray(embed) ? embed[0] : embed;
+    if (
+      entryCountsTowardClientBillableWithActivity(row as ClientBillableEntry, activity) &&
+      (row.duration_minutes as number) > 0
+    ) {
+      minutes += Number(row.duration_minutes) || 0;
+    }
+  }
+  return minutes / 60;
+}
+
+/**
+ * Every client with billable `es_time_entries` in the service month.
+ * Includes archived / closed / discarded / any current service or assignee role.
+ * Excludes demo clients only.
+ */
+export async function loadClientIdsWithBillableHoursInMonth(
+  admin: SupabaseClient,
+  monthStart: string
+): Promise<string[]> {
+  const month = serviceMonthStartFromYmd(monthStart);
+  const monthEnd = serviceMonthEndYmd(month);
+  const rows = await fetchAllPostgrestRows<
+    BillableTimeEntryRow & { client_id: string }
+  >(admin, "es_time_entries", "client_id, duration_minutes, flags, client_present, delivery_mode, service_date, status, service_activity_types ( code, counts_toward_client_billable )", {
+    order: [
+      { column: "client_id", ascending: true },
+      { column: "service_date", ascending: true },
+    ],
+    applyFilters: (query) =>
+      query
+        .neq("status", "rejected")
+        .gte("service_date", month)
+        .lte("service_date", monthEnd),
+  });
+
+  const byClient: Record<string, BillableTimeEntryRow[]> = {};
+  for (const row of rows) {
+    const clientId = row.client_id as string;
+    if (!clientId) continue;
+    const list = byClient[clientId] ?? [];
+    list.push(row);
+    byClient[clientId] = list;
+  }
+
+  const withHours = filterClientIdsWithBillableTime(byClient);
+  if (withHours.length === 0) return [];
+
+  const profiles = await fetchAllPostgrestRowsByIn<{
+    id: string;
+    is_demo: boolean | null;
+  }>(admin, "clients", "id, is_demo", "id", withHours, {
+    order: { column: "id", ascending: true },
+  });
+  const demoIds = new Set(
+    profiles.filter((p) => p.is_demo === true).map((p) => p.id as string)
+  );
+  return withHours.filter((id) => !demoIds.has(id)).sort();
+}
+
+/**
+ * IJP-episode / current-service eligibility for the month (existing logic).
+ * Demo clients excluded. Archived/discarded are kept when episodes overlap
+ * (or when current service is IJP and not archived-before-month).
+ */
+export async function loadIjpEpisodeEligibleClientIdsForMonth(
   admin: SupabaseClient,
   monthStart: string
 ): Promise<string[]> {
@@ -357,8 +435,7 @@ export async function loadEligibleIjpClientIdsForMonth(
     "id",
     {
       order: { column: "id", ascending: true },
-      applyFilters: (query) =>
-        query.eq("is_demo", false).neq("intake_status", "discarded"),
+      applyFilters: (query) => query.eq("is_demo", false),
     }
   );
 
@@ -366,7 +443,67 @@ export async function loadEligibleIjpClientIdsForMonth(
   if (ids.length === 0) return [];
 
   const snapshots = await loadGaIjpEligibilitySnapshots(admin, ids, gaIjpServiceIds);
-  return filterClientIdsOnGaIjpDuringMonth(snapshots, monthStart, gaIjpServiceIds);
+  return filterClientIdsOnGaIjpDuringMonth(snapshots, monthStart, gaIjpServiceIds).sort();
+}
+
+/**
+ * Month eligibility = union of:
+ * - clients with billable hours in the month (any archive/service/assignee), and
+ * - current IJP-episode / current-service logic.
+ *
+ * Generate Month still skips creating empty invoices for no-hours clients.
+ */
+export async function loadEligibleIjpClientIdsForMonth(
+  admin: SupabaseClient,
+  monthStart: string
+): Promise<string[]> {
+  const [hoursIds, episodeIds] = await Promise.all([
+    loadClientIdsWithBillableHoursInMonth(admin, monthStart),
+    loadIjpEpisodeEligibleClientIdsForMonth(admin, monthStart),
+  ]);
+  return unionClientIdLists(hoursIds, episodeIds);
+}
+
+export type IjpBillingMonthCompleteness = {
+  serviceMonth: string;
+  clientsWithBillableHours: number;
+  invoicesPresent: number;
+  missingClientIds: string[];
+  missingCount: number;
+  complete: boolean;
+};
+
+/**
+ * Completeness for admins: every client with billable hours should have an invoice row.
+ */
+export async function loadIjpBillingMonthCompleteness(
+  admin: SupabaseClient,
+  monthStart: string,
+  opts?: { isTest?: boolean }
+): Promise<IjpBillingMonthCompleteness> {
+  const month = serviceMonthStartFromYmd(monthStart);
+  const isTest = opts?.isTest === true;
+  const hoursIds = await loadClientIdsWithBillableHoursInMonth(admin, month);
+  const invoices = await fetchAllPostgrestRows<{ client_id: string }>(
+    admin,
+    "ijp_billing_invoices",
+    "client_id",
+    {
+      order: { column: "client_id", ascending: true },
+      applyFilters: (query) =>
+        query.eq("service_month", month).eq("is_test", isTest),
+    }
+  );
+  const present = new Set(invoices.map((row) => row.client_id as string).filter(Boolean));
+  const missingClientIds = hoursIds.filter((id) => !present.has(id));
+  return {
+    serviceMonth: month,
+    clientsWithBillableHours: hoursIds.length,
+    invoicesPresent: hoursIds.filter((id) => present.has(id)).length,
+    missingClientIds,
+    missingCount: missingClientIds.length,
+    complete: missingClientIds.length === 0,
+  };
 }
 
 export function attestationCaptureWindowOpen(monthStart: string, now = new Date()): boolean {

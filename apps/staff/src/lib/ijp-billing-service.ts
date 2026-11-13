@@ -233,6 +233,22 @@ export async function syncIjpInvoiceLineItemsFromBillable(
   };
 }
 
+/**
+ * Locked for auto line refresh (Generate Month / cron):
+ * - status `ready` or `archived`
+ * - any row with `compiled_at` set (compiled draft PDF)
+ * - any row with `archived_at` set
+ * There is no separate submitted/paid status in schema; compiled + ready/archived
+ * are treated as locked so we never rewrite finalized packets.
+ */
+export function isIjpInvoiceLockedForMonthLineRefresh(invoice: {
+  status?: string | null;
+  compiled_at?: string | null;
+  archived_at?: string | null;
+}): boolean {
+  return !isIjpInvoiceEligibleForDraftLineRefresh(invoice);
+}
+
 export async function ensureIjpInvoiceRow(
   admin: SupabaseClient,
   opts: {
@@ -241,31 +257,69 @@ export async function ensureIjpInvoiceRow(
     isTest: boolean;
     settings: IjpBillingSettingsRow;
     forceRefresh?: boolean;
+    /** When true, rebuild lines for unlocked (draft, uncompiled, unarchived) rows. */
+    refreshIfUnlocked?: boolean;
   }
-): Promise<{ id: string; line_items: IjpInvoiceLineItem[] }> {
+): Promise<{
+  id: string;
+  line_items: IjpInvoiceLineItem[];
+  refreshed: boolean;
+  created: boolean;
+  locked: boolean;
+}> {
   if (opts.forceRefresh) {
     const synced = await syncIjpInvoiceLineItemsFromBillable(admin, opts);
-    return { id: synced.id, line_items: synced.line_items };
+    return {
+      id: synced.id,
+      line_items: synced.line_items,
+      refreshed: true,
+      created: false,
+      locked: false,
+    };
   }
 
   const monthStart = serviceMonthStartFromYmd(opts.serviceMonth);
   const { data: existing } = await admin
     .from("ijp_billing_invoices")
-    .select("id, line_items")
+    .select("id, line_items, status, compiled_at, archived_at")
     .eq("client_id", opts.clientId)
     .eq("service_month", monthStart)
     .eq("is_test", opts.isTest)
     .maybeSingle();
 
   if (existing?.id) {
+    const locked = isIjpInvoiceLockedForMonthLineRefresh({
+      status: existing.status as string | null,
+      compiled_at: existing.compiled_at as string | null,
+      archived_at: existing.archived_at as string | null,
+    });
+    if (opts.refreshIfUnlocked && !locked) {
+      const synced = await syncIjpInvoiceLineItemsFromBillable(admin, opts);
+      return {
+        id: synced.id,
+        line_items: synced.line_items,
+        refreshed: true,
+        created: false,
+        locked: false,
+      };
+    }
     return {
       id: existing.id as string,
       line_items: (existing.line_items as IjpInvoiceLineItem[]) ?? [],
+      refreshed: false,
+      created: false,
+      locked,
     };
   }
 
   const synced = await syncIjpInvoiceLineItemsFromBillable(admin, opts);
-  return { id: synced.id, line_items: synced.line_items };
+  return {
+    id: synced.id,
+    line_items: synced.line_items,
+    refreshed: false,
+    created: true,
+    locked: false,
+  };
 }
 
 export type IjpDraftMonthRefreshResult = {

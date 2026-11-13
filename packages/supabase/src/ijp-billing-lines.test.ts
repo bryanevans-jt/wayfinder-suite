@@ -95,6 +95,16 @@ describe("manual adjustment markers", () => {
       false
     );
     assert.equal(isIjpInvoiceEligibleForDraftLineRefresh({ status: "ready" }), false);
+    // Locked for Generate Month refresh = not draft-eligible (ready/compiled/archived).
+    // Schema has no submitted/paid status; those finalize states map to ready + compiled_at.
+    assert.equal(
+      !isIjpInvoiceEligibleForDraftLineRefresh({ status: "ready", compiled_at: "2026-11-01" }),
+      true
+    );
+    assert.equal(
+      !isIjpInvoiceEligibleForDraftLineRefresh({ status: "archived" }),
+      true
+    );
     assert.equal(
       isIjpInvoiceEligibleForDraftLineRefresh({
         status: "draft",
