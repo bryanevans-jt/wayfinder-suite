@@ -59,6 +59,7 @@
     "./referral-intake": "./src/referral-intake.ts",
     "./referral-authorization-fields": "./src/referral-authorization-fields.ts",
     "./authorization-warnings": "./src/authorization-warnings.ts",
+    "./authorization-warnings-shared": "./src/authorization-warnings-shared.ts",
     "./prior-enrollment-search": "./src/prior-enrollment-search.ts",
     "./referral-field-specialists": "./src/referral-field-specialists.ts",
     "./referral-services": "./src/referral-services.ts",

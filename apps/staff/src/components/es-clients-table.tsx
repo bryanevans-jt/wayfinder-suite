@@ -11,7 +11,7 @@ import {
 } from "@/components/responsive-table-shell";
 import { EsNaturalSupportButton } from "@/app/dashboard/clients/es-natural-support-button";
 import { restoreArchivedClient } from "@/app/dashboard/clients/[id]/actions";
-import type { AuthorizationWarningEvaluation } from "@wayfinder/supabase/authorization-warnings";
+import type { AuthorizationWarningListFlag } from "@wayfinder/supabase/authorization-warnings-shared";
 import type { CaseloadTriageFlag } from "@wayfinder/supabase/caseload-triage";
 import { friendlyClientError } from "@wayfinder/supabase/error-log";
 import { AuthorizationWarningBadge } from "@/components/authorization-warning-badge";
@@ -31,7 +31,7 @@ export type EsClientListRow = {
   triageFlags: CaseloadTriageFlag[];
   ijpSignatureMonthLabel?: string | null;
   ijpCollectSignatureOpen?: boolean;
-  authorizationWarning?: AuthorizationWarningEvaluation | null;
+  authorizationWarning?: AuthorizationWarningListFlag | null;
 };
 
 type Props = {
@@ -119,7 +119,7 @@ export function EsClientsTable({ clients, includeArchived, canManageSupport }: P
                       {c.displayName}
                     </Link>
                     <CaseloadTriageIcons flags={c.triageFlags} />
-                    <AuthorizationWarningBadge evaluation={c.authorizationWarning} />
+                    <AuthorizationWarningBadge flag={c.authorizationWarning} />
                     {c.ijpSignatureMonthLabel ? (
                       <span
                         className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900"

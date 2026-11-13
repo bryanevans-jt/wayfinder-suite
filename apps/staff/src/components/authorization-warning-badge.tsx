@@ -1,21 +1,16 @@
-import type { AuthorizationWarningEvaluation } from "@wayfinder/supabase/authorization-warnings";
-import {
-  authorizationWarningListLabel,
-  authorizationWarningTone,
-} from "@wayfinder/supabase/authorization-warnings";
+import type { AuthorizationWarningListFlag } from "@wayfinder/supabase/authorization-warnings-shared";
 
 type Props = {
-  evaluation?: AuthorizationWarningEvaluation | null;
-  /** Precomputed label from API (portal client lists). */
+  flag?: AuthorizationWarningListFlag | null;
   label?: string | null;
   tone?: "none" | "info" | "warn" | "alert" | null;
 };
 
-export function AuthorizationWarningBadge({ evaluation, label, tone }: Props) {
-  const resolvedLabel = label ?? (evaluation ? authorizationWarningListLabel(evaluation) : null);
+/** Presentational only — must not import server modules (notify-user / web-push). */
+export function AuthorizationWarningBadge({ flag, label, tone }: Props) {
+  const resolvedLabel = label ?? flag?.label ?? null;
   if (!resolvedLabel) return null;
-  const resolvedTone =
-    tone ?? (evaluation ? authorizationWarningTone(evaluation) : "info");
+  const resolvedTone = tone ?? flag?.tone ?? "info";
   const classes =
     resolvedTone === "alert"
       ? "bg-red-100 text-red-800"

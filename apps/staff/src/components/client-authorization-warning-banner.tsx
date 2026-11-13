@@ -1,8 +1,8 @@
-import type { AuthorizationWarningEvaluation } from "@wayfinder/supabase/authorization-warnings";
+import type { AuthorizationWarningEvaluation } from "@wayfinder/supabase/authorization-warnings-shared";
 import {
   authorizationWarningBannerCopy,
   authorizationWarningTone,
-} from "@wayfinder/supabase/authorization-warnings";
+} from "@wayfinder/supabase/authorization-warnings-shared";
 
 type Props = {
   evaluation: AuthorizationWarningEvaluation | null | undefined;

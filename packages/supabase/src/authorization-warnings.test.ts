@@ -8,8 +8,8 @@ import {
   authorizationHoursThresholds,
   authorizationWarningListLabel,
   evaluateAuthorizationWarnings,
-  sumAuthorizationBilledHoursFromEntries,
-} from "./authorization-warnings";
+} from "./authorization-warnings-shared";
+import { sumAuthorizationBilledHoursFromEntries } from "./authorization-warnings";
 
 describe("authorizationHoursThresholds", () => {
   it("uses authorized-5 early and authorized-2 approaching for all IJP variants", () => {

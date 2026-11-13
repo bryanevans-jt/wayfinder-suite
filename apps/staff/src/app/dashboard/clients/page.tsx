@@ -29,8 +29,11 @@ import { loadCaseloadTriageFlags } from "@/lib/caseload-operations";
 import { fetchEsCaseloadClients, getEsCaseloadAdmin } from "@/lib/es-caseload-data";
 import { filterSunsetServices, loadSunsetKeepIds } from "@/lib/sunset-tn";
 import { loadIjpSignatureUiStatusesBatched } from "@/lib/ijp-attestation-status";
-import { syncAuthorizationWarningsForClients } from "@wayfinder/supabase/authorization-warnings";
-import type { AuthorizationWarningEvaluation } from "@wayfinder/supabase/authorization-warnings";
+import {
+  authorizationWarningListFlag,
+  syncAuthorizationWarningsForClients,
+} from "@wayfinder/supabase/authorization-warnings";
+import type { AuthorizationWarningListFlag } from "@wayfinder/supabase/authorization-warnings-shared";
 
 type PageProps = {
   searchParams: Promise<{ archived?: string }>;
@@ -267,9 +270,9 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
     }
   }
 
-  let authorizationWarningsByClient = new Map<string, AuthorizationWarningEvaluation>();
+  const authorizationWarningsByClient = new Map<string, AuthorizationWarningListFlag>();
   if (admin && sortedClients.length > 0) {
-    authorizationWarningsByClient = await syncAuthorizationWarningsForClients(
+    const evaluations = await syncAuthorizationWarningsForClients(
       admin,
       sortedClients.map((c) => ({
         id: c.id,
@@ -284,6 +287,10 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
       // Soft notify assigned ES/TS when thresholds first cross; cheap on caseload load.
       { notify: !session.isPreviewing }
     );
+    for (const [clientId, evaluation] of evaluations) {
+      const flag = authorizationWarningListFlag(evaluation);
+      if (flag) authorizationWarningsByClient.set(clientId, flag);
+    }
   }
 
   return (
