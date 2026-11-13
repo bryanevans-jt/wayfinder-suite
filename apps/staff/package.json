@@ -6,7 +6,8 @@
     "dev": "cross-env NEXT_TELEMETRY_DISABLED=1 next dev --port 3000",
     "build": "next build",
     "start": "next start --port 3000",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node --import tsx --test $(find src -name '*.test.ts')"
   },
   "dependencies": {
     "@wayfinder/auth-ui": "*",
