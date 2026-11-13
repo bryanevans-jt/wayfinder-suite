@@ -471,14 +471,14 @@ export function IjpBillingWorkspace() {
           }`}
         >
           <p className="font-semibold">
-            Completeness (unbilled hours → invoices)
+            Completeness (unbilled IJP hours → invoices)
           </p>
           <p className="mt-1">
             {completeness.invoicesPresent} of {completeness.clientsWithBillableHours} clients with
-            billable hours have an invoice
+            IJP billable hours have an invoice
             {completeness.complete
               ? " — complete."
-              : ` — ${completeness.missingCount} still need generate (unbilled or missing).`}
+              : ` — ${completeness.missingCount} still need generate (unbilled IJP hours or missing).`}
           </p>
           {!completeness.complete && completeness.missingClients.length > 0 ? (
             <ul className="mt-2 list-disc space-y-0.5 pl-5">

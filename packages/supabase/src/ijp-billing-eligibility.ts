@@ -69,11 +69,117 @@ export type GaIjpServiceRow = {
 
 export type BillableTimeEntryRow = ClientBillableEntry & {
   duration_minutes: number;
+  service_date?: string | null;
+  service_episode_id?: string | null;
   service_activity_types?:
     | { code?: string; counts_toward_client_billable?: boolean }
     | { code?: string; counts_toward_client_billable?: boolean }[]
     | null;
 };
+
+/** Episode fields used to attribute a time entry to IJP. */
+export type IjpAttributionEpisode = {
+  id?: string | null;
+  service_id: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+};
+
+/**
+ * Whether a service episode covers a calendar service_date (YYYY-MM-DD).
+ * Open-ended episodes (ended_at null) cover through far future.
+ */
+export function episodeCoversServiceDate(
+  episode: Pick<IjpAttributionEpisode, "started_at" | "ended_at">,
+  serviceDate: string
+): boolean {
+  const start = (episode.started_at ?? "").slice(0, 10);
+  if (!start || !serviceDate) return false;
+  const end = episode.ended_at ? episode.ended_at.slice(0, 10) : "9999-12-31";
+  return start <= serviceDate && end >= serviceDate;
+}
+
+/**
+ * Attribute a time entry to IJP (Individual Job Placement / (GA) / IJP — one service).
+ *
+ * Rules (in order):
+ * 1. If the entry has `service_episode_id`, use that episode's `service_id` only
+ *    (authoritative for mid-period switches — hours follow the episode on the entry).
+ * 2. If the entry has no episode link, attribute to IJP when any of the client's
+ *    IJP service episodes covers the entry's `service_date`.
+ *
+ * Non-IJP episode on the entry → not IJP (other-service hours never land on IJP invoices).
+ */
+export function timeEntryAttributedToIjpService(opts: {
+  serviceDate: string;
+  serviceEpisodeId?: string | null;
+  /** Episode row for the entry's service_episode_id when known. */
+  entryEpisode?: IjpAttributionEpisode | null;
+  clientEpisodes: readonly IjpAttributionEpisode[];
+  ijpServiceIds: string | readonly string[];
+}): boolean {
+  const ijpIds = asIjpServiceIdSet(opts.ijpServiceIds);
+  const serviceDate = (opts.serviceDate ?? "").slice(0, 10);
+  if (!serviceDate || ijpIds.size === 0) return false;
+
+  const episodeId = opts.serviceEpisodeId ?? null;
+  if (episodeId) {
+    const linked =
+      opts.entryEpisode &&
+      (!opts.entryEpisode.id || opts.entryEpisode.id === episodeId)
+        ? opts.entryEpisode
+        : opts.clientEpisodes.find((ep) => ep.id === episodeId) ?? null;
+    if (!linked) return false;
+    return ijpIds.has((linked.service_id as string) ?? "");
+  }
+
+  return opts.clientEpisodes.some(
+    (ep) =>
+      ijpIds.has((ep.service_id as string) ?? "") &&
+      episodeCoversServiceDate(ep, serviceDate)
+  );
+}
+
+/** Billable + IJP-attributed entries (pure; for generate targets / line filters / tests). */
+export function filterIjpAttributedBillableEntries(
+  rows: readonly BillableTimeEntryRow[],
+  opts: {
+    clientEpisodes: readonly IjpAttributionEpisode[];
+    ijpServiceIds: string | readonly string[];
+    episodesById?: Map<string, IjpAttributionEpisode>;
+  }
+): BillableTimeEntryRow[] {
+  const out: BillableTimeEntryRow[] = [];
+  for (const row of rows) {
+    const embed = row.service_activity_types;
+    const activity = Array.isArray(embed) ? embed[0] : embed;
+    if (
+      !entryCountsTowardClientBillableWithActivity(row as ClientBillableEntry, activity) ||
+      !((row.duration_minutes as number) > 0)
+    ) {
+      continue;
+    }
+    const episodeId = row.service_episode_id ?? null;
+    const entryEpisode =
+      episodeId && opts.episodesById
+        ? opts.episodesById.get(episodeId) ?? null
+        : episodeId
+          ? opts.clientEpisodes.find((ep) => ep.id === episodeId) ?? null
+          : null;
+    if (
+      timeEntryAttributedToIjpService({
+        serviceDate: (row.service_date as string) ?? "",
+        serviceEpisodeId: episodeId,
+        entryEpisode,
+        clientEpisodes: opts.clientEpisodes,
+        ijpServiceIds: opts.ijpServiceIds,
+      })
+    ) {
+      out.push(row);
+    }
+  }
+  return out;
+}
 
 /** Pure: client on GA IJP at least one day in the calendar month (episode overlap). */
 export function clientOnGaIjpDuringMonthFromRows(
@@ -368,6 +474,49 @@ export function sumBillableHoursFromEntries(rows: BillableTimeEntryRow[]): numbe
   return minutes / 60;
 }
 
+async function loadClientEpisodesByClientId(
+  admin: SupabaseClient,
+  clientIds: string[]
+): Promise<{
+  byClient: Record<string, IjpAttributionEpisode[]>;
+  byId: Map<string, IjpAttributionEpisode>;
+}> {
+  const uniqueIds = [...new Set(clientIds.filter(Boolean))];
+  const byClient: Record<string, IjpAttributionEpisode[]> = {};
+  const byId = new Map<string, IjpAttributionEpisode>();
+  for (const id of uniqueIds) byClient[id] = [];
+  if (uniqueIds.length === 0) return { byClient, byId };
+
+  const episodes = await fetchAllPostgrestRowsByIn<{
+    id: string;
+    client_id: string;
+    service_id: string | null;
+    started_at: string | null;
+    ended_at: string | null;
+  }>(
+    admin,
+    "service_episodes",
+    "id, client_id, service_id, started_at, ended_at",
+    "client_id",
+    uniqueIds,
+    { order: { column: "client_id", ascending: true } }
+  );
+  for (const ep of episodes) {
+    const clientId = ep.client_id as string;
+    const row: IjpAttributionEpisode = {
+      id: ep.id as string,
+      service_id: ep.service_id,
+      started_at: ep.started_at,
+      ended_at: ep.ended_at,
+    };
+    byId.set(row.id as string, row);
+    const list = byClient[clientId] ?? [];
+    list.push(row);
+    byClient[clientId] = list;
+  }
+  return { byClient, byId };
+}
+
 async function loadBillableHoursClientIdsInMonth(
   admin: SupabaseClient,
   monthStart: string,
@@ -376,12 +525,18 @@ async function loadBillableHoursClientIdsInMonth(
   const month = serviceMonthStartFromYmd(monthStart);
   const monthEnd = serviceMonthEndYmd(month);
   const unbilledOnly = opts?.unbilledOnly === true;
+  const ijpServiceIds = await resolveGaIjpServiceIds(admin);
+  if (ijpServiceIds.length === 0) return [];
+
   const rows = await fetchAllPostgrestRows<
-    BillableTimeEntryRow & { client_id: string; ijp_billed_invoice_id?: string | null }
+    BillableTimeEntryRow & {
+      client_id: string;
+      ijp_billed_invoice_id?: string | null;
+    }
   >(
     admin,
     "es_time_entries",
-    "client_id, duration_minutes, flags, client_present, delivery_mode, service_date, status, ijp_billed_invoice_id, service_activity_types ( code, counts_toward_client_billable )",
+    "client_id, service_episode_id, duration_minutes, flags, client_present, delivery_mode, service_date, status, ijp_billed_invoice_id, service_activity_types ( code, counts_toward_client_billable )",
     {
       order: [
         { column: "client_id", ascending: true },
@@ -400,34 +555,49 @@ async function loadBillableHoursClientIdsInMonth(
     }
   );
 
-  const byClient: Record<string, BillableTimeEntryRow[]> = {};
+  const clientIds = [
+    ...new Set(rows.map((r) => r.client_id as string).filter(Boolean)),
+  ];
+  if (clientIds.length === 0) return [];
+
+  const { byClient: episodesByClient, byId: episodesById } =
+    await loadClientEpisodesByClientId(admin, clientIds);
+
+  const withIjpHours = new Set<string>();
+  const byClientEntries: Record<string, BillableTimeEntryRow[]> = {};
   for (const row of rows) {
     const clientId = row.client_id as string;
     if (!clientId) continue;
-    const list = byClient[clientId] ?? [];
+    const list = byClientEntries[clientId] ?? [];
     list.push(row);
-    byClient[clientId] = list;
+    byClientEntries[clientId] = list;
   }
-
-  const withHours = filterClientIdsWithBillableTime(byClient);
-  if (withHours.length === 0) return [];
+  for (const [clientId, entries] of Object.entries(byClientEntries)) {
+    const ijpEntries = filterIjpAttributedBillableEntries(entries, {
+      clientEpisodes: episodesByClient[clientId] ?? [],
+      ijpServiceIds,
+      episodesById,
+    });
+    if (ijpEntries.length > 0) withIjpHours.add(clientId);
+  }
+  if (withIjpHours.size === 0) return [];
 
   const profiles = await fetchAllPostgrestRowsByIn<{
     id: string;
     is_demo: boolean | null;
-  }>(admin, "clients", "id, is_demo", "id", withHours, {
+  }>(admin, "clients", "id, is_demo", "id", [...withIjpHours], {
     order: { column: "id", ascending: true },
   });
   const demoIds = new Set(
     profiles.filter((p) => p.is_demo === true).map((p) => p.id as string)
   );
-  return withHours.filter((id) => !demoIds.has(id)).sort();
+  return [...withIjpHours].filter((id) => !demoIds.has(id)).sort();
 }
 
 /**
- * Every client with billable `es_time_entries` in the service month.
- * Includes archived / closed / discarded / any current service or assignee role.
- * Excludes demo clients only.
+ * Every client with billable IJP-attributed `es_time_entries` in the service month.
+ * Includes archived / closed / discarded / any assignee role. Excludes demo and
+ * clients whose only hours are on non-IJP services.
  */
 export async function loadClientIdsWithBillableHoursInMonth(
   admin: SupabaseClient,
@@ -437,14 +607,48 @@ export async function loadClientIdsWithBillableHoursInMonth(
 }
 
 /**
- * Clients with billable hours not yet stamped on an IJP invoice (weekly generate targets).
- * Includes archived/closed and late-entered hours for past periods.
+ * Clients with unbilled IJP-attributed billable hours (Generate Invoices targets).
+ * Includes archived/closed and late-entered IJP hours for past periods.
  */
 export async function loadClientIdsWithUnbilledBillableHoursInMonth(
   admin: SupabaseClient,
   monthStart: string
 ): Promise<string[]> {
   return loadBillableHoursClientIdsInMonth(admin, monthStart, { unbilledOnly: true });
+}
+
+/** Shared helper: does this client have unbilled IJP-attributed billable hours in the month? */
+export async function clientHasUnbilledIjpBillableHoursInMonth(
+  admin: SupabaseClient,
+  clientId: string,
+  monthStart: string
+): Promise<boolean> {
+  const month = serviceMonthStartFromYmd(monthStart);
+  const monthEnd = serviceMonthEndYmd(month);
+  const ijpServiceIds = await resolveGaIjpServiceIds(admin);
+  if (ijpServiceIds.length === 0) return false;
+
+  const { data: rows } = await admin
+    .from("es_time_entries")
+    .select(
+      "id, service_episode_id, duration_minutes, flags, client_present, delivery_mode, service_date, status, ijp_billed_invoice_id, service_activity_types ( code, counts_toward_client_billable )"
+    )
+    .eq("client_id", clientId)
+    .is("ijp_billed_invoice_id", null)
+    .neq("status", "rejected")
+    .gte("service_date", month)
+    .lte("service_date", monthEnd);
+
+  const { byClient, byId } = await loadClientEpisodesByClientId(admin, [clientId]);
+  const ijpEntries = filterIjpAttributedBillableEntries(
+    (rows ?? []) as BillableTimeEntryRow[],
+    {
+      clientEpisodes: byClient[clientId] ?? [],
+      ijpServiceIds,
+      episodesById: byId,
+    }
+  );
+  return ijpEntries.length > 0;
 }
 
 /**
@@ -477,21 +681,15 @@ export async function loadIjpEpisodeEligibleClientIdsForMonth(
 }
 
 /**
- * Month eligibility = union of:
- * - clients with billable hours in the month (any archive/service/assignee), and
- * - current IJP-episode / current-service logic.
- *
- * Generate Month still skips creating empty invoices for no-hours clients.
+ * Month eligibility for IJP invoices = clients with billable IJP-attributed hours
+ * in the month (archived/closed included; demo excluded). Episode-only clients
+ * with no IJP hours do not get an invoice.
  */
 export async function loadEligibleIjpClientIdsForMonth(
   admin: SupabaseClient,
   monthStart: string
 ): Promise<string[]> {
-  const [hoursIds, episodeIds] = await Promise.all([
-    loadClientIdsWithBillableHoursInMonth(admin, monthStart),
-    loadIjpEpisodeEligibleClientIdsForMonth(admin, monthStart),
-  ]);
-  return unionClientIdLists(hoursIds, episodeIds);
+  return loadClientIdsWithBillableHoursInMonth(admin, monthStart);
 }
 
 export type IjpBillingMonthCompleteness = {

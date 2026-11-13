@@ -3,7 +3,6 @@ import { google } from "googleapis";
 import { clientDisplayName } from "@wayfinder/branding";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { IjpBillingSettingsRow } from "@wayfinder/supabase/ijp-billing-settings";
-import { entryCountsTowardClientBillableWithActivity } from "@wayfinder/supabase/client-billable";
 import {
   buildIjpAttestationPlaceholders,
   buildIjpInvoiceHeaderPlaceholders,
@@ -16,10 +15,11 @@ import {
   sumIjpLineItems,
   type IjpInvoiceLineItem,
 } from "@wayfinder/supabase/ijp-billing-lines";
-import { serviceMonthStartFromYmd } from "@wayfinder/supabase/ijp-billing-eligibility";
 import {
+  clientHasUnbilledIjpBillableHoursInMonth,
   serviceMonthLabel,
   serviceMonthEndYmd,
+  serviceMonthStartFromYmd,
 } from "@wayfinder/supabase/ijp-billing-eligibility";
 import { getGoogleAuth } from "@/lib/google-mail";
 import { sanitizeDriveName, uploadPreEtsFileToDrive } from "@/lib/pre-ets-drive";
@@ -367,39 +367,6 @@ async function findUnlockedIjpInvoiceForMonth(
   return null;
 }
 
-async function clientHasUnbilledBillableHoursInMonth(
-  admin: SupabaseClient,
-  clientId: string,
-  monthStart: string
-): Promise<boolean> {
-  const monthEnd = serviceMonthEndYmd(monthStart);
-  const { data: rows } = await admin
-    .from("es_time_entries")
-    .select(
-      "duration_minutes, flags, client_present, delivery_mode, service_date, status, ijp_billed_invoice_id, service_activity_types ( code, counts_toward_client_billable )"
-    )
-    .eq("client_id", clientId)
-    .is("ijp_billed_invoice_id", null)
-    .neq("status", "rejected")
-    .gte("service_date", monthStart)
-    .lte("service_date", monthEnd)
-    .limit(50);
-  for (const row of rows ?? []) {
-    const embed = row.service_activity_types;
-    const activity = Array.isArray(embed) ? embed[0] : embed;
-    if (
-      entryCountsTowardClientBillableWithActivity(
-        row as Parameters<typeof entryCountsTowardClientBillableWithActivity>[0],
-        activity as Parameters<typeof entryCountsTowardClientBillableWithActivity>[1]
-      ) &&
-      (row.duration_minutes as number) > 0
-    ) {
-      return true;
-    }
-  }
-  return false;
-}
-
 /**
  * Locked for auto line refresh (Generate Month / cron):
  * - status `ready` or `archived`
@@ -478,9 +445,9 @@ export async function ensureIjpInvoiceRow(
     };
   }
 
-  // All existing invoices locked (or none). Create/sync only when unbilled hours remain
+  // All existing invoices locked (or none). Create/sync only when unbilled IJP hours remain
   // (late entries after finalize → supplemental draft for the same service month).
-  const hasUnbilled = await clientHasUnbilledBillableHoursInMonth(
+  const hasUnbilled = await clientHasUnbilledIjpBillableHoursInMonth(
     admin,
     opts.clientId,
     monthStart

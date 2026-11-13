@@ -3,16 +3,28 @@ import { describe, it } from "node:test";
 import {
   clientHasBillableTimeFromEntries,
   clientOnGaIjpDuringMonthFromRows,
+  episodeCoversServiceDate,
   filterClientIdsOnGaIjpDuringMonth,
   filterClientIdsWithBillableTime,
+  filterIjpAttributedBillableEntries,
   sumBillableHoursFromEntries,
+  timeEntryAttributedToIjpService,
   unionClientIdLists,
 } from "./ijp-billing-eligibility";
 
 const GA_IJP = "svc-ga-ijp";
+const OTHER = "svc-other";
 
-const billableEntry = (minutes: number) => ({
+const billableEntry = (
+  minutes: number,
+  extra: {
+    service_date?: string;
+    service_episode_id?: string | null;
+  } = {}
+) => ({
   duration_minutes: minutes,
+  service_date: extra.service_date ?? "2026-10-10",
+  service_episode_id: extra.service_episode_id ?? null,
   service_activity_types: {
     code: "JT-ACT-001",
     counts_toward_client_billable: true,
@@ -21,6 +33,8 @@ const billableEntry = (minutes: number) => ({
 
 const nonBillableEntry = (minutes: number) => ({
   duration_minutes: minutes,
+  service_date: "2026-10-10",
+  service_episode_id: null as string | null,
   service_activity_types: {
     code: "JT-ACT-099",
     counts_toward_client_billable: false,
@@ -122,18 +136,111 @@ describe("IJP eligibility pure helpers", () => {
   });
 });
 
-describe("IJP hours eligibility (Generate Month targets)", () => {
-  it("includes archived / closed clients that still have billable hours", () => {
-    // Hours path does not consult archive status — only billable entries matter.
-    const hoursIds = filterClientIdsWithBillableTime({
-      "archived-client": [billableEntry(60)],
-      "active-client": [billableEntry(30)],
-    });
-    assert.ok(hoursIds.includes("archived-client"));
-    assert.ok(hoursIds.includes("active-client"));
+describe("IJP time-entry service attribution", () => {
+  const ijpEpisode = {
+    id: "ep-ijp",
+    service_id: GA_IJP,
+    started_at: "2026-10-01",
+    ended_at: "2026-10-15",
+  };
+  const otherEpisode = {
+    id: "ep-other",
+    service_id: OTHER,
+    started_at: "2026-10-16",
+    ended_at: null,
+  };
 
-    // Episode logic alone would drop archived-before-month current-IJP clients,
-    // but the union keeps them when they have hours.
+  it("attributes via the entry's linked episode service_id (mid-period switch)", () => {
+    assert.equal(
+      timeEntryAttributedToIjpService({
+        serviceDate: "2026-10-10",
+        serviceEpisodeId: "ep-ijp",
+        entryEpisode: ijpEpisode,
+        clientEpisodes: [ijpEpisode, otherEpisode],
+        ijpServiceIds: [GA_IJP],
+      }),
+      true
+    );
+    assert.equal(
+      timeEntryAttributedToIjpService({
+        serviceDate: "2026-10-20",
+        serviceEpisodeId: "ep-other",
+        entryEpisode: otherEpisode,
+        clientEpisodes: [ijpEpisode, otherEpisode],
+        ijpServiceIds: [GA_IJP],
+      }),
+      false
+    );
+  });
+
+  it("falls back to IJP episode covering service_date when entry has no episode", () => {
+    assert.equal(
+      episodeCoversServiceDate(ijpEpisode, "2026-10-10"),
+      true
+    );
+    assert.equal(
+      timeEntryAttributedToIjpService({
+        serviceDate: "2026-10-10",
+        serviceEpisodeId: null,
+        clientEpisodes: [ijpEpisode, otherEpisode],
+        ijpServiceIds: [GA_IJP],
+      }),
+      true
+    );
+    assert.equal(
+      timeEntryAttributedToIjpService({
+        serviceDate: "2026-10-20",
+        serviceEpisodeId: null,
+        clientEpisodes: [ijpEpisode, otherEpisode],
+        ijpServiceIds: [GA_IJP],
+      }),
+      false
+    );
+  });
+
+  it("excludes non-IJP hours from IJP-attributed billable filter", () => {
+    const episodes = [ijpEpisode, otherEpisode];
+    const filtered = filterIjpAttributedBillableEntries(
+      [
+        billableEntry(60, { service_date: "2026-10-10", service_episode_id: "ep-ijp" }),
+        billableEntry(90, { service_date: "2026-10-20", service_episode_id: "ep-other" }),
+        nonBillableEntry(30),
+      ],
+      { clientEpisodes: episodes, ijpServiceIds: [GA_IJP] }
+    );
+    assert.equal(filtered.length, 1);
+    assert.equal(filtered[0].duration_minutes, 60);
+  });
+
+  it("includes archived IJP client hours (archive status not consulted)", () => {
+    // Attribution is episode/date based — archived_at is irrelevant here.
+    const filtered = filterIjpAttributedBillableEntries(
+      [billableEntry(45, { service_date: "2026-10-05", service_episode_id: "ep-ijp" })],
+      { clientEpisodes: [ijpEpisode], ijpServiceIds: [GA_IJP] }
+    );
+    assert.equal(filtered.length, 1);
+  });
+
+  it("treats clients with only other-service hours as having no IJP hours", () => {
+    const filtered = filterIjpAttributedBillableEntries(
+      [billableEntry(120, { service_date: "2026-10-20", service_episode_id: "ep-other" })],
+      { clientEpisodes: [ijpEpisode, otherEpisode], ijpServiceIds: [GA_IJP] }
+    );
+    assert.deepEqual(filtered, []);
+  });
+});
+
+describe("IJP hours eligibility (Generate Invoices targets)", () => {
+  it("includes archived IJP clients with IJP-attributed hours", () => {
+    const episodes = [
+      { id: "ep-ijp", service_id: GA_IJP, started_at: "2026-10-01", ended_at: null },
+    ];
+    const ijpHours = filterIjpAttributedBillableEntries(
+      [billableEntry(60, { service_episode_id: "ep-ijp" })],
+      { clientEpisodes: episodes, ijpServiceIds: [GA_IJP] }
+    );
+    assert.equal(ijpHours.length, 1);
+    // Episode-only archived-before-month would fail month overlap, but hours path still bills.
     const episodeOnly = filterClientIdsOnGaIjpDuringMonth(
       {
         "archived-client": {
@@ -151,44 +258,37 @@ describe("IJP hours eligibility (Generate Month targets)", () => {
       GA_IJP
     );
     assert.deepEqual(episodeOnly, []);
-    assert.deepEqual(
-      unionClientIdLists(hoursIds.filter((id) => id === "archived-client"), episodeOnly),
-      ["archived-client"]
-    );
   });
 
-  it("includes clients with hours from ES or TS (no assignee-role filter)", () => {
-    // Billable detection is entry-based; ES vs TS / supervisor / unassigned is irrelevant.
-    const ids = filterClientIdsWithBillableTime({
-      "es-logged": [billableEntry(15)],
-      "ts-logged": [billableEntry(45)],
-      "unassigned-client": [billableEntry(90)],
-    });
-    assert.deepEqual(ids.sort(), ["es-logged", "ts-logged", "unassigned-client"]);
+  it("includes ES and TS hours the same (no assignee-role filter)", () => {
+    const episodes = [
+      { id: "ep-ijp", service_id: GA_IJP, started_at: "2026-10-01", ended_at: null },
+    ];
+    const filtered = filterIjpAttributedBillableEntries(
+      [
+        billableEntry(15, { service_episode_id: "ep-ijp" }),
+        billableEntry(45, { service_episode_id: "ep-ijp" }),
+      ],
+      { clientEpisodes: episodes, ijpServiceIds: [GA_IJP] }
+    );
+    assert.equal(filtered.length, 2);
   });
 
-  it("excludes clients with no billable hours from generate targets", () => {
-    const ids = filterClientIdsWithBillableTime({
-      "hours-client": [billableEntry(20)],
-      "episode-only-no-hours": [nonBillableEntry(120)],
-      "empty-client": [],
-    });
-    assert.deepEqual(ids, ["hours-client"]);
-    // Episode-eligible without hours stays in the eligibility union but is not a generate target.
-    const episodeIds = filterClientIdsOnGaIjpDuringMonth(
-      {
-        "episode-only-no-hours": {
-          episodes: [{ service_id: GA_IJP, started_at: "2026-10-01", ended_at: null }],
-          client: { current_service_id: GA_IJP, archived_at: null, is_demo: false },
-          currentService: null,
-        },
-      },
-      "2026-10-01",
-      GA_IJP
+  it("excludes clients with no IJP billable hours from generate targets", () => {
+    const episodes = [
+      { id: "ep-ijp", service_id: GA_IJP, started_at: "2026-10-01", ended_at: null },
+      { id: "ep-other", service_id: OTHER, started_at: "2026-10-01", ended_at: null },
+    ];
+    const onlyOther = filterIjpAttributedBillableEntries(
+      [billableEntry(20, { service_episode_id: "ep-other" })],
+      { clientEpisodes: episodes, ijpServiceIds: [GA_IJP] }
     );
-    const eligibility = unionClientIdLists(ids, episodeIds);
-    assert.ok(eligibility.includes("episode-only-no-hours"));
-    assert.ok(!ids.includes("episode-only-no-hours"));
+    const noHours = filterIjpAttributedBillableEntries([nonBillableEntry(120)], {
+      clientEpisodes: episodes,
+      ijpServiceIds: [GA_IJP],
+    });
+    assert.deepEqual(onlyOther, []);
+    assert.deepEqual(noHours, []);
   });
 });
 
@@ -207,6 +307,21 @@ describe("IJP full-month hours totals", () => {
     const rows = [billableEntry(60), billableEntry(120)];
     assert.equal(sumBillableHoursFromEntries(rows), sumBillableHoursFromEntries(rows));
     assert.equal(sumBillableHoursFromEntries(rows), 3);
+  });
+
+  it("IJP totals exclude non-IJP hours after mid-period switch", () => {
+    const episodes = [
+      { id: "ep-ijp", service_id: GA_IJP, started_at: "2026-10-01", ended_at: "2026-10-15" },
+      { id: "ep-other", service_id: OTHER, started_at: "2026-10-16", ended_at: null },
+    ];
+    const ijpOnly = filterIjpAttributedBillableEntries(
+      [
+        billableEntry(60, { service_date: "2026-10-10", service_episode_id: "ep-ijp" }),
+        billableEntry(120, { service_date: "2026-10-20", service_episode_id: "ep-other" }),
+      ],
+      { clientEpisodes: episodes, ijpServiceIds: [GA_IJP] }
+    );
+    assert.equal(sumBillableHoursFromEntries(ijpOnly), 1);
   });
 });
 
