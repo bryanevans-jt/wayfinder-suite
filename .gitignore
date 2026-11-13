@@ -44,3 +44,6 @@ next-env.d.ts
 # Vercel
 .vercel
 .tmp-jtsg-reports-v2
+
+# One-off ops dry-run / apply manifests (may list client ids)
+scripts/one-off/artifacts/
