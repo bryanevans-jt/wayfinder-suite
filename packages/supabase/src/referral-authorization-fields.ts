@@ -3,6 +3,7 @@
  * One client row = one current service enrollment; Begin New Service creates a new row.
  */
 
+import { isIndividualJobPlacementServiceName } from "@wayfinder/branding";
 import {
   canViewClientProfiles,
   isAdminRole,
@@ -19,15 +20,40 @@ function isReferralManagerRole(role: string | null | undefined): boolean {
   return isHrRole(role) || isAdminRole(role) || isSuperAdminRole(role) || isAdminTierRole(role);
 }
 
+/**
+ * Production catalog names observed on Wayfinder-Production (plus form labels).
+ * Both bare and "(GA)" variants exist for IJP and Job Coaching.
+ */
+export const AUTHORIZED_HOURS_SERVICE_NAMES = [
+  "Workplace Readiness Training (GA)",
+  "Workplace Readiness Training",
+  "Individual Job Placement (GA)",
+  "Individual Job Placement",
+  "Job Coaching (GA)",
+  "Job Coaching",
+] as const;
+
 /** True when the service (catalog name or referral form label) uses these fields. */
 export function serviceSupportsAuthorizedHoursFields(
   serviceNameOrLabel: string | null | undefined
 ): boolean {
   const n = (serviceNameOrLabel ?? "").trim().toLowerCase();
   if (!n) return false;
+
+  // Exact / known catalog + form labels (covers bare and "(GA)" variants).
+  for (const known of AUTHORIZED_HOURS_SERVICE_NAMES) {
+    if (n === known.toLowerCase()) return true;
+  }
+
+  // IJP is one service: "IJP", "Individual Job Placement", "Individual Job Placement (GA)".
+  if (isIndividualJobPlacementServiceName(serviceNameOrLabel)) return true;
+
+  // Substring / abbreviation fallbacks for historical or display variants.
   if (n.includes("workplace readiness") || n.includes("job readiness")) return true;
-  if (n.includes("individual job placement")) return true;
+  if (n === "wrt" || n.startsWith("wrt ") || n.includes("(wrt)")) return true;
+  // Job Coaching — avoid matching unrelated "coach" strings by requiring the phrase.
   if (n.includes("job coaching")) return true;
+
   return false;
 }
 

@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { displayServiceCatalogName } from "@wayfinder/branding";
 import { intakeStatusLabel, referralStageLabel } from "@wayfinder/supabase/referral-labels";
+import { serviceSupportsAuthorizedHoursFields } from "@wayfinder/supabase/referral-authorization-fields";
 import { ManualReferralModal } from "@/components/manual-referral-modal";
 import { ReferralFieldSpecialistSelect } from "@/components/referral-field-specialist-select";
 import { BeginNewServiceModal } from "@/components/begin-new-service-modal";
@@ -24,6 +26,8 @@ type ReferralRow = {
   serviceName: string | null;
   stageName: string | null;
   authorization_number: string | null;
+  authorized_hours?: number | null;
+  authorization_end_date?: string | null;
   office_id: string | null;
   hasEsAssignment: boolean;
   fieldAssigneeUserId: string | null;
@@ -179,6 +183,10 @@ export function ReferralQueueWorkspace() {
   const [includeActive, setIncludeActive] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [authById, setAuthById] = useState<Record<string, string>>({});
+  const [authorizedHoursById, setAuthorizedHoursById] = useState<Record<string, string>>({});
+  const [authorizationEndDateById, setAuthorizationEndDateById] = useState<Record<string, string>>(
+    {}
+  );
   const [overrideById, setOverrideById] = useState<Record<string, string>>({});
 
   const [clientQuery, setClientQuery] = useState("");
@@ -241,6 +249,25 @@ export function ReferralQueueWorkspace() {
         }
         return next;
       });
+      setAuthorizedHoursById((prev) => {
+        const next = { ...prev };
+        for (const c of list) {
+          if (next[c.id] !== undefined) continue;
+          next[c.id] =
+            c.authorized_hours == null || Number.isNaN(Number(c.authorized_hours))
+              ? ""
+              : String(c.authorized_hours);
+        }
+        return next;
+      });
+      setAuthorizationEndDateById((prev) => {
+        const next = { ...prev };
+        for (const c of list) {
+          if (next[c.id] !== undefined) continue;
+          next[c.id] = (c.authorization_end_date ?? "").slice(0, 10);
+        }
+        return next;
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load");
     } finally {
@@ -296,7 +323,8 @@ export function ReferralQueueWorkspace() {
   const serviceOptions = useMemo(() => {
     const set = new Set<string>();
     for (const c of clients) {
-      if (c.serviceName) set.add(c.serviceName);
+      const label = displayServiceCatalogName(c.serviceName);
+      if (label) set.add(label);
     }
     return [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
   }, [clients]);
@@ -335,7 +363,12 @@ export function ReferralQueueWorkspace() {
         }
       }
       if (stateFilter && (c.referral_state || "") !== stateFilter) return false;
-      if (serviceFilter && (c.serviceName || "") !== serviceFilter) return false;
+      if (
+        serviceFilter &&
+        displayServiceCatalogName(c.serviceName) !== serviceFilter
+      ) {
+        return false;
+      }
       if (stageFilter && stageForRow(c) !== stageFilter) return false;
       if (cutoff != null) {
         const t = referredMs(c);
@@ -399,6 +432,8 @@ export function ReferralQueueWorkspace() {
     setBusyId(clientId);
     setError(null);
     try {
+      const row = clients.find((c) => c.id === clientId);
+      const showAuthHours = serviceSupportsAuthorizedHoursFields(row?.serviceName);
       const res = await fetch("/api/referrals", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -407,6 +442,12 @@ export function ReferralQueueWorkspace() {
           action: "update_info",
           info: {
             authorizationNumber: authById[clientId] ?? "",
+            ...(showAuthHours
+              ? {
+                  authorizedHours: authorizedHoursById[clientId] ?? "",
+                  authorizationEndDate: authorizationEndDateById[clientId] ?? "",
+                }
+              : {}),
           },
         }),
       });
@@ -690,7 +731,7 @@ export function ReferralQueueWorkspace() {
                   <p className="mt-1 text-sm text-brand-black/70">
                     {stageForRow(c)}
                     {c.referral_state ? ` · ${c.referral_state}` : ""}
-                    {c.serviceName ? ` · ${c.serviceName}` : ""}
+                    {c.serviceName ? ` · ${displayServiceCatalogName(c.serviceName)}` : ""}
                     {c.counselorName ? ` · Counselor: ${c.counselorName}` : ""}
                   </p>
                   <p className="text-xs text-brand-black/50">
@@ -789,6 +830,42 @@ export function ReferralQueueWorkspace() {
                     }
                   />
                 </label>
+                {serviceSupportsAuthorizedHoursFields(c.serviceName) ? (
+                  <>
+                    <label className="text-sm">
+                      <span className="font-medium">Authorized hours (optional)</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        inputMode="decimal"
+                        className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2"
+                        placeholder="e.g. 40"
+                        value={authorizedHoursById[c.id] ?? ""}
+                        onChange={(e) =>
+                          setAuthorizedHoursById((prev) => ({
+                            ...prev,
+                            [c.id]: e.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                    <label className="text-sm">
+                      <span className="font-medium">Authorization end date (optional)</span>
+                      <input
+                        type="date"
+                        className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2"
+                        value={authorizationEndDateById[c.id] ?? ""}
+                        onChange={(e) =>
+                          setAuthorizationEndDateById((prev) => ({
+                            ...prev,
+                            [c.id]: e.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                  </>
+                ) : null}
               </div>
 
               <div className="mt-2">

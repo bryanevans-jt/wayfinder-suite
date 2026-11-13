@@ -4,7 +4,7 @@ import {
   ClientListPaginationControls,
   useClientListPagination,
 } from "@/components/client-list-pagination";
-import { isGoldApplicationStatus } from "@wayfinder/branding";
+import { displayServiceCatalogName, isGoldApplicationStatus } from "@wayfinder/branding";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -54,7 +54,7 @@ export function CounselorClientsGrid({ clients, getClientHref }: Props) {
           const haystack = [
             c.displayName,
             c.stageLabel,
-            c.serviceName,
+            displayServiceCatalogName(c.serviceName),
             c.latestStatus,
             c.fieldSpecialistName,
             c.fieldSpecialistEmail,
@@ -126,7 +126,8 @@ export function CounselorClientsGrid({ clients, getClientHref }: Props) {
             {pageItems.map((c) => {
               const gold = isGoldApplicationStatus(c.latestStatus);
               const statusPart = c.latestStatus ? `, status ${c.latestStatus}` : "";
-              const servicePart = c.serviceName ? `, ${c.serviceName}` : "";
+              const serviceLabel = displayServiceCatalogName(c.serviceName);
+              const servicePart = serviceLabel ? `, ${serviceLabel}` : "";
               return (
                 <li key={c.linkId}>
                   <Link
@@ -142,8 +143,8 @@ export function CounselorClientsGrid({ clients, getClientHref }: Props) {
                         </span>
                       ) : null}
                     </div>
-                    {c.serviceName ? (
-                      <p className="mt-1 text-xs font-medium text-brand-black/55">{c.serviceName}</p>
+                    {serviceLabel ? (
+                      <p className="mt-1 text-xs font-medium text-brand-black/55">{serviceLabel}</p>
                     ) : null}
                     <p className="mt-2 text-sm text-brand-black/70">
                       <span className="font-medium text-brand-green">Current stage</span> · {c.stageLabel}

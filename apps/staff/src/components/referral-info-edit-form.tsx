@@ -123,7 +123,10 @@ export function ReferralInfoEditForm({ initial }: Props) {
     return filtered;
   }, [toggles, form.serviceLabel]);
 
-  const showAuthorizedHoursFields = serviceSupportsAuthorizedHoursFields(form.serviceLabel);
+  // Prefer the selected form label; fall back to catalog serviceName so "(GA)" variants still show.
+  const showAuthorizedHoursFields =
+    serviceSupportsAuthorizedHoursFields(form.serviceLabel) ||
+    serviceSupportsAuthorizedHoursFields(initial.serviceName);
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));

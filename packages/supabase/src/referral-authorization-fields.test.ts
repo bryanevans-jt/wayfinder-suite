@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  AUTHORIZED_HOURS_SERVICE_NAMES,
   canEditClientAuthorizedHoursFields,
   canViewClientAuthorizedHoursFields,
   parseAuthorizationEndDate,
@@ -9,16 +10,30 @@ import {
 } from "./referral-authorization-fields";
 
 describe("serviceSupportsAuthorizedHoursFields", () => {
-  it("matches WRT, IJP, and Job Coaching catalog names and form labels", () => {
-    assert.equal(
-      serviceSupportsAuthorizedHoursFields("Workplace Readiness Training (GA)"),
-      true
-    );
-    assert.equal(serviceSupportsAuthorizedHoursFields("Workplace Readiness Training"), true);
+  it("matches every production WRT / IJP / Job Coaching catalog variant", () => {
+    // Observed on Wayfinder-Production services table.
     assert.equal(serviceSupportsAuthorizedHoursFields("Individual Job Placement (GA)"), true);
     assert.equal(serviceSupportsAuthorizedHoursFields("Individual Job Placement"), true);
     assert.equal(serviceSupportsAuthorizedHoursFields("Job Coaching (GA)"), true);
     assert.equal(serviceSupportsAuthorizedHoursFields("Job Coaching"), true);
+    assert.equal(serviceSupportsAuthorizedHoursFields("Workplace Readiness Training (GA)"), true);
+  });
+
+  it("matches referral form labels and abbreviations", () => {
+    assert.equal(serviceSupportsAuthorizedHoursFields("Workplace Readiness Training"), true);
+    assert.equal(serviceSupportsAuthorizedHoursFields("IJP"), true);
+    assert.equal(serviceSupportsAuthorizedHoursFields("WRT"), true);
+    assert.equal(serviceSupportsAuthorizedHoursFields("Individual Job Placement (IJP)"), true);
+  });
+
+  it("covers the AUTHORIZED_HOURS_SERVICE_NAMES constant list", () => {
+    for (const name of AUTHORIZED_HOURS_SERVICE_NAMES) {
+      assert.equal(
+        serviceSupportsAuthorizedHoursFields(name),
+        true,
+        `expected support for ${name}`
+      );
+    }
   });
 
   it("excludes other services and empty values", () => {
@@ -26,6 +41,7 @@ describe("serviceSupportsAuthorizedHoursFields", () => {
       serviceSupportsAuthorizedHoursFields("Traditional Supported Employment (GA)"),
       false
     );
+    assert.equal(serviceSupportsAuthorizedHoursFields("Supported Employment"), false);
     assert.equal(serviceSupportsAuthorizedHoursFields(null), false);
     assert.equal(serviceSupportsAuthorizedHoursFields(""), false);
   });

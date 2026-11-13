@@ -9,7 +9,7 @@ import {
   loadGaIjpEligibilitySnapshots,
   serviceMonthEndYmd,
 } from "@wayfinder/supabase/ijp-billing-eligibility";
-import { resolveGaIjpServiceId } from "@wayfinder/supabase/ijp-billing-settings";
+import { resolveGaIjpServiceIds } from "@wayfinder/supabase/ijp-billing-settings";
 import { fetchAllPostgrestRows } from "@wayfinder/supabase/postgrest-fetch-all";
 import { localDateStringInTz, STAFF_CLOCK_TIMEZONE } from "@wayfinder/supabase/staff-time-clock-shared";
 import { NextResponse } from "next/server";
@@ -37,8 +37,8 @@ export async function GET(request: Request) {
     }
 
     const admin = createServiceRoleClient();
-    const gaIjpServiceId = await resolveGaIjpServiceId(admin);
-    if (!gaIjpServiceId) {
+    const gaIjpServiceIds = await resolveGaIjpServiceIds(admin);
+    if (gaIjpServiceIds.length === 0) {
       return NextResponse.json({ ok: true, skipped: "no_ijp_service", created: 0 });
     }
 
@@ -60,8 +60,8 @@ export async function GET(request: Request) {
     const clientIds = clients.map((c) => c.id as string);
     const clientById = new Map(clients.map((c) => [c.id as string, c]));
 
-    const snapshots = await loadGaIjpEligibilitySnapshots(admin, clientIds, gaIjpServiceId);
-    const onIjpIds = filterClientIdsOnGaIjpDuringMonth(snapshots, monthStart, gaIjpServiceId);
+    const snapshots = await loadGaIjpEligibilitySnapshots(admin, clientIds, gaIjpServiceIds);
+    const onIjpIds = filterClientIdsOnGaIjpDuringMonth(snapshots, monthStart, gaIjpServiceIds);
     const billableByClient = await loadBillableTimeEntriesByClient(admin, onIjpIds, monthStart);
     const eligibleIds = filterClientIdsWithBillableTime(billableByClient);
 

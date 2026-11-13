@@ -1,4 +1,4 @@
-import { clientDisplayName } from "@wayfinder/branding";
+import { clientDisplayName, displayServiceCatalogName } from "@wayfinder/branding";
 import type { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { filterSunsetOffices, sunsetKeepIdsFromLoadedData } from "@/lib/sunset-tn";
 
@@ -145,7 +145,8 @@ export async function loadHrRegistry(
       esUserIds: esIds,
       esNames: esIds.map((eid) => nameById.get(eid) ?? eid.slice(0, 8)).join(", ") || "—",
       serviceName: c.current_service_id
-        ? (serviceById.get(c.current_service_id as string) ?? null)
+        ? displayServiceCatalogName(serviceById.get(c.current_service_id as string) ?? null) ||
+          null
         : null,
       stageTitle: c.current_stage_id
         ? (stageById.get(c.current_stage_id as string) ?? null)

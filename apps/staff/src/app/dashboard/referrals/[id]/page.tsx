@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { displayServiceCatalogName } from "@wayfinder/branding";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
   canAssignReferralFieldSpecialist,
@@ -51,7 +52,7 @@ export default async function ReferralDetailPage({ params }: PageProps) {
       <p className="mt-1 text-sm text-brand-black/70">
         {row.stageLabel}
         {row.referral_state ? ` · ${row.referral_state}` : ""}
-        {row.serviceName ? ` · ${row.serviceName}` : ""}
+        {row.serviceName ? ` · ${displayServiceCatalogName(row.serviceName)}` : ""}
       </p>
 
       <div className="mt-4">
@@ -75,6 +76,9 @@ export default async function ReferralDetailPage({ params }: PageProps) {
         officeId={row.office_id}
         intakeStatus={row.intake_status ?? "new_referral"}
         authorizationNumber={row.authorization_number}
+        authorizedHours={row.authorized_hours}
+        authorizationEndDate={row.authorization_end_date}
+        serviceName={row.serviceName}
         directReferralAssignEnabled={directReferralAssignEnabled}
         canAssignFieldSpecialist={showAssignPanel}
         initialAssigneeUserId={(assigneeLink?.es_user_id as string | null) ?? null}

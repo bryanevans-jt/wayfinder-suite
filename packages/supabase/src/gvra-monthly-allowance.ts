@@ -8,6 +8,7 @@ const ALLOWANCE_MINUTES = 120;
 
 const GVRA_MONTHLY_SERVICE_NAMES = new Set([
   "Individual Job Placement (GA)",
+  "Individual Job Placement",
   "Traditional Supported Employment (GA)",
 ]);
 

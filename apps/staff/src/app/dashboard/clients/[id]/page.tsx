@@ -1,4 +1,9 @@
-import { buildClientActivityFeed, clientDisplayName, normalizeEmploymentGoal } from "@wayfinder/branding";
+import {
+  buildClientActivityFeed,
+  clientDisplayName,
+  displayServiceCatalogName,
+  normalizeEmploymentGoal,
+} from "@wayfinder/branding";
 import { StaffClientActivityTimeline } from "@/components/staff-client-activity-timeline";
 import {
   buildClientActivityFkIds,
@@ -530,7 +535,9 @@ export default async function EsClientDetailPage({ params }: PageProps) {
           </div>
           <div>
             <dt className="font-medium text-brand-black/55">Current Service</dt>
-            <dd className="text-brand-black">{service?.name ?? "—"}</dd>
+            <dd className="text-brand-black">
+              {service?.name ? displayServiceCatalogName(service.name) : "—"}
+            </dd>
           </div>
           <div>
             <dt className="font-medium text-brand-black/55">Current Stage</dt>

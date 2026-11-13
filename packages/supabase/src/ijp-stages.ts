@@ -1,5 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isIndividualJobPlacementServiceName } from "@wayfinder/branding";
 import { buildClientActivityInsertFkIds } from "./client-activity-fk";
+
+export { isIndividualJobPlacementServiceName };
 
 /** Active and terminal milestones for Individual Job Placement (display order). */
 export const IJP_CANONICAL_MILESTONE_TITLES = [
@@ -10,12 +13,6 @@ export const IJP_CANONICAL_MILESTONE_TITLES = [
   "Dismissed",
   "Complete",
 ] as const;
-
-export function isIndividualJobPlacementServiceName(
-  serviceName: string | null | undefined
-): boolean {
-  return /individual job placement|\bijp\b/i.test((serviceName ?? "").trim());
-}
 
 function isTerminalIjpStageTitle(title: string | null | undefined): boolean {
   const t = (title ?? "").trim().toLowerCase();
