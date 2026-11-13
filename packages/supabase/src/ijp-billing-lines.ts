@@ -1,7 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   entryCountsTowardClientBillableWithActivity,
-  formatBillableHours,
   type ClientBillableEntry,
 } from "./client-billable";
 import { serviceMonthStartFromYmd } from "./ijp-billing-eligibility";
@@ -11,6 +10,15 @@ import { formatIjpInvoiceAmount, formatIjpRateDollars } from "./ijp-billing-sett
 
 /** GVRA IJP vocational invoice service code on every line. */
 export const IJP_INVOICE_SERVICE_CODE = "00270";
+
+/**
+ * Round positive values half-up (away from zero at .5).
+ * Matches JavaScript `Math.round` for non-negative inputs — documented so callers
+ * do not assume banker's rounding.
+ */
+function roundHalfUp(n: number): number {
+  return Math.floor(n + 0.5);
+}
 
 const IJP_INVOICE_DESCRIPTION_MAX_LINES = 5;
 /** Target characters per line for the invoice table description column (Google Doc PDF). */
@@ -76,7 +84,49 @@ export type IjpInvoiceLineItem = {
   amountCents: number;
   instructorName: string;
   editable: boolean;
+  /**
+   * Set when an editor saves line hours via PATCH. Auto-refresh skips invoices
+   * that still carry this flag so manual adjustments are not overwritten.
+   * Cleared on the next billable-time sync (rebuild replaces the line objects).
+   */
+  manuallyAdjusted?: boolean;
 };
+
+/**
+ * Round billable minutes to the nearest half hour (0.5 hr / 30 min), round-half-up.
+ * Examples: 75 → 1.5, 70 → 1.0, 105 → 2.0, 45 → 1.0, 15 → 0.5, 14 → 0.
+ */
+export function roundIjpLineHoursFromMinutes(minutes: number | null | undefined): number {
+  const m = Number(minutes);
+  if (!Number.isFinite(m) || m <= 0) return 0;
+  return roundHalfUp(m / 30) * 0.5;
+}
+
+/**
+ * Snap a line-hour input to the nearest half hour (round-half-up).
+ * Used for manual edits in the billing UI / PATCH path.
+ */
+export function roundIjpLineHours(hours: number | null | undefined): number {
+  const h = Number(hours);
+  if (!Number.isFinite(h) || h <= 0) return 0;
+  return roundHalfUp(h * 2) * 0.5;
+}
+
+/** True when any stored line was saved from a manual hours edit. */
+export function invoiceLinesAreManuallyAdjusted(
+  lines: Array<Pick<IjpInvoiceLineItem, "manuallyAdjusted"> | null | undefined> | null | undefined
+): boolean {
+  return (lines ?? []).some((line) => line?.manuallyAdjusted === true);
+}
+
+/** Mark lines as manually adjusted after an editor saves hours. */
+export function markIjpLinesManuallyAdjusted(lines: IjpInvoiceLineItem[]): IjpInvoiceLineItem[] {
+  return (lines ?? []).map((line) => ({
+    ...line,
+    hours: roundIjpLineHours(line.hours),
+    manuallyAdjusted: true,
+  }));
+}
 
 /**
  * Service Description on IJP invoice lines: contact-log / activity type name only
@@ -149,7 +199,7 @@ export async function buildIjpInvoiceLineItems(
     );
     const minutes = billable ? (row.duration_minutes as number) || 0 : 0;
     if (billable && minutes > 0) billableEntryCount += 1;
-    const hours = minutes / 60;
+    const hours = roundIjpLineHoursFromMinutes(minutes);
     const amountCents = Math.round(hours * opts.hourlyRateCents);
 
     const description = ijpLineServiceDescription(activity?.name);
@@ -172,7 +222,7 @@ export async function buildIjpInvoiceLineItems(
       serviceDate: row.service_date as string,
       startTime,
       endTime,
-      hours: Number(formatBillableHours(minutes)),
+      hours,
       amountCents,
       instructorName: opts.esNameByUserId.get(esUserId) ?? "—",
       editable: true,
@@ -190,19 +240,20 @@ export async function buildIjpInvoiceLineItems(
  * Round hours UP to the next whole hour for invoice / packet totals.
  * Exact whole hours stay the same (3.0 → 3). Null / NaN / negative → 0.
  * Line-item hours are not modified by this helper — only totals.
+ * Line hours are half-hour increments; snap to 0.5 before ceil to avoid FP noise.
  */
 export function ceilIjpTotalHours(hours: number | null | undefined): number {
   if (hours == null) return 0;
   const n = Number(hours);
   if (!Number.isFinite(n) || n <= 0) return 0;
-  // Line hours are stored at one decimal; snap before ceil to avoid FP false ups.
-  const oneDecimal = Math.round(n * 10) / 10;
-  return Math.ceil(oneDecimal);
+  const halfHour = Math.round(n * 2) / 2;
+  return Math.ceil(halfHour);
 }
 
 /**
  * Sum line items into invoice totals.
- * - Preserves per-line `hours` / `amountCents` as-is on the lines themselves.
+ * - Preserves per-line `hours` / `amountCents` as-is on the lines themselves
+ *   (callers should already snap line hours to half hours).
  * - `totalHours` is the ceiled sum of line hours (whole hours).
  * - When `hourlyRateCents` is provided, `totalAmountCents` is billed from the
  *   ceiled hours so PDF/header totals agree with the billed hour total.
@@ -234,10 +285,26 @@ export function sumIjpLineItems(
 }
 
 export function recalcLineAmount(line: IjpInvoiceLineItem, hourlyRateCents: number): IjpInvoiceLineItem {
+  const hours = roundIjpLineHours(line.hours);
   return {
     ...line,
-    amountCents: Math.round(line.hours * hourlyRateCents),
+    hours,
+    amountCents: Math.round(hours * hourlyRateCents),
   };
+}
+
+/** Draft / non-compiled / non-archived invoices are eligible for billable-line auto-refresh. */
+export function isIjpInvoiceEligibleForDraftLineRefresh(invoice: {
+  status?: string | null;
+  compiled_at?: string | null;
+  archived_at?: string | null;
+  line_items?: Array<Pick<IjpInvoiceLineItem, "manuallyAdjusted"> | null | undefined> | null;
+}): boolean {
+  if ((invoice.status ?? "draft") !== "draft") return false;
+  if (invoice.compiled_at) return false;
+  if (invoice.archived_at) return false;
+  if (invoiceLinesAreManuallyAdjusted(invoice.line_items)) return false;
+  return true;
 }
 
 export function buildIjpInvoiceHeaderPlaceholders(opts: {

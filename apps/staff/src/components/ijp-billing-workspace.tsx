@@ -1,7 +1,10 @@
 "use client";
 
 import type { IjpInvoiceLineItem } from "@wayfinder/supabase/ijp-billing-lines";
-import { IJP_INVOICE_SERVICE_CODE } from "@wayfinder/supabase/ijp-billing-lines";
+import {
+  IJP_INVOICE_SERVICE_CODE,
+  roundIjpLineHours,
+} from "@wayfinder/supabase/ijp-billing-lines";
 import { priorServiceMonthStart } from "@wayfinder/supabase/ijp-billing-eligibility";
 import {
   formatIjpInvoiceAmount,
@@ -62,6 +65,25 @@ export function IjpBillingWorkspace() {
     setError(null);
   }, [month]);
 
+  /** One batched draft-line refresh for the viewed month, then reload the list. */
+  const refreshDraftsThenLoad = useCallback(
+    async (editAllowed: boolean) => {
+      if (editAllowed) {
+        const refreshRes = await fetch("/api/ijp-billing/invoices/refresh-month", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ serviceMonth: month }),
+        });
+        if (!refreshRes.ok) {
+          const data = (await refreshRes.json()) as { error?: string };
+          setError(data.error ?? USER_FACING_SYSTEM_ERROR);
+        }
+      }
+      await load();
+    },
+    [load, month]
+  );
+
   useEffect(() => {
     setExpandedId(null);
     setExpandedLines([]);
@@ -69,17 +91,18 @@ export function IjpBillingWorkspace() {
   }, [month]);
 
   useEffect(() => {
-    void load();
     void (async () => {
       const access = await fetch("/api/ijp-billing/access");
       const json = (await access.json()) as {
         role?: string;
         canEdit?: boolean;
       };
+      const editAllowed = Boolean(json.canEdit);
       setCanTest(json.role === "super_admin" || json.role === "admin");
-      setCanEdit(Boolean(json.canEdit));
+      setCanEdit(editAllowed);
+      await refreshDraftsThenLoad(editAllowed);
     })();
-  }, [load]);
+  }, [refreshDraftsThenLoad]);
 
   async function fetchInvoiceLines(id: string): Promise<IjpInvoiceLineItem[] | null> {
     const res = await fetch(`/api/ijp-billing/invoices/${id}`);
@@ -145,10 +168,15 @@ export function IjpBillingWorkspace() {
     if (mode !== "edit") return;
 
     setBusy(true);
+    const snapped = expandedLines.map((line) => ({
+      ...line,
+      hours: roundIjpLineHours(line.hours),
+    }));
+    setExpandedLines(snapped);
     const res = await fetch(`/api/ijp-billing/invoices/${invoiceId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ line_items: expandedLines }),
+      body: JSON.stringify({ line_items: snapped }),
     });
     const data = (await res.json()) as {
       error?: string;
@@ -173,11 +201,16 @@ export function IjpBillingWorkspace() {
   async function saveDetail() {
     if (!selectedId) return;
     setBusy(true);
+    const snapped = lineItems.map((line) => ({
+      ...line,
+      hours: roundIjpLineHours(line.hours),
+    }));
+    setLineItems(snapped);
     const res = await fetch(`/api/ijp-billing/invoices/${selectedId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        line_items: lineItems,
+        line_items: snapped,
         provider_invoice_number: detailProviderInvoice,
         authorization_number: detailAuth,
         invoice_date: detailInvoiceDate || null,
@@ -476,7 +509,7 @@ export function IjpBillingWorkspace() {
                             <p className="text-xs text-brand-black/65">
                               Invoice lines
                               {expandMode === "edit"
-                                ? " — edit hours and save (totals ceil to whole hours)."
+                                ? " — edit hours in half-hour steps; totals round up to whole hours."
                                 : " — read-only."}
                             </p>
                             {linesLoadingId === inv.id ? (
@@ -520,7 +553,7 @@ export function IjpBillingWorkspace() {
                                           {expandMode === "edit" ? (
                                             <input
                                               type="number"
-                                              step="0.1"
+                                              step="0.5"
                                               min={0}
                                               className="w-20 rounded border border-neutral-200 px-1.5 py-1 text-right"
                                               value={line.hours}
@@ -531,6 +564,16 @@ export function IjpBillingWorkspace() {
                                                   hours: Number(e.target.value) || 0,
                                                 };
                                                 setExpandedLines(next);
+                                              }}
+                                              onBlur={(e) => {
+                                                const snapped = roundIjpLineHours(Number(e.target.value) || 0);
+                                                setExpandedLines((prev) => {
+                                                  const next = [...prev];
+                                                  const current = next[idx];
+                                                  if (!current) return prev;
+                                                  next[idx] = { ...current, hours: snapped };
+                                                  return next;
+                                                });
                                               }}
                                             />
                                           ) : (
@@ -573,8 +616,9 @@ export function IjpBillingWorkspace() {
         <section className="rounded-xl border border-neutral-200 bg-white p-4">
           <h2 className="text-lg font-semibold">Edit invoice</h2>
           <p className="mt-1 text-xs text-brand-black/60">
-            Adjust billing fields and line hours (including zero). Invoice hour totals round up to
-            whole hours on save; per-line hours stay as entered.
+            Adjust billing fields and line hours (including zero). Line hours snap to the nearest
+            half hour (round half up); invoice totals round up to whole hours on save. Manual line
+            edits are kept until you refresh from billable time.
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <label className="text-xs">
@@ -609,7 +653,7 @@ export function IjpBillingWorkspace() {
                 <span className="text-xs sm:col-span-2">{line.description}</span>
                 <input
                   type="number"
-                  step="0.1"
+                  step="0.5"
                   min={0}
                   className="rounded border px-2 py-1 text-sm"
                   value={line.hours}
@@ -617,6 +661,16 @@ export function IjpBillingWorkspace() {
                     const next = [...lineItems];
                     next[idx] = { ...line, hours: Number(e.target.value) || 0 };
                     setLineItems(next);
+                  }}
+                  onBlur={(e) => {
+                    const snapped = roundIjpLineHours(Number(e.target.value) || 0);
+                    setLineItems((prev) => {
+                      const next = [...prev];
+                      const current = next[idx];
+                      if (!current) return prev;
+                      next[idx] = { ...current, hours: snapped };
+                      return next;
+                    });
                   }}
                 />
                 <span className="text-xs text-brand-black/60">{line.instructorName}</span>
