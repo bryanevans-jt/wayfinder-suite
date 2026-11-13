@@ -36,7 +36,7 @@ create policy es_time_entries_update on public.es_time_entries
     (
       es_user_id = auth.uid()
       and public.get_auth_user_role() = 'es'
-      and status = any (array['draft'::text, 'rejected'::text])
+      and status = any (array['draft'::public.es_time_entry_status, 'rejected'::public.es_time_entry_status])
       and ijp_billed_invoice_id is null
     )
     or (
