@@ -1,4 +1,5 @@
 import { requireRendezvousAccess } from "@/lib/session";
+import { buildTeamCalendarStaffDirectory } from "@/lib/team-calendar-staff";
 import { listTeamCalendarVisibleStaffUserIds } from "@/lib/team-calendar-visibility";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { rendezvousSchema } from "@/lib/supabase/admin";
@@ -41,6 +42,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       bookings: [],
       schedules: [],
+      staff: [],
       viewer: {
         userId: gate.session.userId,
         role: gate.session.role,
@@ -74,17 +76,6 @@ export async function GET(request: Request) {
     allowed.has(b.staff_user_id as string)
   );
 
-  const staffIds = Array.from(
-    new Set(scopedBookings.map((b) => b.staff_user_id as string))
-  );
-  const { data: profiles } = staffIds.length
-    ? await admin.from("profiles").select("id, full_name, role").in("id", staffIds)
-    : { data: [] };
-
-  const nameById = new Map(
-    (profiles ?? []).map((p) => [p.id as string, (p.full_name as string) || "Staff"])
-  );
-
   const { data: schedules } = await db
     .from("staff_schedules")
     .select("staff_user_id, display_name, slug, enabled")
@@ -94,12 +85,40 @@ export async function GET(request: Request) {
     allowed.has(s.staff_user_id as string)
   );
 
+  const nameIds = Array.from(
+    new Set([
+      ...scopedBookings.map((b) => b.staff_user_id as string),
+      ...scopedSchedules.map((s) => s.staff_user_id as string),
+    ])
+  );
+  const { data: profiles } = nameIds.length
+    ? await admin.from("profiles").select("id, full_name, role").in("id", nameIds)
+    : { data: [] };
+
+  const nameById = new Map(
+    (profiles ?? []).map((p) => [p.id as string, (p.full_name as string) || "Staff"])
+  );
+
+  const bookingStaffNames = new Map<string, string>();
+  for (const b of scopedBookings) {
+    const id = b.staff_user_id as string;
+    bookingStaffNames.set(id, nameById.get(id) ?? "Staff");
+  }
+
+  const staff = buildTeamCalendarStaffDirectory({
+    visibleStaffUserIds: visibleIds,
+    schedules: scopedSchedules,
+    bookingStaffNames,
+    profileNames: nameById,
+  });
+
   return NextResponse.json({
     bookings: scopedBookings.map((b) => ({
       ...b,
       staffName: nameById.get(b.staff_user_id as string) ?? "Staff",
     })),
     schedules: scopedSchedules,
+    staff,
     viewer: {
       userId: gate.session.userId,
       role: gate.session.role,

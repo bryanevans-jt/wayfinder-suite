@@ -161,6 +161,10 @@ Do not add Google service account keys to the staff project unless you later sha
 | Supervisor | Self + staff from existing `loadSupervisorScope`: ES/TS in `supervisor_es_assignments` **and** office-shared Transition Specialists / Instructors |
 | ES / Transition Specialist (and others) | Own calendar only |
 
+Role comes from `public.get_auth_user_profile()` (`profiles.role`). `super_admin` is treated as admin-tier (`isAdminTierRole`).
+
+The API returns a `staff` directory (from visible `staff_schedules`, not only bookings). The Team Calendar people checkboxes use that list so admins still see the team when nobody else has a booking in range.
+
 Staff app entry is still gated by the Rendezvous feature flag / `rendezvous_open_to_all` (super admin always; broader roles when open). Calendar queries always use an explicit staff-ID allow-list — never UI-only filtering.
 
 ---
