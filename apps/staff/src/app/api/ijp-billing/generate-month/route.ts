@@ -1,4 +1,5 @@
 import { assertNotPreviewMutation } from "@wayfinder/supabase/preview-server";
+import { canGenerateIjpBilling } from "@wayfinder/supabase/ijp-billing-settings";
 import { requireIjpBillingApi } from "@/lib/ijp-billing-access";
 import {
   IJP_BILLING_MONTH_MAX_DURATION_SEC,
@@ -12,6 +13,10 @@ export const maxDuration = IJP_BILLING_MONTH_MAX_DURATION_SEC;
 
 /**
  * Generate / resume invoice rows + optional PDF compile for a service month.
+ * Accounts Specialist, Admin, and Super Admin.
+ *
+ * Weekly runs append unbilled hours into the client's draft month invoice
+ * (GVRA monthly format). Already-billed entries are excluded.
  *
  * Body:
  * - serviceMonth (required)
@@ -25,8 +30,8 @@ export async function POST(request: NextRequest) {
   const auth = await requireIjpBillingApi();
   if ("error" in auth) return auth.error;
 
-  if (auth.role !== "super_admin" && auth.role !== "admin") {
-    return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+  if (!canGenerateIjpBilling(auth.role)) {
+    return NextResponse.json({ error: "Generate access required." }, { status: 403 });
   }
 
   const body = (await request.json()) as {

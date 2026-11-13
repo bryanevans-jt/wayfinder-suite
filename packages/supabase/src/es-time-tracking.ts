@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { IJP_BILLED_ENTRY_EDIT_BLOCKED_MESSAGE } from "./ijp-billing-entry-billing";
 import {
   localDateStringInTz,
   nyLocalToUtc,
@@ -358,8 +359,18 @@ export type UpdateEsTimeEntryInput = {
 export async function updateEsTimeEntry(
   supabase: SupabaseClient,
   entryId: string,
-  input: UpdateEsTimeEntryInput
+  input: UpdateEsTimeEntryInput,
+  opts?: { allowBilledEdit?: boolean }
 ): Promise<void> {
+  const { data: existing } = await supabase
+    .from("es_time_entries")
+    .select("id, ijp_billed_invoice_id")
+    .eq("id", entryId)
+    .maybeSingle();
+  if (existing?.ijp_billed_invoice_id && opts?.allowBilledEdit !== true) {
+    throw new Error(IJP_BILLED_ENTRY_EDIT_BLOCKED_MESSAGE);
+  }
+
   const activity = await loadActivityTypeById(supabase, input.activityTypeId);
   if (!activity) {
     throw new Error("Invalid activity type");

@@ -6,9 +6,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { IjpBillingSettingsRow } from "@wayfinder/supabase/ijp-billing-settings";
 import {
-  loadClientIdsWithBillableHoursInMonth,
+  loadClientIdsWithUnbilledBillableHoursInMonth,
   serviceMonthStartFromYmd,
 } from "@wayfinder/supabase/ijp-billing-eligibility";
+import { fetchAllPostgrestRows } from "@wayfinder/supabase/postgrest-fetch-all";
 import { compileIjpInvoicePdf, ensureIjpInvoiceRow } from "@/lib/ijp-billing-service";
 import {
   IJP_BILLING_MONTH_COMPILE_BATCH,
@@ -21,6 +22,26 @@ export {
   IJP_BILLING_MONTH_MAX_DURATION_SEC,
   IJP_BILLING_MONTH_ROW_BATCH,
 };
+
+async function loadClientIdsWithInvoicesInMonth(
+  admin: Parameters<typeof loadClientIdsWithUnbilledBillableHoursInMonth>[0],
+  serviceMonth: string,
+  isTest: boolean
+): Promise<string[]> {
+  const rows = await fetchAllPostgrestRows<{ client_id: string }>(
+    admin,
+    "ijp_billing_invoices",
+    "client_id",
+    {
+      order: { column: "client_id", ascending: true },
+      applyFilters: (query) =>
+        query.eq("service_month", serviceMonth).eq("is_test", isTest),
+    }
+  );
+  return Array.from(
+    new Set(rows.map((r) => r.client_id as string).filter(Boolean))
+  ).sort();
+}
 
 export type IjpBillingMonthPhase = "rows" | "compile";
 
@@ -84,7 +105,12 @@ export async function runIjpBillingMonthChunk(
     phase === "compile" ? IJP_BILLING_MONTH_COMPILE_BATCH : IJP_BILLING_MONTH_ROW_BATCH;
   const limit = Math.max(1, Math.min(100, Number(opts.limit) || defaultLimit));
 
-  const clientIds = await loadClientIdsWithBillableHoursInMonth(admin, serviceMonth);
+  // Rows: unbilled hours only. Compile: clients that already have invoice rows
+  // (unbilled list is empty after the rows phase stamps entries).
+  const clientIds =
+    phase === "compile"
+      ? await loadClientIdsWithInvoicesInMonth(admin, serviceMonth, isTest)
+      : await loadClientIdsWithUnbilledBillableHoursInMonth(admin, serviceMonth);
   const total = clientIds.length;
   const slice = clientIds.slice(offset, offset + limit);
 
@@ -118,29 +144,31 @@ export async function runIjpBillingMonthChunk(
   } else {
     for (const clientId of slice) {
       processed += 1;
-      const { data: invoice } = await admin
+      const { data: invoices } = await admin
         .from("ijp_billing_invoices")
         .select("id, compiled_at, invoice_only_drive_file_id, status, archived_at")
         .eq("client_id", clientId)
         .eq("service_month", serviceMonth)
         .eq("is_test", isTest)
-        .maybeSingle();
+        .order("created_at", { ascending: true });
 
-      if (!invoice?.id) continue;
-      if (invoice.archived_at) {
-        skippedLocked += 1;
-        continue;
-      }
-      // Idempotent compile: keep existing PDF unless missing.
-      if (invoice.compiled_at && invoice.invoice_only_drive_file_id) {
-        continue;
-      }
-      try {
-        await compileIjpInvoicePdf(admin, invoice.id as string, settings);
-        compiled += 1;
-      } catch (e) {
-        compileErrors += 1;
-        console.error("ijp invoice compile failed:", clientId, e);
+      for (const invoice of invoices ?? []) {
+        if (!invoice?.id) continue;
+        if (invoice.archived_at) {
+          skippedLocked += 1;
+          continue;
+        }
+        // Idempotent compile: keep existing PDF unless missing.
+        if (invoice.compiled_at && invoice.invoice_only_drive_file_id) {
+          continue;
+        }
+        try {
+          await compileIjpInvoicePdf(admin, invoice.id as string, settings);
+          compiled += 1;
+        } catch (e) {
+          compileErrors += 1;
+          console.error("ijp invoice compile failed:", clientId, invoice.id, e);
+        }
       }
     }
   }

@@ -1,6 +1,8 @@
 import {
   canAccessIjpBilling,
   canEditIjpBilling,
+  canGenerateIjpBilling,
+  canUseIjpBillingTestTools,
 } from "@wayfinder/supabase/ijp-billing-settings";
 import { requireIjpBillingApi } from "@/lib/ijp-billing-access";
 import { NextResponse } from "next/server";
@@ -14,6 +16,8 @@ export async function GET() {
   return NextResponse.json({
     canAccess: canAccessIjpBilling(auth.role),
     canEdit: canEditIjpBilling(auth.role),
+    canGenerate: canGenerateIjpBilling(auth.role),
+    canTest: canUseIjpBillingTestTools(auth.role),
     role: auth.role,
     hourlyRateCents: auth.settings.hourly_rate_cents,
   });

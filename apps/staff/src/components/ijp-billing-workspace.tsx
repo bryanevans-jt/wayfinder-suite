@@ -64,6 +64,7 @@ export function IjpBillingWorkspace() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [canTest, setCanTest] = useState(false);
+  const [canGenerate, setCanGenerate] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
   const [testClientId, setTestClientId] = useState("");
   const [testMonth, setTestMonth] = useState(priorServiceMonthStart());
@@ -148,27 +149,34 @@ export function IjpBillingWorkspace() {
       const json = (await access.json()) as {
         role?: string;
         canEdit?: boolean;
+        canGenerate?: boolean;
+        canTest?: boolean;
         hourlyRateCents?: number;
       };
       const editAllowed = Boolean(json.canEdit);
-      const isAdmin = json.role === "super_admin" || json.role === "admin";
-      setCanTest(isAdmin);
+      const generateAllowed = Boolean(json.canGenerate ?? editAllowed);
+      const testAllowed =
+        typeof json.canTest === "boolean"
+          ? json.canTest
+          : json.role === "super_admin" || json.role === "admin";
+      setCanTest(testAllowed);
+      setCanGenerate(generateAllowed);
       setCanEdit(editAllowed);
       if (typeof json.hourlyRateCents === "number" && json.hourlyRateCents > 0) {
         setHourlyRateCents(json.hourlyRateCents);
       }
       await refreshDraftsThenLoad(editAllowed);
-      if (isAdmin) await loadCompleteness();
+      if (generateAllowed) await loadCompleteness();
     })();
   }, [loadCompleteness, refreshDraftsThenLoad]);
 
   useEffect(() => {
-    if (!canTest) {
+    if (!canGenerate) {
       setCompleteness(null);
       return;
     }
     void loadCompleteness();
-  }, [canTest, loadCompleteness, month]);
+  }, [canGenerate, loadCompleteness, month]);
 
   async function fetchInvoiceLines(id: string): Promise<IjpInvoiceLineItem[] | null> {
     const res = await fetch(`/api/ijp-billing/invoices/${id}`);
@@ -384,7 +392,7 @@ export function IjpBillingWorkspace() {
         >
           Download month ZIP
         </a>
-        {canTest ? (
+        {canGenerate ? (
           <button
             type="button"
             disabled={busy}
@@ -440,7 +448,7 @@ export function IjpBillingWorkspace() {
                   offset = data.nextOffset ?? offset;
                 }
                 setMessage(
-                  `Month generate finished for ${total} billable-hours client(s): created ${created}, refreshed ${refreshed}, compiled ${compiled} PDF(s).`
+                  `Month generate finished for ${total} unbilled-hours client(s): created ${created}, refreshed ${refreshed}, compiled ${compiled} PDF(s).`
                 );
                 await load();
                 await loadCompleteness();
@@ -454,7 +462,7 @@ export function IjpBillingWorkspace() {
         ) : null}
       </div>
 
-      {canTest && completeness ? (
+      {canGenerate && completeness ? (
         <div
           className={`rounded-xl border px-4 py-3 text-sm ${
             completeness.complete
@@ -463,14 +471,14 @@ export function IjpBillingWorkspace() {
           }`}
         >
           <p className="font-semibold">
-            Completeness (billable hours → invoices)
+            Completeness (unbilled hours → invoices)
           </p>
           <p className="mt-1">
             {completeness.invoicesPresent} of {completeness.clientsWithBillableHours} clients with
             billable hours have an invoice
             {completeness.complete
               ? " — complete."
-              : ` — ${completeness.missingCount} missing.`}
+              : ` — ${completeness.missingCount} still need generate (unbilled or missing).`}
           </p>
           {!completeness.complete && completeness.missingClients.length > 0 ? (
             <ul className="mt-2 list-disc space-y-0.5 pl-5">

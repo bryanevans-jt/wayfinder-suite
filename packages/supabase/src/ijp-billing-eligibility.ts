@@ -368,30 +368,37 @@ export function sumBillableHoursFromEntries(rows: BillableTimeEntryRow[]): numbe
   return minutes / 60;
 }
 
-/**
- * Every client with billable `es_time_entries` in the service month.
- * Includes archived / closed / discarded / any current service or assignee role.
- * Excludes demo clients only.
- */
-export async function loadClientIdsWithBillableHoursInMonth(
+async function loadBillableHoursClientIdsInMonth(
   admin: SupabaseClient,
-  monthStart: string
+  monthStart: string,
+  opts?: { unbilledOnly?: boolean }
 ): Promise<string[]> {
   const month = serviceMonthStartFromYmd(monthStart);
   const monthEnd = serviceMonthEndYmd(month);
+  const unbilledOnly = opts?.unbilledOnly === true;
   const rows = await fetchAllPostgrestRows<
-    BillableTimeEntryRow & { client_id: string }
-  >(admin, "es_time_entries", "client_id, duration_minutes, flags, client_present, delivery_mode, service_date, status, service_activity_types ( code, counts_toward_client_billable )", {
-    order: [
-      { column: "client_id", ascending: true },
-      { column: "service_date", ascending: true },
-    ],
-    applyFilters: (query) =>
-      query
-        .neq("status", "rejected")
-        .gte("service_date", month)
-        .lte("service_date", monthEnd),
-  });
+    BillableTimeEntryRow & { client_id: string; ijp_billed_invoice_id?: string | null }
+  >(
+    admin,
+    "es_time_entries",
+    "client_id, duration_minutes, flags, client_present, delivery_mode, service_date, status, ijp_billed_invoice_id, service_activity_types ( code, counts_toward_client_billable )",
+    {
+      order: [
+        { column: "client_id", ascending: true },
+        { column: "service_date", ascending: true },
+      ],
+      applyFilters: (query) => {
+        let q = query
+          .neq("status", "rejected")
+          .gte("service_date", month)
+          .lte("service_date", monthEnd);
+        if (unbilledOnly) {
+          q = q.is("ijp_billed_invoice_id", null);
+        }
+        return q;
+      },
+    }
+  );
 
   const byClient: Record<string, BillableTimeEntryRow[]> = {};
   for (const row of rows) {
@@ -415,6 +422,29 @@ export async function loadClientIdsWithBillableHoursInMonth(
     profiles.filter((p) => p.is_demo === true).map((p) => p.id as string)
   );
   return withHours.filter((id) => !demoIds.has(id)).sort();
+}
+
+/**
+ * Every client with billable `es_time_entries` in the service month.
+ * Includes archived / closed / discarded / any current service or assignee role.
+ * Excludes demo clients only.
+ */
+export async function loadClientIdsWithBillableHoursInMonth(
+  admin: SupabaseClient,
+  monthStart: string
+): Promise<string[]> {
+  return loadBillableHoursClientIdsInMonth(admin, monthStart, { unbilledOnly: false });
+}
+
+/**
+ * Clients with billable hours not yet stamped on an IJP invoice (weekly generate targets).
+ * Includes archived/closed and late-entered hours for past periods.
+ */
+export async function loadClientIdsWithUnbilledBillableHoursInMonth(
+  admin: SupabaseClient,
+  monthStart: string
+): Promise<string[]> {
+  return loadBillableHoursClientIdsInMonth(admin, monthStart, { unbilledOnly: true });
 }
 
 /**
@@ -474,16 +504,21 @@ export type IjpBillingMonthCompleteness = {
 };
 
 /**
- * Completeness for admins: every client with billable hours should have an invoice row.
+ * Completeness for admins / Accounts Specialists:
+ * every client with still-unbilled billable hours should be picked up by generate.
+ * Also reports clients with any billable hours who lack an invoice row.
  */
 export async function loadIjpBillingMonthCompleteness(
   admin: SupabaseClient,
   monthStart: string,
   opts?: { isTest?: boolean }
-): Promise<IjpBillingMonthCompleteness> {
+): Promise<IjpBillingMonthCompleteness & { clientsWithUnbilledHours: number }> {
   const month = serviceMonthStartFromYmd(monthStart);
   const isTest = opts?.isTest === true;
-  const hoursIds = await loadClientIdsWithBillableHoursInMonth(admin, month);
+  const [hoursIds, unbilledIds] = await Promise.all([
+    loadClientIdsWithBillableHoursInMonth(admin, month),
+    loadClientIdsWithUnbilledBillableHoursInMonth(admin, month),
+  ]);
   const invoices = await fetchAllPostgrestRows<{ client_id: string }>(
     admin,
     "ijp_billing_invoices",
@@ -495,10 +530,17 @@ export async function loadIjpBillingMonthCompleteness(
     }
   );
   const present = new Set(invoices.map((row) => row.client_id as string).filter(Boolean));
-  const missingClientIds = hoursIds.filter((id) => !present.has(id));
+  // Missing = still have unbilled hours (weekly generate still has work) OR never invoiced.
+  const missingClientIds = Array.from(
+    new Set([
+      ...unbilledIds,
+      ...hoursIds.filter((id) => !present.has(id)),
+    ])
+  ).sort();
   return {
     serviceMonth: month,
     clientsWithBillableHours: hoursIds.length,
+    clientsWithUnbilledHours: unbilledIds.length,
     invoicesPresent: hoursIds.filter((id) => present.has(id)).length,
     missingClientIds,
     missingCount: missingClientIds.length,

@@ -3,11 +3,13 @@ import { google } from "googleapis";
 import { clientDisplayName } from "@wayfinder/branding";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { IjpBillingSettingsRow } from "@wayfinder/supabase/ijp-billing-settings";
+import { entryCountsTowardClientBillableWithActivity } from "@wayfinder/supabase/client-billable";
 import {
   buildIjpAttestationPlaceholders,
   buildIjpInvoiceHeaderPlaceholders,
   buildIjpInvoiceLineItems,
   ensureSingleGvraAllowanceLine,
+  isGvraAllowanceIjpLine,
   isIjpInvoiceEligibleForDraftLineRefresh,
   mergeIjpInvoiceLinesWithManual,
   recalcLineAmount,
@@ -139,6 +141,75 @@ async function loadEsNameMapForClientMonth(
   return loadStaffNameById(admin, [...esIds], "ES");
 }
 
+const UUID_ENTRY_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function realTimeEntryIdsFromLines(lines: IjpInvoiceLineItem[]): string[] {
+  return [
+    ...new Set(
+      lines
+        .map((line) => line.entryId)
+        .filter((id): id is string => Boolean(id) && UUID_ENTRY_ID_RE.test(id))
+    ),
+  ];
+}
+
+/** Stamp time entries as billed on this invoice (idempotent; never steals other invoices). */
+export async function markEsTimeEntriesBilledOnIjpInvoice(
+  admin: SupabaseClient,
+  opts: { invoiceId: string; entryIds: readonly string[]; billedAt?: string }
+): Promise<number> {
+  const ids = [...new Set(opts.entryIds.filter(Boolean))];
+  if (ids.length === 0) return 0;
+  const billedAt = opts.billedAt ?? new Date().toISOString();
+  const { data, error } = await admin
+    .from("es_time_entries")
+    .update({
+      ijp_billed_invoice_id: opts.invoiceId,
+      ijp_billed_at: billedAt,
+      updated_at: billedAt,
+    })
+    .in("id", ids)
+    .is("ijp_billed_invoice_id", null)
+    .select("id");
+  if (error) throw new Error(error.message);
+  // Also reaffirm entries already on this invoice (no-op for others).
+  const { error: affirmErr } = await admin
+    .from("es_time_entries")
+    .update({
+      ijp_billed_invoice_id: opts.invoiceId,
+      ijp_billed_at: billedAt,
+      updated_at: billedAt,
+    })
+    .in("id", ids)
+    .eq("ijp_billed_invoice_id", opts.invoiceId);
+  if (affirmErr) throw new Error(affirmErr.message);
+  return (data ?? []).length;
+}
+
+async function monthHasGvraAllowanceOnOtherInvoice(
+  admin: SupabaseClient,
+  opts: {
+    clientId: string;
+    monthStart: string;
+    isTest: boolean;
+    exceptInvoiceId?: string | null;
+  }
+): Promise<boolean> {
+  const { data } = await admin
+    .from("ijp_billing_invoices")
+    .select("id, line_items")
+    .eq("client_id", opts.clientId)
+    .eq("service_month", opts.monthStart)
+    .eq("is_test", opts.isTest);
+  for (const row of data ?? []) {
+    if (opts.exceptInvoiceId && row.id === opts.exceptInvoiceId) continue;
+    const lines = (row.line_items as IjpInvoiceLineItem[] | null) ?? [];
+    if (lines.some((line) => isGvraAllowanceIjpLine(line))) return true;
+  }
+  return false;
+}
+
 /** Rebuild invoice line items from ES time entries (same billable rules as timesheet) and persist. */
 export async function syncIjpInvoiceLineItemsFromBillable(
   admin: SupabaseClient,
@@ -147,6 +218,10 @@ export async function syncIjpInvoiceLineItemsFromBillable(
     serviceMonth: string;
     isTest: boolean;
     settings: IjpBillingSettingsRow;
+    /** Target invoice; when omitted, uses/creates the unlocked draft for the month. */
+    invoiceId?: string | null;
+    /** Skip GVRA allotment line (supplemental invoices after the month allotment was billed). */
+    skipGvraAllowance?: boolean;
   }
 ): Promise<IjpInvoiceLineSyncResult> {
   const monthStart = serviceMonthStartFromYmd(opts.serviceMonth);
@@ -156,81 +231,173 @@ export async function syncIjpInvoiceLineItemsFromBillable(
     opts.clientId,
     monthStart
   );
+
+  let invoiceId = opts.invoiceId ?? null;
+  let existingLines: IjpInvoiceLineItem[] = [];
+
+  if (invoiceId) {
+    const { data: existing } = await admin
+      .from("ijp_billing_invoices")
+      .select("id, line_items")
+      .eq("id", invoiceId)
+      .maybeSingle();
+    if (!existing?.id) {
+      throw new Error("IJP invoice not found for sync.");
+    }
+    existingLines = (existing.line_items as IjpInvoiceLineItem[] | null) ?? [];
+  } else {
+    const unlocked = await findUnlockedIjpInvoiceForMonth(admin, {
+      clientId: opts.clientId,
+      serviceMonth: monthStart,
+      isTest: opts.isTest,
+    });
+    if (unlocked) {
+      invoiceId = unlocked.id;
+      existingLines = unlocked.line_items;
+    }
+  }
+
+  // Need an invoice id before build so already-billed-on-this-invoice entries are included.
+  if (!invoiceId) {
+    const { data: inserted, error } = await admin
+      .from("ijp_billing_invoices")
+      .insert({
+        client_id: opts.clientId,
+        service_month: monthStart,
+        is_test: opts.isTest,
+        authorization_number: authNumber || null,
+        line_items: [],
+        total_hours: 0,
+        total_amount_cents: 0,
+        missing_attestation: true,
+      })
+      .select("id")
+      .maybeSingle();
+    if (error || !inserted?.id) {
+      throw new Error(error?.message ?? "Could not create IJP invoice row.");
+    }
+    invoiceId = inserted.id as string;
+  }
+
   const built = await buildIjpInvoiceLineItems(admin, {
     clientId: opts.clientId,
     monthStart,
     authorizationNumber: authNumber,
     hourlyRateCents: opts.settings.hourly_rate_cents,
     esNameByUserId,
+    invoiceId,
+    excludeBilledOnOtherInvoices: true,
   });
 
-  const { data: existing } = await admin
-    .from("ijp_billing_invoices")
-    .select("id, line_items")
-    .eq("client_id", opts.clientId)
-    .eq("service_month", monthStart)
-    .eq("is_test", opts.isTest)
-    .maybeSingle();
-
-  const existingLines = (existing?.line_items as IjpInvoiceLineItem[] | null) ?? [];
   const merged = mergeIjpInvoiceLinesWithManual(built.lines, existingLines);
-  const lines = ensureSingleGvraAllowanceLine(merged, {
-    clientId: opts.clientId,
-    monthStart,
-    authorization: authNumber,
-    hourlyRateCents: opts.settings.hourly_rate_cents,
-  }).map((line) => recalcLineAmount(line, opts.settings.hourly_rate_cents));
+  const skipGvra =
+    opts.skipGvraAllowance === true ||
+    (await monthHasGvraAllowanceOnOtherInvoice(admin, {
+      clientId: opts.clientId,
+      monthStart,
+      isTest: opts.isTest,
+      exceptInvoiceId: invoiceId,
+    }));
+  const withGvra = skipGvra
+    ? merged.filter((line) => !isGvraAllowanceIjpLine(line))
+    : ensureSingleGvraAllowanceLine(merged, {
+        clientId: opts.clientId,
+        monthStart,
+        authorization: authNumber,
+        hourlyRateCents: opts.settings.hourly_rate_cents,
+      });
+  const lines = withGvra.map((line) =>
+    recalcLineAmount(line, opts.settings.hourly_rate_cents)
+  );
   const totals = sumIjpLineItems(lines, opts.settings.hourly_rate_cents);
 
-  if (existing?.id) {
-    const { error } = await admin
-      .from("ijp_billing_invoices")
-      .update({
-        authorization_number: authNumber || null,
-        line_items: lines,
-        total_hours: totals.totalHours,
-        total_amount_cents: totals.totalAmountCents,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", existing.id);
-    if (error) throw new Error(error.message);
-    return {
-      id: existing.id as string,
-      line_items: lines,
-      total_hours: totals.totalHours,
-      total_amount_cents: totals.totalAmountCents,
-      approvedEntryCount: built.entryCount,
-      billableEntryCount: built.billableEntryCount,
-    };
-  }
-
-  const { data: inserted, error } = await admin
+  const { error } = await admin
     .from("ijp_billing_invoices")
-    .insert({
-      client_id: opts.clientId,
-      service_month: monthStart,
-      is_test: opts.isTest,
+    .update({
       authorization_number: authNumber || null,
       line_items: lines,
       total_hours: totals.totalHours,
       total_amount_cents: totals.totalAmountCents,
-      missing_attestation: true,
+      updated_at: new Date().toISOString(),
     })
-    .select("id")
-    .maybeSingle();
+    .eq("id", invoiceId);
+  if (error) throw new Error(error.message);
 
-  if (error || !inserted?.id) {
-    throw new Error(error?.message ?? "Could not create IJP invoice row.");
-  }
+  await markEsTimeEntriesBilledOnIjpInvoice(admin, {
+    invoiceId,
+    entryIds: realTimeEntryIdsFromLines(lines),
+  });
 
   return {
-    id: inserted.id as string,
+    id: invoiceId,
     line_items: lines,
     total_hours: totals.totalHours,
     total_amount_cents: totals.totalAmountCents,
     approvedEntryCount: built.entryCount,
     billableEntryCount: built.billableEntryCount,
   };
+}
+
+async function findUnlockedIjpInvoiceForMonth(
+  admin: SupabaseClient,
+  opts: { clientId: string; serviceMonth: string; isTest: boolean }
+): Promise<{ id: string; line_items: IjpInvoiceLineItem[] } | null> {
+  const { data } = await admin
+    .from("ijp_billing_invoices")
+    .select("id, line_items, status, compiled_at, archived_at, created_at")
+    .eq("client_id", opts.clientId)
+    .eq("service_month", opts.serviceMonth)
+    .eq("is_test", opts.isTest)
+    .order("created_at", { ascending: true });
+
+  for (const row of data ?? []) {
+    if (
+      !isIjpInvoiceLockedForMonthLineRefresh({
+        status: row.status as string | null,
+        compiled_at: row.compiled_at as string | null,
+        archived_at: row.archived_at as string | null,
+      })
+    ) {
+      return {
+        id: row.id as string,
+        line_items: (row.line_items as IjpInvoiceLineItem[]) ?? [],
+      };
+    }
+  }
+  return null;
+}
+
+async function clientHasUnbilledBillableHoursInMonth(
+  admin: SupabaseClient,
+  clientId: string,
+  monthStart: string
+): Promise<boolean> {
+  const monthEnd = serviceMonthEndYmd(monthStart);
+  const { data: rows } = await admin
+    .from("es_time_entries")
+    .select(
+      "duration_minutes, flags, client_present, delivery_mode, service_date, status, ijp_billed_invoice_id, service_activity_types ( code, counts_toward_client_billable )"
+    )
+    .eq("client_id", clientId)
+    .is("ijp_billed_invoice_id", null)
+    .neq("status", "rejected")
+    .gte("service_date", monthStart)
+    .lte("service_date", monthEnd)
+    .limit(50);
+  for (const row of rows ?? []) {
+    const embed = row.service_activity_types;
+    const activity = Array.isArray(embed) ? embed[0] : embed;
+    if (
+      entryCountsTowardClientBillableWithActivity(
+        row as Parameters<typeof entryCountsTowardClientBillableWithActivity>[0],
+        activity as Parameters<typeof entryCountsTowardClientBillableWithActivity>[1]
+      ) &&
+      (row.duration_minutes as number) > 0
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -267,34 +434,33 @@ export async function ensureIjpInvoiceRow(
   created: boolean;
   locked: boolean;
 }> {
+  const monthStart = serviceMonthStartFromYmd(opts.serviceMonth);
+  const unlocked = await findUnlockedIjpInvoiceForMonth(admin, {
+    clientId: opts.clientId,
+    serviceMonth: monthStart,
+    isTest: opts.isTest,
+  });
+
   if (opts.forceRefresh) {
-    const synced = await syncIjpInvoiceLineItemsFromBillable(admin, opts);
+    const synced = await syncIjpInvoiceLineItemsFromBillable(admin, {
+      ...opts,
+      invoiceId: unlocked?.id ?? null,
+    });
     return {
       id: synced.id,
       line_items: synced.line_items,
       refreshed: true,
-      created: false,
+      created: !unlocked,
       locked: false,
     };
   }
 
-  const monthStart = serviceMonthStartFromYmd(opts.serviceMonth);
-  const { data: existing } = await admin
-    .from("ijp_billing_invoices")
-    .select("id, line_items, status, compiled_at, archived_at")
-    .eq("client_id", opts.clientId)
-    .eq("service_month", monthStart)
-    .eq("is_test", opts.isTest)
-    .maybeSingle();
-
-  if (existing?.id) {
-    const locked = isIjpInvoiceLockedForMonthLineRefresh({
-      status: existing.status as string | null,
-      compiled_at: existing.compiled_at as string | null,
-      archived_at: existing.archived_at as string | null,
-    });
-    if (opts.refreshIfUnlocked && !locked) {
-      const synced = await syncIjpInvoiceLineItemsFromBillable(admin, opts);
+  if (unlocked) {
+    if (opts.refreshIfUnlocked) {
+      const synced = await syncIjpInvoiceLineItemsFromBillable(admin, {
+        ...opts,
+        invoiceId: unlocked.id,
+      });
       return {
         id: synced.id,
         line_items: synced.line_items,
@@ -304,15 +470,57 @@ export async function ensureIjpInvoiceRow(
       };
     }
     return {
-      id: existing.id as string,
-      line_items: (existing.line_items as IjpInvoiceLineItem[]) ?? [],
+      id: unlocked.id,
+      line_items: unlocked.line_items,
       refreshed: false,
       created: false,
-      locked,
+      locked: false,
     };
   }
 
-  const synced = await syncIjpInvoiceLineItemsFromBillable(admin, opts);
+  // All existing invoices locked (or none). Create/sync only when unbilled hours remain
+  // (late entries after finalize → supplemental draft for the same service month).
+  const hasUnbilled = await clientHasUnbilledBillableHoursInMonth(
+    admin,
+    opts.clientId,
+    monthStart
+  );
+  if (!hasUnbilled) {
+    const { data: anyInvoice } = await admin
+      .from("ijp_billing_invoices")
+      .select("id, line_items, status, compiled_at, archived_at")
+      .eq("client_id", opts.clientId)
+      .eq("service_month", monthStart)
+      .eq("is_test", opts.isTest)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (anyInvoice?.id) {
+      return {
+        id: anyInvoice.id as string,
+        line_items: (anyInvoice.line_items as IjpInvoiceLineItem[]) ?? [],
+        refreshed: false,
+        created: false,
+        locked: true,
+      };
+    }
+  }
+
+  const synced = await syncIjpInvoiceLineItemsFromBillable(admin, {
+    ...opts,
+    invoiceId: null,
+    skipGvraAllowance: Boolean(
+      (
+        await admin
+          .from("ijp_billing_invoices")
+          .select("id")
+          .eq("client_id", opts.clientId)
+          .eq("service_month", monthStart)
+          .eq("is_test", opts.isTest)
+          .limit(1)
+      ).data?.length
+    ),
+  });
   return {
     id: synced.id,
     line_items: synced.line_items,

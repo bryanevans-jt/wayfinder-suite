@@ -73,6 +73,7 @@
     "./kra-billable-compliance": "./src/kra-billable-compliance.ts",
     "./ijp-billing-settings": "./src/ijp-billing-settings.ts",
     "./ijp-billing-eligibility": "./src/ijp-billing-eligibility.ts",
+    "./ijp-billing-entry-billing": "./src/ijp-billing-entry-billing.ts",
     "./ijp-billing-lines": "./src/ijp-billing-lines.ts",
     "./ijp-template-placeholders": "./src/ijp-template-placeholders.ts",
     "./intake-billing": "./src/intake-billing.ts",

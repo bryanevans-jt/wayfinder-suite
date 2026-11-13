@@ -1,14 +1,15 @@
 import { loadIjpBillingMonthCompleteness } from "@wayfinder/supabase/ijp-billing-eligibility";
+import { canGenerateIjpBilling } from "@wayfinder/supabase/ijp-billing-settings";
 import { requireIjpBillingApi } from "@/lib/ijp-billing-access";
 import { NextRequest, NextResponse } from "next/server";
 
-/** Admin completeness: clients with billable hours vs invoice rows for the month. */
+/** Completeness for Accounts Specialist / Admin: unbilled hours vs invoices for the month. */
 export async function GET(request: NextRequest) {
   const auth = await requireIjpBillingApi();
   if ("error" in auth) return auth.error;
 
-  if (auth.role !== "super_admin" && auth.role !== "admin") {
-    return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+  if (!canGenerateIjpBilling(auth.role)) {
+    return NextResponse.json({ error: "Generate access required." }, { status: 403 });
   }
 
   const month = request.nextUrl.searchParams.get("month")?.trim();

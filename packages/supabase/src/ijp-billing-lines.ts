@@ -3,6 +3,7 @@ import {
   entryCountsTowardClientBillableWithActivity,
   type ClientBillableEntry,
 } from "./client-billable";
+import { entryEligibleForIjpInvoiceBuild } from "./ijp-billing-entry-billing";
 import { serviceMonthStartFromYmd } from "./ijp-billing-eligibility";
 import { formatServiceTimeOfDay } from "./es-time-tracking";
 import { serviceMonthEndYmd } from "./ijp-billing-eligibility";
@@ -394,6 +395,10 @@ export async function buildIjpInvoiceLineItems(
     authorizationNumber: string;
     hourlyRateCents: number;
     esNameByUserId: Map<string, string>;
+    /** When set, include only unbilled entries plus entries already billed on this invoice. */
+    invoiceId?: string | null;
+    /** When true (default), exclude entries billed on a different invoice. */
+    excludeBilledOnOtherInvoices?: boolean;
   }
 ): Promise<IjpInvoiceLineBuildResult> {
   const monthStart = serviceMonthStartFromYmd(opts.monthStart);
@@ -402,7 +407,7 @@ export async function buildIjpInvoiceLineItems(
     .from("es_time_entries")
     .select(
       `id, es_user_id, service_date, duration_minutes, service_start_at, service_end_at,
-       flags, client_present, delivery_mode, status,
+       flags, client_present, delivery_mode, status, ijp_billed_invoice_id,
        service_activity_types ( code, name, counts_toward_client_billable )`
     )
     .eq("client_id", opts.clientId)
@@ -416,10 +421,25 @@ export async function buildIjpInvoiceLineItems(
     throw new Error(error.message);
   }
 
+  const excludeOther = opts.excludeBilledOnOtherInvoices !== false;
   const lines: IjpInvoiceLineItem[] = [];
   let billableEntryCount = 0;
+  let entryCount = 0;
 
   for (const row of entries ?? []) {
+    if (
+      excludeOther &&
+      !entryEligibleForIjpInvoiceBuild(
+        {
+          id: row.id as string,
+          ijp_billed_invoice_id: row.ijp_billed_invoice_id as string | null,
+        },
+        opts.invoiceId
+      )
+    ) {
+      continue;
+    }
+    entryCount += 1;
     const activity = parseActivityEmbed(
       row.service_activity_types as Parameters<typeof parseActivityEmbed>[0]
     );
@@ -466,7 +486,7 @@ export async function buildIjpInvoiceLineItems(
 
   return {
     lines,
-    entryCount: entries?.length ?? 0,
+    entryCount,
     billableEntryCount,
   };
 }
