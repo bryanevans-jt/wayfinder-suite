@@ -15,7 +15,7 @@ export default async function SuperAdminPortalPage({ searchParams }: PageProps) 
     <PortalWorkspace
       mode="super_admin"
       title="Super Admin Portal"
-      subtitle="Full organization control. Use Billing & modules below for IJP Billing (Drive folders and templates), or open Settings → IJP Billing. The left sidebar Tools section links to the IJP Billing workspace for monthly invoices."
+      subtitle="Full organization control. Use Billing & modules below for IJP Billing (Drive folders and templates), or open Settings → IJP Billing. The left sidebar Tools section links to the IJP Billing workspace (Generate Invoices)."
       initialNav={initialNav ?? undefined}
       initialConfig={initialConfig}
     />

@@ -3,7 +3,9 @@ import { describe, it } from "node:test";
 import {
   canAccessIjpBilling,
   canEditIjpBilling,
+  canGenerateIjpBilling,
   canManageIjpBillingSettings,
+  canUseIjpBillingTestTools,
   formatIjpListHours,
   GA_IJP_SERVICE_NAME,
   GA_IJP_SERVICE_NAME_VARIANTS,
@@ -13,14 +15,15 @@ import {
 import { isIndividualJobPlacementServiceName } from "./ijp-stages";
 
 describe("IJP Billing role gates", () => {
-  it("allows Accounts Specialist (accountant), Admin, and Super Admin to access and edit", () => {
+  it("allows Accounts Specialist (accountant), Admin, and Super Admin to access, edit, and generate", () => {
     for (const role of ["accountant", "admin", "super_admin", "Accountant", " Admin "]) {
       assert.equal(canAccessIjpBilling(role), true, `access ${role}`);
       assert.equal(canEditIjpBilling(role), true, `edit ${role}`);
+      assert.equal(canGenerateIjpBilling(role), true, `generate ${role}`);
     }
   });
 
-  it("denies other staff roles access and edit", () => {
+  it("denies other staff roles access, edit, and generate", () => {
     for (const role of [
       "es",
       "transition_specialist",
@@ -39,7 +42,14 @@ describe("IJP Billing role gates", () => {
     ]) {
       assert.equal(canAccessIjpBilling(role), false, `access ${String(role)}`);
       assert.equal(canEditIjpBilling(role), false, `edit ${String(role)}`);
+      assert.equal(canGenerateIjpBilling(role), false, `generate ${String(role)}`);
     }
+  });
+
+  it("keeps sandbox test tools Admin / Super Admin only (not Accounts Specialist)", () => {
+    assert.equal(canUseIjpBillingTestTools("accountant"), false);
+    assert.equal(canUseIjpBillingTestTools("admin"), true);
+    assert.equal(canUseIjpBillingTestTools("super_admin"), true);
   });
 
   it("keeps settings management Super Admin only", () => {

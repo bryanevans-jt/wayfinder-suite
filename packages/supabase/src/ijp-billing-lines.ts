@@ -3,10 +3,15 @@ import {
   entryCountsTowardClientBillableWithActivity,
   type ClientBillableEntry,
 } from "./client-billable";
-import { serviceMonthStartFromYmd } from "./ijp-billing-eligibility";
+import { entryEligibleForIjpInvoiceBuild } from "./ijp-billing-entry-billing";
+import {
+  serviceMonthEndYmd,
+  serviceMonthStartFromYmd,
+  timeEntryAttributedToIjpService,
+  type IjpAttributionEpisode,
+} from "./ijp-billing-eligibility";
 import { formatServiceTimeOfDay } from "./es-time-tracking";
-import { serviceMonthEndYmd } from "./ijp-billing-eligibility";
-import { formatIjpInvoiceAmount, formatIjpRateDollars } from "./ijp-billing-settings";
+import { resolveGaIjpServiceIds, formatIjpInvoiceAmount, formatIjpRateDollars } from "./ijp-billing-settings";
 
 /** GVRA IJP vocational invoice service code on every line. */
 export const IJP_INVOICE_SERVICE_CODE = "00270";
@@ -394,15 +399,20 @@ export async function buildIjpInvoiceLineItems(
     authorizationNumber: string;
     hourlyRateCents: number;
     esNameByUserId: Map<string, string>;
+    /** When set, include only unbilled entries plus entries already billed on this invoice. */
+    invoiceId?: string | null;
+    /** When true (default), exclude entries billed on a different invoice. */
+    excludeBilledOnOtherInvoices?: boolean;
   }
 ): Promise<IjpInvoiceLineBuildResult> {
   const monthStart = serviceMonthStartFromYmd(opts.monthStart);
   const monthEnd = serviceMonthEndYmd(monthStart);
+  const ijpServiceIds = await resolveGaIjpServiceIds(admin);
   const { data: entries, error } = await admin
     .from("es_time_entries")
     .select(
       `id, es_user_id, service_date, duration_minutes, service_start_at, service_end_at,
-       flags, client_present, delivery_mode, status,
+       flags, client_present, delivery_mode, status, ijp_billed_invoice_id, service_episode_id,
        service_activity_types ( code, name, counts_toward_client_billable )`
     )
     .eq("client_id", opts.clientId)
@@ -416,10 +426,48 @@ export async function buildIjpInvoiceLineItems(
     throw new Error(error.message);
   }
 
+  const { data: episodeRows } = await admin
+    .from("service_episodes")
+    .select("id, service_id, started_at, ended_at")
+    .eq("client_id", opts.clientId);
+  const clientEpisodes = (episodeRows ?? []) as IjpAttributionEpisode[];
+  const episodesById = new Map(
+    clientEpisodes
+      .filter((ep) => ep.id)
+      .map((ep) => [ep.id as string, ep])
+  );
+  // IJP invoices include only hours attributable to IJP (entry episode service, or
+  // IJP episode covering the service_date when the entry has no episode link).
+  const attributedRows = (entries ?? []).filter((row) => {
+    const episodeId = (row.service_episode_id as string | null) ?? null;
+    return timeEntryAttributedToIjpService({
+      serviceDate: row.service_date as string,
+      serviceEpisodeId: episodeId,
+      entryEpisode: episodeId ? episodesById.get(episodeId) ?? null : null,
+      clientEpisodes,
+      ijpServiceIds,
+    });
+  });
+
+  const excludeOther = opts.excludeBilledOnOtherInvoices !== false;
   const lines: IjpInvoiceLineItem[] = [];
   let billableEntryCount = 0;
+  let entryCount = 0;
 
-  for (const row of entries ?? []) {
+  for (const row of attributedRows) {
+    if (
+      excludeOther &&
+      !entryEligibleForIjpInvoiceBuild(
+        {
+          id: row.id as string,
+          ijp_billed_invoice_id: row.ijp_billed_invoice_id as string | null,
+        },
+        opts.invoiceId
+      )
+    ) {
+      continue;
+    }
+    entryCount += 1;
     const activity = parseActivityEmbed(
       row.service_activity_types as Parameters<typeof parseActivityEmbed>[0]
     );
@@ -466,7 +514,7 @@ export async function buildIjpInvoiceLineItems(
 
   return {
     lines,
-    entryCount: entries?.length ?? 0,
+    entryCount,
     billableEntryCount,
   };
 }

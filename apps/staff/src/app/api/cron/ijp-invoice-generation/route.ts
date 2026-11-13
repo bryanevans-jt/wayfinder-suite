@@ -1,9 +1,15 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithCronLoggedError } from "@wayfinder/supabase/error-log";
-import { loadEligibleIjpClientIdsForMonth, priorServiceMonthStart } from "@wayfinder/supabase/ijp-billing-eligibility";
+import { priorServiceMonthStart } from "@wayfinder/supabase/ijp-billing-eligibility";
 import { loadIjpBillingSettings } from "@wayfinder/supabase/ijp-billing-settings";
-import { ensureIjpInvoiceRow, compileIjpInvoicePdf } from "@/lib/ijp-billing-service";
+import {
+  runIjpBillingMonthChunk,
+  runIjpBillingMonthUntilBudget,
+} from "@/lib/ijp-billing-month-run";
 import { NextResponse } from "next/server";
+
+/** Vercel Pro ceiling — must be a numeric literal for Next.js segment config. */
+export const maxDuration = 300;
 
 function authorizeCron(request: Request): boolean {
   const secret = process.env.CRON_SECRET;
@@ -11,6 +17,10 @@ function authorizeCron(request: Request): boolean {
   return request.headers.get("authorization") === `Bearer ${secret}`;
 }
 
+/**
+ * 1st-of-month invoice generation for the prior service month.
+ * Supports resume via ?phase=&offset= so a timed-out run can continue.
+ */
 export async function GET(request: Request) {
   const route = "api/cron/ijp-invoice-generation";
   if (!authorizeCron(request)) {
@@ -24,50 +34,45 @@ export async function GET(request: Request) {
       return NextResponse.json({ ok: true, skipped: "module_disabled" });
     }
 
-    const serviceMonth = priorServiceMonthStart();
-    const clientIds = await loadEligibleIjpClientIdsForMonth(admin, serviceMonth);
+    const url = new URL(request.url);
+    const serviceMonth =
+      url.searchParams.get("serviceMonth")?.trim() || priorServiceMonthStart();
+    const phaseParam = url.searchParams.get("phase");
+    const offsetParam = url.searchParams.get("offset");
 
-    let rows = 0;
-    let compiled = 0;
-    const batchSize = 5;
-
-    for (let i = 0; i < clientIds.length; i += batchSize) {
-      const batch = clientIds.slice(i, i + batchSize);
-      for (const clientId of batch) {
-        const row = await ensureIjpInvoiceRow(admin, {
-          clientId,
-          serviceMonth,
-          isTest: false,
-          settings,
-        });
-        rows += 1;
-
-        const { data: att } = await admin
-          .from("ijp_monthly_attestations")
-          .select("attestation_drive_file_id")
-          .eq("client_id", clientId)
-          .eq("service_month", serviceMonth)
-          .eq("is_test", false)
-          .maybeSingle();
-
-        await admin
-          .from("ijp_billing_invoices")
-          .update({
-            missing_attestation: !att?.attestation_drive_file_id,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", row.id);
-
-        try {
-          await compileIjpInvoicePdf(admin, row.id, settings);
-          compiled += 1;
-        } catch (e) {
-          console.error("ijp invoice compile failed:", clientId, e);
-        }
-      }
+    if (phaseParam === "rows" || phaseParam === "compile" || offsetParam != null) {
+      const chunk = await runIjpBillingMonthChunk(admin, settings, {
+        serviceMonth,
+        phase: phaseParam === "compile" ? "compile" : "rows",
+        offset: offsetParam != null ? Number(offsetParam) : 0,
+        isTest: false,
+      });
+      return NextResponse.json({ ok: true, ...chunk });
     }
 
-    return NextResponse.json({ ok: true, serviceMonth, rows, compiled, total: clientIds.length });
+    const run = await runIjpBillingMonthUntilBudget(admin, settings, {
+      serviceMonth,
+      isTest: false,
+      budgetMs: 250_000,
+    });
+    const rows = run.rows.reduce((n, c) => n + c.processed, 0);
+    const created = run.rows.reduce((n, c) => n + c.created, 0);
+    const refreshed = run.rows.reduce((n, c) => n + c.refreshed, 0);
+    const compiled = run.compiles.reduce((n, c) => n + c.compiled, 0);
+    const total = run.rows[0]?.total ?? run.compiles[0]?.total ?? 0;
+
+    return NextResponse.json({
+      ok: true,
+      serviceMonth: run.serviceMonth,
+      rows,
+      created,
+      refreshed,
+      compiled,
+      total,
+      incomplete: run.incomplete,
+      resumePhase: run.resumePhase,
+      resumeOffset: run.resumeOffset,
+    });
   } catch (err) {
     return respondWithCronLoggedError("staff", route, err);
   }

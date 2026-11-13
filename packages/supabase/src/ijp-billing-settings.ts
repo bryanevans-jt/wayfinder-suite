@@ -86,7 +86,7 @@ export async function resolveGaIjpServiceId(admin: SupabaseClient): Promise<stri
 /**
  * Add / edit IJP Billing invoice rows (create, patch line hours / billing fields).
  * Accounts Specialist (`accountant`), Admin, and Super Admin.
- * Does not include delete, settings, bulk generate, or sandbox test tools.
+ * Does not include delete, settings, or sandbox test tools.
  */
 export function canEditIjpBilling(role: string | null | undefined): boolean {
   const r = normalizeRole(role);
@@ -94,6 +94,20 @@ export function canEditIjpBilling(role: string | null | undefined): boolean {
   if (isAdminRole(r)) return true;
   if (isAccountantRole(r)) return true;
   return false;
+}
+
+/**
+ * Generate Month / weekly invoice generation (including cron-triggered UI).
+ * Accounts Specialist, Admin, and Super Admin — same as edit.
+ */
+export function canGenerateIjpBilling(role: string | null | undefined): boolean {
+  return canEditIjpBilling(role);
+}
+
+/** Sandbox / test invoice tools — Admin and Super Admin only (not Accounts Specialist). */
+export function canUseIjpBillingTestTools(role: string | null | undefined): boolean {
+  const r = normalizeRole(role);
+  return isSuperAdminRole(r) || isAdminRole(r);
 }
 
 /** IJP Billing workspace — same roles as edit (no view-only role today). */
