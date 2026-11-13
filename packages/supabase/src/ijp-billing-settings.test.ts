@@ -4,6 +4,9 @@ import {
   canAccessIjpBilling,
   canEditIjpBilling,
   canManageIjpBillingSettings,
+  formatIjpListHours,
+  ijpHoursExpandMode,
+  isIjpInvoiceLockedForLineEdits,
 } from "./ijp-billing-settings";
 
 describe("IJP Billing role gates", () => {
@@ -56,5 +59,27 @@ describe("IJP Billing role gates", () => {
     for (const role of roles) {
       assert.equal(canAccessIjpBilling(role), canEditIjpBilling(role));
     }
+  });
+
+  it("does not lock draft, ready, or archived invoices for line edits today", () => {
+    assert.equal(isIjpInvoiceLockedForLineEdits({ status: "draft" }), false);
+    assert.equal(isIjpInvoiceLockedForLineEdits({ status: "ready", compiled_at: "2026-11-01" }), false);
+    assert.equal(
+      isIjpInvoiceLockedForLineEdits({ status: "archived", archived_at: "2026-11-02" }),
+      false
+    );
+  });
+
+  it("expands Hours as editable for editors and read-only otherwise", () => {
+    assert.equal(ijpHoursExpandMode({ canEdit: true }), "edit");
+    assert.equal(ijpHoursExpandMode({ canEdit: false }), "readonly");
+    assert.equal(ijpHoursExpandMode({ canEdit: true, locked: true }), "readonly");
+    assert.equal(ijpHoursExpandMode({ canEdit: false, locked: true }), "readonly");
+  });
+
+  it("formats list hour totals for whole and fractional values", () => {
+    assert.equal(formatIjpListHours(4), "4");
+    assert.equal(formatIjpListHours(3.1), "3.1");
+    assert.equal(formatIjpListHours(null), "0");
   });
 });
