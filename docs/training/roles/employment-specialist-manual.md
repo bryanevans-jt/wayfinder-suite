@@ -79,9 +79,18 @@ Share [Getting Signed In](../shared/getting-signed-in.md) with every participant
 
 - Log billable activity by client and service date.
 - Submit weeks for supervisor approval.
-- Approved time feeds payroll exports (admin/accountant).
+- **Individual Job Placement** billable hours feed Accounts Specialist **IJP Billing** invoices (Generate Invoices). Non–Individual Job Placement hours are never billed on IJP invoices.
+- Hours worked for payroll come from **Time Clock**, not from billable timesheet lines. Accounts Specialist exports both payroll and billable-by-client files.
 
 > **Screenshot:** `assets/screenshots/es-timesheet-week.png`
+
+---
+
+## 5b. Individual Job Placement attestation
+
+- For clients on **Individual Job Placement**, collect the monthly client signature when the caseload shows **Collect IJP signature** (typically after the 25th when billable time exists).
+- The product always displays the service as **Individual Job Placement** (not “GA IJP”).
+- Supervisors may coach from IJP attestation SLA alerts; dismissing an alert does not clear **Signature needed** on the caseload until you capture the signature.
 
 ---
 
@@ -185,7 +194,7 @@ Give participants: [Client Quick Start](../roles/client-quick-start.md)
 Use: [Counselor Setup Guide](../scripts/counselor-setup-guide-for-es.md)  
 Give counselors: [Counselor Quick Start](../roles/counselor-quick-start.md)
 
-Counselors sign in to **Wayfinder Pro** with their **GVRA or Tennessee VR work email** (not `@thejoshuatree.org`) and only see **My Clients**.
+Counselors sign in to **Wayfinder Pro** with their **agency work email** (not `@thejoshuatree.org`) and only see **My Clients**.
 
 ---
 
@@ -197,10 +206,10 @@ Counselors sign in to **Wayfinder Pro** with their **GVRA or Tennessee VR work e
 
 ---
 
-## 14. Tennessee (Later Session)
+## 14. Transition Specialists and Pre-ETS
 
-TN formal reports use **program-specific** forms in Joshua Tree Reports. Attend the TN ES training before submitting TN reports. GA workflows in this manual still apply to casework in Wayfinder Pro.
+Transition Specialists use this Employment Specialist shell **plus Pre-ETS** for released rosters, sessions, attendance, and CARs. Employment Specialists do **not** have Pre-ETS. **Accounts Specialists and Super Admins** upload Pre-ETS spreadsheets and enter authorization numbers; field staff work released rosters only.
 
 ---
 
-*Wayfinder Pro · Joshua Tree Service Group · v1.0.1*
+*Wayfinder Pro · Joshua Tree Service Group · v1.1.0*

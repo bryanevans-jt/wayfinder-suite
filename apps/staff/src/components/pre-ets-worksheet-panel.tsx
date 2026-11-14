@@ -555,7 +555,7 @@ export function PreEtsWorksheetPanel() {
               ? "Upload a district CSV or a multi-tab Excel workbook (one district per sheet). Pending rosters commit immediately per district tab."
               : isSupervisorMode
                 ? "Upload CSV or Excel before GVRA authorization numbers are available. Excel workbooks can use one tab per district; CSV is one district per file."
-                : "Support uploads and review import history. Supervisors normally upload planning worksheets; enter authorization numbers under Rosters & auths when GVRA responds."}
+                : "Accounts Specialists and Super Admins upload Pre-ETS spreadsheets here (Accounts: support / auth-match). Supervisors can upload planning worksheets for assigned schools. Enter authorization numbers under Rosters & auths when GVRA responds."}
         </p>
       </div>
 

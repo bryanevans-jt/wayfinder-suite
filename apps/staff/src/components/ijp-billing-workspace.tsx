@@ -361,7 +361,7 @@ export function IjpBillingWorkspace() {
       <div>
         <h1 className="text-2xl font-semibold text-brand-black">IJP Billing</h1>
         <p className="mt-1 text-sm text-brand-black/70">
-          GA Individual Job Placement monthly invoices and attestation packets. Downloads may warn
+          Individual Job Placement monthly invoices and attestation packets. Downloads may warn
           when attestation is missing.
         </p>
       </div>

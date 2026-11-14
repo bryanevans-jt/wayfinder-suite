@@ -2,7 +2,7 @@
 
 Training materials for **Wayfinder** (client app), **Wayfinder Pro** (team members), and **Joshua Tree Reports** (formal reporting).
 
-**Version:** 1.0.1 · **Initial rollout:** Georgia (GA) · **Tennessee (TN):** separate ES-only session later
+**Version:** 1.1.0 · **Initial rollout:** Georgia (GA)
 
 ---
 
@@ -13,8 +13,9 @@ Training materials for **Wayfinder** (client app), **Wayfinder Pro** (team membe
 | [shared/getting-signed-in.md](./shared/getting-signed-in.md) | All team members | One sheet — magic link, passkey, mobile install |
 | [shared/google-docs-import-guide.md](./shared/google-docs-import-guide.md) | You (Bryan) | How to turn these into branded Google Docs |
 | [shared/community-partners-field-guide.md](./shared/community-partners-field-guide.md) | ES, supervisors | Community Partners field guide |
-| [roles/employment-specialist-manual.md](./roles/employment-specialist-manual.md) | ES | Full reference + onboarding |
-| [roles/supervisor-manual.md](./roles/supervisor-manual.md) | Supervisors | Team oversight + helping ES/clients/counselors |
+| [roles/employment-specialist-manual.md](./roles/employment-specialist-manual.md) | ES | Full reference + onboarding (includes Individual Job Placement attestation) |
+| [roles/supervisor-manual.md](./roles/supervisor-manual.md) | Supervisors | Team oversight, Pre-ETS planning upload, IJP attestation coaching |
+| [roles/accounts-specialist-manual.md](./roles/accounts-specialist-manual.md) | Accounts Specialist | Intake billing, IJP Billing, Pre-ETS spreadsheets / auths / packets |
 | [roles/org-admin-manual.md](./roles/org-admin-manual.md) | Org admins | Users, offices, assignments (not super-admin) |
 | [roles/client-quick-start.md](./roles/client-quick-start.md) | Participants | One-page startup (PDF + in-app) |
 | [roles/counselor-quick-start.md](./roles/counselor-quick-start.md) | Counselors | One-page startup (PDF + in-app) |
@@ -25,6 +26,8 @@ Training materials for **Wayfinder** (client app), **Wayfinder Pro** (team membe
 | [conference/ga-supervisor-conference-binder.md](./conference/ga-supervisor-conference-binder.md) | Supervisors | **All-in-one conference field guide** (oversight + coaching + compliance) |
 | [conference/](./conference/) | GA training day | Agenda, facilitator guide, workbook, slides |
 | [assets/screenshots/](./assets/screenshots/) | — | Production screenshots for Google Docs import |
+
+**Product naming:** Individual Job Placement always displays as **Individual Job Placement** in Wayfinder Pro (not “GA IJP”).
 
 ---
 

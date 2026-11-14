@@ -33,7 +33,7 @@ Requires **admin** role (@thejoshuatree.org).
 
 ### Offices
 
-- Add office name, city, state (GA/TN).
+- Add office name, city, and state.
 - **Hide** unused VR offices so they don’t appear in pickers (super-admin may assist first time).
 
 > **Screenshot placeholder — Offices list**  
@@ -53,10 +53,13 @@ Requires **admin** role (@thejoshuatree.org).
 | Role in app | Typical user |
 |-------------|--------------|
 | **es** | Employment Specialist |
-| **supervisor** | Supervisor |
+| **transition_specialist** | Transition Specialist (ES shell + Pre-ETS field delivery) |
+| **supervisor** | Regional Supervisor |
 | **admin** | Org administrator |
 | **counselor** | Vocational counselor (limited portal) |
-| **accountant** | Payroll (future) |
+| **accountant** | Accounts Specialist — intake billing, Individual Job Placement (IJP) billing, Pre-ETS accounts (spreadsheet upload, authorizations, packets), exports |
+| **hr** | HR Director |
+| **hospitality_specialist** | Hospitality Specialist |
 
 **Adding a user:**
 
@@ -84,7 +87,7 @@ Wrong assignments = wrong data in analytics and counselor views. Verify after ev
 
 ## 6. Counselors
 
-Counselors are **vocational rehabilitation agency staff** (GVRA in Georgia, Tennessee DHS VR in Tennessee) — **not** Joshua Tree employees. They sign in with their **agency work email**, not `@thejoshuatree.org`.
+Counselors are **vocational rehabilitation agency staff** (for example GVRA in Georgia) — **not** Joshua Tree employees. They sign in with their **agency work email**, not `@thejoshuatree.org`.
 
 Counselors need:
 
@@ -102,7 +105,15 @@ Admins can import or review clients depending on portal tabs enabled. ESs create
 
 ---
 
-## 8. What Admins Don’t Manage Here
+## 8. Accounts Specialist vs Admin
+
+- **Accounts Specialist** owns Intake Billing marks, **IJP Billing** (Generate Invoices), and Pre-ETS accounts work (spreadsheet upload, A&I, roster edits after finalization, invoice packets). See [Accounts Specialist Manual](./accounts-specialist-manual.md).
+- **Admins** may also reach IJP Billing / Pre-ETS accounts tools when Pre-ETS and Accounts access are enabled for them; day-to-day billing is still Accounts Specialist owned.
+- Individual Job Placement always displays as **Individual Job Placement** in the product (not “GA IJP”).
+
+---
+
+## 9. What Admins Don’t Manage Here
 
 | Item | Who |
 |------|-----|
@@ -110,21 +121,22 @@ Admins can import or review clients depending on portal tabs enabled. ESs create
 | System error log (WF codes) | Super admin |
 | Demo/training clients | Super admin |
 | Pay period settings | Super admin |
+| Pre-ETS module / role rollout settings | Super admin |
 
 ---
 
-## 9. GA Training Conference Note
+## 10. GA Training Conference Note
 
 Admins attend the **same GA conference** as ESs and supervisors for context, then stay for the **admin breakout** (see [GA facilitator guide](../conference/ga-facilitator-guide.md)).
 
 ---
 
-## 10. Support
+## 11. Support
 
 **Bryan Evans** · bryan.evans@thejoshuatree.org · include WF- codes for errors.
 
 ---
 
-*Wayfinder Pro · Joshua Tree Service Group · v1.0.1*
+*Wayfinder Pro · Joshua Tree Service Group · v1.1.0*
 
 
