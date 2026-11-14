@@ -1,10 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { loadPreEtsSettings } from "./pre-ets-settings";
 import type { FinalizeRosterStudentInput } from "./pre-ets-authorization-finalize";
 import type { PreEtsYtdWarning } from "./pre-ets-worksheet-import";
 
 export type UpdatePendingRosterResult =
-  | { ok: true; ytdWarnings: PreEtsYtdWarning[] }
+  | {
+      ok: true;
+      ytdWarnings: PreEtsYtdWarning[];
+      addedStudentIds: string[];
+      removedStudentIds: string[];
+      keptStudentIds: string[];
+    }
   | { ok: false; error: string };
 
 function relationOne<T>(raw: T | T[] | null | undefined): T | null {
@@ -18,7 +23,7 @@ export async function updatePendingPreEtsRoster(
   input: {
     authorizationId: string;
     roster: FinalizeRosterStudentInput[];
-    /** Admin/Super Admin — allow edits after A&I / finalized auth type. */
+    /** Accounts Specialist / Admin / Super Admin — allow edits after A&I / finalized auth type. */
     allowAfterAuthorization?: boolean;
   }
 ): Promise<UpdatePendingRosterResult> {
@@ -61,10 +66,16 @@ export async function updatePendingPreEtsRoster(
   }
 
   const schoolId = authRow.school_id as string;
-  const settings = await loadPreEtsSettings(admin);
-  const ytdThreshold = settings.ytd_unit_warning_threshold;
   const ytdWarnings: PreEtsYtdWarning[] = [];
-  const warnedParticipants = new Set<string>();
+
+  const { data: existingEntries } = await admin
+    .from("pre_ets_roster_entries")
+    .select("id, student_id")
+    .eq("authorization_id", input.authorizationId);
+
+  const previousStudentIds = new Set(
+    (existingEntries ?? []).map((e) => e.student_id as string)
+  );
   const keptStudentIds = new Set<string>();
 
   for (let i = 0; i < input.roster.length; i++) {
@@ -111,11 +122,6 @@ export async function updatePendingPreEtsRoster(
     );
   }
 
-  const { data: existingEntries } = await admin
-    .from("pre_ets_roster_entries")
-    .select("id, student_id")
-    .eq("authorization_id", input.authorizationId);
-
   const toRemove = (existingEntries ?? []).filter(
     (e) => !keptStudentIds.has(e.student_id as string)
   );
@@ -129,5 +135,14 @@ export async function updatePendingPreEtsRoster(
       );
   }
 
-  return { ok: true, ytdWarnings };
+  const removedStudentIds = toRemove.map((e) => e.student_id as string);
+  const addedStudentIds = [...keptStudentIds].filter((id) => !previousStudentIds.has(id));
+
+  return {
+    ok: true,
+    ytdWarnings,
+    addedStudentIds,
+    removedStudentIds,
+    keptStudentIds: [...keptStudentIds],
+  };
 }

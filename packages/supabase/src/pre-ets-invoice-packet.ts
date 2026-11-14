@@ -580,6 +580,201 @@ export async function countBillableAttendanceUnits(
   return (attendance ?? []).filter((a) => a.present && a.signed_on_roster).length;
 }
 
+/**
+ * Refresh unit/amount totals on draft packets only after roster/auth edits.
+ * Never resets status or clears provider invoice numbers on ready/submitted/paid packets.
+ */
+export async function refreshPreEtsDraftPacketTotals(
+  admin: SupabaseClient,
+  input: {
+    authorizationId: string;
+    defaultRateCents: number;
+    actorUserId?: string | null;
+  }
+): Promise<{ refreshedPacketIds: string[]; skippedNonDraftCount: number }> {
+  const { data: packets, error } = await admin
+    .from("pre_ets_invoice_packets")
+    .select("id, status, provider_invoice_number, total_hours, total_amount_cents")
+    .eq("authorization_id", input.authorizationId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const billableUnits = await countBillableAttendanceUnits(admin, input.authorizationId);
+  let totalAmountCents = billableUnits * input.defaultRateCents;
+
+  const { data: authorization } = await admin
+    .from("pre_ets_authorizations")
+    .select("auth_type")
+    .eq("id", input.authorizationId)
+    .maybeSingle();
+
+  if (authorization?.auth_type === "individual") {
+    const { data: rosterEntry } = await admin
+      .from("pre_ets_roster_entries")
+      .select("billed_cents")
+      .eq("authorization_id", input.authorizationId)
+      .limit(1)
+      .maybeSingle();
+    if (rosterEntry?.billed_cents != null && billableUnits > 0) {
+      totalAmountCents = rosterEntry.billed_cents as number;
+    }
+  }
+
+  const refreshedPacketIds: string[] = [];
+  let skippedNonDraftCount = 0;
+
+  for (const packet of packets ?? []) {
+    const status = packet.status as string;
+    if (status !== "draft") {
+      skippedNonDraftCount += 1;
+      continue;
+    }
+
+    const prevHours = Number(packet.total_hours ?? 0);
+    const prevAmount = Number(packet.total_amount_cents ?? 0);
+    if (prevHours === billableUnits && prevAmount === totalAmountCents) {
+      continue;
+    }
+
+    const { error: updErr } = await admin
+      .from("pre_ets_invoice_packets")
+      .update({
+        total_hours: billableUnits,
+        total_amount_cents: totalAmountCents,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", packet.id as string)
+      .eq("status", "draft");
+
+    if (updErr) {
+      throw new Error(updErr.message);
+    }
+
+    refreshedPacketIds.push(packet.id as string);
+    await insertInvoicePacketEvent(admin, {
+      packetId: packet.id as string,
+      actorUserId: input.actorUserId,
+      eventKind: "draft_totals_refreshed",
+      metadata: {
+        reason: "draft_totals_refreshed_after_roster_or_auth_change",
+        previousTotalHours: prevHours,
+        previousTotalAmountCents: prevAmount,
+        billableUnits,
+        totalAmountCents,
+        preservedProviderInvoiceNumber: packet.provider_invoice_number ?? null,
+        preservedStatus: "draft",
+      },
+    });
+  }
+
+  return { refreshedPacketIds, skippedNonDraftCount };
+}
+
+/**
+ * Create or refresh a draft invoice packet without wiping non-draft packets
+ * or clearing a saved provider invoice number.
+ */
+export async function upsertPreEtsDraftInvoicePacket(
+  admin: SupabaseClient,
+  input: {
+    authorizationId: string;
+    serviceMonth: string;
+    authType: string;
+    defaultRateCents: number;
+    actorUserId?: string | null;
+  }
+): Promise<
+  | {
+      ok: true;
+      packetId: string;
+      billableUnits: number;
+      totalAmountCents: number;
+      created: boolean;
+    }
+  | { ok: false; error: string; status?: number }
+> {
+  const { data: existing } = await admin
+    .from("pre_ets_invoice_packets")
+    .select("id, status, provider_invoice_number, total_hours, total_amount_cents")
+    .eq("authorization_id", input.authorizationId)
+    .eq("service_month", input.serviceMonth)
+    .maybeSingle();
+
+  if (existing && (existing.status as string) !== "draft") {
+    return {
+      ok: false,
+      status: 409,
+      error: `A ${existing.status} packet already exists for this authorization and month. Edit that packet instead of regenerating — regenerate would reset status and can clear the invoice number.`,
+    };
+  }
+
+  const billableUnits = await countBillableAttendanceUnits(admin, input.authorizationId);
+  let totalAmountCents = billableUnits * input.defaultRateCents;
+  let providerInvoiceNumber: string | null =
+    (existing?.provider_invoice_number as string | null) ?? null;
+
+  if (input.authType === "individual") {
+    const { data: rosterEntry } = await admin
+      .from("pre_ets_roster_entries")
+      .select("invoice_number, billed_cents")
+      .eq("authorization_id", input.authorizationId)
+      .limit(1)
+      .maybeSingle();
+
+    if (providerInvoiceNumber == null) {
+      providerInvoiceNumber = (rosterEntry?.invoice_number as string | null) ?? null;
+    }
+    if (rosterEntry?.billed_cents != null && billableUnits > 0) {
+      totalAmountCents = rosterEntry.billed_cents as number;
+    }
+  }
+
+  const { data: packet, error } = await admin
+    .from("pre_ets_invoice_packets")
+    .upsert(
+      {
+        authorization_id: input.authorizationId,
+        service_month: input.serviceMonth,
+        total_hours: billableUnits,
+        total_amount_cents: totalAmountCents,
+        provider_invoice_number: providerInvoiceNumber,
+        status: "draft",
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "authorization_id,service_month" }
+    )
+    .select("id")
+    .single();
+
+  if (error || !packet) {
+    return { ok: false, error: error?.message ?? "Could not save draft packet." };
+  }
+
+  const created = !existing;
+  await insertInvoicePacketEvent(admin, {
+    packetId: packet.id as string,
+    actorUserId: input.actorUserId,
+    eventKind: created ? "created" : "draft_totals_refreshed",
+    toStatus: "draft",
+    metadata: {
+      billableUnits,
+      totalAmountCents,
+      preservedProviderInvoiceNumber: providerInvoiceNumber,
+      regeneratedDraft: !created,
+    },
+  });
+
+  return {
+    ok: true,
+    packetId: packet.id as string,
+    billableUnits,
+    totalAmountCents,
+    created,
+  };
+}
+
 export async function insertInvoicePacketEvent(
   admin: SupabaseClient,
   input: {

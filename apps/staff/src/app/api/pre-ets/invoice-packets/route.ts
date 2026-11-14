@@ -1,6 +1,6 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
-import { insertInvoicePacketEvent, countBillableAttendanceUnits } from "@wayfinder/supabase/pre-ets-invoice-packet";
+import { upsertPreEtsDraftInvoicePacket } from "@wayfinder/supabase/pre-ets-invoice-packet";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import {
   isPreEtsServiceMonthFilterOmitted,
@@ -80,59 +80,27 @@ export async function POST(request: Request) {
       );
     }
 
-    const billableUnits = await countBillableAttendanceUnits(admin, body.authorizationId);
-
-    const settings = auth.settings;
-    let totalAmountCents = billableUnits * settings.default_rate_cents;
-    let providerInvoiceNumber: string | null = null;
-
-    if (authorization.auth_type === "individual") {
-      const { data: rosterEntry } = await admin
-        .from("pre_ets_roster_entries")
-        .select("invoice_number, billed_cents")
-        .eq("authorization_id", body.authorizationId)
-        .limit(1)
-        .maybeSingle();
-
-      providerInvoiceNumber = (rosterEntry?.invoice_number as string | null) ?? null;
-      if (rosterEntry?.billed_cents != null && billableUnits > 0) {
-        totalAmountCents = rosterEntry.billed_cents as number;
-      }
-    }
-
-    const { data: packet, error } = await admin
-      .from("pre_ets_invoice_packets")
-      .upsert(
-        {
-          authorization_id: body.authorizationId,
-          service_month: authorization.service_month,
-          total_hours: billableUnits,
-          total_amount_cents: totalAmountCents,
-          provider_invoice_number: providerInvoiceNumber,
-          status: "draft",
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "authorization_id,service_month" }
-      )
-      .select("id")
-      .single();
-
-    if (error) {
-      return respondWithLoggedError("staff", route, error, {
-        userId: auth.userId,
-        userRole: auth.role,
-      });
-    }
-
-    await insertInvoicePacketEvent(admin, {
-      packetId: packet.id as string,
+    const result = await upsertPreEtsDraftInvoicePacket(admin, {
+      authorizationId: body.authorizationId,
+      serviceMonth: authorization.service_month as string,
+      authType: authorization.auth_type as string,
+      defaultRateCents: auth.settings.default_rate_cents,
       actorUserId: auth.userId,
-      eventKind: "created",
-      toStatus: "draft",
-      metadata: { billableUnits, totalAmountCents },
     });
 
-    return NextResponse.json({ packetId: packet.id, billableUnits, totalAmountCents });
+    if (!result.ok) {
+      return NextResponse.json(
+        { error: result.error },
+        { status: result.status ?? 400 }
+      );
+    }
+
+    return NextResponse.json({
+      packetId: result.packetId,
+      billableUnits: result.billableUnits,
+      totalAmountCents: result.totalAmountCents,
+      created: result.created,
+    });
   } catch (err) {
     return respondWithLoggedError("staff", route, err, {
       userId: auth.userId,

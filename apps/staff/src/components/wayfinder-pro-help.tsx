@@ -304,10 +304,11 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Sidebar Layout",
         body:
-          "Accounts Specialist tools focus on intake billing, IJP billing, timesheets, Time Clock, and payment/billing exports. Community Partners is shared reference data.",
+          "Accounts Specialist tools focus on intake billing, IJP billing, Pre-ETS authorizations and invoices, timesheets, Time Clock, and payment/billing exports. Community Partners is shared reference data.",
         steps: [
           "Accounts → Intake Billing (this is your home screen after login).",
           "Accounts → IJP Billing — add and edit GA IJP invoices (line hours nearest half hour; totals round up to whole hours). Use Generate Invoices for the selected service month (often weekly) to pick up unbilled hours. Draft lines auto-refresh from billable time when you open the month. Editors can add invoice-only manual lines that do not create contact logs; each invoice includes the 2-hour GVRA Reports allowance on the last day of the month.",
+          "Accounts → Pre-ETS — upload support worksheets, enter or correct GVRA authorization numbers (A&I), and add or remove students on a roster even after it is finalized. You can also build and manage invoice packets. Ready, submitted, or paid packets are not reset when a roster or auth number changes.",
           "Accounts → Weekly Timesheet, Time Clock, Download Exports.",
           "Account → My Profile to update your name, city, and contact details.",
           "Reference → Community Partners.",

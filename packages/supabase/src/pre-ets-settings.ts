@@ -278,15 +278,21 @@ export function canManagePreEtsWorksheetTestingOverride(role: string | null | un
   return isSuperAdminRole(r) || isAdminRole(r);
 }
 
-/** Admin / Super Admin — add or remove roster students after GVRA A&I is on the authorization. */
+/**
+ * Accounts Specialist, Admin, Super Admin — add or remove roster students after
+ * GVRA A&I is on the authorization (post-finalization).
+ */
 export function canEditPreEtsRosterAfterAuthorization(
   role: string | null | undefined
 ): boolean {
   const r = normalizeRole(role);
-  return isSuperAdminRole(r) || isAdminRole(r);
+  return isSuperAdminRole(r) || isAdminRole(r) || isAccountantRole(r);
 }
 
-/** Admin / Super Admin — change GVRA authorization number (A&I) on an existing roster. */
+/**
+ * Accounts Specialist, Admin, Super Admin — change GVRA authorization number (A&I)
+ * on an existing roster (including after finalization).
+ */
 export function canEditPreEtsAuthorizationNumber(
   role: string | null | undefined
 ): boolean {
