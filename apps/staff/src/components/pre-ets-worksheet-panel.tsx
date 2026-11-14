@@ -241,9 +241,13 @@ export function PreEtsWorksheetPanel() {
         })
       );
       setMessage(
-        `Imported ${okRows.length} district tab(s) from workbook.${
-          badRows.length ? ` ${badRows.length} tab(s) skipped — see flags below.` : ""
-        }${testingOverrideEnabled ? " Testing override is ON." : ""}`
+        data.committed
+          ? `Parsed and committed ${okRows.length} district tab(s) from workbook.${
+              badRows.length ? ` ${badRows.length} tab(s) skipped — see flags below.` : ""
+            }${testingOverrideEnabled ? " Testing override is ON." : ""}`
+          : `Parsed ${okRows.length} district tab(s) from workbook — awaiting approval before commit.${
+              badRows.length ? ` ${badRows.length} tab(s) skipped — see flags below.` : ""
+            }${testingOverrideEnabled ? " Testing override is ON." : ""}`
       );
       setPreview(null);
       void load();
@@ -555,7 +559,7 @@ export function PreEtsWorksheetPanel() {
               ? "Upload a district CSV or a multi-tab Excel workbook (one district per sheet). Pending rosters commit immediately per district tab."
               : isSupervisorMode
                 ? "Upload CSV or Excel before GVRA authorization numbers are available. Excel workbooks can use one tab per district; CSV is one district per file."
-                : "Accounts Specialists and Super Admins upload Pre-ETS spreadsheets here (Accounts: support / auth-match). Supervisors can upload planning worksheets for assigned schools. Enter authorization numbers under Rosters & auths when GVRA responds."}
+                : "Accounts Specialist or Super Admin uploads the Pre-ETS spreadsheet here. Enter authorization numbers under Rosters & auths when GVRA responds."}
         </p>
       </div>
 
