@@ -38,8 +38,9 @@ export function PreEtsDemoWorkspaceChrome({
         </p>
         <h1 className="mt-1 text-2xl font-bold text-brand-black">Pre-ETS</h1>
         <p className="mt-2 max-w-2xl text-sm text-brand-black/70">
-          School year <strong>{schoolYear}</strong>. Supervisors upload planning worksheets; Accounts
-          enter authorization numbers; TS/TI work released rosters only.
+          School year <strong>{schoolYear}</strong>. Accounts Specialists and Super Admins upload
+          Pre-ETS spreadsheets; Accounts enter authorization numbers; TS/TI work released rosters
+          only.
         </p>
       </header>
 

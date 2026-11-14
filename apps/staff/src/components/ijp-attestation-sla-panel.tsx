@@ -18,7 +18,7 @@ export function IjpAttestationSlaPanel({ initialRows }: Props) {
       <section className="rounded-xl border border-neutral-200 bg-white p-5">
         <h2 className="text-base font-semibold text-brand-black">IJP client attestation SLA</h2>
         <p className="mt-1 text-sm text-brand-black/65">
-          Open attestation alerts for GA IJP clients (after the 25th when billable time exists).
+          Open attestation alerts for Individual Job Placement clients (after the 25th when billable time exists).
         </p>
         <p className="mt-4 text-sm text-brand-black/60">No open IJP attestation SLA alerts in your scope.</p>
       </section>

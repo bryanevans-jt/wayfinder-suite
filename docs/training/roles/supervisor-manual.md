@@ -129,11 +129,28 @@ Traditional Supported Employment (TSE) and Job Coaching service options are also
 
 ---
 
+## 11c. Pre-ETS (when enabled)
+
+- Supervisors can **upload planning worksheets** for Pre-ETS schools assigned to them.
+- **Accounts Specialists and Super Admins** upload Pre-ETS spreadsheets for any district (Accounts: support / auth-match; Super Admin: planning) and enter authorization numbers.
+- Transition Specialists / Instructors work **released** rosters only.
+
+---
+
+## 11d. Individual Job Placement attestation coaching
+
+- After the 25th, when billable **Individual Job Placement** time exists, coach ESs to **Collect IJP signature**.
+- IJP attestation SLA alerts can be dismissed for coaching triage — dismissing does **not** clear **Signature needed** on the caseload until the signature is captured.
+- Accounts Specialist **IJP Billing** invoices every client with unbilled Individual Job Placement hours in the period (including archived/closed). Non–Individual Job Placement hours are never billed on those invoices. See [Accounts Specialist Manual](./accounts-specialist-manual.md).
+
+---
+
 ## 12. Helping Your ESs
 
 | Topic | Resource |
 |-------|----------|
 | Casework basics | [ES Manual](./employment-specialist-manual.md) |
+| Accounts / IJP / Pre-ETS billing | [Accounts Specialist Manual](./accounts-specialist-manual.md) |
 | Conference binder | [GA ES Conference Binder](../conference/ga-es-conference-binder.md) |
 | Client onboarding | [Client Setup Script](../scripts/client-setup-guide-for-es.md) |
 | Counselor onboarding | [Counselor Setup Script](../scripts/counselor-setup-guide-for-es.md) |
@@ -144,6 +161,7 @@ Traditional Supported Employment (TSE) and Job Coaching service options are also
 - “Show me your Clients list sorted by attention — who’s first?”
 - “Walk me through logging a contact and an application on one profile.”
 - “When is this client’s SE Monthly due?”
+- “Which Individual Job Placement clients still need Collect IJP signature this month?”
 
 ---
 
@@ -166,4 +184,4 @@ Confirm counselors are **assigned to clients** in admin portal (admin task — y
 
 ---
 
-*Wayfinder Pro · Joshua Tree Service Group · v1.0.1*
+*Wayfinder Pro · Joshua Tree Service Group · v1.1.0*

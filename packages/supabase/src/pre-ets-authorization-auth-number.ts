@@ -5,7 +5,12 @@ import {
 } from "./pre-ets-settings";
 
 export type UpdatePreEtsAuthorizationAuthNumberResult =
-  | { ok: true; authType: "group" | "individual" }
+  | {
+      ok: true;
+      authType: "group" | "individual";
+      previousAuthNumber?: string | null;
+      changed?: boolean;
+    }
   | { ok: false; error: string };
 
 export function validatePreEtsAuthorizationNumberForRoster(
@@ -36,7 +41,10 @@ export function validatePreEtsAuthorizationNumberForRoster(
   return { ok: true, authType };
 }
 
-/** Admin / Super Admin — change GVRA authorization number (A&I) on an existing roster. */
+/**
+ * Accounts Specialist / Admin / Super Admin — change GVRA authorization number (A&I)
+ * on an existing roster. Does not regenerate invoice packets or clear invoice numbers.
+ */
 export async function updatePreEtsAuthorizationAuthNumber(
   admin: SupabaseClient,
   input: { authorizationId: string; authNumber: string }
@@ -60,7 +68,7 @@ export async function updatePreEtsAuthorizationAuthNumber(
     if (authType === "unknown") {
       return { ok: false, error: "Authorization number format is not recognized as group or individual." };
     }
-    return { ok: true, authType };
+    return { ok: true, authType, previousAuthNumber: current, changed: false };
   }
 
   const { count, error: countErr } = await admin
@@ -95,5 +103,10 @@ export async function updatePreEtsAuthorizationAuthNumber(
     return { ok: false, error: updErr.message };
   }
 
-  return { ok: true, authType: validated.authType };
+  return {
+    ok: true,
+    authType: validated.authType,
+    previousAuthNumber: current || null,
+    changed: true,
+  };
 }

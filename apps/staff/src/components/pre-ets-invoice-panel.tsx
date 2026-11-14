@@ -96,10 +96,16 @@ export function PreEtsInvoicePanel() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ authorizationId: authId }),
     });
-    const data = (await res.json()) as { error?: string; billableUnits?: number };
+    const data = (await res.json()) as {
+      error?: string;
+      billableUnits?: number;
+      created?: boolean;
+    };
     setMessage(
       res.ok
-        ? `Draft packet created with ${data.billableUnits ?? 0} billable unit(s).`
+        ? data.created === false
+          ? `Draft packet updated with ${data.billableUnits ?? 0} billable unit(s). Saved invoice number and draft status were kept.`
+          : `Draft packet created with ${data.billableUnits ?? 0} billable unit(s).`
         : data.error ?? "Could not create packet"
     );
     void load();

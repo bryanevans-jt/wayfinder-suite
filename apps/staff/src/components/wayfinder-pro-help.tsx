@@ -56,6 +56,16 @@ function sectionsForRole(role: string | null): Section[] {
         ],
       },
       {
+        title: "IJP Billing and Pre-ETS",
+        body:
+          "Accounts Specialist and Super Admin share Individual Job Placement billing and Pre-ETS accounts tools. Service display name is always Individual Job Placement.",
+        steps: [
+          "Accounts → IJP Billing — Generate Invoices for the selected service month (weekly is fine; GVRA accepts multiple invoices per client per month). Every client with unbilled Individual Job Placement hours is invoiced, including archived or closed clients and hours logged by any staff role. Non–Individual Job Placement hours never appear on these invoices, and hours are never billed twice.",
+          "You and Accounts Specialists upload Pre-ETS spreadsheets (Super Admin: planning path; Accounts: support / auth-match). You can correct authorization numbers and roster students after finalization.",
+          "Pre-ETS settings and role rollout stay under Super Admin Portal when the module is enabled.",
+        ],
+      },
+      {
         title: "WRT Preview",
         body:
           "Workplace Readiness Training curriculum and facilitation are available to Admin, Super Admin, and WRT Admin.",
@@ -140,6 +150,15 @@ function sectionsForRole(role: string | null): Section[] {
           "Submit Reports: open Joshua Tree Reports for official PDFs.",
         ],
       },
+      {
+        title: "IJP Billing and Pre-ETS (when enabled)",
+        body:
+          "Admins with Pre-ETS / Accounts access can use Individual Job Placement billing and Pre-ETS accounts workflows alongside Accounts Specialists.",
+        steps: [
+          "IJP Billing invoices Individual Job Placement hours only. Generate Invoices can run weekly; every client with unbilled IJP hours in the period is included (including archived/closed), and hours are never billed twice.",
+          "Pre-ETS: planning worksheet upload when you have school assignments (or testing override); correct authorization numbers and rosters after finalization when you have Accounts access.",
+        ],
+      },
     ];
   }
 
@@ -203,6 +222,15 @@ function sectionsForRole(role: string | null): Section[] {
           "Submit Reports: open Joshua Tree Reports to submit or review official monthly reports.",
         ],
       },
+      {
+        title: "Pre-ETS and IJP coaching",
+        body:
+          "When Pre-ETS is enabled for supervisors, you upload planning worksheets for your assigned schools. Coach Employment Specialists on monthly Individual Job Placement client attestation signatures.",
+        steps: [
+          "Pre-ETS → upload planning worksheets for districts/schools assigned to you (Accounts Specialist and Super Admin can upload any district).",
+          "Watch IJP client attestation SLA alerts after the 25th when billable Individual Job Placement time exists — coach ESs to Collect IJP signature.",
+        ],
+      },
     ];
   }
 
@@ -263,11 +291,20 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Timesheet: Billable vs Time Clock",
         body:
-          "My Time (Timesheet) is for client billable service activities (state billing). Time Clock is for when you yourself were working. Do not confuse the two.",
+          "My Time (Timesheet) is for client billable service activities (state billing). Time Clock is for when you yourself were working. Do not confuse the two. Individual Job Placement billable hours feed Accounts Specialist IJP invoices — they are not the same as payroll hours worked.",
         steps: [
           "Open My Time (Timesheet) to review billable entries, download CSV, and submit for approval.",
           "Open Time Clock for your daily hours worked totals.",
           "Soft caseload guidance is about 20 active clients — supervisors/HR may allow more when needed.",
+        ],
+      },
+      {
+        title: "Individual Job Placement attestation",
+        body:
+          "For clients on Individual Job Placement, collect the monthly client signature when the caseload prompts Collect IJP signature (typically after the 25th when billable time exists).",
+        steps: [
+          "Open the client and use Collect IJP signature when Signature needed appears.",
+          "Supervisors and admins may see IJP attestation SLA alerts for coaching — dismiss hides the alert only; the caseload still shows Signature needed until capture.",
         ],
       },
       {
@@ -286,9 +323,9 @@ function sectionsForRole(role: string | null): Section[] {
       sections.push({
         title: "Pre-ETS (Transition Specialist)",
         body:
-          "Transition Specialists use the same Employment Specialist caseload shell plus Pre-ETS for student authorizations, sessions, attendance, and worksheets. Employment Specialists do not see Pre-ETS.",
+          "Transition Specialists use the same Employment Specialist caseload shell plus Pre-ETS for released student rosters, sessions, attendance, and CARs. Employment Specialists do not see Pre-ETS. Accounts Specialists and Super Admins upload Pre-ETS spreadsheets and enter authorization numbers — field staff work released rosters only.",
         steps: [
-          "Open Pre-ETS from the sidebar for schools, students, sessions, and worksheets.",
+          "Open Pre-ETS from the sidebar for schools, students, sessions, and worksheets on released authorizations.",
           "Clients, Messages, Time Clock, Timesheet, and Submit Reports work the same as for Employment Specialists on your assigned caseload.",
           "Use Explore Analytics and Download Exports for your own caseload scope.",
           "Help → Pre-ETS training demos (below) for interactive roster signature and CAR walkthroughs.",
@@ -304,14 +341,36 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Sidebar Layout",
         body:
-          "Accounts Specialist tools focus on intake billing, IJP billing, timesheets, Time Clock, and payment/billing exports. Community Partners is shared reference data.",
+          "Accounts Specialist tools focus on intake billing, Individual Job Placement (IJP) billing, Pre-ETS authorizations and invoices, timesheets, Time Clock, and payment/billing exports. Community Partners is shared reference data.",
         steps: [
           "Accounts → Intake Billing (this is your home screen after login).",
-          "Accounts → IJP Billing — add and edit GA IJP invoices (line hours nearest half hour; totals round up to whole hours). Use Generate Invoices for the selected service month (often weekly) to pick up unbilled hours. Draft lines auto-refresh from billable time when you open the month. Editors can add invoice-only manual lines that do not create contact logs; each invoice includes the 2-hour GVRA Reports allowance on the last day of the month.",
+          "Accounts → IJP Billing — Individual Job Placement invoices (never labeled “GA IJP” in the product).",
+          "Accounts → Pre-ETS — upload the Pre-ETS spreadsheet, enter/correct authorization numbers, manage rosters and invoice packets.",
           "Accounts → Weekly Timesheet, Time Clock, Download Exports.",
           "Account → My Profile to update your name, city, and contact details.",
           "Reference → Community Partners.",
           "Client names on timesheets and intake billing open a view-only profile.",
+        ],
+      },
+      {
+        title: "Individual Job Placement billing",
+        body:
+          "IJP Billing builds monthly Individual Job Placement invoices from unbilled IJP-attributed billable hours. GVRA accepts multiple invoices per client per month, so running Generate Invoices weekly is fine.",
+        steps: [
+          "Use Generate Invoices for the selected service month (often weekly) to pick up unbilled Individual Job Placement hours.",
+          "Every client with unbilled IJP hours in the period is invoiced — including archived or closed clients, and hours logged by any staff role. Demo clients are excluded.",
+          "Non–Individual Job Placement hours never appear on IJP invoices. Hours already stamped on an invoice are never billed twice; late hours create or refresh a draft, or a supplemental draft if the month invoice is already locked.",
+          "Line hours round to the nearest half hour; invoice totals round up to whole hours. Draft lines auto-refresh from billable time when you open the month. Editors can add invoice-only manual lines that do not create contact logs; each invoice includes the 2-hour GVRA Reports allowance on the last day of the month (skipped on a supplemental invoice if already billed for that month).",
+        ],
+      },
+      {
+        title: "Pre-ETS (Accounts)",
+        body:
+          "Accounts Specialists and Super Admins upload Pre-ETS spreadsheets. Your upload is the support / auth-match path (any district). Super Admins (and supervisors for assigned schools) use planning uploads.",
+        steps: [
+          "Upload the Pre-ETS spreadsheet/worksheet under Pre-ETS, then enter or correct GVRA authorization numbers (A&I) under Rosters & authorizations.",
+          "Add or remove students on a roster even after it is finalized. You can also change the authorization number after finalization.",
+          "Build and manage invoice packets. Ready, submitted, or paid packets are not reset when a roster or auth number changes; draft packet unit totals may refresh from billable attendance.",
         ],
       },
       {

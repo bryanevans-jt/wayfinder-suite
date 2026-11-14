@@ -1,6 +1,8 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { updatePreEtsAuthorizationAuthNumber } from "@wayfinder/supabase/pre-ets-authorization-auth-number";
+import { insertPreEtsAuthorizationEvent } from "@wayfinder/supabase/pre-ets-authorization-events";
+import { refreshPreEtsDraftPacketTotals } from "@wayfinder/supabase/pre-ets-invoice-packet";
 import { updatePendingPreEtsRoster } from "@wayfinder/supabase/pre-ets-roster-update";
 import {
   canEditPreEtsAuthorizationNumber,
@@ -143,11 +145,12 @@ export async function PATCH(
 
     const hasAuthorizationNumber = Boolean((authRow.auth_number as string | null)?.trim());
     const isPending = authRow.auth_type === "pending";
-    if ((hasAuthorizationNumber || !isPending) && !allowAfterAuthorization) {
+    const wasFinalized = hasAuthorizationNumber || !isPending;
+    if (wasFinalized && !allowAfterAuthorization) {
       return NextResponse.json(
         {
           error:
-            "This roster already has an authorization number. Only Admin or Super Admin can add or remove students.",
+            "This roster already has an authorization number. Only Accounts Specialist, Admin, or Super Admin can add or remove students.",
         },
         { status: 403 }
       );
@@ -180,10 +183,29 @@ export async function PATCH(
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
 
+    const rosterChanged =
+      result.addedStudentIds.length > 0 || result.removedStudentIds.length > 0;
+    if (rosterChanged) {
+      await insertPreEtsAuthorizationEvent(admin, {
+        authorizationId: id,
+        actorUserId: auth.userId,
+        eventKind: "roster_students_changed",
+        metadata: {
+          addedStudentIds: result.addedStudentIds,
+          removedStudentIds: result.removedStudentIds,
+          keptStudentCount: result.keptStudentIds.length,
+          afterFinalization: wasFinalized,
+        },
+      });
+    }
+
     if (body.authNumber !== undefined) {
       if (!allowEditAuthorizationNumber) {
         return NextResponse.json(
-          { error: "Only Admin or Super Admin can change the authorization number (A&I)." },
+          {
+            error:
+              "Only Accounts Specialist, Admin, or Super Admin can change the authorization number (A&I).",
+          },
           { status: 403 }
         );
       }
@@ -194,6 +216,29 @@ export async function PATCH(
       if (!authNumberResult.ok) {
         return NextResponse.json({ error: authNumberResult.error }, { status: 400 });
       }
+      if (authNumberResult.changed) {
+        await insertPreEtsAuthorizationEvent(admin, {
+          authorizationId: id,
+          actorUserId: auth.userId,
+          eventKind: "auth_number_changed",
+          metadata: {
+            previousAuthNumber: authNumberResult.previousAuthNumber ?? null,
+            nextAuthNumber: body.authNumber.trim(),
+            authType: authNumberResult.authType,
+            afterFinalization: wasFinalized,
+          },
+        });
+      }
+    }
+
+    // Recalculate draft packet units only — never reset ready/submitted/paid packets
+    // or clear saved invoice numbers (avoids Generate draft packet side effects).
+    if (wasFinalized) {
+      await refreshPreEtsDraftPacketTotals(admin, {
+        authorizationId: id,
+        defaultRateCents: auth.settings.default_rate_cents,
+        actorUserId: auth.userId,
+      });
     }
 
     return NextResponse.json({ ok: true, ytdWarnings: result.ytdWarnings });

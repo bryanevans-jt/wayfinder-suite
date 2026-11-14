@@ -18,7 +18,7 @@ type Props = {
   schoolLabel: string;
   mode?: "finalize" | "edit";
   canEditServiceCode?: boolean;
-  /** Admin / Super Admin — change GVRA authorization number (A&I) in Edit roster. */
+  /** Accounts Specialist / Admin / Super Admin — change GVRA authorization number (A&I) in Edit roster. */
   canEditAuthorizationNumber?: boolean;
   onClose: () => void;
   onSaved: () => void;

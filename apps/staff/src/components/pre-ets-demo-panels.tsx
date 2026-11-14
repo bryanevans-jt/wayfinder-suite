@@ -312,7 +312,7 @@ export function PreEtsDemoAuthorizationsPanel({
           <p className="mt-1 text-sm text-brand-black/65">
             {role === "field"
               ? "Released rosters only — schedule sessions from Sessions & reports."
-              : "Pending rosters appear after supervisors upload district worksheets. Enter authorization numbers to release rosters to TS/TI one school at a time."}
+              : "Pending rosters appear after Accounts Specialist or Super Admin uploads the Pre-ETS spreadsheet. Enter authorization numbers to release rosters to TS/TI one school at a time."}
           </p>
         </div>
         <label className="text-sm">
