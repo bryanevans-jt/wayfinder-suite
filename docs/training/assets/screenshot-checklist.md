@@ -27,7 +27,7 @@ Capture these PNGs into `docs/training/assets/screenshots/` for Google Docs impo
 - [x] `supervisor-portal.png`
 - [x] `supervisor-team-operations.png`
 - [x] `supervisor-compliance.png`
-- [x] `supervisor-timesheet-approve.png`
+- [x] `supervisor-timesheet-approve.png` — obsolete (week approve retired; keep asset for old binders)
 - [x] `supervisor-analytics.png`
 
 

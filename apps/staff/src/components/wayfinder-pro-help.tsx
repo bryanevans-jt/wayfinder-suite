@@ -30,7 +30,7 @@ function sectionsForRole(role: string | null): Section[] {
         steps: [
           "Portal → Super Admin Portal (and Audit when you are not role-previewing).",
           "Oversight → Team Operations, Compliance, Explore Analytics.",
-          "Tools → Time Clock, WRT Preview, Submit Reports, Community Partners.",
+          "Tools → Billable Hours, PTO, WRT Preview, Submit Reports, Community Partners.",
           "Help → this guide.",
         ],
       },
@@ -54,7 +54,7 @@ function sectionsForRole(role: string | null): Section[] {
           "Submit Reports: Joshua Tree Reports — official PDF submissions to Google Drive.",
           "Explore Analytics: live charts and outcome benchmarking for leadership.",
           "Reports → Audit Activity: administrative audit trails (not client monthly reports).",
-          "Time Clock: staff hours worked for payroll/accountability — separate from billable timesheets. You can edit any clock entry; every edit is logged.",
+          "Billable Hours: review weekly billable timesheets. Pay is based on billable hours (Time Clock retired). PTO lives under sidebar → PTO.",
         ],
       },
       {
@@ -79,9 +79,9 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "PTO Requests",
         body:
-          "Joshua Tree team members request paid time off from Time Clock. Days charged default to business days (Mon–Fri); HR and admins can adjust charged days (for holidays) without changing dates. Counselors and clients do not use PTO in Wayfinder Pro.",
+          "Joshua Tree team members request paid time off from PTO. Days charged default to business days (Mon–Fri); HR and admins can adjust charged days (for holidays) without changing dates. Counselors and clients do not use PTO in Wayfinder Pro. Transition Instructors also use PTO.",
         steps: [
-          "Open Time Clock → PTO Requests to submit your own leave and review the org queue.",
+          "Open PTO to submit your own leave and review the org queue.",
           "Approve or deny pending requests; include an explanation when denying.",
           "Amend dates or days charged with a required note; void approved leave when it should not count against the bank.",
           "Settings → PTO Settings for annual PTO days and period start (usually January 1). Leave annual days blank for unlimited.",
@@ -131,15 +131,15 @@ function sectionsForRole(role: string | null): Section[] {
         steps: [
           "HR Dashboard → client roster, timesheets, activity, and staff assignments (view).",
           "HR Dashboard or Settings → PTO Settings for period start and annual PTO days (blank = unlimited).",
-          "Billable Hours or PTO → approve, deny, amend, or void leave for the organization.",
+          "PTO → approve, deny, amend, or void leave for the organization.",
         ],
       },
       {
         title: "PTO Requests",
         body:
-          "Team members request PTO from Billable Hours or the PTO page. Admins make the final approval, adjust days charged for holidays, and set the org PTO bank.",
+          "Team members request PTO from the PTO page. Admins make the final approval, adjust days charged for holidays, and set the org PTO bank.",
         steps: [
-          "PTO (or Billable Hours → PTO Requests) to submit, review, approve, deny, or amend leave.",
+          "PTO to submit, review, approve, deny, or amend leave.",
           "Please ask for 14 days’ notice when possible; sick and emergency may be sooner — you make the final call.",
           "Portal → Settings → PTO Settings for period start date and annual PTO days (blank = unlimited).",
         ],
@@ -149,7 +149,7 @@ function sectionsForRole(role: string | null): Section[] {
         body: "Use these when supervising program delivery — you see organization-wide slices as an admin.",
         steps: [
           "Team Operations: ES caseload capacity and billable-hour trends.",
-          "Compliance: SE Monthly report gaps and timesheets awaiting approval.",
+          "Compliance: SE Monthly report gaps for the organization.",
           "Explore Analytics: organization-wide progress and outcome benchmarking.",
           "Submit Reports: open Joshua Tree Reports for official PDFs.",
         ],
@@ -171,9 +171,9 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Sidebar Layout",
         body:
-          "Your role displays as Regional Supervisor. Daily work is at the top (portal, messages, time clock, timesheet). Oversight covers your team’s coaching queue and compliance. Check Notifications for SLA alerts and client milestones.",
+          "Your role displays as Regional Supervisor. Daily work is at the top (portal, messages, billable hours, PTO). Oversight covers your team’s coaching queue and compliance. Check Notifications for SLA alerts and client milestones.",
         steps: [
-          "Daily Work → Regional Supervisor Portal, Messages, Time Clock, Weekly Timesheet.",
+          "Daily Work → Regional Supervisor Portal, Messages, Billable Hours, PTO.",
           "Oversight → Team Operations, Compliance, Submit Reports, Explore Analytics.",
           "Tools → Download Exports, Community Partners (when enabled in Feature Toggles).",
           "Account → Team Directory for staff contacts; GroupMe celebrations can be toggled by Super Admin.",
@@ -185,30 +185,25 @@ function sectionsForRole(role: string | null): Section[] {
           "On Regional Supervisor Portal → Clients, This Week shows open coaching and compliance counts so you can triage before browsing the roster.",
         steps: [
           "Message SLA overdue and thin contact logs open Team Operations.",
-          "Report gaps open Compliance; timesheets to review open Weekly Timesheet.",
+          "Report gaps open Compliance; billable time review opens Billable Hours.",
           "Use View Archived on Clients when you need Closed/Dismissed people; restore from Reports → Audit Activity when View Archived is on, or ask an admin.",
         ],
       },
       {
-        title: "Time Clock (Hours Worked)",
+        title: "Billable Hours",
         body:
-          "Time Clock tracks when Joshua Tree team members are working for payroll and accountability. It is separate from Weekly Timesheet client billable hours. All clock times use America/New_York.",
+          "Billable Hours shows client billable service time for your team. Pay is based on billable hours — there is no Time Clock or week submit/approve step.",
         steps: [
-          "Open Time Clock (or use the strip at the top of most pages) to clock yourself in/out.",
-          "You can stay clocked in across lunch — work-at-your-own-pace is OK.",
-          "You cannot clock in twice while already clocked in; you’ll see “You’re already clocked in.”",
-          "At 5:30 PM Eastern, anyone still clocked in gets a Still Working? push and in-app prompt. Tap Still Working if you are continuing. If there is no response by 6:00 PM, the system clocks them out stamped at 5:30 PM, flags the entry for the person and their supervisor, and asks them to edit if needed.",
-          "At midnight Eastern, open shifts end at 11:59 PM and a new shift starts at 12:00 AM so each calendar day has clean totals.",
-          "Who’s Clocked In and Flagged Team Entries appear on Time Clock for your supervised Employment Specialists. You (and admins) can edit their entries; every edit is logged.",
-          "Enable push notifications so you receive 5:30 PM and auto-out alerts.",
+          "Open Billable Hours to review weekly timesheets for yourself and supervised Employment Specialists.",
+          "Download CSV or PDFs from the weekly timesheet section as needed.",
         ],
       },
       {
         title: "PTO Requests",
         body:
-          "Request your own PTO on Time Clock. For Employment Specialists and Instructors assigned to you, confirm coverage first (OK — send to HR). HR and admins make the final approval; supervisor OK does not mark leave approved.",
+          "Request your own PTO from the PTO page. For Employment Specialists and Instructors assigned to you, confirm coverage first (OK — send to HR). HR and admins make the final approval; supervisor OK does not mark leave approved.",
         steps: [
-          "Time Clock → PTO Requests: pick dates, choose a reason, add details if needed, and submit.",
+          "PTO: pick dates, choose a reason, add details if needed, and submit.",
           "Please request at least 14 days in advance when possible; sick and emergency may be sooner.",
           "On designated staff requests awaiting supervisor: check coverage, then OK — send to HR or Deny.",
           "Watch status and any explanation from HR/admin on your requests. Cancel while still open if plans change.",
@@ -222,7 +217,7 @@ function sectionsForRole(role: string | null): Section[] {
           "Regional Supervisor Portal: see your Employment Specialists and high-level caseload signals.",
           "Team Operations: capacity view plus coaching queue (SLA overdue and fewer than four contacts per month).",
           "Messages: intervene on client threads in your scope.",
-          "Compliance: your team’s SE Monthly gaps and pending timesheet approvals.",
+          "Compliance: your team’s SE Monthly gaps.",
           "Submit Reports: open Joshua Tree Reports to submit or review official monthly reports.",
         ],
       },
@@ -243,9 +238,9 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Sidebar Layout",
         body:
-          "Clients is your home base. The sidebar groups daily work (clients, messages, time clock, timesheet, reports) and resources (partners when enabled, analytics, exports). Notifications surface message SLA and employment celebrations. Employment Specialists do not have Pre-ETS — that belongs to Transition Specialists.",
+          "Clients is your home base. The sidebar groups daily work (clients, messages, billable hours, PTO, reports) and resources (partners when enabled, analytics, exports). Notifications surface message SLA and employment celebrations. Employment Specialists do not have Pre-ETS — that belongs to Transition Specialists.",
         steps: [
-          "Daily Work → Clients, Messages, Time Clock, My Time (Timesheet), Submit Reports.",
+          "Daily Work → Clients, Messages, Billable Hours, PTO, Submit Reports.",
           "Resources → Community Partners (Feature Toggle), Explore Analytics, Download Exports.",
           "Account → Team Directory for staff contacts.",
         ],
@@ -263,25 +258,9 @@ function sectionsForRole(role: string | null): Section[] {
         ],
       },
       {
-        title: "Time Clock (Hours Worked)",
-        body:
-          "Use Time Clock to record when you are working. This is for payroll / accountability and is completely separate from client billable service time on Weekly Timesheet. Times are America/New_York.",
-        steps: [
-          "Clock In when you start work (any time of day). Clock Out when you stop. Multiple clock-ins in one day are allowed — the day total shows how long you worked.",
-          "You may stay clocked in across lunch. If you try to Clock In while already in, you’ll see “You’re already clocked in.”",
-          "Minimum shift length is 1 minute (every unpaid minute counts for records; team members are salaried).",
-          "At 5:30 PM Eastern you’ll get a Still Working? notification if you are still clocked in. Tap Still Working if you are continuing, or Clock Out. No reply by 6:00 PM → auto clock-out stamped at 5:30 PM, flagged for you and your supervisor — open Time Clock → Needs Your Attention and edit if the stamp is wrong.",
-          "If you are still working past midnight, the system ends the day at 11:59 PM and starts a new shift at 12:00 AM so each day has a clean total.",
-          "If you were offline during an auto-out, you’ll see the flagged entry when you return online — edit it then.",
-          "You can edit your own entries; supervisors and admins can help if you need a correction. Every edit is logged.",
-          "Turn on push notifications (account / prompt) so evening prompts reach you.",
-          "Demo client walkthroughs do not require Time Clock.",
-        ],
-      },
-      {
         title: "Working with Your Clients",
         body:
-          "Log contacts and applications carefully — counselors see your contact notes. Billable time on a contact is not the same as Time Clock hours worked.",
+          "Log contacts and applications carefully — counselors see your contact notes. Billable time on a contact feeds state billing and payroll from billable hours.",
         steps: [
           "Log every contact and job application on the client profile.",
           "When logging service time, enter duration plus a start time, end time, or both. If start and end disagree with duration, clock times win.",
@@ -293,12 +272,11 @@ function sectionsForRole(role: string | null): Section[] {
         ],
       },
       {
-        title: "Timesheet: Billable vs Time Clock",
+        title: "Billable Hours (Timesheet)",
         body:
-          "My Time (Timesheet) is for client billable service activities (state billing). Time Clock is for when you yourself were working. Do not confuse the two. Individual Job Placement billable hours feed Accounts Specialist IJP invoices — they are not the same as payroll hours worked.",
+          "Billable Hours is for client billable service activities (state billing). Pay is based on these billable hours — there is no separate Time Clock and no week submit/approve step. Individual Job Placement billable hours feed Accounts Specialist IJP invoices.",
         steps: [
-          "Open My Time (Timesheet) to review billable entries, download CSV, and submit for approval.",
-          "Open Time Clock for your daily hours worked totals.",
+          "Open Billable Hours to review billable entries and download CSV or PDFs.",
           "Soft caseload guidance is about 20 active clients — supervisors/HR may allow more when needed.",
         ],
       },
@@ -314,9 +292,9 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "PTO Requests",
         body:
-          "Request vacation, sick, maternity/paternity, emergency, or other leave from Time Clock. Remaining days show when HR/admin has set an annual bank. Your request goes to your supervisor for coverage review first, then HR for final approval.",
+          "Request vacation, sick, maternity/paternity, emergency, or other leave from PTO. Remaining days show when HR/admin has set an annual bank. Your request goes to your supervisor for coverage review first, then HR for final approval.",
         steps: [
-          "Time Clock → PTO Requests → choose start/end dates and a reason, then submit.",
+          "PTO → choose start/end dates and a reason, then submit.",
           "Please request at least 14 days in advance when possible; sick and emergency may be sooner. Status stays unapproved until HR/admin decides.",
           "Track approval or denial (and any explanation) on the same page. You can cancel a request while it is still open.",
         ],
@@ -330,7 +308,7 @@ function sectionsForRole(role: string | null): Section[] {
           "Transition Specialists use the same Employment Specialist caseload shell plus Pre-ETS for released student rosters, sessions, attendance, and CARs. Employment Specialists do not see Pre-ETS. Accounts Specialists and Super Admins upload Pre-ETS spreadsheets and enter authorization numbers — field staff work released rosters only.",
         steps: [
           "Open Pre-ETS from the sidebar for schools, students, sessions, and worksheets on released authorizations.",
-          "Clients, Messages, Time Clock, Timesheet, and Submit Reports work the same as for Employment Specialists on your assigned caseload.",
+          "Clients, Messages, Billable Hours, PTO, and Submit Reports work the same as for Employment Specialists on your assigned caseload.",
           "Use Explore Analytics and Download Exports for your own caseload scope.",
           "Help → Pre-ETS training demos (below) for interactive roster signature and CAR walkthroughs.",
         ],
@@ -345,12 +323,12 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Sidebar Layout",
         body:
-          "Accounts Specialist tools focus on intake billing, Individual Job Placement (IJP) billing, Pre-ETS authorizations and invoices, timesheets, Time Clock, and payment/billing exports. Community Partners is shared reference data.",
+          "Accounts Specialist tools focus on intake billing, Individual Job Placement (IJP) billing, Pre-ETS authorizations and invoices, billable hours, PTO, and billing exports. Community Partners is shared reference data.",
         steps: [
           "Accounts → Intake Billing (this is your home screen after login).",
           "Accounts → IJP Billing — Individual Job Placement invoices (never labeled “GA IJP” in the product).",
           "Accounts → Pre-ETS — upload the Pre-ETS spreadsheet, enter/correct authorization numbers, manage rosters and invoice packets.",
-          "Accounts → Weekly Timesheet, Time Clock, Download Exports.",
+          "Accounts → Billable Hours, PTO, Download Exports.",
           "Account → My Profile to update your name, city, and contact details.",
           "Reference → Community Partners.",
           "Client names on timesheets and intake billing open a view-only profile.",
@@ -378,11 +356,10 @@ function sectionsForRole(role: string | null): Section[] {
         ],
       },
       {
-        title: "Payroll vs Billable Exports",
+        title: "Billable Exports",
         body:
-          "Hours worked (payroll) come from staff Time Clock shifts. Billable by client is for state billing and may differ from hours worked.",
+          "Pay is based on billable hours. Download billable-by-client CSVs for state billing from Download Exports.",
         steps: [
-          "Download Exports → Payroll — hours worked from Time Clock for the pay period.",
           "Download Exports → Billable hours by client for state billing files.",
           "Pay-period settings are configured by super admin under Portal → Settings → Payroll Settings.",
         ],
@@ -392,7 +369,7 @@ function sectionsForRole(role: string | null): Section[] {
         body:
           "You can view all PTO requests for payroll awareness. You cannot approve or deny — that stays with HR and admins.",
         steps: [
-          "Time Clock → PTO Requests to see the queue (filters: pending, approved, denied, past).",
+          "PTO to see the queue (filters: pending, approved, denied, past).",
           "Submit your own PTO from the same page when you need leave.",
         ],
       },
@@ -451,7 +428,7 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Hospitality Workspace",
         body:
-          "Your sidebar includes the Hospitality Dashboard, Intake Calls, Weekly Check-ins, Partner Check-ins, Community Partners, Time Clock, and My Profile.",
+          "Your sidebar includes the Hospitality Dashboard, Intake Calls, Weekly Check-ins, Partner Check-ins, Community Partners, Billable Hours, PTO, and My Profile.",
         steps: [
           "Weekly Check-ins → call every client at least once each week and log the outcome.",
           "Partner Check-ins → contact every Community Partner at least once each month and log the outcome.",
@@ -459,7 +436,7 @@ function sectionsForRole(role: string | null): Section[] {
           "Hospitality Dashboard → client logs, community network, and connections.",
           "Intake Calls → complete hospitality intake for new activations.",
           "Account → My Profile to update your name, city, and contact details.",
-          "Time Clock → clock in/out (America/New_York) and PTO Requests for your own leave.",
+          "PTO for your own leave requests.",
         ],
       },
     ];
@@ -475,7 +452,7 @@ function sectionsForRole(role: string | null): Section[] {
           "WRT Facilitation → run sessions and presentation mode.",
           "WRT Curriculum → manage modules, lessons, and blocks.",
           "My Profile → keep your name and contact details current.",
-          "Time Clock → hours worked and your own PTO.",
+          "PTO for your own leave requests.",
           "Community Partners → reference directory (view).",
         ],
       },

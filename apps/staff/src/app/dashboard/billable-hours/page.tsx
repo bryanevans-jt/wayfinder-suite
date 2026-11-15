@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { canAccessBillableHoursPage } from "@wayfinder/supabase/staff-time-clock-shared";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BillableHoursPayrollMonthlyPanel } from "@/components/billable-hours-payroll-monthly-panel";
 import { MyBillableHoursWorkspace } from "@/components/my-billable-hours-workspace";
@@ -67,9 +68,9 @@ export default async function MyBillableHoursPage({ searchParams }: PageProps) {
         in hours to one decimal. Totals include logged time whether or not the client was marked
         present; only Case File Review and note-only contact are excluded. Use the weekly timesheet
         below for line-by-line review. Paid time off is under{" "}
-        <a href="/dashboard/pto" className="font-medium text-brand-green underline">
+        <Link href="/dashboard/pto" className="font-medium text-brand-green underline">
           PTO
-        </a>
+        </Link>
         .
       </p>
       <MyBillableHoursWorkspace

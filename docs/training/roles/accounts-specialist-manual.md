@@ -2,7 +2,7 @@
 
 **Wayfinder Pro · Accounts**
 
-Reference for intake billing, Individual Job Placement (IJP) billing, Pre-ETS authorizations and invoices, timesheets, Time Clock, and billing/payroll exports.
+Reference for intake billing, Individual Job Placement (IJP) billing, Pre-ETS authorizations and invoices, billable hours, PTO, and billing exports.
 
 In the product, the role key is `accountant` and the display name is **Accounts Specialist**. Individual Job Placement is always shown as **Individual Job Placement** (never “GA IJP”).
 
@@ -18,8 +18,8 @@ In the product, the role key is `accountant` and the display name is **Accounts 
 | **IJP Billing** | Monthly Individual Job Placement invoices and attestation packets |
 | **Pre-ETS** | Spreadsheet upload, authorization numbers (A&I), rosters, invoice packets |
 | **Weekly Timesheet** | View billable time |
-| **Time Clock** | Hours worked + PTO queue (view-only for approvals) |
-| **Download Exports** | Payroll (hours worked) and billable-by-client files |
+| **PTO** | Leave requests (view-only for approvals) |
+| **Download Exports** | Billable-by-client files |
 
 Client names on timesheets and intake billing open a **view-only** profile.
 
@@ -93,12 +93,11 @@ Client names on timesheets and intake billing open a **view-only** profile.
 
 ---
 
-## 5. Payroll vs billable exports
+## 5. Billable exports
 
 | Export | Source |
 |--------|--------|
-| **Payroll** | Staff Time Clock shifts (hours worked) |
-| **Billable by client** | Client billable service time (state billing) |
+| **Billable by client** | Client billable service time (state billing); pay is based on billable hours |
 
 Pay-period settings are configured by Super Admin under Portal → Settings → Payroll Settings.
 
@@ -108,7 +107,7 @@ Pay-period settings are configured by Super Admin under Portal → Settings → 
 
 - You can **view** all PTO requests for payroll awareness.
 - You **cannot approve or deny** — that stays with HR and admins.
-- Submit your own PTO from Time Clock → PTO Requests.
+- Submit your own PTO from sidebar → **PTO**.
 
 ---
 

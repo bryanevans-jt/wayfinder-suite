@@ -8,14 +8,11 @@ import {
 import {
   loadEsCaseloadClientOptions,
   loadEsTimeEntriesForWeek,
-  loadPendingWeekSubmissionsForSupervisor,
-  loadStaffClockMinutesForWeek,
   loadStaffEsPickerOptions,
-  loadWeekSubmission,
 } from "@/lib/es-time-data";
 import { loadStaffNameById } from "@/lib/operations-data";
 import { esUserAllowedForSupervisor, loadSupervisorScope } from "@/lib/supervisor-client-scope";
-import type { EsTimeEntryRow, EsWeekSubmissionRow, SupervisedEsOption, TimesheetClientOption } from "@/lib/es-time-client";
+import type { EsTimeEntryRow, SupervisedEsOption, TimesheetClientOption } from "@/lib/es-time-client";
 
 type AdminClient = ReturnType<typeof createServiceRoleClient>;
 
@@ -32,14 +29,11 @@ export type TimesheetWorkspaceServerProps = {
   weekStart: string;
   weekEnd: string;
   entries: EsTimeEntryRow[];
-  weekSubmission: EsWeekSubmissionRow | null;
-  pendingApprovals: EsWeekSubmissionRow[];
   readOnly: boolean;
   supervisedEsOptions: SupervisedEsOption[];
   caseloadClients: TimesheetClientOption[];
   initialClientFilter: string;
   canPickEs: boolean;
-  payrollClockMinutes: number | null;
   basePath: string;
 };
 
@@ -92,11 +86,6 @@ export async function loadTimesheetSection(
     role === "accountant" ||
     role === "hr";
 
-  const useOrgPayrollClock =
-    (role === "accountant" || role === "hr" || isAdminTierRole(role)) &&
-    canPickEs &&
-    !isFieldSpecialistRole(role);
-
   const esPickerOptions =
     canPickEs && !isFieldSpecialistRole(role)
       ? await loadStaffEsPickerOptions(admin, role ?? "", effectiveUserId)
@@ -135,21 +124,13 @@ export async function loadTimesheetSection(
     }
   }
 
-  const [esNames, entries, weekSubmission, pendingApprovals, caseloadClients, clockPayrollMinutes] =
-    await Promise.all([
-      loadStaffNameById(admin, [esUserId], "Team member"),
-      loadEsTimeEntriesForWeek(admin, esUserId, weekStart),
-      loadWeekSubmission(admin, esUserId, weekStart),
-      isSupervisorRole(role) || isAdminTierRole(role)
-        ? loadPendingWeekSubmissionsForSupervisor(admin, effectiveUserId)
-        : Promise.resolve([]),
-      canPickEs && !isFieldSpecialistRole(role)
-        ? loadEsCaseloadClientOptions(admin, esUserId)
-        : Promise.resolve([]),
-      useOrgPayrollClock
-        ? loadStaffClockMinutesForWeek(admin, esUserId, weekStart)
-        : Promise.resolve(null as number | null),
-    ]);
+  const [esNames, entries, caseloadClients] = await Promise.all([
+    loadStaffNameById(admin, [esUserId], "Team member"),
+    loadEsTimeEntriesForWeek(admin, esUserId, weekStart),
+    canPickEs && !isFieldSpecialistRole(role)
+      ? loadEsCaseloadClientOptions(admin, esUserId)
+      : Promise.resolve([]),
+  ]);
 
   const esName = esNames.get(esUserId) ?? "Team member";
 
@@ -162,14 +143,11 @@ export async function loadTimesheetSection(
       weekStart,
       weekEnd,
       entries,
-      weekSubmission,
-      pendingApprovals,
       readOnly: isPreviewing,
       supervisedEsOptions: esPickerOptions,
       caseloadClients,
       initialClientFilter: params.client ?? "",
       canPickEs: canPickEs && !isFieldSpecialistRole(role),
-      payrollClockMinutes: clockPayrollMinutes,
       basePath,
     },
   };

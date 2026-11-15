@@ -41,7 +41,7 @@ Facilitator timing: [GA Agenda & Talking Points](./ga-agenda-and-talking-points.
 
 | Tool | Purpose |
 |------|---------|
-| **Wayfinder Pro** | Caseload, contacts, applications, messages, timesheet, Community Partners |
+| **Wayfinder Pro** | Caseload, contacts, applications, messages, billable hours, PTO, Community Partners |
 | **Wayfinder** (client app) | Where participants see their success path and message you |
 | **Joshua Tree Reports** | Official GVRA monthly reports & progress notes. Replaces “JTSG Reports v2” |
 
@@ -146,10 +146,10 @@ After your first magic-link sign-in, choose **Sign in with passkey** on the logi
 
 ### Timesheet
 
-**Path:** Sidebar → **Timesheet** (`/dashboard/timesheet`)
+**Path:** Sidebar → **Billable Hours** (`/dashboard/billable-hours`)
 
 - Log billable activity by client and service date.
-- Submit weeks for supervisor approval.
+- No week submit/approve — pay is based on billable hours.
 - Approved time feeds payroll exports.
 
 > **Figure 4.5:** Timesheet — `assets/screenshots/es-timesheet-week.png`

@@ -53,23 +53,15 @@ const EXPORT_CARDS: ExportCard[] = [
   {
     title: "My Timesheet",
     description:
-      "Review hours worked and billable hours by pay week, submit for supervisor approval, and download CSV from the Timesheet page.",
+      "Review billable hours by pay week and download CSV from Billable Hours. No week submit or supervisor approval is required.",
     href: "/dashboard/billable-hours#weekly-timesheet",
     filename: "wayfinder-timesheet.csv",
     roles: ["es"],
   },
   {
-    title: "Payroll — Hours Worked",
-    description:
-      "Hours worked from staff Time Clock shifts for the current pay period (America/New_York). Separate from client billable hours.",
-    href: "/api/exports/payroll",
-    filename: "wayfinder-payroll-hours-worked.csv",
-    roles: ["accountant", "hr", "supervisor"],
-  },
-  {
     title: "Billable Hours by Client",
     description:
-      "Approved billable line items by client for state billing. The same clock time may appear on multiple clients when policy allows.",
+      "Billable line items by client for state billing. The same service window may appear on multiple clients when policy allows.",
     href: "/api/exports/billable",
     filename: "wayfinder-billable-by-client.csv",
     roles: ["accountant", "hr", "supervisor"],

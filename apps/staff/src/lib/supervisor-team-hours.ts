@@ -4,7 +4,6 @@ import {
 } from "@/lib/es-time-client";
 import {
   loadEsTimeEntriesForWeek,
-  loadStaffClockMinutesForWeek,
   loadSupervisedEsOptions,
 } from "@/lib/es-time-data";
 import { weekEndSaturday, weekStartSunday } from "@wayfinder/supabase/es-time-tracking";
@@ -17,7 +16,6 @@ export type SupervisorTeamHoursWeek = {
   weekEnd: string;
   billableMinutes: number;
   workedMinutes: number;
-  workedFromClock: boolean;
 };
 
 export type SupervisorTeamHoursRow = {
@@ -33,18 +31,13 @@ async function summarizeWeek(
   weekStart: string
 ): Promise<SupervisorTeamHoursWeek> {
   const weekEnd = weekEndSaturday(weekStart);
-  const [entries, clockMinutes] = await Promise.all([
-    loadEsTimeEntriesForWeek(admin, esUserId, weekStart),
-    loadStaffClockMinutesForWeek(admin, esUserId, weekStart),
-  ]);
+  const entries = await loadEsTimeEntriesForWeek(admin, esUserId, weekStart);
   const summary = summarizeTimeEntries(entries);
-  const workedFromClock = clockMinutes > 0;
   return {
     weekStart,
     weekEnd,
     billableMinutes: summary.billableMinutes,
-    workedMinutes: workedFromClock ? clockMinutes : summary.workedMinutes,
-    workedFromClock,
+    workedMinutes: summary.workedMinutes,
   };
 }
 

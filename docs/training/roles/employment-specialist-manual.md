@@ -73,14 +73,14 @@ Share [Getting Signed In](../shared/getting-signed-in.md) with every participant
 
 ---
 
-## 5. Timesheet
+## 5. Billable Hours (Timesheet)
 
-**Path:** Sidebar → **Timesheet** (`/dashboard/timesheet`)
+**Path:** Sidebar → **Billable Hours** (`/dashboard/billable-hours`)
 
-- Log billable activity by client and service date.
-- Submit weeks for supervisor approval.
+- Log billable activity by client and service date (from client profiles; review on Billable Hours).
+- No week submit or supervisor approval — pay is based on billable hours.
 - **Individual Job Placement** billable hours feed Accounts Specialist **IJP Billing** invoices (Generate Invoices). Non–Individual Job Placement hours are never billed on IJP invoices.
-- Hours worked for payroll come from **Time Clock**, not from billable timesheet lines. Accounts Specialist exports both payroll and billable-by-client files.
+- PTO requests are under sidebar → **PTO**.
 
 > **Screenshot:** `assets/screenshots/es-timesheet-week.png`
 

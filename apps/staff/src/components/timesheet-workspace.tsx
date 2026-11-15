@@ -1,7 +1,7 @@
 "use client";
 
 import { formatBillableHours } from "@wayfinder/supabase/client-billable";
-import { displayServiceTimes, minutesToDecimalHours } from "@wayfinder/supabase/es-time-tracking";
+import { displayServiceTimes } from "@wayfinder/supabase/es-time-tracking";
 import {
   canViewClientProfiles,
   isAdminTierRole,
@@ -11,7 +11,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import type { EsTimeEntryRow, EsWeekSubmissionRow, SupervisedEsOption, TimesheetClientOption } from "@/lib/es-time-client";
+import type { EsTimeEntryRow, SupervisedEsOption, TimesheetClientOption } from "@/lib/es-time-client";
 import { shiftWeekStart, summarizeTimeEntries } from "@/lib/es-time-client";
 
 type Props = {
@@ -21,15 +21,11 @@ type Props = {
   weekStart: string;
   weekEnd: string;
   entries: EsTimeEntryRow[];
-  weekSubmission: EsWeekSubmissionRow | null;
-  pendingApprovals: EsWeekSubmissionRow[];
   readOnly?: boolean;
   supervisedEsOptions?: SupervisedEsOption[];
   caseloadClients?: TimesheetClientOption[];
   initialClientFilter?: string;
   canPickEs?: boolean;
-  /** When set (Accounts/HR/admin), Hours worked (payroll) uses Time Clock minutes. */
-  payrollClockMinutes?: number | null;
   /** Route used for week / ES / client query updates (default Billable Hours). */
   basePath?: string;
 };
@@ -46,18 +42,14 @@ export function TimesheetWorkspace({
   weekStart,
   weekEnd,
   entries,
-  weekSubmission,
-  pendingApprovals,
-  readOnly = false,
   supervisedEsOptions = [],
   caseloadClients = [],
   initialClientFilter = "",
   canPickEs = false,
-  payrollClockMinutes = null,
   basePath = "/dashboard/billable-hours",
 }: Props) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [error] = useState<string | null>(null);
   const [clientFilter, setClientFilter] = useState(initialClientFilter);
 
   const visibleEntries = useMemo(() => {
@@ -83,14 +75,6 @@ export function TimesheetWorkspace({
   }, [caseloadClients, entries]);
 
   const summary = summarizeTimeEntries(visibleEntries);
-  const showPayrollHours =
-    !isFieldSpecialistRole(role) &&
-    !isSupervisorRole(role) &&
-    typeof payrollClockMinutes === "number";
-  const payrollMinutes =
-    typeof payrollClockMinutes === "number" ? payrollClockMinutes : summary.workedMinutes;
-  const payrollFromClock = typeof payrollClockMinutes === "number";
-  const weekStatus = weekSubmission?.status ?? "open";
   const exportParams = new URLSearchParams({
     week: weekStart,
     es: esUserId,
@@ -100,7 +84,7 @@ export function TimesheetWorkspace({
   }
   const csvHref = `/api/exports/time?${exportParams.toString()}`;
   const pdfHref = `/api/exports/time/pdf?${exportParams.toString()}`;
-  const canDownloadPdf = weekStatus === "approved";
+  const canDownloadPdf = summary.byClient.some((c) => Boolean(c.clientId));
 
   function pushTimesheetQuery(updates: Record<string, string | null>) {
     const params = new URLSearchParams(window.location.search);
@@ -188,7 +172,7 @@ export function TimesheetWorkspace({
               Week (Sun–Sat): {formatWeekLabel(weekStart, weekEnd)}
             </p>
             <p className="mt-1 text-xs text-brand-black/55">
-              Status: <span className="font-medium capitalize">{weekStatus.replace("_", " ")}</span>
+              Pay is based on billable hours. No week submit or supervisor approval is required.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -223,15 +207,7 @@ export function TimesheetWorkspace({
           </div>
         </div>
 
-        <div
-          className={`mt-5 grid gap-4 sm:grid-cols-2 ${showPayrollHours ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}
-        >
-          {showPayrollHours ? (
-            <Stat
-              label="Hours worked (payroll)"
-              value={minutesToDecimalHours(payrollMinutes)}
-            />
-          ) : null}
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Stat
             label="Billable hours"
             value={`${formatBillableHours(summary.billableMinutes)} hrs`}
@@ -243,11 +219,8 @@ export function TimesheetWorkspace({
           />
         </div>
         <p className="mt-2 text-xs text-brand-black/55">
-          {showPayrollHours && payrollFromClock
-            ? "Hours worked come from staff Time Clock shifts (America/New_York) for this week. Billable hours count logged service time (excluding Case File Review and note-only contact) and may differ from hours worked."
-            : showPayrollHours
-              ? "Hours worked merges overlapping clock times so the same canvass billed to multiple clients counts once for payroll. Billable hours sum qualifying service lines (may be higher)."
-              : "Billable hours count logged service time for this week (Sun–Sat, Eastern), whether or not the client was marked present. Case File Review and note-only contact are excluded."}
+          Billable hours count logged service time for this week (Sun–Sat, Eastern), whether or not
+          the client was marked present. Case File Review and note-only contact are excluded.
         </p>
 
         {summary.byClient.length > 0 ? (
@@ -256,9 +229,8 @@ export function TimesheetWorkspace({
             <p className="mt-1 text-xs text-brand-black/55">
               Client totals exclude Case File Review and note-only contact only. Unchecking
               &quot;Client was present&quot; does not remove hours from billable totals. Active
-              (in-person) % on the client
-              profile is in-person with client present ÷ that client&apos;s billable hours — not
-              expected or authorized hours.
+              (in-person) % on the client profile is in-person with client present ÷ that
+              client&apos;s billable hours — not expected or authorized hours.
             </p>
             <ul className="mt-2 space-y-1 text-sm text-brand-black/80">
               {summary.byClient.map((c) => (
@@ -283,12 +255,6 @@ export function TimesheetWorkspace({
               </p>
             ) : null}
           </div>
-        ) : null}
-
-        {weekSubmission?.supervisor_notes ? (
-          <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-            Supervisor notes: {weekSubmission.supervisor_notes}
-          </p>
         ) : null}
       </section>
 

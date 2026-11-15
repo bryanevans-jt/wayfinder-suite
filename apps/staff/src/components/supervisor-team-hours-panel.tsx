@@ -9,7 +9,6 @@ type WeekHours = {
   weekEnd: string;
   billableMinutes: number;
   workedMinutes: number;
-  workedFromClock: boolean;
 };
 
 type Row = {
@@ -68,9 +67,8 @@ export function SupervisorTeamHoursPanel() {
         <div>
           <h2 className="text-sm font-semibold text-brand-black">Team hours</h2>
           <p className="mt-1 text-sm text-brand-black/65">
-            Billable hours from logged service time and hours worked from the Time Clock (when used).
-            Pay weeks run Sunday through Saturday. No timesheet submission required — this reflects
-            data as entered.
+            Billable hours from logged service time. Pay weeks run Sunday through Saturday. No
+            timesheet submission required — this reflects data as entered.
           </p>
         </div>
         <button
@@ -126,15 +124,6 @@ export function SupervisorTeamHoursPanel() {
                         {hoursLabel(row.currentWeek.billableMinutes)}
                       </span>
                     </p>
-                    <p className="mt-0.5">
-                      Worked:{" "}
-                      <span className="font-semibold tabular-nums text-brand-black">
-                        {hoursLabel(row.currentWeek.workedMinutes)}
-                      </span>
-                      {row.currentWeek.workedFromClock ? (
-                        <span className="text-xs text-brand-black/50"> (Time Clock)</span>
-                      ) : null}
-                    </p>
                   </td>
                   <td className="px-3 py-3 text-brand-black/80">
                     <p>
@@ -142,15 +131,6 @@ export function SupervisorTeamHoursPanel() {
                       <span className="font-semibold tabular-nums text-brand-black">
                         {hoursLabel(row.previousWeek.billableMinutes)}
                       </span>
-                    </p>
-                    <p className="mt-0.5">
-                      Worked:{" "}
-                      <span className="font-semibold tabular-nums text-brand-black">
-                        {hoursLabel(row.previousWeek.workedMinutes)}
-                      </span>
-                      {row.previousWeek.workedFromClock ? (
-                        <span className="text-xs text-brand-black/50"> (Time Clock)</span>
-                      ) : null}
                     </p>
                   </td>
                   <td className="px-3 py-3">
