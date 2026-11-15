@@ -62,9 +62,11 @@ Client names on timesheets and intake billing open a **view-only** profile.
 
 ### Spreadsheet upload
 
-- **Accounts Specialists and Super Admins upload** the Pre-ETS spreadsheet/worksheet.
-- Accounts uploads use the **support / auth-match** path (any district).
-- Super Admins use the **planning** path; supervisors may upload planning worksheets for **assigned schools** only.
+- **Accounts Specialists and Super Admins upload** the Pre-ETS spreadsheet/worksheet. Regional Supervisors and Admins do **not** upload.
+- Accounts uploads use the **support / auth-match** path (any district): upload → approve or **reject** (with reason) → commit.
+- Super Admins use the **planning** path (auto-commit).
+- Auth-request notifications fire when Accounts commits an upload (same as planning auto-commit), unless worksheet testing override is on.
+- Review the read-only **Change log** under Rosters & auths for authorization number and roster student edits.
 
 ### Authorizations and rosters
 

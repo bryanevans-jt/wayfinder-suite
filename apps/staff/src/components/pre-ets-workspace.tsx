@@ -141,9 +141,8 @@ export function PreEtsWorkspace() {
         <p className="mt-2 max-w-2xl text-sm text-brand-black/70">
           School year <strong>{settings?.school_year ?? "—"}</strong>. Accounts Specialists and
           Super Admins upload Pre-ETS spreadsheets (Accounts: support / auth-match; Super Admin:
-          planning). Supervisors can also upload planning worksheets for their assigned schools.
-          Accounts enter and correct authorization numbers and roster students (including after
-          finalization); TS/TI work released rosters only.
+          planning). Accounts enter and correct authorization numbers and roster students
+          (including after finalization); TS/TI work released rosters only.
         </p>
         {access.canManageSettings || access.canAccounts || access.canSupervise || access.canDeliver ? (
           <p className="mt-2 text-sm">

@@ -557,9 +557,7 @@ export function PreEtsWorksheetPanel() {
             ? "Testing override is on: upload CSV or Excel (.xlsx/.xls) without authorization numbers. Rows without a PID # are skipped."
             : isSuperAdminUploader
               ? "Upload a district CSV or a multi-tab Excel workbook (one district per sheet). Pending rosters commit immediately per district tab."
-              : isSupervisorMode
-                ? "Upload CSV or Excel before GVRA authorization numbers are available. Excel workbooks can use one tab per district; CSV is one district per file."
-                : "Accounts Specialist or Super Admin uploads the Pre-ETS spreadsheet here. Enter authorization numbers under Rosters & auths when GVRA responds."}
+              : "Accounts Specialist or Super Admin uploads the Pre-ETS spreadsheet here. Enter authorization numbers under Rosters & auths when GVRA responds."}
         </p>
       </div>
 
@@ -802,14 +800,32 @@ export function PreEtsWorksheetPanel() {
               </div>
             ))}
           </div>
-          <button
-            type="button"
-            disabled={busy}
-            className="mt-4 rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white"
-            onClick={() => void worksheetAction(preview.importId, "approve")}
-          >
-            Approve worksheet
-          </button>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              disabled={busy}
+              className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white"
+              onClick={() => void worksheetAction(preview.importId, "approve")}
+            >
+              Approve worksheet
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700"
+              onClick={() => {
+                const reason = window.prompt("Rejection reason (required):");
+                if (reason == null) return;
+                if (!reason.trim()) {
+                  setMessage("Rejection reason is required.");
+                  return;
+                }
+                void worksheetAction(preview.importId, "reject", reason.trim());
+              }}
+            >
+              Reject
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -909,44 +925,65 @@ export function PreEtsWorksheetPanel() {
                   <td className="px-3 py-2">{row.phase}</td>
                   <td className="px-3 py-2">{row.status}</td>
                   <td className="px-3 py-2 text-xs">
-                    {!isSupervisorMode && row.status === "parsed" ? (
-                      <button
-                        type="button"
-                        className="text-brand-green hover:underline"
-                        onClick={() => void worksheetAction(row.id, "approve")}
-                      >
-                        Approve
-                      </button>
-                    ) : null}
-                    {!isSupervisorMode && row.status === "approved" ? (
-                      <button
-                        type="button"
-                        className="text-brand-green hover:underline"
-                        onClick={() => void worksheetAction(row.id, "commit")}
-                      >
-                        Commit
-                      </button>
-                    ) : null}
-                    {row.status === "committed" ? (
-                      <button
-                        type="button"
-                        className="text-brand-green hover:underline"
-                        disabled={busy}
-                        title="Re-read the saved upload and add or update groups and students (does not wipe other schools in this district month)"
-                        onClick={() => {
-                          if (
-                            !window.confirm(
-                              "Sync from the stored worksheet file? This re-reads the saved CSV and adds or updates groups and students for this district. It does not delete other schools' rosters for the same billing month."
-                            )
-                          ) {
-                            return;
-                          }
-                          void worksheetAction(row.id, "reprocess");
-                        }}
-                      >
-                        Sync from stored file
-                      </button>
-                    ) : null}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {!isSupervisorMode && row.status === "parsed" ? (
+                        <button
+                          type="button"
+                          className="text-brand-green hover:underline"
+                          onClick={() => void worksheetAction(row.id, "approve")}
+                        >
+                          Approve
+                        </button>
+                      ) : null}
+                      {!isSupervisorMode && row.status === "approved" ? (
+                        <button
+                          type="button"
+                          className="text-brand-green hover:underline"
+                          onClick={() => void worksheetAction(row.id, "commit")}
+                        >
+                          Commit
+                        </button>
+                      ) : null}
+                      {!isSupervisorMode &&
+                      (row.status === "parsed" || row.status === "approved") ? (
+                        <button
+                          type="button"
+                          className="text-red-700 hover:underline"
+                          disabled={busy}
+                          onClick={() => {
+                            const reason = window.prompt("Rejection reason (required):");
+                            if (reason == null) return;
+                            if (!reason.trim()) {
+                              setMessage("Rejection reason is required.");
+                              return;
+                            }
+                            void worksheetAction(row.id, "reject", reason.trim());
+                          }}
+                        >
+                          Reject
+                        </button>
+                      ) : null}
+                      {row.status === "committed" ? (
+                        <button
+                          type="button"
+                          className="text-brand-green hover:underline"
+                          disabled={busy}
+                          title="Re-read the saved upload and add or update groups and students (does not wipe other schools in this district month)"
+                          onClick={() => {
+                            if (
+                              !window.confirm(
+                                "Sync from the stored worksheet file? This re-reads the saved CSV and adds or updates groups and students for this district. It does not delete other schools' rosters for the same billing month."
+                              )
+                            ) {
+                              return;
+                            }
+                            void worksheetAction(row.id, "reprocess");
+                          }}
+                        >
+                          Sync from stored file
+                        </button>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))

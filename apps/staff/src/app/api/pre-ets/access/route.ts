@@ -12,10 +12,7 @@ import {
   canSupervisePreEts,
   canViewPreEtsHr,
 } from "@wayfinder/supabase/pre-ets-settings";
-import {
-  canUploadPreEtsWorksheets,
-  usesPreEtsPlanningWorksheetUpload,
-} from "@wayfinder/supabase/pre-ets-upload-scope";
+import { canUploadPreEtsWorksheets } from "@wayfinder/supabase/pre-ets-upload-scope";
 import { isAdminRole, isSuperAdminRole } from "@wayfinder/supabase/roles";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { loadCachedPreEtsSettings } from "@/lib/pre-ets-access";

@@ -7,7 +7,11 @@ import {
   canManagePreEtsSettings,
   canManagePreEtsWorksheetTestingOverride,
 } from "./pre-ets-settings";
-import { canUploadPreEtsWorksheets } from "./pre-ets-upload-scope";
+import {
+  canUploadPreEtsWorksheets,
+  usesPreEtsPlanningWorksheetUpload,
+  worksheetUploadBypassesDistrictScope,
+} from "./pre-ets-upload-scope";
 
 const enabledSettings = {
   module_enabled: true,
@@ -68,16 +72,31 @@ describe("Pre-ETS Accounts Specialist post-finalization permissions", () => {
     }
   });
 
-  it("keeps Accounts Specialist billing/import access (including worksheet upload)", () => {
+  it("allows only Accounts Specialist and Super Admin to upload worksheets", () => {
     assert.equal(canAccessPreEtsAccounts("accountant", enabledSettings), true);
     assert.equal(canUploadPreEtsWorksheets("accountant", enabledSettings), true);
     assert.equal(canUploadPreEtsWorksheets("super_admin", enabledSettings), true);
-    assert.equal(canUploadPreEtsWorksheets("supervisor", enabledSettings), true);
-    // Admin uploads via planning worksheet path (not Accounts Specialist auth_match).
-    assert.equal(canUploadPreEtsWorksheets("admin", enabledSettings), true);
+    assert.equal(canUploadPreEtsWorksheets("supervisor", enabledSettings), false);
+    assert.equal(canUploadPreEtsWorksheets("admin", enabledSettings), false);
     assert.equal(canUploadPreEtsWorksheets("es", enabledSettings), false);
     assert.equal(canUploadPreEtsWorksheets("hr", enabledSettings), false);
     assert.equal(canUploadPreEtsWorksheets("transition_specialist", enabledSettings), false);
+
+    const overrideOn = { ...enabledSettings, worksheet_testing_override_enabled: true };
+    assert.equal(canUploadPreEtsWorksheets("admin", overrideOn), false);
+    assert.equal(canUploadPreEtsWorksheets("supervisor", overrideOn), false);
+  });
+
+  it("limits planning worksheet upload to Super Admin and bypasses district scope for AS/SA", () => {
+    assert.equal(usesPreEtsPlanningWorksheetUpload("super_admin"), true);
+    assert.equal(usesPreEtsPlanningWorksheetUpload("accountant"), false);
+    assert.equal(usesPreEtsPlanningWorksheetUpload("supervisor"), false);
+    assert.equal(usesPreEtsPlanningWorksheetUpload("admin"), false);
+
+    assert.equal(worksheetUploadBypassesDistrictScope("super_admin"), true);
+    assert.equal(worksheetUploadBypassesDistrictScope("accountant"), true);
+    assert.equal(worksheetUploadBypassesDistrictScope("admin"), false);
+    assert.equal(worksheetUploadBypassesDistrictScope("supervisor"), false);
   });
 
   it("does not widen settings or worksheet-testing override beyond Admin / Super Admin", () => {

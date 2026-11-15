@@ -2,8 +2,6 @@ import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { notifyPreEtsAuthRequestsSubmitted } from "@wayfinder/supabase/pre-ets-auth-request-notify";
 import {
-  canAccessPreEtsAccounts,
-  canSupervisePreEts,
   loadPreEtsSettings,
   preEtsWorksheetTestingOverrideActive,
 } from "@wayfinder/supabase/pre-ets-settings";
@@ -13,7 +11,6 @@ import {
   usesPreEtsPlanningWorksheetUpload,
   worksheetUploadBypassesDistrictScope,
 } from "@wayfinder/supabase/pre-ets-upload-scope";
-import { isAccountantRole, isAdminRole, isSuperAdminRole } from "@wayfinder/supabase/roles";
 import {
   commitWorksheetImport,
   type SkippedEmptyWorksheetGroup,
@@ -59,9 +56,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const isSupervisor = canSupervisePreEts(auth.role, auth.settings);
-  const isAccounts = canAccessPreEtsAccounts(auth.role, auth.settings);
-
   try {
     const form = await request.formData();
     const file = form.get("file");
@@ -82,15 +76,8 @@ export async function POST(request: Request) {
     const settings = await loadPreEtsSettings(createServiceRoleClient());
     const admin = createServiceRoleClient();
 
-    const accountantOnly =
-      isAccountantRole(auth.role) &&
-      !isAdminRole(auth.role) &&
-      !isSupervisor;
     const testingOverride = preEtsWorksheetTestingOverrideActive(settings);
-    const usesPlanning =
-      isSuperAdminRole(auth.role) ||
-      (testingOverride && isAdminRole(auth.role)) ||
-      (!accountantOnly && usesPreEtsPlanningWorksheetUpload(auth.role));
+    const usesPlanning = usesPreEtsPlanningWorksheetUpload(auth.role);
 
     const phase = usesPlanning ? "planning" : "auth_match";
     const results: DistrictUploadResult[] = [];
@@ -299,26 +286,15 @@ export async function GET() {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const isSupervisor = canSupervisePreEts(auth.role, auth.settings);
-  const isAccounts = canAccessPreEtsAccounts(auth.role, auth.settings);
-  const accountantOnly =
-    isAccountantRole(auth.role) && !isAdminRole(auth.role) && !isSupervisor;
-
   try {
     const admin = createServiceRoleClient();
-    let query = admin
+    const { data, error } = await admin
       .from("pre_ets_worksheet_imports")
       .select(
         "id, service_month, school_year, phase, status, file_name, drive_file_name, archived_at, created_at, committed_at, created_by, parse_result"
       )
       .order("created_at", { ascending: false })
       .limit(50);
-
-    if (!accountantOnly && !isAccounts && isSupervisor) {
-      query = query.eq("created_by", auth.userId);
-    }
-
-    const { data, error } = await query;
 
     if (error) {
       return respondWithLoggedError("staff", route, error, {
@@ -327,13 +303,9 @@ export async function GET() {
       });
     }
 
-    const planningUploader =
-      isSuperAdminRole(auth.role) ||
-      (!accountantOnly && usesPreEtsPlanningWorksheetUpload(auth.role));
-
     return NextResponse.json({
       imports: data ?? [],
-      role: planningUploader ? "supervisor" : "accounts",
+      role: usesPreEtsPlanningWorksheetUpload(auth.role) ? "supervisor" : "accounts",
     });
   } catch (err) {
     return respondWithLoggedError("staff", route, err, {

@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { PreEtsInvoiceReviewModal } from "@/components/pre-ets-invoice-review-modal";
+import { preEtsInvoicePacketEventLabel } from "@/lib/pre-ets-event-labels";
 
 type Packet = {
   id: string;
@@ -302,7 +303,8 @@ export function PreEtsInvoicePanel() {
                           ) : (
                             events.map((e) => (
                               <li key={e.id}>
-                                {new Date(e.created_at).toLocaleString()} · {e.event_kind}
+                                {new Date(e.created_at).toLocaleString()} ·{" "}
+                                {preEtsInvoicePacketEventLabel(e.event_kind)}
                                 {e.from_status && e.to_status
                                   ? ` (${e.from_status} → ${e.to_status})`
                                   : ""}

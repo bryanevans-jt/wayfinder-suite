@@ -78,7 +78,7 @@ export function demoSuggestedWorkspaceTab(role: PreEtsDemoRole, step: number): P
 export function demoPanelHint(role: PreEtsDemoRole, step: number): string {
   if (role === "supervisor") {
     if (step <= 1)
-      return "Worksheets — upload planning CSV (sample below). Schools & groups shows Valdosta pending authorization.";
+      return "Worksheets — sample planning CSV (Accounts Specialist / Super Admin upload in production). Schools & groups shows Valdosta pending authorization.";
     if (step >= 5)
       return "Re-upload same month with Lowndes; Valdosta is not duplicated; pipeline adds Lowndes as pending.";
     return "Schools & groups + Rosters — track Valdosta/Lowndes status for your region.";

@@ -1,8 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  preEtsWorksheetTestingOverrideActive,
-  type PreEtsSettingsRow,
-} from "./pre-ets-settings";
+import type { PreEtsSettingsRow } from "./pre-ets-settings";
 import {
   isAccountantRole,
   isAdminRole,
@@ -20,22 +17,19 @@ export type PreEtsUploadDistrict = {
 /** Super Admin and Accounts Specialist may upload any district (support). */
 export function worksheetUploadBypassesDistrictScope(
   role: string | null | undefined,
-  settings?: Pick<PreEtsSettingsRow, "worksheet_testing_override_enabled">
+  _settings?: Pick<PreEtsSettingsRow, "worksheet_testing_override_enabled">
 ): boolean {
   const r = normalizeRole(role);
-  if (isSuperAdminRole(r) || isAccountantRole(r)) return true;
-  return preEtsWorksheetTestingOverrideActive(settings ?? { worksheet_testing_override_enabled: false }) && isAdminRole(r);
+  return isSuperAdminRole(r) || isAccountantRole(r);
 }
 
-/** May upload district CSV (planning or support import). */
+/** May upload district CSV — Accounts Specialist or Super Admin only. */
 export function canUploadPreEtsWorksheets(
   role: string | null | undefined,
-  settings?: Pick<PreEtsSettingsRow, "worksheet_testing_override_enabled">
+  _settings?: Pick<PreEtsSettingsRow, "worksheet_testing_override_enabled">
 ): boolean {
   const r = normalizeRole(role);
-  if (isSuperAdminRole(r)) return true;
-  if (usesPreEtsPlanningWorksheetUpload(r) || isAccountantRole(r)) return true;
-  return preEtsWorksheetTestingOverrideActive(settings ?? { worksheet_testing_override_enabled: false }) && isAdminRole(r);
+  return isSuperAdminRole(r) || isAccountantRole(r);
 }
 
 async function loadDistrictsForSchoolIds(
@@ -171,12 +165,7 @@ export async function assertPlanningWorksheetDistrictAllowed(
   return { ok: true };
 }
 
-/** Planning upload + auto-commit (Super Admin, supervisor, or regional admin). */
+/** Planning upload + auto-commit — Super Admin only. */
 export function usesPreEtsPlanningWorksheetUpload(role: string | null | undefined): boolean {
-  const r = normalizeRole(role);
-  if (isSuperAdminRole(r)) return true;
-  if (isAccountantRole(r) && !isAdminRole(r) && !isSupervisorRole(r)) {
-    return false;
-  }
-  return isSupervisorRole(r) || isAdminRole(r);
+  return isSuperAdminRole(normalizeRole(role));
 }

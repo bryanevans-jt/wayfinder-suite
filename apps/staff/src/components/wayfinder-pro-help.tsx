@@ -4,7 +4,9 @@ import {
   isAdminTierRole,
   isCounselorRole,
   isFieldSpecialistRole,
+  isGvraSupervisorRole,
   isHrRole,
+  isInstructorRole,
   isSuperAdminRole,
   isSupervisorRole,
   isTransitionSpecialistRole,
@@ -61,7 +63,7 @@ function sectionsForRole(role: string | null): Section[] {
           "Accounts Specialist and Super Admin share Individual Job Placement billing and Pre-ETS accounts tools. Service display name is always Individual Job Placement.",
         steps: [
           "Accounts → IJP Billing — Generate Invoices for the selected service month (weekly is fine; GVRA accepts multiple invoices per client per month). Every client with unbilled Individual Job Placement hours is invoiced, including archived or closed clients and hours logged by any staff role. Non–Individual Job Placement hours never appear on these invoices, and hours are never billed twice.",
-          "You and Accounts Specialists upload Pre-ETS spreadsheets (Super Admin: planning path; Accounts: support / auth-match). You can correct authorization numbers and roster students after finalization.",
+          "You and Accounts Specialists upload Pre-ETS spreadsheets (Super Admin: planning path; Accounts: support / auth-match). Regional Supervisors and Admins do not upload. You can correct authorization numbers and roster students after finalization.",
           "Pre-ETS settings and role rollout stay under Super Admin Portal when the module is enabled.",
         ],
       },
@@ -156,7 +158,7 @@ function sectionsForRole(role: string | null): Section[] {
           "Admins with Pre-ETS / Accounts access can use Individual Job Placement billing and Pre-ETS accounts workflows alongside Accounts Specialists.",
         steps: [
           "IJP Billing invoices Individual Job Placement hours only. Generate Invoices can run weekly; every client with unbilled IJP hours in the period is included (including archived/closed), and hours are never billed twice.",
-          "Pre-ETS: planning worksheet upload when you have school assignments (or testing override); correct authorization numbers and rosters after finalization when you have Accounts access.",
+          "Pre-ETS: Admins do not upload worksheets (Accounts Specialist and Super Admin only). Correct authorization numbers and rosters after finalization when you have Accounts access.",
         ],
       },
     ];
@@ -225,9 +227,9 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Pre-ETS and IJP coaching",
         body:
-          "When Pre-ETS is enabled for supervisors, you upload planning worksheets for your assigned schools. Coach Employment Specialists on monthly Individual Job Placement client attestation signatures.",
+          "When Pre-ETS is enabled for supervisors, coach field staff on released rosters and Employment Specialists on monthly Individual Job Placement client attestation signatures. Worksheet upload is Accounts Specialist and Super Admin only.",
         steps: [
-          "Pre-ETS → upload planning worksheets for districts/schools assigned to you (Accounts Specialist and Super Admin can upload any district).",
+          "Pre-ETS → review released rosters and coaching for your assigned schools (Accounts Specialist and Super Admin upload spreadsheets).",
           "Watch IJP client attestation SLA alerts after the 25th when billable Individual Job Placement time exists — coach ESs to Collect IJP signature.",
         ],
       },
@@ -366,10 +368,10 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Pre-ETS (Accounts)",
         body:
-          "Accounts Specialists and Super Admins upload Pre-ETS spreadsheets. Your upload is the support / auth-match path (any district). Super Admins (and supervisors for assigned schools) use planning uploads.",
+          "Accounts Specialists and Super Admins upload Pre-ETS spreadsheets. Your upload is the support / auth-match path (any district). Super Admins use the planning path. Regional Supervisors and Admins do not upload.",
         steps: [
-          "Upload the Pre-ETS spreadsheet/worksheet under Pre-ETS, then enter or correct GVRA authorization numbers (A&I) under Rosters & authorizations.",
-          "Add or remove students on a roster even after it is finalized. You can also change the authorization number after finalization.",
+          "Upload the Pre-ETS spreadsheet/worksheet under Pre-ETS, approve or reject parsed uploads, then commit. Enter or correct GVRA authorization numbers (A&I) under Rosters & authorizations.",
+          "Add or remove students on a roster even after it is finalized. You can also change the authorization number after finalization. Use Change log on Rosters & auths for a read-only audit.",
           "Build and manage invoice packets. Ready, submitted, or paid packets are not reset when a roster or auth number changes; draft packet unit totals may refresh from billable attendance.",
         ],
       },
@@ -586,7 +588,7 @@ export function WayfinderProHelp({ role, showPreEtsNav = false }: Props) {
                 Download sample planning CSV
               </a>
               {" — "}
-              Example district worksheet for supervisor upload training.
+              Example district worksheet for Accounts Specialist / Super Admin upload training.
             </li>
           </ul>
         </section>
