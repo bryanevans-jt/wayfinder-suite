@@ -86,6 +86,9 @@ export {
 } from "./service-display";
 export {
   clientDisplayName,
+  clientDisplayNameFromRosterAndProfile,
+  clientNameSortKey,
+  compareClientNameSortKeys,
   personDisplayName,
   resolveStaffDisplayName,
   staffDisplayName,

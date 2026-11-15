@@ -140,6 +140,30 @@ export function isGvraAllowanceIjpLine(
   return typeof line.entryId === "string" && line.entryId.startsWith("gvra-allowance:");
 }
 
+/** Synthetic month allotment id (not an es_time_entries row). */
+export function isSyntheticGvraAllowanceIjpLine(
+  line: Pick<IjpInvoiceLineItem, "entryId"> | null | undefined
+): boolean {
+  return typeof line?.entryId === "string" && line.entryId.startsWith("gvra-allowance:");
+}
+
+/**
+ * When the month allotment was already billed on another invoice, drop only the
+ * synthetic gvra-allowance:* line. Keep ES-backed GVRA allowance time entries.
+ */
+export function omitSyntheticGvraAllowanceLines(
+  lines: IjpInvoiceLineItem[]
+): IjpInvoiceLineItem[] {
+  return (lines ?? []).filter((line) => !isSyntheticGvraAllowanceIjpLine(line));
+}
+
+/** True when the invoice has at least one line with positive billable hours. */
+export function ijpInvoiceLinesHaveBillableHours(
+  lines: readonly IjpInvoiceLineItem[] | null | undefined
+): boolean {
+  return (lines ?? []).some((line) => (Number(line?.hours) || 0) > 0);
+}
+
 /** Build an invoice-only manual line (never writes contact logs / ES time). */
 export function createManualIjpInvoiceLine(opts: {
   serviceDate: string;
@@ -426,18 +450,22 @@ export async function buildIjpInvoiceLineItems(
     throw new Error(error.message);
   }
 
-  const { data: episodeRows } = await admin
-    .from("service_episodes")
-    .select("id, service_id, started_at, ended_at")
-    .eq("client_id", opts.clientId);
+  const [{ data: episodeRows }, { data: clientRow }] = await Promise.all([
+    admin
+      .from("service_episodes")
+      .select("id, service_id, started_at, ended_at")
+      .eq("client_id", opts.clientId),
+    admin.from("clients").select("current_service_id").eq("id", opts.clientId).maybeSingle(),
+  ]);
   const clientEpisodes = (episodeRows ?? []) as IjpAttributionEpisode[];
   const episodesById = new Map(
     clientEpisodes
       .filter((ep) => ep.id)
       .map((ep) => [ep.id as string, ep])
   );
-  // IJP invoices include only hours attributable to IJP (entry episode service, or
-  // IJP episode covering the service_date when the entry has no episode link).
+  const currentServiceId = (clientRow?.current_service_id as string | null) ?? null;
+  // IJP invoices include only hours whose service-on-date is IJP (linked episode,
+  // covering episode of any service, or conservative current_service fallback).
   const attributedRows = (entries ?? []).filter((row) => {
     const episodeId = (row.service_episode_id as string | null) ?? null;
     return timeEntryAttributedToIjpService({
@@ -446,6 +474,7 @@ export async function buildIjpInvoiceLineItems(
       entryEpisode: episodeId ? episodesById.get(episodeId) ?? null : null,
       clientEpisodes,
       ijpServiceIds,
+      currentServiceId,
     });
   });
 

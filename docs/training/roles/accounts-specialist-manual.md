@@ -29,11 +29,19 @@ Client names on timesheets and intake billing open a **view-only** profile.
 
 **Path:** Accounts → **IJP Billing**
 
+### Month list (before Generate)
+
+- Opening a service month lists **every client with Individual Job Placement activity** that month — you do **not** need to run Generate first.
+- Clients with activity but no invoice yet show **Not invoiced yet** and their unbilled hours.
+- One row per client (sorted by last name, then first). Multiple invoices for the same client (including supplementals) are grouped under that client.
+- Client labels use roster/profile name fields when `full_name` is blank (email / “Unknown client” only as last resorts).
+
 ### Generate Invoices
 
 - Run **Generate Invoices** for the selected service month. **Weekly runs are fine** — GVRA accepts **multiple invoices per client per month**.
-- While a month invoice is still an unlocked draft, weekly Generate **appends only unbilled** Individual Job Placement hours into that draft.
+- While a month invoice is still an unlocked draft, weekly Generate **reuses that draft** and **appends only unbilled** Individual Job Placement hours (it does not create a second open draft for the same client/month).
 - If the month invoice is already locked (ready / compiled / archived) and unbilled IJP hours remain, Generate creates a **supplemental draft** for the same service month (it does **not** rewrite locked invoices).
+- Generate never creates or compiles an invoice with **0 billable hours**.
 - Generate drains every client with remaining unbilled IJP hours, then compiles PDFs. The UI reports created / refreshed / compiled / failed counts. If completeness still shows missing clients or compile failed, run Generate again (do not treat a partial run as finished).
 
 ### Who gets an invoice
@@ -42,6 +50,7 @@ Client names on timesheets and intake billing open a **view-only** profile.
 - That includes **archived or closed** clients and hours logged by **any staff role**.
 - Demo clients are excluded.
 - Clients with no IJP-attributed billable hours are not invoiced.
+- An hour counts as Individual Job Placement only when the client’s service **on that entry’s date** was IJP. Linked episode wins; otherwise the episode covering the date (any service) decides. Current service is used only when no episode covers the date and no non-IJP episode overlaps that month. Date gaps with a non-IJP episode in the month stay **unattributed** (shown on the list / completeness — Generate will not bill them).
 
 ### What is never billed here
 

@@ -1,5 +1,5 @@
-import { clientDisplayName } from "@wayfinder/branding";
 import { priorServiceMonthStart } from "@wayfinder/supabase/ijp-billing-eligibility";
+import { loadIjpBillingMonthClientRoster } from "@wayfinder/supabase/ijp-billing-month-roster";
 import { canEditIjpBilling } from "@wayfinder/supabase/ijp-billing-settings";
 import { USER_FACING_FORBIDDEN } from "@wayfinder/supabase/error-log";
 import { requireIjpBillingApi } from "@/lib/ijp-billing-access";
@@ -8,6 +8,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Month roster: every client with IJP activity in the month (and any existing
+ * invoices), one row per client, sorted by last name. Does not require Generate.
+ */
 export async function GET(request: NextRequest) {
   const auth = await requireIjpBillingApi();
   if ("error" in auth) return auth.error;
@@ -16,49 +20,34 @@ export async function GET(request: NextRequest) {
     request.nextUrl.searchParams.get("month")?.trim() || priorServiceMonthStart();
   const isTest = request.nextUrl.searchParams.get("test") === "1";
 
-  const { data: rows, error } = await auth.admin
-    .from("ijp_billing_invoices")
-    .select(
-      "id, client_id, service_month, status, provider_invoice_number, authorization_number, invoice_date, total_hours, total_amount_cents, missing_attestation, is_test, compiled_at, archived_at"
-    )
-    .eq("service_month", month)
-    .eq("is_test", isTest)
-    .order("updated_at", { ascending: false });
+  try {
+    const roster = await loadIjpBillingMonthClientRoster(auth.admin, month, {
+      isTest,
+    });
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // Flat invoice list kept for older callers / ZIP helpers that still expect it.
+    const invoices = roster.clients.flatMap((client) =>
+      client.invoices.map((inv) => ({
+        ...inv,
+        client_id: client.clientId,
+        clientName: client.clientName,
+        is_test: isTest,
+        service_month: roster.month,
+      }))
+    );
+
+    return NextResponse.json({
+      month: roster.month,
+      isTest,
+      clients: roster.clients,
+      invoices,
+    });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Could not load IJP billing month." },
+      { status: 500 }
+    );
   }
-
-  const clientIds = [...new Set((rows ?? []).map((r) => r.client_id as string))];
-  const { data: clients } = await auth.admin
-    .from("clients")
-    .select("id, full_name, contact_email")
-    .in("id", clientIds.length ? clientIds : ["00000000-0000-0000-0000-000000000000"]);
-
-  const nameById = new Map(
-    (clients ?? []).map((c) => [c.id as string, clientDisplayName(c)])
-  );
-
-  const attestations = await auth.admin
-    .from("ijp_monthly_attestations")
-    .select("client_id, attestation_drive_file_id")
-    .eq("service_month", month)
-    .eq("is_test", isTest);
-  const hasAtt = new Set(
-    (attestations.data ?? [])
-      .filter((a) => a.attestation_drive_file_id)
-      .map((a) => a.client_id as string)
-  );
-
-  return NextResponse.json({
-    month,
-    isTest,
-    invoices: (rows ?? []).map((r) => ({
-      ...r,
-      clientName: nameById.get(r.client_id as string) ?? "Client",
-      hasAttestation: hasAtt.has(r.client_id as string),
-    })),
-  });
 }
 
 export async function POST(request: Request) {
@@ -89,6 +78,12 @@ export async function POST(request: Request) {
       settings: auth.settings,
       forceRefresh: Boolean(body.refreshLines),
     });
+    if (row.empty || !row.id) {
+      return NextResponse.json(
+        { error: "No billable Individual Job Placement hours to invoice for this client." },
+        { status: 400 }
+      );
+    }
     return NextResponse.json({ ok: true, invoiceId: row.id });
   } catch (e) {
     return NextResponse.json(

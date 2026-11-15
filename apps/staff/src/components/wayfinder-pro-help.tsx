@@ -62,7 +62,7 @@ function sectionsForRole(role: string | null): Section[] {
         body:
           "Accounts Specialist and Super Admin share Individual Job Placement billing and Pre-ETS accounts tools. Service display name is always Individual Job Placement.",
         steps: [
-          "Accounts → IJP Billing — Generate Invoices for the selected service month (weekly is fine; GVRA accepts multiple invoices per client per month). Every client with unbilled Individual Job Placement hours is invoiced, including archived or closed clients and hours logged by any staff role. Non–Individual Job Placement hours never appear on these invoices, and hours are never billed twice.",
+          "Accounts → IJP Billing — the month list shows every client with Individual Job Placement activity (including Not invoiced yet) without running Generate first; one row per client, sorted by last name. Generate Invoices (weekly is fine; GVRA accepts multiple invoices per client per month) creates/refreshes drafts and compiles PDFs. It reuses an open draft for the same client/month, never creates or compiles 0-hour invoices, and never double-bills stamped hours. Archived/closed clients and any staff role’s IJP hours are included; non–IJP hours never appear.",
           "You, Admins, and Accounts Specialists upload Pre-ETS spreadsheets (Super Admin / Admin: planning path; Accounts: support / auth-match). Regional Supervisors do not upload. You can correct authorization numbers and roster students after finalization.",
           "Pre-ETS settings and role rollout stay under Super Admin Portal when the module is enabled.",
         ],
@@ -159,7 +159,7 @@ function sectionsForRole(role: string | null): Section[] {
         body:
           "Admins with Pre-ETS / Accounts access can use Individual Job Placement billing and Pre-ETS accounts workflows alongside Accounts Specialists.",
         steps: [
-          "IJP Billing invoices Individual Job Placement hours only. Generate Invoices can run weekly; every client with unbilled IJP hours in the period is included (including archived/closed), and hours are never billed twice.",
+          "IJP Billing lists every client with Individual Job Placement activity for the month (Not invoiced yet until Generate). Generate Invoices can run weekly; it reuses open drafts, skips 0-hour invoices, includes archived/closed clients, and never double-bills stamped hours.",
           "Pre-ETS: Admins can upload planning worksheets for assigned schools (or any district when testing override is on). Correct authorization numbers and rosters after finalization when you have Accounts access. Regional Supervisors do not upload.",
         ],
       },
@@ -337,11 +337,11 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Individual Job Placement billing",
         body:
-          "IJP Billing builds monthly Individual Job Placement invoices from unbilled IJP-attributed billable hours. GVRA accepts multiple invoices per client per month, so running Generate Invoices weekly is fine.",
+          "IJP Billing lists every client with Individual Job Placement activity in the selected month (you do not need Generate first). Clients without an invoice yet show Not invoiced yet. One row per client (last name, then first); supplementals stay under that client. Generate creates and compiles invoices from unbilled IJP-attributed hours. GVRA accepts multiple invoices per client per month, so weekly Generate is fine.",
         steps: [
-          "Use Generate Invoices for the selected service month (often weekly) to pick up unbilled Individual Job Placement hours.",
-          "Every client with unbilled IJP hours in the period is invoiced — including archived or closed clients, and hours logged by any staff role. Demo clients are excluded. Generate drains the unbilled queue then compiles PDFs; the result shows created, refreshed, compiled, and failed counts. If completeness still shows missing clients or compile errors, run Generate again — locked invoices are never rewritten (supplemental drafts cover late hours).",
-          "Non–Individual Job Placement hours never appear on IJP invoices. Hours already stamped on an invoice are never billed twice; late hours create or refresh a draft, or a supplemental draft if the month invoice is already locked.",
+          "Open the service month to review activity and unbilled hours. Use Generate Invoices (often weekly) to create or refresh drafts and compile PDFs.",
+          "Every client with unbilled IJP hours is invoiced — including archived or closed clients, and hours logged by any staff role. Demo clients are excluded. Generate reuses an open draft for the same client/month, never creates or compiles a 0-hour invoice, drains the unbilled queue, then compiles PDFs. If completeness still shows missing clients or compile errors, run Generate again — locked invoices are never rewritten (supplemental drafts cover late hours).",
+          "Non–Individual Job Placement hours never appear on IJP invoices. Hours count as IJP only when the client’s service on that entry’s date was IJP (linked episode, or covering episode of any service; current service only when no episode covers the date and no non-IJP episode overlaps the month). Unattributed gaps surface on the list and completeness and are not billed. Hours already stamped are never billed twice.",
           "Line hours round to the nearest half hour; invoice totals round up to whole hours. Draft lines auto-refresh from billable time when you open the month. Editors can add invoice-only manual lines that do not create contact logs; each invoice includes the 2-hour GVRA Reports allowance on the last day of the month (skipped on a supplemental invoice if already billed for that month).",
         ],
       },

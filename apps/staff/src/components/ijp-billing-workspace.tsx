@@ -53,8 +53,54 @@ type InvoiceRow = {
   archived_at?: string | null;
 };
 
+type MonthClientRow = {
+  clientId: string;
+  clientName: string;
+  archived: boolean;
+  billableIjpHours: number;
+  unbilledIjpHours: number;
+  unattributedHours?: number;
+  unattributedEntryCount?: number;
+  status: string;
+  invoices: Array<{
+    id: string;
+    status: string;
+    provider_invoice_number: string | null;
+    authorization_number: string | null;
+    invoice_date: string | null;
+    total_hours: number;
+    total_amount_cents: number;
+    missing_attestation: boolean;
+    compiled_at: string | null;
+    archived_at: string | null;
+    hasAttestation: boolean;
+  }>;
+};
+
+function monthClientStatusLabel(status: string): string {
+  switch (status) {
+    case "not_invoiced":
+      return "Not invoiced yet";
+    case "empty_draft":
+      return "Empty draft (needs Generate)";
+    case "unattributed":
+      return "Unattributed hours";
+    case "draft":
+      return "Draft";
+    case "compiled":
+      return "Compiled";
+    case "mixed":
+      return "Mixed (draft + compiled)";
+    case "archived":
+      return "Archived";
+    default:
+      return status;
+  }
+}
+
 export function IjpBillingWorkspace() {
   const [month, setMonth] = useState(priorServiceMonthStart());
+  const [clients, setClients] = useState<MonthClientRow[]>([]);
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -81,6 +127,8 @@ export function IjpBillingWorkspace() {
     missingCount: number;
     complete: boolean;
     missingClients: Array<{ id: string; name: string }>;
+    unattributedClientCount?: number;
+    unattributedEntryCount?: number;
   } | null>(null);
 
   const loadCompleteness = useCallback(async () => {
@@ -93,6 +141,8 @@ export function IjpBillingWorkspace() {
       missingCount?: number;
       complete?: boolean;
       missingClients?: Array<{ id: string; name: string }>;
+      unattributedClientCount?: number;
+      unattributedEntryCount?: number;
       error?: string;
     };
     if (!res.ok) {
@@ -105,17 +155,34 @@ export function IjpBillingWorkspace() {
       missingCount: data.missingCount ?? 0,
       complete: Boolean(data.complete),
       missingClients: data.missingClients ?? [],
+      unattributedClientCount: data.unattributedClientCount ?? 0,
+      unattributedEntryCount: data.unattributedEntryCount ?? 0,
     });
   }, [month]);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/ijp-billing/invoices?month=${encodeURIComponent(month)}`);
-    const data = (await res.json()) as { invoices?: InvoiceRow[]; error?: string };
+    const data = (await res.json()) as {
+      clients?: MonthClientRow[];
+      invoices?: InvoiceRow[];
+      error?: string;
+    };
     if (!res.ok) {
       setError(data.error ?? USER_FACING_SYSTEM_ERROR);
       return;
     }
-    setInvoices(data.invoices ?? []);
+    const roster = data.clients ?? [];
+    setClients(roster);
+    const flat =
+      data.invoices ??
+      roster.flatMap((client) =>
+        client.invoices.map((inv) => ({
+          ...inv,
+          client_id: client.clientId,
+          clientName: client.clientName,
+        }))
+      );
+    setInvoices(flat);
     setError(null);
   }, [month]);
 
@@ -362,8 +429,9 @@ export function IjpBillingWorkspace() {
       <div>
         <h1 className="text-2xl font-semibold text-brand-black">IJP Billing</h1>
         <p className="mt-1 text-sm text-brand-black/70">
-          Individual Job Placement monthly invoices and attestation packets. Downloads may warn
-          when attestation is missing.
+          Every client with Individual Job Placement activity this month appears below (including
+          Not invoiced yet). Generate Invoices creates or refreshes drafts and compiles PDFs.
+          Downloads may warn when attestation is missing.
         </p>
       </div>
 
@@ -530,6 +598,16 @@ export function IjpBillingWorkspace() {
               ? " — complete."
               : ` — ${completeness.missingCount} still need generate (unbilled IJP hours or missing).`}
           </p>
+          {(completeness.unattributedEntryCount ?? 0) > 0 ? (
+            <p className="mt-1 text-amber-950">
+              {completeness.unattributedEntryCount} billable entr
+              {(completeness.unattributedEntryCount ?? 0) === 1 ? "y" : "ies"} across{" "}
+              {completeness.unattributedClientCount} client
+              {(completeness.unattributedClientCount ?? 0) === 1 ? "" : "s"} could not be
+              attributed to a service on the entry date (review episode history — Generate will
+              not bill these).
+            </p>
+          ) : null}
           {!completeness.complete && completeness.missingClients.length > 0 ? (
             <ul className="mt-2 list-disc space-y-0.5 pl-5">
               {completeness.missingClients.slice(0, 40).map((c) => (
@@ -587,31 +665,104 @@ export function IjpBillingWorkspace() {
           <thead className="bg-neutral-50">
             <tr>
               <th className="px-3 py-2 font-semibold">Client</th>
+              <th className="px-3 py-2 font-semibold">IJP hours</th>
+              <th className="px-3 py-2 font-semibold">Unbilled</th>
               <th className="px-3 py-2 font-semibold">Invoice #</th>
-              <th className="px-3 py-2 font-semibold">Hours</th>
+              <th className="px-3 py-2 font-semibold">Invoice hours</th>
               <th className="px-3 py-2 font-semibold">Attestation</th>
               <th className="px-3 py-2 font-semibold">Status</th>
               <th className="px-3 py-2 font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {invoices.length === 0 ? (
+            {clients.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-brand-black/60">
-                  No production invoices for this month yet.
+                <td colSpan={8} className="px-3 py-6 text-center text-brand-black/60">
+                  No clients with Individual Job Placement activity for this month yet.
                 </td>
               </tr>
             ) : (
-              invoices.map((inv) => {
-                const locked = isIjpInvoiceLockedForLineEdits(inv);
-                const expandMode = ijpHoursExpandMode({ canEdit, locked });
-                const isExpanded = expandedId === inv.id;
-                return (
+              clients.flatMap((client) => {
+                const invoiceRows =
+                  client.invoices.length > 0
+                    ? client.invoices
+                    : [
+                        {
+                          id: `pending:${client.clientId}`,
+                          status: "not_invoiced",
+                          provider_invoice_number: null as string | null,
+                          authorization_number: null as string | null,
+                          invoice_date: null as string | null,
+                          total_hours: 0,
+                          total_amount_cents: 0,
+                          missing_attestation: true,
+                          compiled_at: null as string | null,
+                          archived_at: null as string | null,
+                          hasAttestation: false,
+                        },
+                      ];
+                return invoiceRows.map((invSummary, invoiceIndex) => {
+                  const isPending = invSummary.id.startsWith("pending:");
+                  const inv: InvoiceRow = {
+                    id: invSummary.id,
+                    client_id: client.clientId,
+                    clientName: client.clientName,
+                    status: invSummary.status,
+                    provider_invoice_number: invSummary.provider_invoice_number,
+                    authorization_number: invSummary.authorization_number,
+                    invoice_date: invSummary.invoice_date,
+                    total_hours: invSummary.total_hours,
+                    total_amount_cents: invSummary.total_amount_cents,
+                    missing_attestation: invSummary.missing_attestation,
+                    hasAttestation: invSummary.hasAttestation,
+                    compiled_at: invSummary.compiled_at,
+                    archived_at: invSummary.archived_at,
+                  };
+                  const locked = isPending ? true : isIjpInvoiceLockedForLineEdits(inv);
+                  const expandMode = ijpHoursExpandMode({ canEdit, locked });
+                  const isExpanded = !isPending && expandedId === inv.id;
+                  const showClientCell = invoiceIndex === 0;
+                  return (
                   <Fragment key={inv.id}>
                     <tr className="border-t border-neutral-100">
-                      <td className="px-3 py-2">{inv.clientName}</td>
+                      <td className="px-3 py-2 align-top">
+                        {showClientCell ? (
+                          <div>
+                            <div className="font-medium">
+                              {client.clientName}
+                              {client.archived ? (
+                                <span className="ml-2 text-xs font-normal text-brand-black/50">
+                                  (archived)
+                                </span>
+                              ) : null}
+                            </div>
+                            {client.invoices.length > 1 ? (
+                              <div className="text-xs text-brand-black/55">
+                                {client.invoices.length} invoices this month
+                              </div>
+                            ) : null}
+                            {(client.unattributedEntryCount ?? 0) > 0 ? (
+                              <div className="text-xs text-amber-800">
+                                {formatIjpListHours(client.unattributedHours ?? 0)} unattributed (
+                                {client.unattributedEntryCount} entr
+                                {client.unattributedEntryCount === 1 ? "y" : "ies"})
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className="text-brand-black/40">↳ supplemental</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        {showClientCell ? formatIjpListHours(client.billableIjpHours) : "—"}
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        {showClientCell ? formatIjpListHours(client.unbilledIjpHours) : "—"}
+                      </td>
                       <td className="px-3 py-2">
-                        {canEdit && !locked ? (
+                        {isPending ? (
+                          <span className="text-brand-black/55">—</span>
+                        ) : canEdit && !locked ? (
                           <input
                             className="w-full min-w-[7rem] rounded border border-neutral-200 px-2 py-1 text-xs"
                             value={inv.provider_invoice_number ?? ""}
@@ -622,6 +773,20 @@ export function IjpBillingWorkspace() {
                                   row.id === inv.id
                                     ? { ...row, provider_invoice_number: v || null }
                                     : row
+                                )
+                              );
+                              setClients((prev) =>
+                                prev.map((c) =>
+                                  c.clientId !== client.clientId
+                                    ? c
+                                    : {
+                                        ...c,
+                                        invoices: c.invoices.map((row) =>
+                                          row.id === inv.id
+                                            ? { ...row, provider_invoice_number: v || null }
+                                            : row
+                                        ),
+                                      }
                                 )
                               );
                             }}
@@ -641,24 +806,41 @@ export function IjpBillingWorkspace() {
                         )}
                       </td>
                       <td className="px-3 py-2">
-                        <button
-                          type="button"
-                          className="text-left font-medium text-brand-green underline"
-                          aria-expanded={isExpanded}
-                          onClick={() => void toggleHoursExpand(inv)}
-                        >
-                          {formatIjpListHours(inv.total_hours)}
-                        </button>
+                        {isPending ? (
+                          <span className="text-brand-black/55">—</span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="text-left font-medium text-brand-green underline"
+                            aria-expanded={isExpanded}
+                            onClick={() => void toggleHoursExpand(inv)}
+                          >
+                            {formatIjpListHours(inv.total_hours)}
+                          </button>
+                        )}
                       </td>
                       <td className="px-3 py-2">
-                        {inv.hasAttestation ? (
+                        {isPending ? (
+                          "—"
+                        ) : inv.hasAttestation ? (
                           "On file"
                         ) : (
                           <span className="text-amber-800">Missing — download shows notice</span>
                         )}
                       </td>
-                      <td className="px-3 py-2">{inv.status}</td>
                       <td className="px-3 py-2">
+                        {isPending || invoiceIndex === 0
+                          ? monthClientStatusLabel(client.status)
+                          : inv.compiled_at
+                            ? "Compiled"
+                            : inv.status}
+                      </td>
+                      <td className="px-3 py-2">
+                        {isPending ? (
+                          <span className="text-xs text-brand-black/55">
+                            Run Generate Invoices
+                          </span>
+                        ) : (
                         <div className="flex flex-wrap gap-2">
                           {canEdit ? (
                             <button
@@ -696,11 +878,12 @@ export function IjpBillingWorkspace() {
                             Download
                           </a>
                         </div>
+                        )}
                       </td>
                     </tr>
                     {isExpanded ? (
                       <tr className="border-t border-neutral-100 bg-neutral-50/70">
-                        <td colSpan={6} className="px-3 py-3">
+                        <td colSpan={8} className="px-3 py-3">
                           <div className="space-y-2">
                             <p className="text-xs text-brand-black/65">
                               Invoice lines
@@ -910,7 +1093,8 @@ export function IjpBillingWorkspace() {
                       </tr>
                     ) : null}
                   </Fragment>
-                );
+                  );
+                });
               })
             )}
           </tbody>

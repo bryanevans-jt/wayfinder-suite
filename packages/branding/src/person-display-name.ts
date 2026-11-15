@@ -18,6 +18,7 @@ export function personDisplayName(
 
   const composed = [person.first_name, person.last_name]
     .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
+    .map((part) => part.trim())
     .join(" ")
     .trim();
   if (composed) return composed;
@@ -31,8 +32,11 @@ export function personDisplayName(
   return fallback;
 }
 
+/**
+ * Client-facing label: roster / profile names first, then email, never UUID.
+ * Pass linked profile name fields when clients.full_name is null.
+ */
 export function clientDisplayName(client: PersonLabelInput): string {
-  // Never surface internal client UUIDs in staff/client-facing labels.
   return personDisplayName(
     {
       full_name: client.full_name,
@@ -45,6 +49,74 @@ export function clientDisplayName(client: PersonLabelInput): string {
     },
     "Unknown client"
   );
+}
+
+/**
+ * Merge a clients row with an optional linked profiles row for display.
+ * Prefer clients.full_name, then profile full/first/last, then email.
+ */
+export function clientDisplayNameFromRosterAndProfile(
+  client: {
+    full_name?: string | null;
+    contact_email?: string | null;
+    email?: string | null;
+  } | null | undefined,
+  profile?: {
+    full_name?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+    email?: string | null;
+  } | null
+): string {
+  return clientDisplayName({
+    full_name: client?.full_name || profile?.full_name || null,
+    first_name: profile?.first_name ?? null,
+    last_name: profile?.last_name ?? null,
+    contact_email: client?.contact_email || client?.email || profile?.email || null,
+  });
+}
+
+/** Last / first tokens for alphabetical client lists (missing names sort last). */
+export function clientNameSortKey(opts: {
+  displayName: string;
+  first_name?: string | null;
+  last_name?: string | null;
+}): { lastName: string; firstName: string } {
+  const explicitLast = (opts.last_name ?? "").trim();
+  const explicitFirst = (opts.first_name ?? "").trim();
+  if (explicitLast || explicitFirst) {
+    return {
+      lastName: explicitLast.toLocaleLowerCase(),
+      firstName: explicitFirst.toLocaleLowerCase(),
+    };
+  }
+
+  const display = (opts.displayName ?? "").trim();
+  if (!display || display === "Unknown client" || display.includes("@")) {
+    return { lastName: "\uffff", firstName: display.toLocaleLowerCase() };
+  }
+
+  const parts = display.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) {
+    return { lastName: parts[0].toLocaleLowerCase(), firstName: "" };
+  }
+  return {
+    lastName: parts[parts.length - 1].toLocaleLowerCase(),
+    firstName: parts.slice(0, -1).join(" ").toLocaleLowerCase(),
+  };
+}
+
+export function compareClientNameSortKeys(
+  a: { lastName: string; firstName: string; displayName?: string },
+  b: { lastName: string; firstName: string; displayName?: string }
+): number {
+  const last = a.lastName.localeCompare(b.lastName, undefined, { sensitivity: "base" });
+  if (last !== 0) return last;
+  const first = a.firstName.localeCompare(b.firstName, undefined, { sensitivity: "base" });
+  if (first !== 0) return first;
+  return (a.displayName ?? "").localeCompare(b.displayName ?? "", undefined, {
+    sensitivity: "base",
+  });
 }
 
 export function staffDisplayName(staff: {

@@ -1,6 +1,9 @@
 import { Readable } from "stream";
 import { google } from "googleapis";
-import { clientDisplayName } from "@wayfinder/branding";
+import {
+  clientDisplayName,
+  clientDisplayNameFromRosterAndProfile,
+} from "@wayfinder/branding";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { IjpBillingSettingsRow } from "@wayfinder/supabase/ijp-billing-settings";
 import {
@@ -8,9 +11,11 @@ import {
   buildIjpInvoiceHeaderPlaceholders,
   buildIjpInvoiceLineItems,
   ensureSingleGvraAllowanceLine,
+  ijpInvoiceLinesHaveBillableHours,
   isGvraAllowanceIjpLine,
   isIjpInvoiceEligibleForDraftLineRefresh,
   mergeIjpInvoiceLinesWithManual,
+  omitSyntheticGvraAllowanceLines,
   recalcLineAmount,
   sumIjpLineItems,
   type IjpInvoiceLineItem,
@@ -34,6 +39,40 @@ import { localDateStringInTz, STAFF_CLOCK_TIMEZONE } from "@wayfinder/supabase/s
 function monthFolderSegments(monthStart: string): { year: string; monthKey: string } {
   const [y, m] = monthStart.split("-");
   return { year: y, monthKey: `${y}-${m}` };
+}
+
+/** Prefer clients.full_name, then linked profile name fields, then email. */
+async function resolveIjpClientDisplayName(
+  admin: SupabaseClient,
+  clientId: string
+): Promise<string> {
+  const { data: client } = await admin
+    .from("clients")
+    .select("full_name, contact_email, user_id, profile_id, id")
+    .eq("id", clientId)
+    .maybeSingle();
+  if (!client) return clientDisplayName({ id: clientId });
+
+  const profileIds = [client.user_id, client.profile_id].filter(
+    (id): id is string => Boolean(id)
+  );
+  let profile: {
+    full_name: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+  } | null = null;
+  if (profileIds.length > 0) {
+    const { data: profiles } = await admin
+      .from("profiles")
+      .select("id, full_name, first_name, last_name, email")
+      .in("id", profileIds);
+    profile =
+      (profiles ?? []).find((p) => p.id === client.user_id) ??
+      (profiles ?? []).find((p) => p.id === client.profile_id) ??
+      null;
+  }
+  return clientDisplayNameFromRosterAndProfile(client, profile);
 }
 
 async function resolveLeafFolder(rootId: string, monthStart: string): Promise<string> {
@@ -111,7 +150,12 @@ export type IjpInvoiceLineSyncResult = {
   total_amount_cents: number;
   approvedEntryCount: number;
   billableEntryCount: number;
+  /** True when no billable hours were available and no invoice row was created. */
+  empty?: boolean;
 };
+
+export const IJP_NOTHING_TO_BILL_MESSAGE =
+  "No billable Individual Job Placement hours to invoice for this client and month.";
 
 async function loadEsNameMapForClientMonth(
   admin: SupabaseClient,
@@ -257,28 +301,7 @@ export async function syncIjpInvoiceLineItemsFromBillable(
     }
   }
 
-  // Need an invoice id before build so already-billed-on-this-invoice entries are included.
-  if (!invoiceId) {
-    const { data: inserted, error } = await admin
-      .from("ijp_billing_invoices")
-      .insert({
-        client_id: opts.clientId,
-        service_month: monthStart,
-        is_test: opts.isTest,
-        authorization_number: authNumber || null,
-        line_items: [],
-        total_hours: 0,
-        total_amount_cents: 0,
-        missing_attestation: true,
-      })
-      .select("id")
-      .maybeSingle();
-    if (error || !inserted?.id) {
-      throw new Error(error?.message ?? "Could not create IJP invoice row.");
-    }
-    invoiceId = inserted.id as string;
-  }
-
+  const creatingNew = !invoiceId;
   const built = await buildIjpInvoiceLineItems(admin, {
     clientId: opts.clientId,
     monthStart,
@@ -288,7 +311,6 @@ export async function syncIjpInvoiceLineItemsFromBillable(
     invoiceId,
     excludeBilledOnOtherInvoices: true,
   });
-
   const merged = mergeIjpInvoiceLinesWithManual(built.lines, existingLines);
   const skipGvra =
     opts.skipGvraAllowance === true ||
@@ -298,8 +320,9 @@ export async function syncIjpInvoiceLineItemsFromBillable(
       isTest: opts.isTest,
       exceptInvoiceId: invoiceId,
     }));
+  // Keep ES-backed GVRA allowance entries; only omit synthetic gvra-allowance:* lines.
   const withGvra = skipGvra
-    ? merged.filter((line) => !isGvraAllowanceIjpLine(line))
+    ? omitSyntheticGvraAllowanceLines(merged)
     : ensureSingleGvraAllowanceLine(merged, {
         clientId: opts.clientId,
         monthStart,
@@ -311,17 +334,50 @@ export async function syncIjpInvoiceLineItemsFromBillable(
   );
   const totals = sumIjpLineItems(lines, opts.settings.hourly_rate_cents);
 
-  const { error } = await admin
-    .from("ijp_billing_invoices")
-    .update({
-      authorization_number: authNumber || null,
-      line_items: lines,
-      total_hours: totals.totalHours,
-      total_amount_cents: totals.totalAmountCents,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", invoiceId);
-  if (error) throw new Error(error.message);
+  if (creatingNew && !ijpInvoiceLinesHaveBillableHours(lines)) {
+    return {
+      id: "",
+      line_items: [],
+      total_hours: 0,
+      total_amount_cents: 0,
+      approvedEntryCount: built.entryCount,
+      billableEntryCount: built.billableEntryCount,
+      empty: true,
+    };
+  }
+
+  if (!invoiceId) {
+    const { data: inserted, error: insertError } = await admin
+      .from("ijp_billing_invoices")
+      .insert({
+        client_id: opts.clientId,
+        service_month: monthStart,
+        is_test: opts.isTest,
+        authorization_number: authNumber || null,
+        line_items: lines,
+        total_hours: totals.totalHours,
+        total_amount_cents: totals.totalAmountCents,
+        missing_attestation: true,
+      })
+      .select("id")
+      .maybeSingle();
+    if (insertError || !inserted?.id) {
+      throw new Error(insertError?.message ?? "Could not create IJP invoice row.");
+    }
+    invoiceId = inserted.id as string;
+  } else {
+    const { error } = await admin
+      .from("ijp_billing_invoices")
+      .update({
+        authorization_number: authNumber || null,
+        line_items: lines,
+        total_hours: totals.totalHours,
+        total_amount_cents: totals.totalAmountCents,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", invoiceId);
+    if (error) throw new Error(error.message);
+  }
 
   await markEsTimeEntriesBilledOnIjpInvoice(admin, {
     invoiceId,
@@ -395,12 +451,13 @@ export async function ensureIjpInvoiceRow(
     refreshIfUnlocked?: boolean;
   }
 ): Promise<{
-  id: string;
-  line_items: IjpInvoiceLineItem[];
-  refreshed: boolean;
-  created: boolean;
-  locked: boolean;
-}> {
+    id: string;
+    line_items: IjpInvoiceLineItem[];
+    refreshed: boolean;
+    created: boolean;
+    locked: boolean;
+    empty?: boolean;
+  }> {
   const monthStart = serviceMonthStartFromYmd(opts.serviceMonth);
   const unlocked = await findUnlockedIjpInvoiceForMonth(admin, {
     clientId: opts.clientId,
@@ -413,6 +470,16 @@ export async function ensureIjpInvoiceRow(
       ...opts,
       invoiceId: unlocked?.id ?? null,
     });
+    if (synced.empty) {
+      return {
+        id: unlocked?.id ?? "",
+        line_items: unlocked?.line_items ?? [],
+        refreshed: false,
+        created: false,
+        locked: Boolean(unlocked),
+        empty: true,
+      };
+    }
     return {
       id: synced.id,
       line_items: synced.line_items,
@@ -429,11 +496,12 @@ export async function ensureIjpInvoiceRow(
         invoiceId: unlocked.id,
       });
       return {
-        id: synced.id,
-        line_items: synced.line_items,
-        refreshed: true,
+        id: synced.id || unlocked.id,
+        line_items: synced.empty ? unlocked.line_items : synced.line_items,
+        refreshed: !synced.empty,
         created: false,
         locked: false,
+        empty: synced.empty,
       };
     }
     return {
@@ -488,6 +556,16 @@ export async function ensureIjpInvoiceRow(
       ).data?.length
     ),
   });
+  if (synced.empty || !synced.id) {
+    return {
+      id: "",
+      line_items: [],
+      refreshed: false,
+      created: false,
+      locked: false,
+      empty: true,
+    };
+  }
   return {
     id: synced.id,
     line_items: synced.line_items,
@@ -602,12 +680,7 @@ export async function previewIjpAttestationPdf(
     opts.settings.template_attestation_doc_id?.trim() ||
     "1r8ekYATmXRbfAxNOQJd_sWJwbprUU9A17Gou7fKvVHE";
 
-  const { data: client } = await admin
-    .from("clients")
-    .select("full_name, contact_email, id")
-    .eq("id", opts.clientId)
-    .maybeSingle();
-  const name = clientDisplayName(client ?? { id: opts.clientId });
+  const name = await resolveIjpClientDisplayName(admin, opts.clientId);
 
   return exportIjpAttestationPdf({
     templateDocId: attestationTemplateId,
@@ -635,18 +708,18 @@ export async function compileIjpInvoicePdf(
     .maybeSingle();
   if (!invoice) throw new Error("Invoice not found.");
 
+  const existingLines = (invoice.line_items as IjpInvoiceLineItem[] | null) ?? [];
+  if (!ijpInvoiceLinesHaveBillableHours(existingLines)) {
+    throw new Error("Cannot compile an invoice with 0 billable hours.");
+  }
+
   const isTest = invoice.is_test as boolean;
   const folders = driveFoldersForRun(settings, isTest);
   if (!folders.invoiceRoot) {
     throw new Error("Invoice Drive folder is not configured.");
   }
 
-  const { data: client } = await admin
-    .from("clients")
-    .select("full_name, contact_email, id")
-    .eq("id", invoice.client_id)
-    .maybeSingle();
-  const name = clientDisplayName(client ?? { id: invoice.client_id as string });
+  const name = await resolveIjpClientDisplayName(admin, invoice.client_id as string);
 
   const monthStart = invoice.service_month as string;
   const invoiceDate =
@@ -767,12 +840,7 @@ export async function saveIjpAttestation(
   }
 
   const authNumber = await loadClientAuthNumber(admin, opts.clientId);
-  const { data: client } = await admin
-    .from("clients")
-    .select("full_name, contact_email, id")
-    .eq("id", opts.clientId)
-    .maybeSingle();
-  const name = clientDisplayName(client ?? { id: opts.clientId });
+  const name = await resolveIjpClientDisplayName(admin, opts.clientId);
 
   const { data: invoice } = await admin
     .from("ijp_billing_invoices")
@@ -926,12 +994,7 @@ export async function archiveCombinedIjpPacket(
   const folders = driveFoldersForRun(settings, isTest);
   if (!folders.invoiceRoot) throw new Error("Invoice Drive folder is not configured.");
 
-  const { data: client } = await admin
-    .from("clients")
-    .select("full_name, contact_email, id")
-    .eq("id", invoice.client_id)
-    .maybeSingle();
-  const name = clientDisplayName(client ?? { id: invoice.client_id as string });
+  const name = await resolveIjpClientDisplayName(admin, invoice.client_id as string);
 
   const folderId = await resolveLeafFolder(folders.invoiceRoot, monthStart);
   const fileName = `${sanitizeDriveName(name)} - IJP Invoice - ${monthFolderSegments(monthStart).monthKey}.pdf`;
