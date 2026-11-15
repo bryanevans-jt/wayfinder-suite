@@ -38,4 +38,54 @@ describe("feedback nav placement", () => {
     assert.equal(isPreEtsInstructorBlockedStaffPath("/api/feedback"), false);
     assert.equal(isPreEtsInstructorBlockedStaffPath("/api/feedback/prepare-upload"), false);
   });
+
+  it("allows Pre-ETS instructors My Profile, Our Team, and PTO paths", () => {
+    for (const path of [
+      "/dashboard/profile",
+      "/dashboard/team",
+      "/dashboard/team/anything",
+      "/dashboard/core-four",
+      "/dashboard/share-moments",
+      "/dashboard/pto",
+      "/api/profile",
+      "/api/team-directory",
+      "/api/team-moments",
+      "/api/team-moments/share",
+      "/api/staff-pto",
+      "/api/staff-pto/requests",
+    ]) {
+      assert.equal(
+        isPreEtsInstructorBlockedStaffPath(path),
+        false,
+        `expected instructor allowed for ${path}`
+      );
+    }
+  });
+
+  it("still blocks Pre-ETS instructors from unrelated staff tools", () => {
+    for (const path of [
+      "/dashboard/clients",
+      "/dashboard/billable-hours",
+      "/dashboard/admin",
+      "/dashboard/hr",
+      "/api/portal/users",
+    ]) {
+      assert.equal(
+        isPreEtsInstructorBlockedStaffPath(path),
+        true,
+        `expected instructor blocked for ${path}`
+      );
+    }
+  });
+
+  it("includes My Profile, Our Team, and PTO in instructor nav", () => {
+    const sections = staffNavSectionsForRole("instructor", false, true);
+    const hrefs = sections.flatMap((s) => s.items.map((i) => i.href));
+    assert.ok(hrefs.includes("/dashboard/profile"), "My Profile");
+    assert.ok(hrefs.includes("/dashboard/team"), "Our Team / Team Directory");
+    assert.ok(hrefs.includes("/dashboard/core-four"), "Core Four");
+    assert.ok(hrefs.includes("/dashboard/share-moments"), "Share a Moment");
+    assert.ok(hrefs.includes("/dashboard/pto"), "PTO");
+    assert.ok(hrefs.includes("/dashboard/pre-ets"), "Pre-ETS");
+  });
 });

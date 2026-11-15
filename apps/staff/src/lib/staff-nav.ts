@@ -16,6 +16,7 @@ import {
   isWrtAdminRole,
   staffHomePath,
 } from "@wayfinder/supabase/roles";
+import { canUseStaffPto } from "@wayfinder/supabase/staff-pto-shared";
 import { canUseWrtFacilitation } from "@wayfinder/supabase/staff-wrt-shared";
 import { buildReportsAppUrl } from "@wayfinder/branding";
 
@@ -47,6 +48,7 @@ const GVRA_PARTNER_BLOCKED_PREFIXES = [
   "/dashboard/intake-billing",
   "/dashboard/time-clock",
   "/dashboard/billable-hours",
+  "/dashboard/pto",
   "/dashboard/audit",
   "/dashboard/share-moments",
   "/dashboard/core-four",
@@ -67,11 +69,19 @@ const PORTAL_PREFIXES = [
 /** Pre-ETS-only staff (Transition Instructor / legacy instructor) may use these paths only. */
 const PRE_ETS_INSTRUCTOR_ALLOWED_PREFIXES = [
   "/dashboard/pre-ets",
+  "/dashboard/pto",
   "/dashboard/feedback",
   "/dashboard/help",
+  "/dashboard/profile",
+  "/dashboard/team",
+  "/dashboard/core-four",
+  "/dashboard/share-moments",
   "/api/pre-ets",
+  "/api/staff-pto",
   "/api/feedback",
   "/api/profile",
+  "/api/team-directory",
+  "/api/team-moments",
   "/api/notifications",
   "/api/pre-ets-access",
 ];
@@ -102,6 +112,19 @@ const billableHoursNav: StaffNavItem = {
   match: (p) =>
     p.startsWith("/dashboard/billable-hours") || p.startsWith("/dashboard/timesheet"),
 };
+
+const ptoNav: StaffNavItem = {
+  href: "/dashboard/pto",
+  label: "PTO",
+  match: (p) => p.startsWith("/dashboard/pto"),
+};
+
+function withPtoNav(items: StaffNavItem[], role: string | null): StaffNavItem[] {
+  if (!canUseStaffPto(role) || items.some((i) => i.href === ptoNav.href)) {
+    return items;
+  }
+  return [...items, ptoNav];
+}
 
 const reportingNav: StaffNavItem = {
   href: buildReportsAppUrl("/reports"),
@@ -357,21 +380,24 @@ export function staffNavSectionsForRole(
           label: "Tools",
           items: withTraining(
             maybePartners(
-              [
-                referralQueueNav,
-                intakeBillingNav,
-                ijpBillingNav,
-                {
-                  href: "/dashboard/wrt",
-                  label: "WRT",
-                  match: (p) => p.startsWith("/dashboard/wrt"),
-                },
-                ...(showPreEtsNav ? [preEtsNav] : []),
-                billableHoursNav,
-                reportingNav,
-                ...(hideIntake ? [] : [intakeCallsNav]),
-                communityPartnersNav,
-              ],
+              withPtoNav(
+                [
+                  referralQueueNav,
+                  intakeBillingNav,
+                  ijpBillingNav,
+                  {
+                    href: "/dashboard/wrt",
+                    label: "WRT",
+                    match: (p) => p.startsWith("/dashboard/wrt"),
+                  },
+                  ...(showPreEtsNav ? [preEtsNav] : []),
+                  billableHoursNav,
+                  reportingNav,
+                  ...(hideIntake ? [] : [intakeCallsNav]),
+                  communityPartnersNav,
+                ],
+                staffRole
+              ),
               showCp
             )
           ),
@@ -392,6 +418,11 @@ export function staffNavSectionsForRole(
               label: "Admin Portal",
               match: (p) => p.startsWith("/dashboard/admin"),
             },
+            {
+              href: "/dashboard/hr",
+              label: "HR Dashboard",
+              match: (p) => p.startsWith("/dashboard/hr"),
+            },
           ],
         },
         {
@@ -402,21 +433,24 @@ export function staffNavSectionsForRole(
           label: "Tools",
           items: withTraining(
             maybePartners(
-              [
-                referralQueueNav,
-                intakeBillingNav,
-                ijpBillingNav,
-                {
-                  href: "/dashboard/wrt",
-                  label: "WRT",
-                  match: (p) => p.startsWith("/dashboard/wrt"),
-                },
-                ...(showPreEtsNav ? [preEtsNav] : []),
-                billableHoursNav,
-                reportingNav,
-                ...(hideIntake ? [] : [intakeCallsNav]),
-                communityPartnersNav,
-              ],
+              withPtoNav(
+                [
+                  referralQueueNav,
+                  intakeBillingNav,
+                  ijpBillingNav,
+                  {
+                    href: "/dashboard/wrt",
+                    label: "WRT",
+                    match: (p) => p.startsWith("/dashboard/wrt"),
+                  },
+                  ...(showPreEtsNav ? [preEtsNav] : []),
+                  billableHoursNav,
+                  reportingNav,
+                  ...(hideIntake ? [] : [intakeCallsNav]),
+                  communityPartnersNav,
+                ],
+                staffRole
+              ),
               showCp
             )
           ),
@@ -431,19 +465,22 @@ export function staffNavSectionsForRole(
       [
         {
           label: "Daily Work",
-          items: [
-            {
-              href: "/dashboard/supervisor",
-              label: "Regional Supervisor Portal",
-              match: (p) => p.startsWith("/dashboard/supervisor"),
-            },
-            {
-              href: "/dashboard/messages",
-              label: "Messages",
-              match: (p) => p === "/dashboard/messages",
-            },
-            billableHoursNav,
-          ],
+          items: withPtoNav(
+            [
+              {
+                href: "/dashboard/supervisor",
+                label: "Regional Supervisor Portal",
+                match: (p) => p.startsWith("/dashboard/supervisor"),
+              },
+              {
+                href: "/dashboard/messages",
+                label: "Messages",
+                match: (p) => p === "/dashboard/messages",
+              },
+              billableHoursNav,
+            ],
+            staffRole
+          ),
         },
         {
           label: "Oversight",
@@ -472,7 +509,10 @@ export function staffNavSectionsForRole(
         {
           label: "Accounts",
           items: withPreEtsNav(
-            [intakeBillingNav, ijpBillingNav, billableHoursNav, dataExportsNav],
+            withPtoNav(
+              [intakeBillingNav, ijpBillingNav, billableHoursNav, dataExportsNav],
+              staffRole
+            ),
             showPreEtsNav
           ),
         },
@@ -491,19 +531,22 @@ export function staffNavSectionsForRole(
         {
           label: "HR",
           items: withPreEtsNav(
-            [
-              {
-                href: "/dashboard/hr",
-                label: "HR Dashboard",
-                match: (p) => p.startsWith("/dashboard/hr"),
-              },
-              referralQueueNav,
-              ...(hideIntake ? [] : [intakeCallsNav]),
-              intakeBillingNav,
-              billableHoursNav,
-              analyticsNav,
-              dataExportsNav,
-            ],
+            withPtoNav(
+              [
+                {
+                  href: "/dashboard/hr",
+                  label: "HR Dashboard",
+                  match: (p) => p.startsWith("/dashboard/hr"),
+                },
+                referralQueueNav,
+                ...(hideIntake ? [] : [intakeCallsNav]),
+                intakeBillingNav,
+                billableHoursNav,
+                analyticsNav,
+                dataExportsNav,
+              ],
+              staffRole
+            ),
             showPreEtsNav
           ),
         },
@@ -518,31 +561,34 @@ export function staffNavSectionsForRole(
         {
           label: "Hospitality",
           items: maybePartners(
-            [
-              {
-                href: "/dashboard/hospitality",
-                label: "Hospitality Dashboard",
-                match: (p) => p === "/dashboard/hospitality",
-              },
-              ...(hideIntake ? [] : [intakeCallsNav]),
-              {
-                href: "/dashboard/hospitality/check-ins",
-                label: "Weekly Check-ins",
-                match: (p) => p.startsWith("/dashboard/hospitality/check-ins"),
-              },
-              ...(showCp
-                ? [
-                    {
-                      href: "/dashboard/hospitality/partner-check-ins",
-                      label: "Partner Check-ins",
-                      match: (p: string) =>
-                        p.startsWith("/dashboard/hospitality/partner-check-ins"),
-                    } satisfies StaffNavItem,
-                    communityPartnersNav,
-                  ]
-                : []),
-              billableHoursNav,
-            ],
+            withPtoNav(
+              [
+                {
+                  href: "/dashboard/hospitality",
+                  label: "Hospitality Dashboard",
+                  match: (p) => p === "/dashboard/hospitality",
+                },
+                ...(hideIntake ? [] : [intakeCallsNav]),
+                {
+                  href: "/dashboard/hospitality/check-ins",
+                  label: "Weekly Check-ins",
+                  match: (p) => p.startsWith("/dashboard/hospitality/check-ins"),
+                },
+                ...(showCp
+                  ? [
+                      {
+                        href: "/dashboard/hospitality/partner-check-ins",
+                        label: "Partner Check-ins",
+                        match: (p: string) =>
+                          p.startsWith("/dashboard/hospitality/partner-check-ins"),
+                      } satisfies StaffNavItem,
+                      communityPartnersNav,
+                    ]
+                  : []),
+                billableHoursNav,
+              ],
+              staffRole
+            ),
             showCp
           ),
         },
@@ -551,13 +597,13 @@ export function staffNavSectionsForRole(
     );
   }
 
-  // Transition Instructor: Pre-ETS only
+  // Transition Instructor: Pre-ETS + PTO
   if (isInstructorRole(staffRole)) {
     return withHelpAndProfile(
       [
         {
           label: "Pre-ETS",
-          items: [...(showPreEtsNav ? [preEtsNav] : [])],
+          items: withPtoNav([...(showPreEtsNav ? [preEtsNav] : [])], staffRole),
         },
       ],
       staffRole
@@ -571,20 +617,23 @@ export function staffNavSectionsForRole(
         {
           label: "Daily Work",
           items: withPreEtsNav(
-            [
-              {
-                href: "/dashboard/clients",
-                label: "Clients",
-                match: (p) => p.startsWith("/dashboard/clients"),
-              },
-              {
-                href: "/dashboard/messages",
-                label: "Messages",
-                match: (p) => p === "/dashboard/messages",
-              },
-              billableHoursNav,
-              reportingNav,
-            ],
+            withPtoNav(
+              [
+                {
+                  href: "/dashboard/clients",
+                  label: "Clients",
+                  match: (p) => p.startsWith("/dashboard/clients"),
+                },
+                {
+                  href: "/dashboard/messages",
+                  label: "Messages",
+                  match: (p) => p === "/dashboard/messages",
+                },
+                billableHoursNav,
+                reportingNav,
+              ],
+              staffRole
+            ),
             true
           ),
         },
@@ -611,20 +660,23 @@ export function staffNavSectionsForRole(
       [
         {
           label: "Daily Work",
-          items: [
-            {
-              href: "/dashboard/clients",
-              label: "Clients",
-              match: (p) => p.startsWith("/dashboard/clients"),
-            },
-            {
-              href: "/dashboard/messages",
-              label: "Messages",
-              match: (p) => p === "/dashboard/messages",
-            },
-            billableHoursNav,
-            reportingNav,
-          ],
+          items: withPtoNav(
+            [
+              {
+                href: "/dashboard/clients",
+                label: "Clients",
+                match: (p) => p.startsWith("/dashboard/clients"),
+              },
+              {
+                href: "/dashboard/messages",
+                label: "Messages",
+                match: (p) => p === "/dashboard/messages",
+              },
+              billableHoursNav,
+              reportingNav,
+            ],
+            staffRole
+          ),
         },
         {
           label: "Resources",

@@ -74,9 +74,12 @@ export type StaffPtoRequestRow = {
   updated_at: string;
 };
 
-/** PTO for salaried staff (same roster as legacy payroll clock). Not counselors/clients/supports. */
+/**
+ * PTO for salaried staff (legacy payroll-clock roster) plus Transition Instructors.
+ * Not counselors/clients/supports.
+ */
 export function canUseStaffPto(role: string | null | undefined): boolean {
-  return isStaffPayrollClockRole(role);
+  return isStaffPayrollClockRole(role) || isInstructorRole(role);
 }
 
 /** @deprecated Use canUseStaffPto — kept so older imports keep working during rollout. */

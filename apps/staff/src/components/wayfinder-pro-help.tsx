@@ -104,40 +104,42 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Sidebar Layout",
         body:
-          "Daily configuration lives in the Admin Portal. Oversight pages show team capacity, compliance gaps, and analytics. Notifications alert you to message SLA issues and employment milestones.",
+          "Daily configuration lives in the Admin Portal. Admins also own HR people-ops (the separate HR Director role is retired). Oversight pages show team capacity, compliance gaps, and analytics.",
         steps: [
           "Portal → Admin Portal for clients, offices, services, and team members.",
+          "Portal → HR Dashboard for roster, timesheets, activity, and PTO settings.",
           "Oversight → Team Operations, Compliance, Explore Analytics.",
-          "Tools → Time Clock, WRT Preview, Submit Reports, Referral Queue, Intake Calls, Community Partners (Feature Toggle).",
-          "Account → Team Directory.",
+          "Tools → Billable Hours / PTO, WRT Preview, Submit Reports, Referral Queue, Intake Calls, Community Partners (Feature Toggle).",
+          "Account → My Profile and Our Team (Team Directory).",
         ],
       },
       {
         title: "Admin Portal Settings",
         body:
-          "PTO and WRT curriculum live under Portal → Settings (not bolted under the Clients list).",
+          "PTO and WRT curriculum live under Portal → Settings. You cannot assign Admin or Super Admin — only Super Admin can grant those roles.",
         steps: [
           "Settings → PTO Settings for period start and annual PTO days.",
           "Settings → WRT Curriculum (and Open WRT Facilitation Preview) for the admin-only WRT tools.",
-          "Settings → Administrators and Advanced Connections for org access.",
+          "Settings → Administrators and Advanced Connections for org access (edit names/active status; role grants are Super Admin only).",
           "Reports → Audit Activity for contact/stage audits; restore Closed/Dismissed clients from stage events when needed.",
         ],
       },
       {
-        title: "Time Clock",
+        title: "HR work (Admins)",
         body:
-          "Joshua Tree team members use Time Clock for hours worked (Eastern time). Client billable hours stay on Weekly Timesheet. Admins can edit any entry for troubleshooting; edits are logged. Counselors and clients do not use Time Clock.",
+          "HR Director is no longer assigned. Admins approve PTO, manage PTO settings, and use the HR Dashboard for people ops and intake support.",
         steps: [
-          "Open Time Clock to view who’s clocked in org-wide and correct flagged auto-outs.",
-          "5:30 PM still-working prompts and 6:00 PM auto-outs (stamped 5:30) are server-driven; midnight splits days at 11:59 PM / 12:00 AM.",
+          "HR Dashboard → client roster, timesheets, activity, and staff assignments (view).",
+          "HR Dashboard or Settings → PTO Settings for period start and annual PTO days (blank = unlimited).",
+          "Billable Hours or PTO → approve, deny, amend, or void leave for the organization.",
         ],
       },
       {
         title: "PTO Requests",
         body:
-          "Team members request PTO on Time Clock. You and HR approve or deny requests, adjust days charged for holidays, and set the org PTO bank.",
+          "Team members request PTO from Billable Hours or the PTO page. Admins make the final approval, adjust days charged for holidays, and set the org PTO bank.",
         steps: [
-          "Time Clock → PTO Requests to submit, review, approve, deny, or amend leave.",
+          "PTO (or Billable Hours → PTO Requests) to submit, review, approve, deny, or amend leave.",
           "Please ask for 14 days’ notice when possible; sick and emergency may be sooner — you make the final call.",
           "Portal → Settings → PTO Settings for period start date and annual PTO days (blank = unlimited).",
         ],
@@ -400,36 +402,46 @@ function sectionsForRole(role: string | null): Section[] {
   if (isHrRole(role)) {
     return [
       {
-        title: "HR Workspace",
+        title: "HR Director (legacy)",
         body:
-          "HR owns people ops plus the client start path: referrals through Intake Calls / Start Client, timesheets, Time Clock / PTO, analytics, and exports. Client-named analytics dumps are not available. Weekly wellness and partner check-ins are not an HR task.",
+          "The HR Director role is retired for new assignments. Admins now own HR Dashboard, PTO settings, and PTO approvals. Your existing account keeps the same tools until it is converted.",
         steps: [
-          "HR Dashboard for people tools.",
-          "Referral Queue → Intake Calls to move a client from referral through Start Client (assign supervisor / ES / office).",
-          "Intake Billing is view-only for HR — Accounts Specialist marks billed and paid.",
-          "Account → My Profile to update your name, city, and contact details.",
-          "Weekly Timesheet to view any ES week.",
-          "Time Clock for hours worked and the org PTO approval queue.",
-          "Explore Analytics for org-wide performance (hires, contacts/week, billable vs worked, time to hire by office/ES/supervisor/counselor).",
-          "Download Exports → hours worked (payroll from Time Clock) and billable-by-client CSVs.",
+          "Prefer Admin accounts for new HR work.",
+          "HR Dashboard, PTO queue, Referral Queue / Intake Calls, and exports still work for this legacy role.",
+          "Ask a Super Admin if your account should be moved to Admin.",
         ],
       },
+    ];
+  }
+
+  if (isInstructorRole(role)) {
+    return [
       {
-        title: "PTO Requests",
+        title: "Transition Instructor",
         body:
-          "You approve and manage leave for the organization. ES and Instructor requests reach you after their supervisor confirms coverage. Days charged default to business days; adjust charged days so holidays do not penalize staff.",
+          "Your home is Pre-ETS. You also have My Profile, Our Team (Team Directory, Core Four, Share a Moment), and PTO — not vocational caseload or Billable Hours.",
         steps: [
-          "Time Clock → PTO Requests to review Awaiting HR items, approve, deny, amend, or void leave.",
-          "Requests still Awaiting supervisor need supervisor OK first (you can also advance them if needed).",
-          "Include an explanation when denying. Soft guideline: 14 days’ notice when possible.",
-          "HR Dashboard → PTO Settings for period start and annual PTO days (blank = unlimited).",
+          "Pre-ETS → worksheets, sessions, rosters, and class activity reports for your schools.",
+          "Account → My Profile to keep name and contact details current.",
+          "Our Team → Team Directory, Core Four, and Share a Moment.",
+          "PTO → request leave (your supervisor confirms coverage before Admin final approval).",
         ],
       },
+    ];
+  }
+
+  if (isGvraSupervisorRole(role)) {
+    return [
       {
-        title: "Caseload Guidance",
+        title: "GVRA Supervisor",
         body:
-          "Policy guidance is about 20 active clients per ES. It is not a hard system limit — supervisors and HR manage overages organically.",
-        steps: ["Operations capacity view highlights caseloads above soft guidance."],
+          "Sign in with your agency work email and the magic link on the login page (same flow as counselors). You see counselors in your assigned GVRA offices and their caseloads read-only.",
+        steps: [
+          "Counselors & Clients → open a counselor in your office to view their client list.",
+          "Open a client for the same read-only activity view counselors receive.",
+          "You cannot edit client records or message through Wayfinder Pro.",
+          "If no offices appear, ask Joshua Tree support to link your account to the correct GVRA office.",
+        ],
       },
     ];
   }

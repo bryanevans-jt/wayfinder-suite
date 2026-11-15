@@ -55,16 +55,16 @@ Requires **admin** role (@thejoshuatree.org).
 | **es** | Employment Specialist |
 | **transition_specialist** | Transition Specialist (ES shell + Pre-ETS field delivery) |
 | **supervisor** | Regional Supervisor |
-| **admin** | Org administrator |
+| **admin** | Org administrator (also owns HR work — PTO settings, HR Dashboard, PTO approvals) |
 | **counselor** | Vocational counselor (limited portal) |
 | **accountant** | Accounts Specialist — intake billing, Individual Job Placement (IJP) billing, Pre-ETS accounts (spreadsheet upload, authorizations, packets), exports |
-| **hr** | HR Director |
 | **hospitality_specialist** | Hospitality Specialist |
+| **hr** | *(Retired — not assignable.)* Legacy HR Director accounts still work; Admins do HR work going forward. The DB enum value remains. |
 
 **Adding a user:**
 
 1. Enter @thejoshuatree.org email.
-2. Assign role.
+2. Assign role. **Only Super Admin** can assign **Admin** or **Super Admin**. Org Admins cannot grant Admin.
 3. User receives invite / signs in via magic link on first day.
 4. Share [Getting signed in](../shared/getting-signed-in.md).
 
@@ -110,6 +110,18 @@ Admins can import or review clients depending on portal tabs enabled. ESs create
 - **Accounts Specialist** owns Intake Billing marks, **IJP Billing** (Generate Invoices), and Pre-ETS accounts work (spreadsheet upload, A&I, roster edits after finalization, invoice packets). See [Accounts Specialist Manual](./accounts-specialist-manual.md).
 - **Admins** may also reach IJP Billing / Pre-ETS accounts tools when Pre-ETS and Accounts access are enabled for them; day-to-day billing is still Accounts Specialist owned. Pre-ETS worksheet **upload** is Accounts Specialist and Super Admin only (Admins do not upload).
 - Individual Job Placement always displays as **Individual Job Placement** in the product (not “GA IJP”).
+
+---
+
+## 8b. HR work (Admins)
+
+The **HR Director** role is retired for new assignments. **Admins** own:
+
+- **HR Dashboard** (`/dashboard/hr`) — roster, timesheets, activity, assignments
+- **PTO Settings** (Admin Portal → Settings → PTO, or on the HR Dashboard)
+- **PTO approval queue** (Billable Hours / PTO page)
+
+Legacy `hr` profiles keep access until converted; do not assign `hr` from role pickers. The DB enum value remains.
 
 ---
 

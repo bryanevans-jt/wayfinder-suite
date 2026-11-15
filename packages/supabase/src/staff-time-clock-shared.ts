@@ -50,8 +50,8 @@ export function isStaffPayrollClockRole(role: string | null | undefined): boolea
 }
 
 /**
- * Clock-in/out UI is retired; staff use Billable Hours + timesheets instead.
- * HR APIs still read `staff_time_clock_shifts` for legacy rows via {@link isStaffPayrollClockRole}.
+ * Clock-in/out product surface is retired. Keep this helper returning false so any
+ * leftover callers stay closed; timezone utilities in this module remain in use.
  */
 export function canUseStaffClock(_role: string | null | undefined): boolean {
   return false;
