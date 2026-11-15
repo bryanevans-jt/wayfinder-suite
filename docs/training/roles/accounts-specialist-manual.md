@@ -62,7 +62,7 @@ Client names on timesheets and intake billing open a **view-only** profile.
 
 ### Spreadsheet upload
 
-- **Accounts Specialists and Super Admins upload** the Pre-ETS spreadsheet/worksheet. Regional Supervisors and Admins do **not** upload.
+- **Admin, Accounts Specialist, and Super Admin upload** the Pre-ETS spreadsheet/worksheet. Regional Supervisors do **not** upload.
 - Accounts uploads use the **support / auth-match** path (any district): upload → approve or **reject** (with reason) → commit.
 - Super Admins use the **planning** path (auto-commit).
 - Auth-request notifications fire when Accounts commits an upload (same as planning auto-commit), unless worksheet testing override is on.

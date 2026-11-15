@@ -208,7 +208,7 @@ Counselors sign in to **Wayfinder Pro** with their **agency work email** (not `@
 
 ## 14. Transition Specialists and Pre-ETS
 
-Transition Specialists use this Employment Specialist shell **plus Pre-ETS** for released rosters, sessions, attendance, and CARs. Employment Specialists do **not** have Pre-ETS. **Accounts Specialists and Super Admins** upload Pre-ETS spreadsheets and enter authorization numbers; field staff work released rosters only.
+Transition Specialists use this Employment Specialist shell **plus Pre-ETS** for released rosters, sessions, attendance, and CARs. Employment Specialists do **not** have Pre-ETS. **Admin, Accounts Specialist, and Super Admin** upload Pre-ETS spreadsheets and enter authorization numbers; field staff work released rosters only.
 
 ---
 

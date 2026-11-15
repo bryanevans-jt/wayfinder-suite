@@ -108,7 +108,7 @@ Admins can import or review clients depending on portal tabs enabled. ESs create
 ## 8. Accounts Specialist vs Admin
 
 - **Accounts Specialist** owns Intake Billing marks, **IJP Billing** (Generate Invoices), and Pre-ETS accounts work (spreadsheet upload, A&I, roster edits after finalization, invoice packets). See [Accounts Specialist Manual](./accounts-specialist-manual.md).
-- **Admins** may also reach IJP Billing / Pre-ETS accounts tools when Pre-ETS and Accounts access are enabled for them; day-to-day billing is still Accounts Specialist owned. Pre-ETS worksheet **upload** is Accounts Specialist and Super Admin only (Admins do not upload).
+- **Admins** may also reach IJP Billing / Pre-ETS accounts tools when Pre-ETS and Accounts access are enabled for them; day-to-day billing is still Accounts Specialist owned. Pre-ETS worksheet **upload** is allowed for Admin, Accounts Specialist, and Super Admin (Regional Supervisors do not upload).
 - Individual Job Placement always displays as **Individual Job Placement** in the product (not “GA IJP”).
 
 ---

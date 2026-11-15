@@ -126,6 +126,7 @@ export function PreEtsWorksheetPanel() {
       setImports(data.imports ?? []);
       if (data.role) setPanelRole(data.role);
     }
+    // Super Admin (settings + upload). Admin planning path uses panelRole === "supervisor" from worksheets API.
     setIsSuperAdminUploader(
       Boolean(access.access?.canManageSettings && access.access?.canUploadPlanningWorksheets)
     );
@@ -555,9 +556,9 @@ export function PreEtsWorksheetPanel() {
         <p className="mt-1 text-sm text-brand-black/65">
           {testingOverrideEnabled
             ? "Testing override is on: upload CSV or Excel (.xlsx/.xls) without authorization numbers. Rows without a PID # are skipped."
-            : isSuperAdminUploader
-              ? "Upload a district CSV or a multi-tab Excel workbook (one district per sheet). Pending rosters commit immediately per district tab."
-              : "Accounts Specialist or Super Admin uploads the Pre-ETS spreadsheet here. Enter authorization numbers under Rosters & auths when GVRA responds."}
+            : isSupervisorMode || isSuperAdminUploader
+              ? "Upload a district CSV or a multi-tab Excel workbook (one district per sheet). Pending rosters commit immediately per district tab (Admin / Super Admin planning path)."
+              : "Accounts Specialist uploads the Pre-ETS spreadsheet here (support / auth-match). Admin and Super Admin can also upload. Enter authorization numbers under Rosters & auths when GVRA responds."}
         </p>
       </div>
 

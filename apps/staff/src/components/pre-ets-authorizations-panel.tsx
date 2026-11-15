@@ -205,9 +205,9 @@ export function PreEtsAuthorizationsPanel() {
         <div>
           <h2 className="text-lg font-semibold text-brand-black">Authorizations &amp; rosters</h2>
           <p className="mt-1 text-sm text-brand-black/65">
-            Pending rosters appear after Accounts Specialist or Super Admin uploads the Pre-ETS
-            spreadsheet. Enter authorization numbers to release rosters to TS/TI one school at a
-            time.
+            Pending rosters appear after Admin, Accounts Specialist, or Super Admin uploads the
+            Pre-ETS spreadsheet. Enter authorization numbers to release rosters to TS/TI one school
+            at a time.
           </p>
         </div>
         <label className="text-sm">

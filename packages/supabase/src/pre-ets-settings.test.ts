@@ -72,30 +72,37 @@ describe("Pre-ETS Accounts Specialist post-finalization permissions", () => {
     }
   });
 
-  it("allows only Accounts Specialist and Super Admin to upload worksheets", () => {
+  it("allows Admin, Accounts Specialist, and Super Admin to upload worksheets (not supervisors)", () => {
     assert.equal(canAccessPreEtsAccounts("accountant", enabledSettings), true);
     assert.equal(canUploadPreEtsWorksheets("accountant", enabledSettings), true);
     assert.equal(canUploadPreEtsWorksheets("super_admin", enabledSettings), true);
+    assert.equal(canUploadPreEtsWorksheets("admin", enabledSettings), true);
     assert.equal(canUploadPreEtsWorksheets("supervisor", enabledSettings), false);
-    assert.equal(canUploadPreEtsWorksheets("admin", enabledSettings), false);
     assert.equal(canUploadPreEtsWorksheets("es", enabledSettings), false);
     assert.equal(canUploadPreEtsWorksheets("hr", enabledSettings), false);
     assert.equal(canUploadPreEtsWorksheets("transition_specialist", enabledSettings), false);
 
     const overrideOn = { ...enabledSettings, worksheet_testing_override_enabled: true };
-    assert.equal(canUploadPreEtsWorksheets("admin", overrideOn), false);
+    assert.equal(canUploadPreEtsWorksheets("admin", overrideOn), true);
     assert.equal(canUploadPreEtsWorksheets("supervisor", overrideOn), false);
   });
 
-  it("limits planning worksheet upload to Super Admin and bypasses district scope for AS/SA", () => {
+  it("uses planning upload for Admin/Super Admin; Accounts uses auth_match; supervisors cannot", () => {
     assert.equal(usesPreEtsPlanningWorksheetUpload("super_admin"), true);
+    assert.equal(usesPreEtsPlanningWorksheetUpload("admin"), true);
     assert.equal(usesPreEtsPlanningWorksheetUpload("accountant"), false);
     assert.equal(usesPreEtsPlanningWorksheetUpload("supervisor"), false);
-    assert.equal(usesPreEtsPlanningWorksheetUpload("admin"), false);
 
     assert.equal(worksheetUploadBypassesDistrictScope("super_admin"), true);
     assert.equal(worksheetUploadBypassesDistrictScope("accountant"), true);
-    assert.equal(worksheetUploadBypassesDistrictScope("admin"), false);
+    assert.equal(worksheetUploadBypassesDistrictScope("admin", enabledSettings), false);
+    assert.equal(
+      worksheetUploadBypassesDistrictScope("admin", {
+        ...enabledSettings,
+        worksheet_testing_override_enabled: true,
+      }),
+      true
+    );
     assert.equal(worksheetUploadBypassesDistrictScope("supervisor"), false);
   });
 

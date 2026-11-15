@@ -129,7 +129,7 @@ Traditional Supported Employment (TSE) and Job Coaching service options are also
 
 ## 11c. Pre-ETS (when enabled)
 
-- **Accounts Specialists and Super Admins** upload Pre-ETS spreadsheets (Accounts: support / auth-match; Super Admin: planning) and enter authorization numbers. Regional Supervisors do **not** upload worksheets.
+- **Admin, Accounts Specialist, and Super Admin** upload Pre-ETS spreadsheets (Accounts: support / auth-match; Admin / Super Admin: planning) and enter authorization numbers. Regional Supervisors do **not** upload worksheets.
 - Transition Specialists / Instructors work **released** rosters only.
 - Supervisors coach field staff on released rosters and Pre-ETS delivery for assigned schools.
 

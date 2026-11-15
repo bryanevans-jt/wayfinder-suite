@@ -1,5 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { PreEtsSettingsRow } from "./pre-ets-settings";
+import {
+  preEtsWorksheetTestingOverrideActive,
+  type PreEtsSettingsRow,
+} from "./pre-ets-settings";
 import {
   isAccountantRole,
   isAdminRole,
@@ -17,19 +20,29 @@ export type PreEtsUploadDistrict = {
 /** Super Admin and Accounts Specialist may upload any district (support). */
 export function worksheetUploadBypassesDistrictScope(
   role: string | null | undefined,
-  _settings?: Pick<PreEtsSettingsRow, "worksheet_testing_override_enabled">
+  settings?: Pick<PreEtsSettingsRow, "worksheet_testing_override_enabled">
 ): boolean {
   const r = normalizeRole(role);
-  return isSuperAdminRole(r) || isAccountantRole(r);
+  if (isSuperAdminRole(r) || isAccountantRole(r)) return true;
+  return (
+    preEtsWorksheetTestingOverrideActive(
+      settings ?? { worksheet_testing_override_enabled: false }
+    ) && isAdminRole(r)
+  );
 }
 
-/** May upload district CSV — Accounts Specialist or Super Admin only. */
+/**
+ * May upload district CSV / workbook.
+ * Admin, Accounts Specialist, and Super Admin only — Regional Supervisors cannot.
+ */
 export function canUploadPreEtsWorksheets(
   role: string | null | undefined,
-  _settings?: Pick<PreEtsSettingsRow, "worksheet_testing_override_enabled">
+  settings?: Pick<PreEtsSettingsRow, "worksheet_testing_override_enabled">
 ): boolean {
   const r = normalizeRole(role);
-  return isSuperAdminRole(r) || isAccountantRole(r);
+  if (isSuperAdminRole(r) || isAccountantRole(r) || isAdminRole(r)) return true;
+  void settings;
+  return false;
 }
 
 async function loadDistrictsForSchoolIds(
@@ -130,15 +143,11 @@ export async function assertPlanningWorksheetDistrictAllowed(
   }
 
   const r = normalizeRole(role);
-  const districts = isAdminRole(r)
-    ? await loadAdminPreEtsDistricts(admin, userId)
-    : isSupervisorRole(r)
-      ? await loadSupervisorPreEtsDistricts(admin, userId)
-      : [];
-
-  if (!isAdminRole(r) && !isSupervisorRole(r)) {
+  if (!isAdminRole(r)) {
     return { ok: false, error: "You do not have permission to upload planning worksheets." };
   }
+
+  const districts = await loadAdminPreEtsDistricts(admin, userId);
 
   if (districts.length === 0) {
     return {
@@ -165,7 +174,9 @@ export async function assertPlanningWorksheetDistrictAllowed(
   return { ok: true };
 }
 
-/** Planning upload + auto-commit — Super Admin only. */
+/** Planning upload + auto-commit (Super Admin or Admin). Accounts Specialist uses auth_match. */
 export function usesPreEtsPlanningWorksheetUpload(role: string | null | undefined): boolean {
-  return isSuperAdminRole(normalizeRole(role));
+  const r = normalizeRole(role);
+  if (isSuperAdminRole(r) || isAdminRole(r)) return true;
+  return false;
 }
