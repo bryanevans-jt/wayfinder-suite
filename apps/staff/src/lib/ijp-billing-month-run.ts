@@ -1,6 +1,7 @@
 /**
- * Timeout-proof IJP Billing Generate Month / 1st-of-month cron runner.
- * Rows phase creates/refreshes invoice lines; compile phase builds PDFs in chunks.
+ * Timeout-proof IJP Billing Generate Invoices / 1st-of-month cron runner.
+ * Rows phase drains the shrinking unbilled-client queue (always from the front).
+ * Compile phase pages a stable invoice-client list with offset.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -16,12 +17,32 @@ import {
   IJP_BILLING_MONTH_MAX_DURATION_SEC,
   IJP_BILLING_MONTH_ROW_BATCH,
 } from "@/lib/ijp-billing-month-run-constants";
+import {
+  isRowsDrainDone,
+  mergeAttemptedSkipClientIds,
+  selectNextUnbilledDrainChunk,
+  type IjpBillingClientFailure,
+} from "@/lib/ijp-billing-month-run-drain";
 
 export {
   IJP_BILLING_MONTH_COMPILE_BATCH,
   IJP_BILLING_MONTH_MAX_DURATION_SEC,
   IJP_BILLING_MONTH_ROW_BATCH,
 };
+
+export type {
+  IjpBillingClientFailure,
+  IjpGenerateInvoicesSummaryInput,
+} from "@/lib/ijp-billing-month-run-drain";
+
+export {
+  formatIjpGenerateInvoicesSummary,
+  isRowsDrainDone,
+  mergeAttemptedSkipClientIds,
+  remainingUnbilledForDrain,
+  selectNextUnbilledDrainChunk,
+  simulateUnbilledDrainRun,
+} from "@/lib/ijp-billing-month-run-drain";
 
 async function loadClientIdsWithInvoicesInMonth(
   admin: Parameters<typeof loadClientIdsWithUnbilledBillableHoursInMonth>[0],
@@ -48,6 +69,7 @@ export type IjpBillingMonthPhase = "rows" | "compile";
 export type IjpBillingMonthChunkResult = {
   serviceMonth: string;
   phase: IjpBillingMonthPhase;
+  /** Compile phase only — rows drain always uses 0. */
   offset: number;
   limit: number;
   processed: number;
@@ -56,8 +78,14 @@ export type IjpBillingMonthChunkResult = {
   skippedLocked: number;
   compiled: number;
   compileErrors: number;
+  rowFailures: number;
+  failedClients: IjpBillingClientFailure[];
+  /** Accumulated clients attempted this run (pass back on the next rows chunk). */
+  skipClientIds: string[];
+  /** Compile phase resume cursor; null when rows drain or compile done. */
   nextOffset: number | null;
   done: boolean;
+  /** Unbilled remaining (rows) or invoice clients (compile). */
   total: number;
 };
 
@@ -83,8 +111,9 @@ async function updateMissingAttestationFlag(
 }
 
 /**
- * Process one chunk of the billable-hours client list.
- * Idempotent: re-runs refresh unlocked drafts only; compile skips already-compiled rows.
+ * Process one chunk.
+ * Rows: reload unbilled clients, skip already-attempted, process from the front.
+ * Compile: stable invoice-client list with offset (idempotent PDF compile).
  */
 export async function runIjpBillingMonthChunk(
   admin: SupabaseClient,
@@ -92,27 +121,21 @@ export async function runIjpBillingMonthChunk(
   opts: {
     serviceMonth: string;
     phase?: IjpBillingMonthPhase;
+    /** Compile paging only. Ignored for rows (drain always starts at 0). */
     offset?: number;
     limit?: number;
     isTest?: boolean;
+    /** Clients already attempted in this Generate / cron run (rows drain). */
+    skipClientIds?: readonly string[];
   }
 ): Promise<IjpBillingMonthChunkResult> {
   const serviceMonth = serviceMonthStartFromYmd(opts.serviceMonth);
   const phase: IjpBillingMonthPhase = opts.phase === "compile" ? "compile" : "rows";
   const isTest = opts.isTest === true;
-  const offset = Math.max(0, Number(opts.offset) || 0);
   const defaultLimit =
     phase === "compile" ? IJP_BILLING_MONTH_COMPILE_BATCH : IJP_BILLING_MONTH_ROW_BATCH;
   const limit = Math.max(1, Math.min(100, Number(opts.limit) || defaultLimit));
-
-  // Rows: unbilled hours only. Compile: clients that already have invoice rows
-  // (unbilled list is empty after the rows phase stamps entries).
-  const clientIds =
-    phase === "compile"
-      ? await loadClientIdsWithInvoicesInMonth(admin, serviceMonth, isTest)
-      : await loadClientIdsWithUnbilledBillableHoursInMonth(admin, serviceMonth);
-  const total = clientIds.length;
-  const slice = clientIds.slice(offset, offset + limit);
+  const priorSkip = [...(opts.skipClientIds ?? [])].filter(Boolean);
 
   let processed = 0;
   let created = 0;
@@ -120,28 +143,105 @@ export async function runIjpBillingMonthChunk(
   let skippedLocked = 0;
   let compiled = 0;
   let compileErrors = 0;
+  let rowFailures = 0;
+  const failedClients: IjpBillingClientFailure[] = [];
+  let skipClientIds = priorSkip;
+  let offset = 0;
+  let nextOffset: number | null = null;
+  let done = false;
+  let total = 0;
 
   if (phase === "rows") {
+    const unbilled = await loadClientIdsWithUnbilledBillableHoursInMonth(
+      admin,
+      serviceMonth
+    );
+    total = unbilled.length;
+    const { slice, done: empty } = selectNextUnbilledDrainChunk(
+      unbilled,
+      priorSkip,
+      limit
+    );
+    if (empty || slice.length === 0) {
+      return {
+        serviceMonth,
+        phase,
+        offset: 0,
+        limit,
+        processed: 0,
+        created: 0,
+        refreshed: 0,
+        skippedLocked: 0,
+        compiled: 0,
+        compileErrors: 0,
+        rowFailures: 0,
+        failedClients: [],
+        skipClientIds: priorSkip,
+        nextOffset: null,
+        done: true,
+        total,
+      };
+    }
+
     for (const clientId of slice) {
-      const row = await ensureIjpInvoiceRow(admin, {
-        clientId,
-        serviceMonth,
-        isTest,
-        settings,
-        refreshIfUnlocked: true,
-      });
+      skipClientIds = mergeAttemptedSkipClientIds(skipClientIds, [clientId]);
       processed += 1;
-      if (row.created) created += 1;
-      if (row.refreshed) refreshed += 1;
-      if (row.locked) skippedLocked += 1;
-      await updateMissingAttestationFlag(admin, {
+      try {
+        const row = await ensureIjpInvoiceRow(admin, {
+          clientId,
+          serviceMonth,
+          isTest,
+          settings,
+          refreshIfUnlocked: true,
+        });
+        if (row.created) created += 1;
+        if (row.refreshed) refreshed += 1;
+        if (row.locked) {
+          skippedLocked += 1;
+        } else {
+          await updateMissingAttestationFlag(admin, {
+            clientId,
+            serviceMonth,
+            invoiceId: row.id,
+            isTest,
+          });
+        }
+      } catch (e) {
+        rowFailures += 1;
+        const reason = e instanceof Error ? e.message : "Row generate failed.";
+        failedClients.push({ clientId, reason });
+        console.error("ijp invoice row failed:", clientId, e);
+      }
+    }
+
+    const unbilledAfter = await loadClientIdsWithUnbilledBillableHoursInMonth(
+      admin,
+      serviceMonth
+    );
+    total = unbilledAfter.length;
+    const stillUnbilled = new Set(unbilledAfter);
+    const alreadyFailed = new Set(failedClients.map((f) => f.clientId));
+    for (const clientId of slice) {
+      if (!stillUnbilled.has(clientId) || alreadyFailed.has(clientId)) continue;
+      rowFailures += 1;
+      failedClients.push({
         clientId,
-        serviceMonth,
-        invoiceId: row.id,
-        isTest,
+        reason:
+          "Still has unbilled IJP hours after generate attempt (locked invoice or stamp mismatch). Skipped for this run.",
       });
     }
+    done = isRowsDrainDone(unbilledAfter, skipClientIds);
+    nextOffset = null;
   } else {
+    offset = Math.max(0, Number(opts.offset) || 0);
+    const clientIds = await loadClientIdsWithInvoicesInMonth(
+      admin,
+      serviceMonth,
+      isTest
+    );
+    total = clientIds.length;
+    const slice = clientIds.slice(offset, offset + limit);
+
     for (const clientId of slice) {
       processed += 1;
       const { data: invoices } = await admin
@@ -167,14 +267,18 @@ export async function runIjpBillingMonthChunk(
           compiled += 1;
         } catch (e) {
           compileErrors += 1;
+          const reason = e instanceof Error ? e.message : "Compile failed.";
+          failedClients.push({ clientId, reason: `compile: ${reason}` });
           console.error("ijp invoice compile failed:", clientId, invoice.id, e);
         }
       }
     }
+
+    const advanced = offset + slice.length;
+    done = advanced >= total;
+    nextOffset = done ? null : advanced;
   }
 
-  const nextOffset = offset + slice.length;
-  const done = nextOffset >= total;
   return {
     serviceMonth,
     phase,
@@ -186,7 +290,10 @@ export async function runIjpBillingMonthChunk(
     skippedLocked,
     compiled,
     compileErrors,
-    nextOffset: done ? null : nextOffset,
+    rowFailures,
+    failedClients,
+    skipClientIds,
+    nextOffset,
     done,
     total,
   };
@@ -194,6 +301,7 @@ export async function runIjpBillingMonthChunk(
 
 /**
  * Drain rows then compile while under a wall-clock budget (cron / long generate).
+ * Rows always resume with skipClientIds (never a rising unbilled offset).
  */
 export async function runIjpBillingMonthUntilBudget(
   admin: SupabaseClient,
@@ -205,6 +313,12 @@ export async function runIjpBillingMonthUntilBudget(
     rowLimit?: number;
     compileLimit?: number;
     startedAtMs?: number;
+    /** Resume rows drain with these already-attempted client ids. */
+    skipClientIds?: readonly string[];
+    /** Resume at compile when prior rows finished. */
+    startPhase?: IjpBillingMonthPhase;
+    /** Compile resume cursor. */
+    compileOffset?: number;
   }
 ): Promise<{
   serviceMonth: string;
@@ -213,59 +327,116 @@ export async function runIjpBillingMonthUntilBudget(
   incomplete: boolean;
   resumePhase: IjpBillingMonthPhase | null;
   resumeOffset: number | null;
+  resumeSkipClientIds: string[];
+  created: number;
+  refreshed: number;
+  compiled: number;
+  compileErrors: number;
+  skippedLocked: number;
+  rowFailures: number;
+  failedClients: IjpBillingClientFailure[];
 }> {
   const budgetMs = opts.budgetMs ?? 250_000;
   const startedAtMs = opts.startedAtMs ?? Date.now();
   const rows: IjpBillingMonthChunkResult[] = [];
   const compiles: IjpBillingMonthChunkResult[] = [];
+  let skipClientIds = [...(opts.skipClientIds ?? [])].filter(Boolean);
+  const failedClients: IjpBillingClientFailure[] = [];
 
-  let offset = 0;
-  let rowsDone = false;
-  while (!rowsDone && Date.now() - startedAtMs < budgetMs) {
-    const chunk = await runIjpBillingMonthChunk(admin, settings, {
-      serviceMonth: opts.serviceMonth,
-      phase: "rows",
-      offset,
-      limit: opts.rowLimit,
-      isTest: opts.isTest,
-    });
-    rows.push(chunk);
-    rowsDone = chunk.done;
-    offset = chunk.nextOffset ?? chunk.total;
+  const startPhase: IjpBillingMonthPhase =
+    opts.startPhase === "compile" ? "compile" : "rows";
+
+  let rowsDone = startPhase === "compile";
+  if (!rowsDone) {
+    while (!rowsDone && Date.now() - startedAtMs < budgetMs) {
+      const chunk = await runIjpBillingMonthChunk(admin, settings, {
+        serviceMonth: opts.serviceMonth,
+        phase: "rows",
+        limit: opts.rowLimit,
+        isTest: opts.isTest,
+        skipClientIds,
+      });
+      rows.push(chunk);
+      skipClientIds = chunk.skipClientIds;
+      failedClients.push(...chunk.failedClients);
+      rowsDone = chunk.done;
+      // Empty successful drain or no progress with skips should exit.
+      if (chunk.processed === 0) {
+        rowsDone = true;
+      }
+    }
   }
 
   if (!rowsDone) {
-    return {
-      serviceMonth: serviceMonthStartFromYmd(opts.serviceMonth),
+    return summarizeUntilBudget({
+      serviceMonth: opts.serviceMonth,
       rows,
       compiles,
       incomplete: true,
       resumePhase: "rows",
-      resumeOffset: offset,
-    };
+      resumeOffset: null,
+      resumeSkipClientIds: skipClientIds,
+      failedClients,
+    });
   }
 
-  offset = 0;
+  let compileOffset = Math.max(0, Number(opts.compileOffset) || 0);
   let compileDone = false;
   while (!compileDone && Date.now() - startedAtMs < budgetMs) {
     const chunk = await runIjpBillingMonthChunk(admin, settings, {
       serviceMonth: opts.serviceMonth,
       phase: "compile",
-      offset,
+      offset: compileOffset,
       limit: opts.compileLimit,
       isTest: opts.isTest,
     });
     compiles.push(chunk);
+    failedClients.push(...chunk.failedClients);
     compileDone = chunk.done;
-    offset = chunk.nextOffset ?? chunk.total;
+    compileOffset = chunk.nextOffset ?? chunk.total;
+    if (chunk.processed === 0 && chunk.done) {
+      compileDone = true;
+    }
   }
 
-  return {
-    serviceMonth: serviceMonthStartFromYmd(opts.serviceMonth),
+  return summarizeUntilBudget({
+    serviceMonth: opts.serviceMonth,
     rows,
     compiles,
     incomplete: !compileDone,
     resumePhase: compileDone ? null : "compile",
-    resumeOffset: compileDone ? null : offset,
+    resumeOffset: compileDone ? null : compileOffset,
+    resumeSkipClientIds: skipClientIds,
+    failedClients,
+  });
+}
+
+function summarizeUntilBudget(opts: {
+  serviceMonth: string;
+  rows: IjpBillingMonthChunkResult[];
+  compiles: IjpBillingMonthChunkResult[];
+  incomplete: boolean;
+  resumePhase: IjpBillingMonthPhase | null;
+  resumeOffset: number | null;
+  resumeSkipClientIds: string[];
+  failedClients: IjpBillingClientFailure[];
+}) {
+  return {
+    serviceMonth: serviceMonthStartFromYmd(opts.serviceMonth),
+    rows: opts.rows,
+    compiles: opts.compiles,
+    incomplete: opts.incomplete,
+    resumePhase: opts.resumePhase,
+    resumeOffset: opts.resumeOffset,
+    resumeSkipClientIds: opts.resumeSkipClientIds,
+    created: opts.rows.reduce((n, c) => n + c.created, 0),
+    refreshed: opts.rows.reduce((n, c) => n + c.refreshed, 0),
+    compiled: opts.compiles.reduce((n, c) => n + c.compiled, 0),
+    compileErrors: opts.compiles.reduce((n, c) => n + c.compileErrors, 0),
+    skippedLocked:
+      opts.rows.reduce((n, c) => n + c.skippedLocked, 0) +
+      opts.compiles.reduce((n, c) => n + c.skippedLocked, 0),
+    rowFailures: opts.rows.reduce((n, c) => n + c.rowFailures, 0),
+    failedClients: opts.failedClients,
   };
 }

@@ -33,7 +33,8 @@ Client names on timesheets and intake billing open a **view-only** profile.
 
 - Run **Generate Invoices** for the selected service month. **Weekly runs are fine** — GVRA accepts **multiple invoices per client per month**.
 - While a month invoice is still an unlocked draft, weekly Generate **appends only unbilled** Individual Job Placement hours into that draft.
-- If the month invoice is already locked (ready / compiled / archived) and unbilled IJP hours remain, Generate creates a **supplemental draft** for the same service month.
+- If the month invoice is already locked (ready / compiled / archived) and unbilled IJP hours remain, Generate creates a **supplemental draft** for the same service month (it does **not** rewrite locked invoices).
+- Generate drains every client with remaining unbilled IJP hours, then compiles PDFs. The UI reports created / refreshed / compiled / failed counts. If completeness still shows missing clients or compile failed, run Generate again (do not treat a partial run as finished).
 
 ### Who gets an invoice
 

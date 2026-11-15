@@ -340,7 +340,7 @@ function sectionsForRole(role: string | null): Section[] {
           "IJP Billing builds monthly Individual Job Placement invoices from unbilled IJP-attributed billable hours. GVRA accepts multiple invoices per client per month, so running Generate Invoices weekly is fine.",
         steps: [
           "Use Generate Invoices for the selected service month (often weekly) to pick up unbilled Individual Job Placement hours.",
-          "Every client with unbilled IJP hours in the period is invoiced — including archived or closed clients, and hours logged by any staff role. Demo clients are excluded.",
+          "Every client with unbilled IJP hours in the period is invoiced — including archived or closed clients, and hours logged by any staff role. Demo clients are excluded. Generate drains the unbilled queue then compiles PDFs; the result shows created, refreshed, compiled, and failed counts. If completeness still shows missing clients or compile errors, run Generate again — locked invoices are never rewritten (supplemental drafts cover late hours).",
           "Non–Individual Job Placement hours never appear on IJP invoices. Hours already stamped on an invoice are never billed twice; late hours create or refresh a draft, or a supplemental draft if the month invoice is already locked.",
           "Line hours round to the nearest half hour; invoice totals round up to whole hours. Draft lines auto-refresh from billable time when you open the month. Editors can add invoice-only manual lines that do not create contact logs; each invoice includes the 2-hour GVRA Reports allowance on the last day of the month (skipped on a supplemental invoice if already billed for that month).",
         ],

@@ -19,6 +19,7 @@ import { USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { IjpBillingClientPicker } from "@/components/ijp-billing-client-picker";
 import { IjpBillingTestPreview } from "@/components/ijp-billing-test-preview";
+import { formatIjpGenerateInvoicesSummary } from "@/lib/ijp-billing-month-run-drain";
 
 const ACTIVITY_TYPE_SUGGESTIONS = [
   "In-Person Meeting",
@@ -400,13 +401,18 @@ export function IjpBillingWorkspace() {
             onClick={async () => {
               setBusy(true);
               setError(null);
+              setMessage(null);
               try {
                 let phase: "rows" | "compile" = "rows";
                 let offset = 0;
+                let skipClientIds: string[] = [];
                 let created = 0;
                 let refreshed = 0;
                 let compiled = 0;
-                let total = 0;
+                let compileErrors = 0;
+                let skippedLocked = 0;
+                let rowFailures = 0;
+                const failedClients: Array<{ clientId: string; reason: string }> = [];
                 let safety = 0;
                 while (safety < 500) {
                   safety += 1;
@@ -416,7 +422,8 @@ export function IjpBillingWorkspace() {
                     body: JSON.stringify({
                       serviceMonth: month,
                       phase,
-                      offset,
+                      offset: phase === "compile" ? offset : 0,
+                      skipClientIds: phase === "rows" ? skipClientIds : undefined,
                     }),
                   });
                   const data = (await res.json()) as {
@@ -424,7 +431,11 @@ export function IjpBillingWorkspace() {
                     created?: number;
                     refreshed?: number;
                     compiled?: number;
-                    total?: number;
+                    compileErrors?: number;
+                    skippedLocked?: number;
+                    rowFailures?: number;
+                    failedClients?: Array<{ clientId: string; reason: string }>;
+                    skipClientIds?: string[];
                     done?: boolean;
                     nextOffset?: number | null;
                     phase?: "rows" | "compile";
@@ -436,7 +447,15 @@ export function IjpBillingWorkspace() {
                   created += data.created ?? 0;
                   refreshed += data.refreshed ?? 0;
                   compiled += data.compiled ?? 0;
-                  total = data.total ?? total;
+                  compileErrors += data.compileErrors ?? 0;
+                  skippedLocked += data.skippedLocked ?? 0;
+                  rowFailures += data.rowFailures ?? 0;
+                  for (const f of data.failedClients ?? []) {
+                    failedClients.push(f);
+                  }
+                  if (phase === "rows" && Array.isArray(data.skipClientIds)) {
+                    skipClientIds = data.skipClientIds;
+                  }
                   if (data.done) {
                     if (phase === "rows") {
                       phase = "compile";
@@ -445,13 +464,44 @@ export function IjpBillingWorkspace() {
                     }
                     break;
                   }
-                  offset = data.nextOffset ?? offset;
+                  if (phase === "compile") {
+                    offset = data.nextOffset ?? offset;
+                  }
                 }
-                setMessage(
-                  `Generate Invoices finished for ${total} client(s) with unbilled hours: created ${created}, refreshed ${refreshed}, compiled ${compiled} PDF(s).`
-                );
                 await load();
                 await loadCompleteness();
+                const completenessRes = await fetch(
+                  `/api/ijp-billing/completeness?month=${encodeURIComponent(month)}`
+                );
+                const completenessData = (await completenessRes.json()) as {
+                  complete?: boolean;
+                  missingCount?: number;
+                };
+                const stillMissing =
+                  completenessRes.ok && completenessData.complete === false;
+                const summary = formatIjpGenerateInvoicesSummary({
+                  created,
+                  refreshed,
+                  compiled,
+                  compileErrors,
+                  skippedLocked,
+                  rowFailures,
+                  incomplete: false,
+                  completenessStillMissing: Boolean(stillMissing),
+                  missingCount: completenessData.missingCount,
+                });
+                if (summary.tone === "success") {
+                  setMessage(summary.text);
+                } else {
+                  const detail =
+                    failedClients.length > 0
+                      ? ` First failures: ${failedClients
+                          .slice(0, 5)
+                          .map((f) => `${f.clientId}: ${f.reason}`)
+                          .join(" | ")}`
+                      : "";
+                  setError(`${summary.text}${detail}`);
+                }
               } finally {
                 setBusy(false);
               }
