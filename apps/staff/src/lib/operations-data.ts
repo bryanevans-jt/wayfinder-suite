@@ -26,15 +26,6 @@ export type ComplianceReportRow = {
   reportLabel: string;
 };
 
-export type ComplianceTimesheetRow = {
-  id: string;
-  esUserId: string;
-  esName: string;
-  weekStart: string;
-  status: string;
-  totalMinutes: number;
-};
-
 export type CoachingSlaRow = {
   threadId: string;
   clientLabel: string;
@@ -122,26 +113,6 @@ export async function loadComplianceCalendar(
   }));
 
   return { reports };
-}
-
-async function loadPendingTimesheetCount(role: string, userId: string): Promise<number> {
-  const admin = createServiceRoleClient();
-  const esIds = await scopedEsUserIds(admin, role, userId);
-
-  let weekQuery = admin
-    .from("es_time_week_submissions")
-    .select("id", { count: "exact", head: true })
-    .in("status", ["submitted", "returned"]);
-
-  if (esIds) {
-    weekQuery = weekQuery.in(
-      "es_user_id",
-      esIds.length ? esIds : ["00000000-0000-0000-0000-000000000000"]
-    );
-  }
-
-  const { count } = await weekQuery;
-  return count ?? 0;
 }
 
 export async function loadCoachingQueue(
@@ -346,7 +317,6 @@ export type SupervisorWeekPack = {
   messageSla: number;
   thinContacts: number;
   reportGaps: number;
-  timesheetsPending: number;
 };
 
 /** Compact counts for supervisor portal home (“This week”). */
@@ -355,18 +325,16 @@ export async function loadSupervisorWeekPack(
   role: string
 ): Promise<SupervisorWeekPack> {
   const coachingRole = role === "supervisor" ? "supervisor" : role;
-  const [coaching, compliance, timesheetsPending] = await Promise.all([
+  const [coaching, compliance] = await Promise.all([
     coachingRole === "supervisor"
       ? loadCoachingQueue(userId)
       : Promise.resolve({ sla: [] as CoachingSlaRow[], thinLogs: [] as CoachingThinLogRow[] }),
     loadComplianceCalendar(role, userId),
-    loadPendingTimesheetCount(role, userId),
   ]);
 
   return {
     messageSla: coaching.sla.length,
     thinContacts: coaching.thinLogs.length,
     reportGaps: compliance.reports.length,
-    timesheetsPending,
   };
 }

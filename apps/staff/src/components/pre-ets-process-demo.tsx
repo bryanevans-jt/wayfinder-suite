@@ -70,8 +70,8 @@ export function PreEtsProcessDemo() {
         <p className="mt-2 max-w-3xl text-sm text-brand-black/70">
           Walk through the Valdosta → Lowndes story using <strong>pre-filled sample data</strong>{" "}
           (District 9, October 2025). Nothing on this page writes to production. Use the step rail
-          and role tabs to train supervisors, Accounts, and TS/TI on uploads, notifications,
-          authorization entry, and field release.
+          and role tabs to train Admin / Accounts / Super Admin on uploads, plus TS/TI on
+          notifications, authorization entry, and field release.
         </p>
         <p className="mt-2 text-sm">
           <Link href="/dashboard/pre-ets" className="font-semibold text-brand-green hover:underline">

@@ -52,7 +52,7 @@ Table: JTSG staff · Participants · Reports · Counselors
 ## Slide 6 — Part C: Messages & Timesheet
 
 - 24 business-hour message SLA  
-- Timesheet: log weekly · submit week  
+- Billable Hours: log weekly (no submit/approve)  
 - Screenshots: messages · timesheet  
 
 ---

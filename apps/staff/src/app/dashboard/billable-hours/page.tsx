@@ -1,7 +1,7 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
-import { canUseStaffPto } from "@wayfinder/supabase/staff-pto-shared";
 import { canAccessBillableHoursPage } from "@wayfinder/supabase/staff-time-clock-shared";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BillableHoursPayrollMonthlyPanel } from "@/components/billable-hours-payroll-monthly-panel";
 import { MyBillableHoursWorkspace } from "@/components/my-billable-hours-workspace";
@@ -9,7 +9,6 @@ import { BillableHoursKraCompliancePanel } from "@/components/billable-hours-kra
 import { canViewPayrollMonthlyBillableHours } from "@/lib/billable-hours-payroll-access";
 import { isSuperAdminRole } from "@wayfinder/supabase/roles";
 import { defaultPayrollMonthKey } from "@/lib/es-time-data";
-import { StaffPtoPanel } from "@/components/staff-pto-panel";
 import { TimesheetWorkspace } from "@/components/timesheet-workspace";
 import { loadMyBillableHoursSummary } from "@/lib/es-time-data";
 import {
@@ -43,7 +42,6 @@ export default async function MyBillableHoursPage({ searchParams }: PageProps) {
   const esUserId = session.effectiveUserId;
   const summary = await loadMyBillableHoursSummary(admin, esUserId);
   const showTimesheet = canAccessWeeklyTimesheetSection(role);
-  const showPto = canUseStaffPto(role);
   const showPayrollMonthly = canViewPayrollMonthlyBillableHours(role);
   const showKraCompliance = showPayrollMonthly;
   const canCloseKraMonth = isSuperAdminRole(role);
@@ -69,7 +67,11 @@ export default async function MyBillableHoursPage({ searchParams }: PageProps) {
         Billable service time for this week, last week, and month-to-date (America/New_York), shown
         in hours to one decimal. Totals include logged time whether or not the client was marked
         present; only Case File Review and note-only contact are excluded. Use the weekly timesheet
-        below for line-by-line review; PTO requests are at the bottom of this page.
+        below for line-by-line review. Paid time off is under{" "}
+        <Link href="/dashboard/pto" className="font-medium text-brand-green underline">
+          PTO
+        </Link>
+        .
       </p>
       <MyBillableHoursWorkspace
         summary={summary}
@@ -88,11 +90,6 @@ export default async function MyBillableHoursPage({ searchParams }: PageProps) {
       {timesheetLoad.kind === "ready" ? (
         <div id="weekly-timesheet" className="scroll-mt-6">
           <TimesheetWorkspace {...timesheetLoad.props} />
-        </div>
-      ) : null}
-      {showPto ? (
-        <div className="mt-10 border-t border-neutral-200 pt-8">
-          <StaffPtoPanel />
         </div>
       ) : null}
     </main>

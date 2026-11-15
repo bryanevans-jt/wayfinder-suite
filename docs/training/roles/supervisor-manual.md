@@ -14,14 +14,14 @@ Team oversight, coaching queue, compliance, reporting support, and helping ESs, 
 |---------|---------------------|
 | View team caseload signals | Edit another ES’s contact logs |
 | Read client message threads (coaching) | Send messages as the ES |
-| Approve timesheets | Submit formal reports for ESs (they submit; you review compliance) |
+| Review team billable hours | Submit formal reports for ESs (they submit; you review compliance) |
 | Run analytics for **your team** | Access super-admin portal settings |
 
 ---
 
 ## 2. Sidebar Layout
 
-**Daily work:** Regional Supervisor portal · Messages · Timesheet  
+**Daily work:** Regional Supervisor portal · Messages · Billable Hours · PTO  
 **Oversight:** Team operations · Compliance · Reporting · Analytics  
 **Tools:** Data exports · Community Partners (when Feature Toggles enable it)  
 **Account:** My Profile · Team Directory · Our Team · Help
@@ -58,7 +58,7 @@ Use this page in weekly 1:1s with ESs.
 **Path:** Sidebar → **Compliance** (`/dashboard/compliance`)
 
 - **SE Monthly** report gaps for your team.
-- Timesheets awaiting approval.
+- (Week submit/approve retired — pay is based on billable hours.)
 
 > **Screenshot:** `assets/screenshots/supervisor-compliance.png`
 
@@ -72,13 +72,11 @@ Use this page in weekly 1:1s with ESs.
 
 ---
 
-## 7. Timesheet Approval
+## 7. Billable Hours
 
-**Path:** Sidebar → **Timesheet**
+**Path:** Sidebar → **Billable Hours**
 
-- Review and approve ES weekly submissions for your assigned specialists.
-
-> **Screenshot:** `assets/screenshots/supervisor-timesheet-approve.png`
+- Review ES weekly billable entries for your assigned specialists. No approve/return step.
 
 ---
 
@@ -131,9 +129,9 @@ Traditional Supported Employment (TSE) and Job Coaching service options are also
 
 ## 11c. Pre-ETS (when enabled)
 
-- Supervisors can **upload planning worksheets** for Pre-ETS schools assigned to them.
-- **Accounts Specialists and Super Admins** upload Pre-ETS spreadsheets for any district (Accounts: support / auth-match; Super Admin: planning) and enter authorization numbers.
+- **Admin, Accounts Specialist, and Super Admin** upload Pre-ETS spreadsheets (Accounts: support / auth-match; Admin / Super Admin: planning) and enter authorization numbers. Regional Supervisors do **not** upload worksheets.
 - Transition Specialists / Instructors work **released** rosters only.
+- Supervisors coach field staff on released rosters and Pre-ETS delivery for assigned schools.
 
 ---
 

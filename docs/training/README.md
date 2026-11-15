@@ -14,7 +14,7 @@ Training materials for **Wayfinder** (client app), **Wayfinder Pro** (team membe
 | [shared/google-docs-import-guide.md](./shared/google-docs-import-guide.md) | You (Bryan) | How to turn these into branded Google Docs |
 | [shared/community-partners-field-guide.md](./shared/community-partners-field-guide.md) | ES, supervisors | Community Partners field guide |
 | [roles/employment-specialist-manual.md](./roles/employment-specialist-manual.md) | ES | Full reference + onboarding (includes Individual Job Placement attestation) |
-| [roles/supervisor-manual.md](./roles/supervisor-manual.md) | Supervisors | Team oversight, Pre-ETS planning upload, IJP attestation coaching |
+| [roles/supervisor-manual.md](./roles/supervisor-manual.md) | Supervisors | Team oversight, IJP attestation coaching (Pre-ETS spreadsheets: Admin / Accounts Specialist / Super Admin — not supervisors) |
 | [roles/accounts-specialist-manual.md](./roles/accounts-specialist-manual.md) | Accounts Specialist | Intake billing, IJP Billing, Pre-ETS spreadsheets / auths / packets |
 | [roles/org-admin-manual.md](./roles/org-admin-manual.md) | Org admins | Users, offices, assignments (not super-admin) |
 | [roles/client-quick-start.md](./roles/client-quick-start.md) | Participants | One-page startup (PDF + in-app) |

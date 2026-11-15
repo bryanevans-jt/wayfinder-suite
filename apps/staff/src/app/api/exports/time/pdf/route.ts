@@ -3,10 +3,7 @@ import {
   buildClientTimesheetPdfZip,
   groupApprovedClientEntries,
 } from "@/lib/timesheet-pdf";
-import {
-  loadEsTimeEntriesForWeek,
-  loadWeekSubmission,
-} from "@/lib/es-time-data";
+import { loadEsTimeEntriesForWeek } from "@/lib/es-time-data";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { weekEndSaturday, weekStartSunday } from "@wayfinder/supabase/es-time-tracking";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
@@ -83,14 +80,12 @@ export async function GET(request: Request) {
     }
     const admin = adminOrResponse;
 
-    const weekSubmission = await loadWeekSubmission(admin, esUserId, weekStart);
-
     const entries = await loadEsTimeEntriesForWeek(admin, esUserId, weekStart);
-    const approvedGroups = groupApprovedClientEntries(entries);
+    const clientGroups = groupApprovedClientEntries(entries);
 
-    if (approvedGroups.length === 0) {
+    if (clientGroups.length === 0) {
       return NextResponse.json(
-        { error: "No approved client time entries for this week" },
+        { error: "No client time entries for this week" },
         { status: 404 }
       );
     }
@@ -104,38 +99,19 @@ export async function GET(request: Request) {
     const esName =
       (esProfile?.full_name as string | null)?.trim() || "Employment Specialist";
 
-    let approvedByName: string | null = null;
-    if (weekSubmission?.id) {
-      const { data: weekRow } = await admin
-        .from("es_time_week_submissions")
-        .select("approved_by")
-        .eq("id", weekSubmission.id)
-        .maybeSingle();
-
-      const approvedBy = (weekRow?.approved_by as string | null) ?? null;
-      if (approvedBy) {
-        const { data: approver } = await admin
-          .from("profiles")
-          .select("full_name")
-          .eq("id", approvedBy)
-          .maybeSingle();
-        approvedByName = (approver?.full_name as string | null)?.trim() || null;
-      }
-    }
-
     const shared = {
       esName,
       weekStart,
       weekEnd,
-      approvedAt: weekSubmission?.approved_at ?? null,
-      approvedByName,
+      approvedAt: null as string | null,
+      approvedByName: null as string | null,
       publicDir: path.join(process.cwd(), "public"),
     };
 
     if (requestedClient) {
-      const group = approvedGroups.find((g) => g.clientId === requestedClient);
+      const group = clientGroups.find((g) => g.clientId === requestedClient);
       if (!group) {
-        return NextResponse.json({ error: "No approved entries for this client" }, { status: 404 });
+        return NextResponse.json({ error: "No entries for this client" }, { status: 404 });
       }
 
       const pdfBytes = await buildClientTimesheetPdf({
@@ -153,8 +129,8 @@ export async function GET(request: Request) {
       });
     }
 
-    if (approvedGroups.length === 1) {
-      const group = approvedGroups[0]!;
+    if (clientGroups.length === 1) {
+      const group = clientGroups[0]!;
       const pdfBytes = await buildClientTimesheetPdf({
         ...shared,
         clientName: group.clientName,
@@ -169,7 +145,7 @@ export async function GET(request: Request) {
       });
     }
 
-    const zipBytes = await buildClientTimesheetPdfZip(approvedGroups, shared);
+    const zipBytes = await buildClientTimesheetPdfZip(clientGroups, shared);
     return new NextResponse(Buffer.from(zipBytes), {
       headers: {
         "Content-Type": "application/zip",

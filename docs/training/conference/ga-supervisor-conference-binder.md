@@ -60,7 +60,7 @@ Use the [Participant Workbook](./ga-participant-workbook.md) during hands-on exe
 |---------|----------------------|
 | View team caseload signals | Edit another ES’s contact logs |
 | Read client message threads (coaching) | Send messages as the ES |
-| Approve timesheets | Submit formal reports for ESs (they submit; you review compliance) |
+| Review team billable hours | Submit formal reports for ESs (they submit; you review compliance) |
 | Run analytics for **your team** | Access super-admin portal settings |
 | Coach employer outreach | Replace ES on employer relationships without coordination |
 
@@ -200,7 +200,7 @@ ES cheat sheet to share: [ES Quick Reference](../reports/joshua-tree-reports-es-
 
 **Path:** Sidebar → **Timesheet**
 
-Review and approve ES weekly submissions for specialists assigned to you.
+Review ES weekly billable entries for specialists assigned to you (no approve/return step).
 
 > **Screenshot:** `assets/screenshots/supervisor-timesheet-approve.png`
 
@@ -324,7 +324,7 @@ Community Partners join form — ES (or you) shares tokenized link from app.
 |----------|-----------------|
 | **0–3** | Complete or observe — know ES workflow |
 | **4** | Coach outreach pitch |
-| **5** | **Approve** an ES timesheet entry |
+| **5** | **Review** an ES timesheet week on Billable Hours |
 | **6** | Understand SE Monthly prefill |
 | **7** | **Team operations** · **Compliance** · **Analytics** — your module |
 | **8** | Verify ES onboarding plans |

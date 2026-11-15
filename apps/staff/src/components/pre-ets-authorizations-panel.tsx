@@ -2,6 +2,7 @@
 
 import { PreEtsAuthorizationFinalizeModal } from "@/components/pre-ets-authorization-finalize-modal";
 import { PreEtsServiceCodeDisplay } from "@/components/pre-ets-service-code-display";
+import { preEtsAuthorizationEventLabel } from "@/lib/pre-ets-event-labels";
 import {
   isPreEtsServiceMonthFilterOmitted,
   parsePreEtsServiceMonthFilter,
@@ -30,10 +31,25 @@ type RosterRow = {
   unitsApproved: number | null;
 };
 
+type AuthEvent = {
+  id: string;
+  authorization_id: string;
+  event_kind: string;
+  created_at: string;
+  metadata?: Record<string, unknown> | null;
+  profiles: { full_name: string } | { full_name: string }[] | null;
+};
+
 type AuthTab = "all" | "group" | "individual" | "pending";
 
 function schoolName(auth: Authorization): string {
   return auth.pre_ets_schools?.name ?? "—";
+}
+
+function actorName(profiles: AuthEvent["profiles"]): string {
+  if (!profiles) return "System";
+  if (Array.isArray(profiles)) return profiles[0]?.full_name ?? "Unknown";
+  return profiles.full_name ?? "Unknown";
 }
 
 export function PreEtsAuthorizationsPanel() {
@@ -48,11 +64,16 @@ export function PreEtsAuthorizationsPanel() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [roster, setRoster] = useState<RosterRow[]>([]);
   const [canFinalize, setCanFinalize] = useState(false);
+  const [canViewChangeLog, setCanViewChangeLog] = useState(false);
   const [canEditRosterAfterAuthorization, setCanEditRosterAfterAuthorization] = useState(false);
   const [canEditAuthorizationNumber, setCanEditAuthorizationNumber] = useState(false);
   const [canEditServiceCode, setCanEditServiceCode] = useState(false);
   const [finalizeTarget, setFinalizeTarget] = useState<Authorization | null>(null);
   const [editTarget, setEditTarget] = useState<Authorization | null>(null);
+  const [changeLogAuthId, setChangeLogAuthId] = useState<string | null>(null);
+  const [changeLogEvents, setChangeLogEvents] = useState<AuthEvent[]>([]);
+  const [recentEvents, setRecentEvents] = useState<AuthEvent[]>([]);
+  const [showRecentChangeLog, setShowRecentChangeLog] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -80,6 +101,7 @@ export function PreEtsAuthorizationsPanel() {
       const res = await fetch("/api/pre-ets/access");
       const data = (await res.json()) as {
         access?: {
+          canAccounts?: boolean;
           canFinalizeAuthorizations?: boolean;
           canEditRosterAfterAuthorization?: boolean;
           canEditAuthorizationNumber?: boolean;
@@ -88,6 +110,7 @@ export function PreEtsAuthorizationsPanel() {
       };
       if (res.ok) {
         setCanFinalize(data.access?.canFinalizeAuthorizations ?? false);
+        setCanViewChangeLog(Boolean(data.access?.canAccounts));
         setCanEditRosterAfterAuthorization(
           data.access?.canEditRosterAfterAuthorization ?? false
         );
@@ -144,6 +167,31 @@ export function PreEtsAuthorizationsPanel() {
     if (res.ok) setRoster(data.roster ?? []);
   }
 
+  async function toggleChangeLog(authId: string) {
+    if (changeLogAuthId === authId) {
+      setChangeLogAuthId(null);
+      setChangeLogEvents([]);
+      return;
+    }
+    setChangeLogAuthId(authId);
+    const res = await fetch(
+      `/api/pre-ets/authorization-events?authorizationId=${encodeURIComponent(authId)}&limit=30`
+    );
+    const data = (await res.json()) as { events?: AuthEvent[] };
+    if (res.ok) setChangeLogEvents(data.events ?? []);
+  }
+
+  async function toggleRecentChangeLog() {
+    if (showRecentChangeLog) {
+      setShowRecentChangeLog(false);
+      return;
+    }
+    setShowRecentChangeLog(true);
+    const res = await fetch("/api/pre-ets/authorization-events?limit=40");
+    const data = (await res.json()) as { events?: AuthEvent[] };
+    if (res.ok) setRecentEvents(data.events ?? []);
+  }
+
   const tabs: { id: AuthTab; label: string }[] = [
     { id: "all", label: "All" },
     { id: "group", label: "Group" },
@@ -157,9 +205,9 @@ export function PreEtsAuthorizationsPanel() {
         <div>
           <h2 className="text-lg font-semibold text-brand-black">Authorizations &amp; rosters</h2>
           <p className="mt-1 text-sm text-brand-black/65">
-            Pending rosters appear after Accounts Specialist or Super Admin uploads the Pre-ETS
-            spreadsheet. Enter authorization numbers to release rosters to TS/TI one school at a
-            time.
+            Pending rosters appear after Admin, Accounts Specialist, or Super Admin uploads the
+            Pre-ETS spreadsheet. Enter authorization numbers to release rosters to TS/TI one school
+            at a time.
           </p>
         </div>
         <label className="text-sm">
@@ -200,7 +248,41 @@ export function PreEtsAuthorizationsPanel() {
             {t.label}
           </button>
         ))}
+        {canViewChangeLog ? (
+          <button
+            type="button"
+            onClick={() => void toggleRecentChangeLog()}
+            className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
+              showRecentChangeLog
+                ? "bg-brand-green/10 text-brand-green"
+                : "text-brand-black/70 hover:bg-neutral-100"
+            }`}
+          >
+            Change log
+          </button>
+        ) : null}
       </nav>
+
+      {canViewChangeLog && showRecentChangeLog ? (
+        <div className="rounded-xl border border-neutral-200 bg-neutral-50/80 p-4">
+          <h3 className="text-sm font-semibold text-brand-black">Recent authorization changes</h3>
+          <p className="mt-1 text-xs text-brand-black/60">
+            Read-only audit of authorization number and roster student edits.
+          </p>
+          <ul className="mt-3 max-h-56 space-y-1 overflow-y-auto text-xs text-brand-black/75">
+            {recentEvents.length === 0 ? (
+              <li>No authorization changes recorded yet.</li>
+            ) : (
+              recentEvents.map((e) => (
+                <li key={e.id}>
+                  {new Date(e.created_at).toLocaleString()} ·{" "}
+                  {preEtsAuthorizationEventLabel(e.event_kind)} · {actorName(e.profiles)}
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+      ) : null}
 
       <div className="overflow-x-auto rounded-xl border border-neutral-200">
         <table className="min-w-full text-left text-sm">
@@ -275,6 +357,15 @@ export function PreEtsAuthorizationsPanel() {
                             Print PDF
                           </a>
                         ) : null}
+                        {canViewChangeLog ? (
+                          <button
+                            type="button"
+                            className="text-xs text-brand-black/60 hover:underline"
+                            onClick={() => void toggleChangeLog(a.id)}
+                          >
+                            {changeLogAuthId === a.id ? "Hide change log" : "Change log"}
+                          </button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -297,6 +388,26 @@ export function PreEtsAuthorizationsPanel() {
                               <li key={row.id}>
                                 {row.fullName} · PID {row.participantId ?? "—"} ·{" "}
                                 {row.unitsApproved ?? 0} units approved
+                              </li>
+                            ))
+                          )}
+                        </ul>
+                      </td>
+                    </tr>
+                  ) : null}
+                  {changeLogAuthId === a.id ? (
+                    <tr className="border-t border-neutral-50 bg-neutral-50/50">
+                      <td colSpan={6} className="px-3 py-3">
+                        <p className="mb-2 text-xs font-semibold text-brand-black">Change log</p>
+                        <ul className="space-y-1 text-xs text-brand-black/75">
+                          {changeLogEvents.length === 0 ? (
+                            <li>No changes recorded for this authorization.</li>
+                          ) : (
+                            changeLogEvents.map((e) => (
+                              <li key={e.id}>
+                                {new Date(e.created_at).toLocaleString()} ·{" "}
+                                {preEtsAuthorizationEventLabel(e.event_kind)} ·{" "}
+                                {actorName(e.profiles)}
                               </li>
                             ))
                           )}

@@ -7,9 +7,9 @@ export type PreEtsDemoStep = {
 export const PRE_ETS_DEMO_STEPS: PreEtsDemoStep[] = [
   {
     id: 1,
-    title: "Supervisor uploads Valdosta",
+      title: "Admin uploads Valdosta (planning)",
     summary:
-      "Supervisor uploads the district CSV with Valdosta High students only. Pending roster and authorization request are created; Accounts get a batched notification.",
+      "Admin or Super Admin uploads the district CSV with Valdosta High students only (planning path). Pending roster and authorization request are created; Accounts get a batched notification.",
   },
   {
     id: 2,
@@ -78,7 +78,7 @@ export function demoSuggestedWorkspaceTab(role: PreEtsDemoRole, step: number): P
 export function demoPanelHint(role: PreEtsDemoRole, step: number): string {
   if (role === "supervisor") {
     if (step <= 1)
-      return "Worksheets — upload planning CSV (sample below). Schools & groups shows Valdosta pending authorization.";
+      return "Worksheets — sample planning CSV (Admin / Accounts Specialist / Super Admin upload in production). Schools & groups shows Valdosta pending authorization.";
     if (step >= 5)
       return "Re-upload same month with Lowndes; Valdosta is not duplicated; pipeline adds Lowndes as pending.";
     return "Schools & groups + Rosters — track Valdosta/Lowndes status for your region.";

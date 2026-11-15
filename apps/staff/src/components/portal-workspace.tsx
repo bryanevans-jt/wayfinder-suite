@@ -298,6 +298,7 @@ export function PortalWorkspace({
   const canDeleteClients = canManageOrg;
   const [showArchivedClients, setShowArchivedClients] = useState(false);
   const [showRemovedEs, setShowRemovedEs] = useState(false);
+  const [showRemovedAdmins, setShowRemovedAdmins] = useState(false);
   const canEditLogs = config?.canEditLogs ?? false;
   const canDeleteContactLogs = config?.canDeleteContactLogs ?? false;
   const canAssignAdmins = config?.canAssignAdmins ?? false;
@@ -428,6 +429,15 @@ export function PortalWorkspace({
     }
     return b.esStaff.filter((es) => !es.is_removed);
   }, [b, isSuperAdminMode, showRemovedEs]);
+
+  /** Soft-removed / deactivated org-role accounts stay in DB; hide them from the default list. */
+  const visibleAdmins = useMemo(() => {
+    if (!b) return [];
+    if (showRemovedAdmins) {
+      return b.admins.filter((a) => a.is_removed || a.is_active === false);
+    }
+    return b.admins.filter((a) => !a.is_removed && a.is_active !== false);
+  }, [b, showRemovedAdmins]);
 
   const supervisorEsIds = useMemo(() => {
     if (!b || !clientFilterSupervisorId) return null;
@@ -2719,10 +2729,20 @@ export function PortalWorkspace({
           <div>
             <h2 className="text-lg font-semibold text-brand-black">Administrators &amp; Org Roles</h2>
             <p className="mt-1 text-sm text-brand-black/70">
-              Admin, Super Admin, Accounts Specialist, HR Director, and Hospitality Specialist.
-              Protected accounts cannot be edited or removed.
+              Admin, Super Admin, Accounts Specialist, and Hospitality Specialist. Admins handle HR
+              work (PTO settings, HR Dashboard). Protected accounts cannot be edited or removed.
+              Soft-removed accounts stay in the database and are hidden unless you show them below.
             </p>
           </div>
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-brand-black/80">
+            <input
+              type="checkbox"
+              checked={showRemovedAdmins}
+              onChange={(e) => setShowRemovedAdmins(e.target.checked)}
+              className="h-4 w-4 rounded border-neutral-300 text-brand-green focus:ring-brand-green"
+            />
+            Show removed or inactive org-role accounts (restore by setting Active)
+          </label>
           <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white">
             <table className="min-w-full text-left text-sm">
               <thead className="bg-neutral-50 text-brand-black/70">
@@ -2734,14 +2754,16 @@ export function PortalWorkspace({
                 </tr>
               </thead>
               <tbody>
-                {b.admins.length === 0 ? (
+                {visibleAdmins.length === 0 ? (
                   <tr>
                     <td colSpan={4} className="px-3 py-8 text-center text-brand-black/60">
-                      No administrators or org-role accounts found.
+                      {showRemovedAdmins
+                        ? "No removed or inactive org-role accounts."
+                        : "No administrators or org-role accounts found."}
                     </td>
                   </tr>
                 ) : (
-                  b.admins.map((a) => (
+                  visibleAdmins.map((a) => (
                     <AdminUserListItem
                       key={a.id}
                       admin={a}
@@ -2814,7 +2836,8 @@ export function PortalWorkspace({
             >
               <h2 className="text-lg font-semibold text-brand-black">Assign Staff Role by Email</h2>
               <p className="text-sm text-brand-black/70">
-                Invites the user if they do not exist yet, then sets their Wayfinder Pro role.
+                Invites the user if they do not exist yet, then sets their Wayfinder Pro role. Only
+                Super Admin can assign Admin (Org Admin cannot grant Admin or Super Admin).
               </p>
               <div className="flex flex-wrap gap-2">
                 <input
@@ -2836,7 +2859,6 @@ export function PortalWorkspace({
                   <option value="supervisor">Regional Supervisor</option>
                   <option value="counselor">Counselor</option>
                   <option value="accountant">Accounts Specialist</option>
-                  <option value="hr">HR Director</option>
                   <option value="hospitality_specialist">Hospitality Specialist</option>
                 </select>
                 <button
@@ -2850,8 +2872,8 @@ export function PortalWorkspace({
             </form>
           ) : (
             <p className="text-xs text-brand-black/60">
-              Only super admin can invite and assign staff roles. You can edit non-protected admin
-              accounts above.
+              Only Super Admin can invite and assign staff roles (including Admin). You can edit
+              non-protected name and active status above — you cannot grant Admin or Super Admin.
             </p>
           )}
         </section>

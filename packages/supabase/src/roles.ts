@@ -15,22 +15,28 @@ export const STAFF_ROLES = [
 
 export const CLIENT_ROLES = ["client", "support"] as const;
 
-/** Roles a super admin can assign from the Users settings screen. */
+/**
+ * Roles assignable from portal pickers (org Admin or Super Admin).
+ * Does not include `admin` / `super_admin` (Super Admin only) or retired `hr`
+ * (`hr` remains in STAFF_ROLES / DB enum for legacy accounts).
+ */
 export const ASSIGNABLE_STAFF_ROLES = [
   "es",
   "transition_specialist",
   "supervisor",
   "accountant",
-  "admin",
   "counselor",
-  "hr",
   "hospitality_specialist",
 ] as const;
+
+/** Only Super Admin may assign these. Org Admin must never grant them. */
+export const SUPER_ADMIN_ONLY_ASSIGNABLE_ROLES = ["admin", "super_admin"] as const;
 
 export type StaffRole = (typeof STAFF_ROLES)[number];
 export type ClientRole = (typeof CLIENT_ROLES)[number];
 export type ProfileRole = StaffRole | ClientRole;
 export type AssignableStaffRole = (typeof ASSIGNABLE_STAFF_ROLES)[number];
+export type SuperAdminOnlyAssignableRole = (typeof SUPER_ADMIN_ONLY_ASSIGNABLE_ROLES)[number];
 
 export type PortalTier = "super_admin" | "admin" | "supervisor";
 
@@ -212,9 +218,9 @@ export function isTeamDirectoryMemberRole(role: string | null | undefined): bool
   return (TEAM_DIRECTORY_ROLES as readonly string[]).includes(r);
 }
 
-/** Super Admin or HR may edit team directory celebration fields / Admin titles. */
+/** Admin tier or legacy HR may edit team directory celebration fields / Admin titles. */
 export function canManageTeamDirectory(role: string | null | undefined): boolean {
-  return isSuperAdminRole(role) || isHrRole(role);
+  return isAdminTierRole(role) || isHrRole(role);
 }
 
 export function isAssignableStaffRole(
@@ -222,6 +228,30 @@ export function isAssignableStaffRole(
 ): role is AssignableStaffRole {
   const r = normalizeRole(role);
   return (ASSIGNABLE_STAFF_ROLES as readonly string[]).includes(r);
+}
+
+export function isSuperAdminOnlyAssignableRole(
+  role: string | null | undefined
+): role is SuperAdminOnlyAssignableRole {
+  const r = normalizeRole(role);
+  return (SUPER_ADMIN_ONLY_ASSIGNABLE_ROLES as readonly string[]).includes(r);
+}
+
+/**
+ * Whether `actorRole` may assign `targetRole` on create/update.
+ * Only Super Admin may grant Admin or Super Admin.
+ */
+export function canActorAssignStaffRole(
+  actorRole: string | null | undefined,
+  targetRole: string | null | undefined
+): boolean {
+  if (isSuperAdminOnlyAssignableRole(targetRole)) {
+    return isSuperAdminRole(actorRole);
+  }
+  if (!isAssignableStaffRole(targetRole)) {
+    return false;
+  }
+  return isSuperAdminRole(actorRole) || isAdminRole(actorRole);
 }
 
 /** Super admin or org admin. */

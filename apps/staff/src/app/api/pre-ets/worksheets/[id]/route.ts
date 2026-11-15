@@ -1,8 +1,9 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
+import { notifyPreEtsAuthRequestsSubmitted } from "@wayfinder/supabase/pre-ets-auth-request-notify";
 import {
   canAccessPreEtsAccounts,
-  canSupervisePreEts,
+  preEtsWorksheetTestingOverrideActive,
 } from "@wayfinder/supabase/pre-ets-settings";
 import {
   approveWorksheetImport,
@@ -54,11 +55,12 @@ export async function GET(
   }
 }
 
-function canReviewWorksheets(auth: { role: string; settings: { module_enabled: boolean; enabled_roles: string[] } }): boolean {
-  return (
-    canAccessPreEtsAccounts(auth.role, auth.settings) ||
-    canSupervisePreEts(auth.role, auth.settings)
-  );
+/** Approve / reject / reprocess — Accounts Specialist (and Admin / Super Admin with accounts access). */
+function canReviewWorksheets(auth: {
+  role: string;
+  settings: { module_enabled: boolean; enabled_roles: string[] };
+}): boolean {
+  return canAccessPreEtsAccounts(auth.role, auth.settings);
 }
 
 export async function POST(
@@ -140,6 +142,16 @@ export async function POST(
         return NextResponse.json({ error: result.error }, { status: 400 });
       }
 
+      const testingOverride = preEtsWorksheetTestingOverrideActive(auth.settings);
+      if (!testingOverride && result.schoolGroupLabels.length > 0) {
+        await notifyPreEtsAuthRequestsSubmitted(admin, {
+          schoolGroupLabels: result.schoolGroupLabels,
+          serviceMonth: result.serviceMonth,
+          districtNumber: result.districtNumber,
+          importId: id,
+        });
+      }
+
       const archive = await archiveWorksheetImportToDrive(admin, id);
 
       return NextResponse.json({
@@ -147,6 +159,7 @@ export async function POST(
         districtId: result.districtId,
         ytdWarnings: result.ytdWarnings,
         authMatchStats: result.authMatchStats ?? null,
+        schoolGroupLabels: result.schoolGroupLabels,
         schoolNameWarnings: result.schoolNameWarnings ?? [],
         skippedEmptyGroups: result.skippedEmptyGroups ?? [],
         servingMetrics: result.servingMetrics ?? null,

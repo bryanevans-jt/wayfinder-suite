@@ -73,14 +73,14 @@ Share [Getting Signed In](../shared/getting-signed-in.md) with every participant
 
 ---
 
-## 5. Timesheet
+## 5. Billable Hours (Timesheet)
 
-**Path:** Sidebar → **Timesheet** (`/dashboard/timesheet`)
+**Path:** Sidebar → **Billable Hours** (`/dashboard/billable-hours`)
 
-- Log billable activity by client and service date.
-- Submit weeks for supervisor approval.
+- Log billable activity by client and service date (from client profiles; review on Billable Hours).
+- No week submit or supervisor approval — pay is based on billable hours.
 - **Individual Job Placement** billable hours feed Accounts Specialist **IJP Billing** invoices (Generate Invoices). Non–Individual Job Placement hours are never billed on IJP invoices.
-- Hours worked for payroll come from **Time Clock**, not from billable timesheet lines. Accounts Specialist exports both payroll and billable-by-client files.
+- PTO requests are under sidebar → **PTO**.
 
 > **Screenshot:** `assets/screenshots/es-timesheet-week.png`
 
@@ -208,7 +208,7 @@ Counselors sign in to **Wayfinder Pro** with their **agency work email** (not `@
 
 ## 14. Transition Specialists and Pre-ETS
 
-Transition Specialists use this Employment Specialist shell **plus Pre-ETS** for released rosters, sessions, attendance, and CARs. Employment Specialists do **not** have Pre-ETS. **Accounts Specialists and Super Admins** upload Pre-ETS spreadsheets and enter authorization numbers; field staff work released rosters only.
+Transition Specialists use this Employment Specialist shell **plus Pre-ETS** for released rosters, sessions, attendance, and CARs. Employment Specialists do **not** have Pre-ETS. **Admin, Accounts Specialist, and Super Admin** upload Pre-ETS spreadsheets and enter authorization numbers; field staff work released rosters only.
 
 ---
 

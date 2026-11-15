@@ -1,6 +1,3 @@
-import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
-import { respondWithCronLoggedError } from "@wayfinder/supabase/error-log";
-import { processStaffClockCron } from "@wayfinder/supabase/staff-time-clock";
 import { NextResponse } from "next/server";
 
 function authorizeCron(request: Request): boolean {
@@ -12,17 +9,18 @@ function authorizeCron(request: Request): boolean {
   return auth === `Bearer ${secret}`;
 }
 
+/**
+ * Time Clock cron is retired (still-working prompts / auto-outs no longer run).
+ * Route kept registered in vercel.json so deploy cron config stays valid.
+ */
 export async function GET(request: Request) {
-  const route = "api/cron/staff-clock";
   if (!authorizeCron(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  try {
-    const admin = createServiceRoleClient();
-    const result = await processStaffClockCron(admin);
-    return NextResponse.json({ ok: true, ...result });
-  } catch (err) {
-    return respondWithCronLoggedError("staff", route, err);
-  }
+  return NextResponse.json({
+    ok: true,
+    retired: true,
+    message: "Staff Time Clock feature retired; cron is a no-op.",
+  });
 }

@@ -15,14 +15,12 @@ import {
 } from "@wayfinder/supabase/staff-time-clock-shared";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { isAdminTierRole, isSupervisorRole } from "@wayfinder/supabase/roles";
-import { shiftDurationMinutes } from "@wayfinder/supabase/staff-time-clock-shared";
 import { loadStaffNameById } from "@/lib/staff-names";
 import { loadClientDisplayNameById } from "@/lib/client-display-names";
 import { loadSupervisorScope } from "@/lib/supervisor-client-scope";
 import {
   summarizeTimeEntries,
   type EsTimeEntryRow,
-  type EsWeekSubmissionRow,
   type SupervisedEsOption,
   type TimesheetClientOption,
 } from "@/lib/es-time-client";
@@ -336,77 +334,7 @@ export async function loadMyBillableHoursSummary(
   };
 }
 
-export async function loadWeekSubmission(
-  admin: ReturnType<typeof createServiceRoleClient>,
-  esUserId: string,
-  weekStart: string
-): Promise<EsWeekSubmissionRow | null> {
-  const { data, error } = await admin
-    .from("es_time_week_submissions")
-    .select(
-      "id, es_user_id, week_start, week_end, total_minutes, status, submitted_at, approved_at, supervisor_notes"
-    )
-    .eq("es_user_id", esUserId)
-    .eq("week_start", weekStart)
-    .maybeSingle();
 
-  if (error) {
-    throw new Error(error.message);
-  }
-  if (!data) return null;
-
-  const names = await loadStaffNameById(admin, [esUserId], "ES");
-
-  return {
-    id: data.id as string,
-    es_user_id: data.es_user_id as string,
-    es_name: names.get(esUserId) ?? "ES",
-    week_start: data.week_start as string,
-    week_end: data.week_end as string,
-    total_minutes: data.total_minutes as number,
-    status: data.status as string,
-    submitted_at: (data.submitted_at as string | null) ?? null,
-    approved_at: (data.approved_at as string | null) ?? null,
-    supervisor_notes: (data.supervisor_notes as string | null) ?? null,
-  };
-}
-
-export async function loadPendingWeekSubmissionsForSupervisor(
-  admin: ReturnType<typeof createServiceRoleClient>,
-  supervisorUserId: string
-): Promise<EsWeekSubmissionRow[]> {
-  const scope = await loadSupervisorScope(admin, supervisorUserId);
-  const esIds = [...new Set(scope.esUserIds)].filter((id) => id !== supervisorUserId);
-  if (esIds.length === 0) return [];
-
-  const { data, error } = await admin
-    .from("es_time_week_submissions")
-    .select(
-      "id, es_user_id, week_start, week_end, total_minutes, status, submitted_at, approved_at, supervisor_notes"
-    )
-    .in("es_user_id", esIds)
-    .in("status", ["submitted"])
-    .order("week_start", { ascending: false });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const nameById = await loadStaffNameById(admin, esIds, "ES");
-
-  return (data ?? []).map((row) => ({
-    id: row.id as string,
-    es_user_id: row.es_user_id as string,
-    es_name: nameById.get(row.es_user_id as string) ?? "ES",
-    week_start: row.week_start as string,
-    week_end: row.week_end as string,
-    total_minutes: row.total_minutes as number,
-    status: row.status as string,
-    submitted_at: (row.submitted_at as string | null) ?? null,
-    approved_at: (row.approved_at as string | null) ?? null,
-    supervisor_notes: (row.supervisor_notes as string | null) ?? null,
-  }));
-}
 
 export function esTimeEntriesToCsv(entries: EsTimeEntryRow[], esName: string, weekStart: string): string {
   const header = [
@@ -624,33 +552,3 @@ export async function loadStaffEsPickerOptions(
   return [];
 }
 
-/** Closed + open Time Clock minutes for a staff member in a Sun–Sat local-date week. */
-export async function loadStaffClockMinutesForWeek(
-  admin: ReturnType<typeof createServiceRoleClient>,
-  staffUserId: string,
-  weekStart: string
-): Promise<number> {
-  const weekEnd = weekEndSaturday(weekStart);
-  const { data: shifts, error } = await admin
-    .from("staff_time_clock_shifts")
-    .select("clock_in_at, clock_out_at")
-    .eq("staff_user_id", staffUserId)
-    .gte("local_date", weekStart)
-    .lte("local_date", weekEnd);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const now = new Date();
-  return (shifts ?? []).reduce(
-    (sum, s) =>
-      sum +
-      shiftDurationMinutes(
-        s.clock_in_at as string,
-        (s.clock_out_at as string | null) ?? null,
-        now
-      ),
-    0
-  );
-}

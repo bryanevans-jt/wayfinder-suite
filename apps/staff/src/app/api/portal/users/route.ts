@@ -8,7 +8,7 @@ import {
   upsertStaffProfile,
 } from "@/lib/portal-staff-users";
 import {
-  isAssignableStaffRole,
+  canActorAssignStaffRole,
   isAdminRole,
   isAccountantRole,
   isHrRole,
@@ -31,7 +31,7 @@ function isManagedDirectoryRole(role: string | null | undefined): boolean {
 
 export async function POST(request: NextRequest) {
   try {
-    const { admin, isSuperAdmin } = await assertPortalMutation("super_admin");
+    const { admin, isSuperAdmin, role: actorRole } = await assertPortalMutation("super_admin");
     if (!isSuperAdmin) {
       return Response.json({ error: "Only super admin can assign staff roles" }, { status: 403 });
     }
@@ -48,9 +48,15 @@ export async function POST(request: NextRequest) {
     if (!email) {
       return Response.json({ error: "Email is required" }, { status: 400 });
     }
-    if (!isAssignableStaffRole(role)) {
+    if (!canActorAssignStaffRole(actorRole, role)) {
       return Response.json(
-        { error: "Choose a valid staff role to assign." },
+        {
+          error: isSuperAdminRole(role)
+            ? "Only Super Admin can assign Super Admin."
+            : isAdminRole(role)
+              ? "Only Super Admin can assign Admin."
+              : "Choose a valid staff role to assign.",
+        },
         { status: 400 }
       );
     }
@@ -125,11 +131,18 @@ export async function PATCH(request: NextRequest) {
 
     let nextRole = currentRole || "admin";
     if (body.role !== undefined) {
-      if (!isSuperAdmin) {
-        return Response.json({ error: "Only super admin can change roles" }, { status: 403 });
-      }
       const requested = body.role.trim().toLowerCase();
-      if (!isAssignableStaffRole(requested) && requested !== "super_admin") {
+      // Org Admin must never grant Admin or Super Admin (or any other role change here).
+      if (!isSuperAdmin) {
+        return Response.json(
+          {
+            error:
+              "Only Super Admin can change roles. Admins cannot assign Admin or Super Admin.",
+          },
+          { status: 403 }
+        );
+      }
+      if (!canActorAssignStaffRole("super_admin", requested)) {
         return Response.json({ error: "Invalid role" }, { status: 400 });
       }
       nextRole = requested;

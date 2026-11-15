@@ -7,7 +7,7 @@
 
 **Pre-conference (separate — not in this block):**
 
-- **Admins & supervisors** — portal, assignments, counselor provisioning, compliance, timesheet approval. Manuals: [Org Admin](../roles/org-admin-manual.md) · [Supervisor](../roles/supervisor-manual.md).
+- **Admins & supervisors** — portal, assignments, counselor provisioning, compliance, billable hours. Manuals: [Org Admin](../roles/org-admin-manual.md) · [Supervisor](../roles/supervisor-manual.md).
 - **Joshua Tree Culture session (earlier)** — values in depth. At **Part H**, point to the binder text; do not re-read all four values aloud unless time allows.
 
 **Handouts:** Printed or PDF binder · [Participant Workbook](./ga-participant-workbook.md) for exercises
@@ -76,7 +76,7 @@ If behind: shorten **F** (checklists only), **G** (one sentence each), **H** (Co
 - **Contact log** — **P0:** counselors see **Notes** only; internal notes stay ES-only; feeds **SE Monthly prefill** (Part E).
 - **Applications** — Applied → Interview → Offer → Hired; **job start date** at hire.
 - **Messages** — **24 business-hour SLA**; notifications for overdue threads.
-- **Timesheet** — log weekly; submit week for supervisor approval.
+- **Billable Hours** — log weekly billable time (no submit/approve).
 
 **Hands-on (Workbook Exercises 1–3, 5):**
 
