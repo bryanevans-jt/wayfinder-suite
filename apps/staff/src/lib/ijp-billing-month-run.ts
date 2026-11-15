@@ -194,11 +194,32 @@ export async function runIjpBillingMonthChunk(
           settings,
           refreshIfUnlocked: true,
         });
-        if (row.created) created += 1;
-        if (row.refreshed) refreshed += 1;
-        if (row.locked) {
+        if (row.empty) {
+          failedClients.push({
+            clientId,
+            reason:
+              "No billable IJP hours to put on an invoice (queue/line attribution mismatch or hours already skipped).",
+          });
+          rowFailures += 1;
+        } else if (row.created) {
+          created += 1;
+          await updateMissingAttestationFlag(admin, {
+            clientId,
+            serviceMonth,
+            invoiceId: row.id,
+            isTest,
+          });
+        } else if (row.refreshed) {
+          refreshed += 1;
+          await updateMissingAttestationFlag(admin, {
+            clientId,
+            serviceMonth,
+            invoiceId: row.id,
+            isTest,
+          });
+        } else if (row.locked) {
           skippedLocked += 1;
-        } else {
+        } else if (row.id) {
           await updateMissingAttestationFlag(admin, {
             clientId,
             serviceMonth,
@@ -260,6 +281,23 @@ export async function runIjpBillingMonthChunk(
         }
         // Idempotent compile: keep existing PDF unless missing.
         if (invoice.compiled_at && invoice.invoice_only_drive_file_id) {
+          continue;
+        }
+        const { data: full } = await admin
+          .from("ijp_billing_invoices")
+          .select("total_hours, line_items")
+          .eq("id", invoice.id)
+          .maybeSingle();
+        const hours = Number(full?.total_hours) || 0;
+        const lines = (full?.line_items as { hours?: number }[] | null) ?? [];
+        const hasHours =
+          hours > 0 || lines.some((line) => (Number(line?.hours) || 0) > 0);
+        if (!hasHours) {
+          compileErrors += 1;
+          failedClients.push({
+            clientId,
+            reason: "compile: skipped 0-hour invoice",
+          });
           continue;
         }
         try {

@@ -107,6 +107,8 @@ export function episodeCoversServiceDate(
  *    (authoritative for mid-period switches — hours follow the episode on the entry).
  * 2. If the entry has no episode link, attribute to IJP when any of the client's
  *    IJP service episodes covers the entry's `service_date`.
+ * 3. If still unlinked and no covering episode, attribute to IJP when the client's
+ *    `current_service_id` is an IJP service (same basis GVRA allowance grants use).
  *
  * Non-IJP episode on the entry → not IJP (other-service hours never land on IJP invoices).
  */
@@ -117,6 +119,8 @@ export function timeEntryAttributedToIjpService(opts: {
   entryEpisode?: IjpAttributionEpisode | null;
   clientEpisodes: readonly IjpAttributionEpisode[];
   ijpServiceIds: string | readonly string[];
+  /** clients.current_service_id — used when the entry has no episode link. */
+  currentServiceId?: string | null;
 }): boolean {
   const ijpIds = asIjpServiceIdSet(opts.ijpServiceIds);
   const serviceDate = (opts.serviceDate ?? "").slice(0, 10);
@@ -133,11 +137,18 @@ export function timeEntryAttributedToIjpService(opts: {
     return ijpIds.has((linked.service_id as string) ?? "");
   }
 
-  return opts.clientEpisodes.some(
-    (ep) =>
-      ijpIds.has((ep.service_id as string) ?? "") &&
-      episodeCoversServiceDate(ep, serviceDate)
-  );
+  if (
+    opts.clientEpisodes.some(
+      (ep) =>
+        ijpIds.has((ep.service_id as string) ?? "") &&
+        episodeCoversServiceDate(ep, serviceDate)
+    )
+  ) {
+    return true;
+  }
+
+  const current = (opts.currentServiceId ?? "").trim();
+  return Boolean(current && ijpIds.has(current));
 }
 
 /** Billable + IJP-attributed entries (pure; for generate targets / line filters / tests). */
@@ -147,6 +158,7 @@ export function filterIjpAttributedBillableEntries(
     clientEpisodes: readonly IjpAttributionEpisode[];
     ijpServiceIds: string | readonly string[];
     episodesById?: Map<string, IjpAttributionEpisode>;
+    currentServiceId?: string | null;
   }
 ): BillableTimeEntryRow[] {
   const out: BillableTimeEntryRow[] = [];
@@ -173,6 +185,7 @@ export function filterIjpAttributedBillableEntries(
         entryEpisode,
         clientEpisodes: opts.clientEpisodes,
         ijpServiceIds: opts.ijpServiceIds,
+        currentServiceId: opts.currentServiceId,
       })
     ) {
       out.push(row);
@@ -560,38 +573,44 @@ async function loadBillableHoursClientIdsInMonth(
   ];
   if (clientIds.length === 0) return [];
 
-  const { byClient: episodesByClient, byId: episodesById } =
-    await loadClientEpisodesByClientId(admin, clientIds);
+  const [{ byClient: episodesByClient, byId: episodesById }, profiles] =
+    await Promise.all([
+      loadClientEpisodesByClientId(admin, clientIds),
+      fetchAllPostgrestRowsByIn<{
+        id: string;
+        is_demo: boolean | null;
+        current_service_id: string | null;
+      }>(admin, "clients", "id, is_demo, current_service_id", "id", clientIds, {
+        order: { column: "id", ascending: true },
+      }),
+    ]);
+  const currentByClient = new Map(
+    profiles.map((p) => [p.id as string, (p.current_service_id as string | null) ?? null])
+  );
+  const demoIds = new Set(
+    profiles.filter((p) => p.is_demo === true).map((p) => p.id as string)
+  );
 
-  const withIjpHours = new Set<string>();
   const byClientEntries: Record<string, BillableTimeEntryRow[]> = {};
   for (const row of rows) {
     const clientId = row.client_id as string;
-    if (!clientId) continue;
+    if (!clientId || demoIds.has(clientId)) continue;
     const list = byClientEntries[clientId] ?? [];
     list.push(row);
     byClientEntries[clientId] = list;
   }
+
+  const withIjpHours = new Set<string>();
   for (const [clientId, entries] of Object.entries(byClientEntries)) {
     const ijpEntries = filterIjpAttributedBillableEntries(entries, {
       clientEpisodes: episodesByClient[clientId] ?? [],
       ijpServiceIds,
       episodesById,
+      currentServiceId: currentByClient.get(clientId) ?? null,
     });
     if (ijpEntries.length > 0) withIjpHours.add(clientId);
   }
-  if (withIjpHours.size === 0) return [];
-
-  const profiles = await fetchAllPostgrestRowsByIn<{
-    id: string;
-    is_demo: boolean | null;
-  }>(admin, "clients", "id, is_demo", "id", [...withIjpHours], {
-    order: { column: "id", ascending: true },
-  });
-  const demoIds = new Set(
-    profiles.filter((p) => p.is_demo === true).map((p) => p.id as string)
-  );
-  return [...withIjpHours].filter((id) => !demoIds.has(id)).sort();
+  return [...withIjpHours].sort();
 }
 
 /**
@@ -628,24 +647,27 @@ export async function clientHasUnbilledIjpBillableHoursInMonth(
   const ijpServiceIds = await resolveGaIjpServiceIds(admin);
   if (ijpServiceIds.length === 0) return false;
 
-  const { data: rows } = await admin
-    .from("es_time_entries")
-    .select(
-      "id, service_episode_id, duration_minutes, flags, client_present, delivery_mode, service_date, status, ijp_billed_invoice_id, service_activity_types ( code, counts_toward_client_billable )"
-    )
-    .eq("client_id", clientId)
-    .is("ijp_billed_invoice_id", null)
-    .neq("status", "rejected")
-    .gte("service_date", month)
-    .lte("service_date", monthEnd);
-
-  const { byClient, byId } = await loadClientEpisodesByClientId(admin, [clientId]);
+  const [{ data: rows }, { data: clientRow }, { byClient, byId }] = await Promise.all([
+    admin
+      .from("es_time_entries")
+      .select(
+        "id, service_episode_id, duration_minutes, flags, client_present, delivery_mode, service_date, status, ijp_billed_invoice_id, service_activity_types ( code, counts_toward_client_billable )"
+      )
+      .eq("client_id", clientId)
+      .is("ijp_billed_invoice_id", null)
+      .neq("status", "rejected")
+      .gte("service_date", month)
+      .lte("service_date", monthEnd),
+    admin.from("clients").select("current_service_id").eq("id", clientId).maybeSingle(),
+    loadClientEpisodesByClientId(admin, [clientId]),
+  ]);
   const ijpEntries = filterIjpAttributedBillableEntries(
     (rows ?? []) as BillableTimeEntryRow[],
     {
       clientEpisodes: byClient[clientId] ?? [],
       ijpServiceIds,
       episodesById: byId,
+      currentServiceId: (clientRow?.current_service_id as string | null) ?? null,
     }
   );
   return ijpEntries.length > 0;

@@ -9,12 +9,15 @@ import {
   IJP_GVRA_ALLOWANCE_HOURS,
   IJP_INVOICE_SERVICE_CODE,
   ijpGvraAllowanceEntryId,
+  ijpInvoiceLinesHaveBillableHours,
   ijpLineServiceDescription,
   invoiceLinesAreManuallyAdjusted,
   isIjpInvoiceEligibleForDraftLineRefresh,
   isManualIjpLine,
+  isSyntheticGvraAllowanceIjpLine,
   markIjpLinesManuallyAdjusted,
   mergeIjpInvoiceLinesWithManual,
+  omitSyntheticGvraAllowanceLines,
   roundIjpLineHours,
   roundIjpLineHoursFromMinutes,
   sumIjpLineItems,
@@ -271,6 +274,76 @@ describe("sumIjpLineItems hour ceiling", () => {
     ]);
     assert.equal(totals.totalHours, 3); // 2.5 → 3
     assert.equal(totals.totalAmountCents, 15000);
+  });
+});
+
+describe("synthetic GVRA allowance helpers", () => {
+  it("identifies gvra-allowance:* keyed lines as synthetic", () => {
+    assert.equal(
+      isSyntheticGvraAllowanceIjpLine(
+        line({
+          entryId: ijpGvraAllowanceEntryId("client-1", "2026-10-01"),
+          description: IJP_GVRA_ALLOWANCE_DESCRIPTION,
+          hours: IJP_GVRA_ALLOWANCE_HOURS,
+          source: "gvra_allowance",
+        })
+      ),
+      true
+    );
+    assert.equal(
+      isSyntheticGvraAllowanceIjpLine(
+        line({
+          entryId: "es-entry-1",
+          description: IJP_GVRA_ALLOWANCE_DESCRIPTION,
+          hours: IJP_GVRA_ALLOWANCE_HOURS,
+          source: "gvra_allowance",
+        })
+      ),
+      false
+    );
+  });
+
+  it("omits only synthetic allotment lines (keeps ES-backed GVRA)", () => {
+    const synthetic = line({
+      entryId: ijpGvraAllowanceEntryId("client-1", "2026-10-01"),
+      description: IJP_GVRA_ALLOWANCE_DESCRIPTION,
+      hours: IJP_GVRA_ALLOWANCE_HOURS,
+      source: "gvra_allowance",
+    });
+    const esGvra = line({
+      entryId: "es-entry-1",
+      description: IJP_GVRA_ALLOWANCE_DESCRIPTION,
+      hours: 2,
+      source: "gvra_allowance",
+    });
+    const regular = line({ entryId: "es-entry-2", hours: 1.5 });
+    const kept = omitSyntheticGvraAllowanceLines([synthetic, esGvra, regular]);
+    assert.equal(kept.length, 2);
+    assert.equal(kept[0]?.entryId, "es-entry-1");
+    assert.equal(kept[1]?.entryId, "es-entry-2");
+  });
+
+  it("detects billable hours including synthetic allotment", () => {
+    assert.equal(ijpInvoiceLinesHaveBillableHours([]), false);
+    assert.equal(
+      ijpInvoiceLinesHaveBillableHours([
+        line({
+          entryId: ijpGvraAllowanceEntryId("client-1", "2026-10-01"),
+          description: IJP_GVRA_ALLOWANCE_DESCRIPTION,
+          hours: IJP_GVRA_ALLOWANCE_HOURS,
+          source: "gvra_allowance",
+        }),
+      ]),
+      true
+    );
+    assert.equal(
+      ijpInvoiceLinesHaveBillableHours([line({ hours: 0 })]),
+      false
+    );
+    assert.equal(
+      ijpInvoiceLinesHaveBillableHours([line({ hours: 1.25 })]),
+      true
+    );
   });
 });
 

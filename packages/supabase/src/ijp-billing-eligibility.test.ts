@@ -198,6 +198,41 @@ describe("IJP time-entry service attribution", () => {
     );
   });
 
+  it("falls back to current_service_id when unlinked and no covering episode", () => {
+    assert.equal(
+      timeEntryAttributedToIjpService({
+        serviceDate: "2026-10-31",
+        serviceEpisodeId: null,
+        clientEpisodes: [],
+        ijpServiceIds: [GA_IJP],
+        currentServiceId: GA_IJP,
+      }),
+      true
+    );
+    assert.equal(
+      timeEntryAttributedToIjpService({
+        serviceDate: "2026-10-31",
+        serviceEpisodeId: null,
+        clientEpisodes: [],
+        ijpServiceIds: [GA_IJP],
+        currentServiceId: OTHER,
+      }),
+      false
+    );
+    // Linked non-IJP episode still wins over current IJP service.
+    assert.equal(
+      timeEntryAttributedToIjpService({
+        serviceDate: "2026-10-31",
+        serviceEpisodeId: "ep-other",
+        entryEpisode: otherEpisode,
+        clientEpisodes: [otherEpisode],
+        ijpServiceIds: [GA_IJP],
+        currentServiceId: GA_IJP,
+      }),
+      false
+    );
+  });
+
   it("excludes non-IJP hours from IJP-attributed billable filter", () => {
     const episodes = [ijpEpisode, otherEpisode];
     const filtered = filterIjpAttributedBillableEntries(
