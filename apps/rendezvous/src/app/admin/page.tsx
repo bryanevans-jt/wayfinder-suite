@@ -66,7 +66,8 @@ export default async function AdminPage() {
         </h1>
         <p className="rv-rise rv-rise-delay-3 mt-3 max-w-2xl text-lg text-brand-black/70">
           Team booking pages are created automatically for every Wayfinder team member.
-          Pages stay closed until you turn them on.
+          Pages stay closed until you turn them on. Anyone with Admin Setup access can edit
+          any member&apos;s schedule — that is intentional for shared operations.
         </p>
 
         <section className="rv-rise rv-rise-delay-3 mt-12">

@@ -93,7 +93,7 @@ export function PayrollSettingsPanel() {
         <p className="text-xs text-brand-black/55">
           Accounts Specialist and HR download billable-by-client CSVs at{" "}
           <code className="rounded bg-neutral-100 px-1">/api/exports/billable</code>. Pay is based on
-          billable hours (Time Clock hours-worked export retired).
+          billable hours.
         </p>
       </div>
     </section>

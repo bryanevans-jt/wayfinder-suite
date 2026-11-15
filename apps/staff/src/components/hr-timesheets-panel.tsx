@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-/** HR timesheet tab — Time Clock payroll view retired; billable review lives on Billable Hours. */
+/** HR / Admin timesheet tab — billable review lives on Billable Hours. */
 export function HrTimesheetsPanel() {
   return (
     <section className="space-y-6">
@@ -10,7 +10,7 @@ export function HrTimesheetsPanel() {
         <h2 className="text-base font-semibold text-brand-black">Weekly Timesheet</h2>
         <p className="mt-1 text-sm text-brand-black/70">
           Review billable service time by team member and week. Pay is based on billable hours — there
-          is no Time Clock or week submit/approve step.
+          is no week submit/approve step.
         </p>
         <Link
           href="/dashboard/billable-hours#weekly-timesheet"

@@ -54,7 +54,7 @@ function sectionsForRole(role: string | null): Section[] {
           "Submit Reports: Joshua Tree Reports — official PDF submissions to Google Drive.",
           "Explore Analytics: live charts and outcome benchmarking for leadership.",
           "Reports → Audit Activity: administrative audit trails (not client monthly reports).",
-          "Billable Hours: review weekly billable timesheets. Pay is based on billable hours (Time Clock retired). PTO lives under sidebar → PTO.",
+          "Billable Hours: review weekly billable timesheets. Pay is based on billable hours. PTO lives under sidebar → PTO.",
         ],
       },
       {
@@ -192,7 +192,7 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Billable Hours",
         body:
-          "Billable Hours shows client billable service time for your team. Pay is based on billable hours — there is no Time Clock or week submit/approve step.",
+          "Billable Hours shows client billable service time for your team. Pay is based on billable hours — there is no week submit/approve step.",
         steps: [
           "Open Billable Hours to review weekly timesheets for yourself and supervised Employment Specialists.",
           "Download CSV or PDFs from the weekly timesheet section as needed.",
@@ -274,7 +274,7 @@ function sectionsForRole(role: string | null): Section[] {
       {
         title: "Billable Hours (Timesheet)",
         body:
-          "Billable Hours is for client billable service activities (state billing). Pay is based on these billable hours — there is no separate Time Clock and no week submit/approve step. Individual Job Placement billable hours feed Accounts Specialist IJP invoices.",
+          "Billable Hours is for client billable service activities (state billing). Pay is based on these billable hours — there is no week submit/approve step. Individual Job Placement billable hours feed Accounts Specialist IJP invoices.",
         steps: [
           "Open Billable Hours to review billable entries and download CSV or PDFs.",
           "Soft caseload guidance is about 20 active clients — supervisors/HR may allow more when needed.",

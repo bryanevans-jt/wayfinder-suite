@@ -19,7 +19,7 @@ export default async function StaffPtoPage() {
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
       <h1 className="text-2xl font-bold text-brand-green">PTO</h1>
       <p className="mt-2 max-w-2xl text-sm text-brand-black/75">
-        Request paid time off, track status, and (for HR and admins) manage the organization queue.
+        Request paid time off, track status, and (for Admins) manage the organization queue.
         Counselors and clients do not use PTO in Wayfinder Pro.
       </p>
       <div className="mt-8">

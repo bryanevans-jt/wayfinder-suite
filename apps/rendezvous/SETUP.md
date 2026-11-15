@@ -83,7 +83,7 @@ The app impersonates each staff member’s primary calendar for free/busy + even
    - Enable DKIM for the domain in Admin → Apps → Google Workspace → Gmail → Authenticate email
    - DMARC: start with `p=none` monitoring if not already set; tighten later
 4. Set `RENDEZVOUS_FROM_EMAIL=scheduling@thejoshuatree.org`
-5. Keep `RENDEZVOUS_EMAILS_ENABLED=false` until you are ready. Explicit test path: set `RENDEZVOUS_ALLOW_TEST_EMAIL=true` and POST with `"forceTestEmail": true` to `/api/book` (still requires a bookable schedule).
+5. Production has `RENDEZVOUS_EMAILS_ENABLED=true` (booking / cancel / reschedule emails are on). For local or staging, leave it `false` until the mailbox and SPF/DKIM look good. Explicit test path when emails are off: set `RENDEZVOUS_ALLOW_TEST_EMAIL=true` and POST with `"forceTestEmail": true` to `/api/book` (still requires a bookable schedule).
 
 ---
 
@@ -127,7 +127,7 @@ NEXT_PUBLIC_RENDEZVOUS_APP_URL=https://rendezvous.thejoshuatree.org
 | `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` | yes | PEM with `\n` newlines |
 | `GOOGLE_CALENDAR_WEBHOOK_TOKEN` | yes | Random secret for push channel token |
 | `RENDEZVOUS_FROM_EMAIL` | yes | Default `scheduling@thejoshuatree.org` |
-| `RENDEZVOUS_EMAILS_ENABLED` | yes | `false` until launch testing |
+| `RENDEZVOUS_EMAILS_ENABLED` | yes | Production: `true` (emails on). Local/staging may stay `false` until mailbox ready. |
 | `RENDEZVOUS_ALLOW_TEST_EMAIL` | optional | `true` only for explicit test sends |
 | `CRON_SECRET` | yes | Bearer for `/api/cron/renew-watches` |
 | `NEXT_PUBLIC_VAPID_*` / `VAPID_*` | optional | Same as staff for in-app push |
@@ -148,10 +148,10 @@ Do not add Google service account keys to the staff project unless you later sha
 2. Sign in to Wayfinder Pro as Bryan (super admin).
 3. Super Admin Portal → Feature Toggles → enable **Rendezvous**.
 4. Open **Rendezvous** (link appears under the toggle, or visit `/dashboard/rendezvous`).
-5. In Rendezvous → Admin setup: create a schedule for a test staff member.
+5. In Rendezvous → **Admin Setup**: team booking pages are created automatically. Anyone who can open Admin Setup may edit **any** team member’s schedule — that is intentional (shared ops configuration, not self-service only).
 6. Leave **Booking page is ON** unchecked until you are ready; then enable **only** the test schedule.
 7. Open `/book/<slug>` in a private window (no staff session required).
-8. Keep `RENDEZVOUS_EMAILS_ENABLED=false` until mailbox + SPF/DKIM look good; use `forceTestEmail` sparingly.
+8. Production already runs with `RENDEZVOUS_EMAILS_ENABLED=true`. On non-prod, keep emails off until mailbox + SPF/DKIM look good; use `forceTestEmail` sparingly.
 
 ### Team Calendar visibility (server-enforced on `GET /api/calendar`)
 
