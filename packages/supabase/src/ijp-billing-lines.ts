@@ -464,8 +464,8 @@ export async function buildIjpInvoiceLineItems(
       .map((ep) => [ep.id as string, ep])
   );
   const currentServiceId = (clientRow?.current_service_id as string | null) ?? null;
-  // IJP invoices include only hours attributable to IJP (entry episode service,
-  // covering IJP episode, or current_service_id when unlinked).
+  // IJP invoices include only hours whose service-on-date is IJP (linked episode,
+  // covering episode of any service, or conservative current_service fallback).
   const attributedRows = (entries ?? []).filter((row) => {
     const episodeId = (row.service_episode_id as string | null) ?? null;
     return timeEntryAttributedToIjpService({

@@ -59,6 +59,8 @@ type MonthClientRow = {
   archived: boolean;
   billableIjpHours: number;
   unbilledIjpHours: number;
+  unattributedHours?: number;
+  unattributedEntryCount?: number;
   status: string;
   invoices: Array<{
     id: string;
@@ -81,6 +83,8 @@ function monthClientStatusLabel(status: string): string {
       return "Not invoiced yet";
     case "empty_draft":
       return "Empty draft (needs Generate)";
+    case "unattributed":
+      return "Unattributed hours";
     case "draft":
       return "Draft";
     case "compiled":
@@ -123,6 +127,8 @@ export function IjpBillingWorkspace() {
     missingCount: number;
     complete: boolean;
     missingClients: Array<{ id: string; name: string }>;
+    unattributedClientCount?: number;
+    unattributedEntryCount?: number;
   } | null>(null);
 
   const loadCompleteness = useCallback(async () => {
@@ -135,6 +141,8 @@ export function IjpBillingWorkspace() {
       missingCount?: number;
       complete?: boolean;
       missingClients?: Array<{ id: string; name: string }>;
+      unattributedClientCount?: number;
+      unattributedEntryCount?: number;
       error?: string;
     };
     if (!res.ok) {
@@ -147,6 +155,8 @@ export function IjpBillingWorkspace() {
       missingCount: data.missingCount ?? 0,
       complete: Boolean(data.complete),
       missingClients: data.missingClients ?? [],
+      unattributedClientCount: data.unattributedClientCount ?? 0,
+      unattributedEntryCount: data.unattributedEntryCount ?? 0,
     });
   }, [month]);
 
@@ -588,6 +598,16 @@ export function IjpBillingWorkspace() {
               ? " — complete."
               : ` — ${completeness.missingCount} still need generate (unbilled IJP hours or missing).`}
           </p>
+          {(completeness.unattributedEntryCount ?? 0) > 0 ? (
+            <p className="mt-1 text-amber-950">
+              {completeness.unattributedEntryCount} billable entr
+              {(completeness.unattributedEntryCount ?? 0) === 1 ? "y" : "ies"} across{" "}
+              {completeness.unattributedClientCount} client
+              {(completeness.unattributedClientCount ?? 0) === 1 ? "" : "s"} could not be
+              attributed to a service on the entry date (review episode history — Generate will
+              not bill these).
+            </p>
+          ) : null}
           {!completeness.complete && completeness.missingClients.length > 0 ? (
             <ul className="mt-2 list-disc space-y-0.5 pl-5">
               {completeness.missingClients.slice(0, 40).map((c) => (
@@ -719,6 +739,13 @@ export function IjpBillingWorkspace() {
                             {client.invoices.length > 1 ? (
                               <div className="text-xs text-brand-black/55">
                                 {client.invoices.length} invoices this month
+                              </div>
+                            ) : null}
+                            {(client.unattributedEntryCount ?? 0) > 0 ? (
+                              <div className="text-xs text-amber-800">
+                                {formatIjpListHours(client.unattributedHours ?? 0)} unattributed (
+                                {client.unattributedEntryCount} entr
+                                {client.unattributedEntryCount === 1 ? "y" : "ies"})
                               </div>
                             ) : null}
                           </div>

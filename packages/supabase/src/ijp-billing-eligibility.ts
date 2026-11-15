@@ -99,32 +99,83 @@ export function episodeCoversServiceDate(
   return start <= serviceDate && end >= serviceDate;
 }
 
+/** Whether a service episode overlaps the calendar month of `serviceDate`. */
+export function episodeOverlapsServiceMonth(
+  episode: Pick<IjpAttributionEpisode, "started_at" | "ended_at">,
+  serviceDate: string
+): boolean {
+  const day = (serviceDate ?? "").slice(0, 10);
+  if (!day) return false;
+  const monthStart = serviceMonthStartFromYmd(day);
+  const monthEnd = serviceMonthEndYmd(monthStart);
+  const start = (episode.started_at ?? "").slice(0, 10);
+  if (!start) return false;
+  const end = episode.ended_at ? episode.ended_at.slice(0, 10) : "9999-12-31";
+  return start <= monthEnd && end >= monthStart;
+}
+
 /**
- * Attribute a time entry to IJP (Individual Job Placement / (GA) / IJP — one service).
+ * Episode covering `serviceDate` (any service). When several cover the date,
+ * prefer the latest `started_at` (most recent enrollment on that day).
+ */
+export function findEpisodeCoveringServiceDate(
+  episodes: readonly IjpAttributionEpisode[],
+  serviceDate: string
+): IjpAttributionEpisode | null {
+  const day = (serviceDate ?? "").slice(0, 10);
+  if (!day) return null;
+  const covering = episodes.filter((ep) => episodeCoversServiceDate(ep, day));
+  if (covering.length === 0) return null;
+  covering.sort((a, b) => {
+    const as = (a.started_at ?? "").slice(0, 10);
+    const bs = (b.started_at ?? "").slice(0, 10);
+    return (
+      bs.localeCompare(as) ||
+      String(b.id ?? "").localeCompare(String(a.id ?? ""))
+    );
+  });
+  return covering[0] ?? null;
+}
+
+export type IjpEntryAttributionStatus = "ijp" | "not_ijp" | "unattributed";
+
+export type IjpEntryAttribution = {
+  status: IjpEntryAttributionStatus;
+  via:
+    | "linked_episode"
+    | "covering_episode"
+    | "current_service"
+    | "unattributed_gap"
+    | "missing_linked_episode"
+    | "none";
+};
+
+/**
+ * Attribute a time entry to IJP by the service in effect ON the entry's date.
  *
  * Rules (in order):
- * 1. If the entry has `service_episode_id`, use that episode's `service_id` only
- *    (authoritative for mid-period switches — hours follow the episode on the entry).
- * 2. If the entry has no episode link, attribute to IJP when any of the client's
- *    IJP service episodes covers the entry's `service_date`.
- * 3. If still unlinked and no covering episode, attribute to IJP when the client's
- *    `current_service_id` is an IJP service (same basis GVRA allowance grants use).
- *
- * Non-IJP episode on the entry → not IJP (other-service hours never land on IJP invoices).
+ * 1. Linked `service_episode_id` → that episode's service (IJP or not).
+ * 2. Else the episode covering `service_date` (any service) → IJP only if that
+ *    episode is IJP; non-IJP covering episode excludes the hour.
+ * 3. Else (no covering episode of any kind): if a non-IJP episode overlaps the
+ *    entry's month, leave unattributed (conservative — do not invent IJP).
+ *    Otherwise fall back to `clients.current_service_id`.
  */
-export function timeEntryAttributedToIjpService(opts: {
+export function classifyIjpTimeEntryAttribution(opts: {
   serviceDate: string;
   serviceEpisodeId?: string | null;
   /** Episode row for the entry's service_episode_id when known. */
   entryEpisode?: IjpAttributionEpisode | null;
   clientEpisodes: readonly IjpAttributionEpisode[];
   ijpServiceIds: string | readonly string[];
-  /** clients.current_service_id — used when the entry has no episode link. */
+  /** clients.current_service_id — last-resort when no episode covers the date. */
   currentServiceId?: string | null;
-}): boolean {
+}): IjpEntryAttribution {
   const ijpIds = asIjpServiceIdSet(opts.ijpServiceIds);
   const serviceDate = (opts.serviceDate ?? "").slice(0, 10);
-  if (!serviceDate || ijpIds.size === 0) return false;
+  if (!serviceDate || ijpIds.size === 0) {
+    return { status: "not_ijp", via: "none" };
+  }
 
   const episodeId = opts.serviceEpisodeId ?? null;
   if (episodeId) {
@@ -133,22 +184,105 @@ export function timeEntryAttributedToIjpService(opts: {
       (!opts.entryEpisode.id || opts.entryEpisode.id === episodeId)
         ? opts.entryEpisode
         : opts.clientEpisodes.find((ep) => ep.id === episodeId) ?? null;
-    if (!linked) return false;
-    return ijpIds.has((linked.service_id as string) ?? "");
+    if (!linked) {
+      return { status: "unattributed", via: "missing_linked_episode" };
+    }
+    return {
+      status: ijpIds.has((linked.service_id as string) ?? "") ? "ijp" : "not_ijp",
+      via: "linked_episode",
+    };
   }
 
-  if (
-    opts.clientEpisodes.some(
-      (ep) =>
-        ijpIds.has((ep.service_id as string) ?? "") &&
-        episodeCoversServiceDate(ep, serviceDate)
-    )
-  ) {
-    return true;
+  const covering = findEpisodeCoveringServiceDate(opts.clientEpisodes, serviceDate);
+  if (covering) {
+    return {
+      status: ijpIds.has((covering.service_id as string) ?? "") ? "ijp" : "not_ijp",
+      via: "covering_episode",
+    };
+  }
+
+  const nonIjpOverlapsMonth = opts.clientEpisodes.some(
+    (ep) =>
+      !ijpIds.has((ep.service_id as string) ?? "") &&
+      episodeOverlapsServiceMonth(ep, serviceDate)
+  );
+  if (nonIjpOverlapsMonth) {
+    return { status: "unattributed", via: "unattributed_gap" };
   }
 
   const current = (opts.currentServiceId ?? "").trim();
-  return Boolean(current && ijpIds.has(current));
+  if (!current) return { status: "not_ijp", via: "none" };
+  return {
+    status: ijpIds.has(current) ? "ijp" : "not_ijp",
+    via: "current_service",
+  };
+}
+
+/** True when the entry counts as Individual Job Placement for billing. */
+export function timeEntryAttributedToIjpService(opts: {
+  serviceDate: string;
+  serviceEpisodeId?: string | null;
+  entryEpisode?: IjpAttributionEpisode | null;
+  clientEpisodes: readonly IjpAttributionEpisode[];
+  ijpServiceIds: string | readonly string[];
+  currentServiceId?: string | null;
+}): boolean {
+  return classifyIjpTimeEntryAttribution(opts).status === "ijp";
+}
+
+function resolveEntryEpisodeForAttribution(
+  row: BillableTimeEntryRow,
+  opts: {
+    clientEpisodes: readonly IjpAttributionEpisode[];
+    episodesById?: Map<string, IjpAttributionEpisode>;
+  }
+): IjpAttributionEpisode | null {
+  const episodeId = row.service_episode_id ?? null;
+  if (!episodeId) return null;
+  if (opts.episodesById) return opts.episodesById.get(episodeId) ?? null;
+  return opts.clientEpisodes.find((ep) => ep.id === episodeId) ?? null;
+}
+
+/** Partition billable entries by date-based IJP attribution (shared rule). */
+export function partitionBillableEntriesByIjpAttribution(
+  rows: readonly BillableTimeEntryRow[],
+  opts: {
+    clientEpisodes: readonly IjpAttributionEpisode[];
+    ijpServiceIds: string | readonly string[];
+    episodesById?: Map<string, IjpAttributionEpisode>;
+    currentServiceId?: string | null;
+  }
+): {
+  ijp: BillableTimeEntryRow[];
+  notIjp: BillableTimeEntryRow[];
+  unattributed: BillableTimeEntryRow[];
+} {
+  const ijp: BillableTimeEntryRow[] = [];
+  const notIjp: BillableTimeEntryRow[] = [];
+  const unattributed: BillableTimeEntryRow[] = [];
+  for (const row of rows) {
+    const embed = row.service_activity_types;
+    const activity = Array.isArray(embed) ? embed[0] : embed;
+    if (
+      !entryCountsTowardClientBillableWithActivity(row as ClientBillableEntry, activity) ||
+      !((row.duration_minutes as number) > 0)
+    ) {
+      continue;
+    }
+    const episodeId = row.service_episode_id ?? null;
+    const attribution = classifyIjpTimeEntryAttribution({
+      serviceDate: (row.service_date as string) ?? "",
+      serviceEpisodeId: episodeId,
+      entryEpisode: resolveEntryEpisodeForAttribution(row, opts),
+      clientEpisodes: opts.clientEpisodes,
+      ijpServiceIds: opts.ijpServiceIds,
+      currentServiceId: opts.currentServiceId,
+    });
+    if (attribution.status === "ijp") ijp.push(row);
+    else if (attribution.status === "unattributed") unattributed.push(row);
+    else notIjp.push(row);
+  }
+  return { ijp, notIjp, unattributed };
 }
 
 /** Billable + IJP-attributed entries (pure; for generate targets / line filters / tests). */
@@ -161,37 +295,7 @@ export function filterIjpAttributedBillableEntries(
     currentServiceId?: string | null;
   }
 ): BillableTimeEntryRow[] {
-  const out: BillableTimeEntryRow[] = [];
-  for (const row of rows) {
-    const embed = row.service_activity_types;
-    const activity = Array.isArray(embed) ? embed[0] : embed;
-    if (
-      !entryCountsTowardClientBillableWithActivity(row as ClientBillableEntry, activity) ||
-      !((row.duration_minutes as number) > 0)
-    ) {
-      continue;
-    }
-    const episodeId = row.service_episode_id ?? null;
-    const entryEpisode =
-      episodeId && opts.episodesById
-        ? opts.episodesById.get(episodeId) ?? null
-        : episodeId
-          ? opts.clientEpisodes.find((ep) => ep.id === episodeId) ?? null
-          : null;
-    if (
-      timeEntryAttributedToIjpService({
-        serviceDate: (row.service_date as string) ?? "",
-        serviceEpisodeId: episodeId,
-        entryEpisode,
-        clientEpisodes: opts.clientEpisodes,
-        ijpServiceIds: opts.ijpServiceIds,
-        currentServiceId: opts.currentServiceId,
-      })
-    ) {
-      out.push(row);
-    }
-  }
-  return out;
+  return partitionBillableEntriesByIjpAttribution(rows, opts).ijp;
 }
 
 /** Pure: client on GA IJP at least one day in the calendar month (episode overlap). */
@@ -636,6 +740,86 @@ export async function loadClientIdsWithUnbilledBillableHoursInMonth(
   return loadBillableHoursClientIdsInMonth(admin, monthStart, { unbilledOnly: true });
 }
 
+/**
+ * Billable entries that cannot be safely attributed to IJP or non-IJP for the month
+ * (date gaps with a non-IJP episode overlapping the month, or missing linked episode).
+ */
+export async function loadUnattributedIjpBillableEntryStatsInMonth(
+  admin: SupabaseClient,
+  monthStart: string
+): Promise<{ clientIds: string[]; entryCount: number }> {
+  const month = serviceMonthStartFromYmd(monthStart);
+  const monthEnd = serviceMonthEndYmd(month);
+  const ijpServiceIds = await resolveGaIjpServiceIds(admin);
+  if (ijpServiceIds.length === 0) return { clientIds: [], entryCount: 0 };
+
+  const rows = await fetchAllPostgrestRows<
+    BillableTimeEntryRow & { client_id: string }
+  >(
+    admin,
+    "es_time_entries",
+    "client_id, service_episode_id, duration_minutes, flags, client_present, delivery_mode, service_date, status, service_activity_types ( code, counts_toward_client_billable )",
+    {
+      order: [
+        { column: "client_id", ascending: true },
+        { column: "service_date", ascending: true },
+      ],
+      applyFilters: (query) =>
+        query
+          .neq("status", "rejected")
+          .gte("service_date", month)
+          .lte("service_date", monthEnd),
+    }
+  );
+
+  const clientIds = [
+    ...new Set(rows.map((r) => r.client_id as string).filter(Boolean)),
+  ];
+  if (clientIds.length === 0) return { clientIds: [], entryCount: 0 };
+
+  const [{ byClient: episodesByClient, byId: episodesById }, profiles] =
+    await Promise.all([
+      loadClientEpisodesByClientId(admin, clientIds),
+      fetchAllPostgrestRowsByIn<{
+        id: string;
+        is_demo: boolean | null;
+        current_service_id: string | null;
+      }>(admin, "clients", "id, is_demo, current_service_id", "id", clientIds, {
+        order: { column: "id", ascending: true },
+      }),
+    ]);
+  const currentByClient = new Map(
+    profiles.map((p) => [p.id as string, (p.current_service_id as string | null) ?? null])
+  );
+  const demoIds = new Set(
+    profiles.filter((p) => p.is_demo === true).map((p) => p.id as string)
+  );
+
+  const unattributedClientIds = new Set<string>();
+  let entryCount = 0;
+  const byClientEntries: Record<string, BillableTimeEntryRow[]> = {};
+  for (const row of rows) {
+    const clientId = row.client_id as string;
+    if (!clientId || demoIds.has(clientId)) continue;
+    const list = byClientEntries[clientId] ?? [];
+    list.push(row);
+    byClientEntries[clientId] = list;
+  }
+  for (const [clientId, entries] of Object.entries(byClientEntries)) {
+    const { unattributed } = partitionBillableEntriesByIjpAttribution(entries, {
+      clientEpisodes: episodesByClient[clientId] ?? [],
+      ijpServiceIds,
+      episodesById,
+      currentServiceId: currentByClient.get(clientId) ?? null,
+    });
+    if (unattributed.length > 0) {
+      unattributedClientIds.add(clientId);
+      entryCount += unattributed.length;
+    }
+  }
+  return { clientIds: [...unattributedClientIds].sort(), entryCount };
+}
+
 /** Shared helper: does this client have unbilled IJP-attributed billable hours in the month? */
 export async function clientHasUnbilledIjpBillableHoursInMonth(
   admin: SupabaseClient,
@@ -721,12 +905,17 @@ export type IjpBillingMonthCompleteness = {
   missingClientIds: string[];
   missingCount: number;
   complete: boolean;
+  /** Clients with billable hours that cannot be safely attributed (date gaps). */
+  unattributedClientIds: string[];
+  unattributedClientCount: number;
+  unattributedEntryCount: number;
 };
 
 /**
  * Completeness for admins / Accounts Specialists:
  * every client with still-unbilled billable hours should be picked up by generate.
- * Also reports clients with any billable hours who lack an invoice row.
+ * Also reports clients with any billable hours who lack an invoice row, and
+ * clients with unattributed (conservative gap) hours that Generate will not bill.
  */
 export async function loadIjpBillingMonthCompleteness(
   admin: SupabaseClient,
@@ -735,9 +924,10 @@ export async function loadIjpBillingMonthCompleteness(
 ): Promise<IjpBillingMonthCompleteness & { clientsWithUnbilledHours: number }> {
   const month = serviceMonthStartFromYmd(monthStart);
   const isTest = opts?.isTest === true;
-  const [hoursIds, unbilledIds] = await Promise.all([
+  const [hoursIds, unbilledIds, unattributed] = await Promise.all([
     loadClientIdsWithBillableHoursInMonth(admin, month),
     loadClientIdsWithUnbilledBillableHoursInMonth(admin, month),
+    loadUnattributedIjpBillableEntryStatsInMonth(admin, month),
   ]);
   const invoices = await fetchAllPostgrestRows<{ client_id: string }>(
     admin,
@@ -765,6 +955,9 @@ export async function loadIjpBillingMonthCompleteness(
     missingClientIds,
     missingCount: missingClientIds.length,
     complete: missingClientIds.length === 0,
+    unattributedClientIds: unattributed.clientIds,
+    unattributedClientCount: unattributed.clientIds.length,
+    unattributedEntryCount: unattributed.entryCount,
   };
 }
 

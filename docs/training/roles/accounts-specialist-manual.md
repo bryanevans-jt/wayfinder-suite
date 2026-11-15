@@ -50,7 +50,7 @@ Client names on timesheets and intake billing open a **view-only** profile.
 - That includes **archived or closed** clients and hours logged by **any staff role**.
 - Demo clients are excluded.
 - Clients with no IJP-attributed billable hours are not invoiced.
-- Unlinked time entries (no service episode) count as IJP when a covering IJP episode exists for the service date, or when the client’s current service is Individual Job Placement.
+- An hour counts as Individual Job Placement only when the client’s service **on that entry’s date** was IJP. Linked episode wins; otherwise the episode covering the date (any service) decides. Current service is used only when no episode covers the date and no non-IJP episode overlaps that month. Date gaps with a non-IJP episode in the month stay **unattributed** (shown on the list / completeness — Generate will not bill them).
 
 ### What is never billed here
 

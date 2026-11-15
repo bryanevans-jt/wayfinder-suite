@@ -10,7 +10,7 @@ import {
   compareClientNameSortKeys,
 } from "@wayfinder/branding";
 import {
-  filterIjpAttributedBillableEntries,
+  partitionBillableEntriesByIjpAttribution,
   serviceMonthEndYmd,
   serviceMonthStartFromYmd,
   sumBillableHoursFromEntries,
@@ -46,6 +46,9 @@ export type IjpBillingMonthClientRow = {
   archived: boolean;
   billableIjpHours: number;
   unbilledIjpHours: number;
+  /** Billable hours with no safe service-on-date attribution (need review). */
+  unattributedHours: number;
+  unattributedEntryCount: number;
   /** High-level status for the month list. */
   status:
     | "not_invoiced"
@@ -53,7 +56,8 @@ export type IjpBillingMonthClientRow = {
     | "compiled"
     | "mixed"
     | "archived"
-    | "empty_draft";
+    | "empty_draft"
+    | "unattributed";
   invoices: IjpBillingMonthInvoiceSummary[];
 };
 
@@ -101,8 +105,12 @@ async function loadClientEpisodes(
 
 function deriveClientStatus(
   invoices: IjpBillingMonthInvoiceSummary[],
-  unbilledHours: number
+  unbilledHours: number,
+  unattributedHours: number
 ): IjpBillingMonthClientRow["status"] {
+  if (unattributedHours > 0 && invoices.length === 0 && unbilledHours <= 0) {
+    return "unattributed";
+  }
   if (invoices.length === 0) return "not_invoiced";
   if (invoices.every((inv) => inv.archived_at)) return "archived";
   const live = invoices.filter((inv) => !inv.archived_at);
@@ -305,7 +313,7 @@ export async function loadIjpBillingMonthClientRoster(
       last_name: profile?.last_name,
     });
 
-    const ijpEntries = filterIjpAttributedBillableEntries(
+    const partitioned = partitionBillableEntriesByIjpAttribution(
       entriesByClient[clientId] ?? [],
       {
         clientEpisodes: episodesByClient[clientId] ?? [],
@@ -314,14 +322,23 @@ export async function loadIjpBillingMonthClientRoster(
         currentServiceId: (client.current_service_id as string | null) ?? null,
       }
     );
+    const ijpEntries = partitioned.ijp;
+    const unattributedEntries = partitioned.unattributed;
     const clientInvoices = invoicesByClient.get(clientId) ?? [];
 
-    // Include clients with IJP activity OR existing invoices for the month.
-    if (ijpEntries.length === 0 && clientInvoices.length === 0) continue;
+    // Include clients with IJP activity, unattributed gaps, or existing invoices.
+    if (
+      ijpEntries.length === 0 &&
+      unattributedEntries.length === 0 &&
+      clientInvoices.length === 0
+    ) {
+      continue;
+    }
 
     const unbilledEntries = ijpEntries.filter(
       (row) => !(row as { ijp_billed_invoice_id?: string | null }).ijp_billed_invoice_id
     );
+    const unattributedHours = sumBillableHoursFromEntries(unattributedEntries);
 
     out.push({
       clientId,
@@ -331,9 +348,12 @@ export async function loadIjpBillingMonthClientRoster(
       archived: Boolean(client.archived_at),
       billableIjpHours: sumBillableHoursFromEntries(ijpEntries),
       unbilledIjpHours: sumBillableHoursFromEntries(unbilledEntries),
+      unattributedHours,
+      unattributedEntryCount: unattributedEntries.length,
       status: deriveClientStatus(
         clientInvoices,
-        sumBillableHoursFromEntries(unbilledEntries)
+        sumBillableHoursFromEntries(unbilledEntries),
+        unattributedHours
       ),
       invoices: clientInvoices,
     });

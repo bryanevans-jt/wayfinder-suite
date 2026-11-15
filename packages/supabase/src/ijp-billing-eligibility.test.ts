@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  classifyIjpTimeEntryAttribution,
   clientHasBillableTimeFromEntries,
   clientOnGaIjpDuringMonthFromRows,
   episodeCoversServiceDate,
@@ -173,11 +174,8 @@ describe("IJP time-entry service attribution", () => {
     );
   });
 
-  it("falls back to IJP episode covering service_date when entry has no episode", () => {
-    assert.equal(
-      episodeCoversServiceDate(ijpEpisode, "2026-10-10"),
-      true
-    );
+  it("uses covering episode of any service when entry has no episode link", () => {
+    assert.equal(episodeCoversServiceDate(ijpEpisode, "2026-10-10"), true);
     assert.equal(
       timeEntryAttributedToIjpService({
         serviceDate: "2026-10-10",
@@ -187,18 +185,68 @@ describe("IJP time-entry service attribution", () => {
       }),
       true
     );
+    // Covering episode is non-IJP → excluded even if current service is IJP.
     assert.equal(
       timeEntryAttributedToIjpService({
         serviceDate: "2026-10-20",
         serviceEpisodeId: null,
         clientEpisodes: [ijpEpisode, otherEpisode],
         ijpServiceIds: [GA_IJP],
+        currentServiceId: GA_IJP,
       }),
       false
     );
   });
 
-  it("falls back to current_service_id when unlinked and no covering episode", () => {
+  it("mid-month switch other→IJP: pre-switch hours excluded, post-switch included", () => {
+    const otherFirst = {
+      id: "ep-other-early",
+      service_id: OTHER,
+      started_at: "2026-10-01",
+      ended_at: "2026-10-15",
+    };
+    const ijpLater = {
+      id: "ep-ijp-late",
+      service_id: GA_IJP,
+      started_at: "2026-10-16",
+      ended_at: null,
+    };
+    assert.equal(
+      timeEntryAttributedToIjpService({
+        serviceDate: "2026-10-10",
+        serviceEpisodeId: null,
+        clientEpisodes: [otherFirst, ijpLater],
+        ijpServiceIds: [GA_IJP],
+        currentServiceId: GA_IJP,
+      }),
+      false
+    );
+    assert.equal(
+      timeEntryAttributedToIjpService({
+        serviceDate: "2026-10-20",
+        serviceEpisodeId: null,
+        clientEpisodes: [otherFirst, ijpLater],
+        ijpServiceIds: [GA_IJP],
+        currentServiceId: GA_IJP,
+      }),
+      true
+    );
+  });
+
+  it("excludes no-episode entry on a date covered by a non-IJP episode", () => {
+    assert.deepEqual(
+      classifyIjpTimeEntryAttribution({
+        serviceDate: "2026-10-20",
+        serviceEpisodeId: null,
+        clientEpisodes: [otherEpisode],
+        ijpServiceIds: [GA_IJP],
+        currentServiceId: GA_IJP,
+      }),
+      { status: "not_ijp", via: "covering_episode" }
+    );
+  });
+
+  it("falls back to current_service_id only with no episode history", () => {
     assert.equal(
       timeEntryAttributedToIjpService({
         serviceDate: "2026-10-31",
@@ -226,6 +274,36 @@ describe("IJP time-entry service attribution", () => {
         serviceEpisodeId: "ep-other",
         entryEpisode: otherEpisode,
         clientEpisodes: [otherEpisode],
+        ijpServiceIds: [GA_IJP],
+        currentServiceId: GA_IJP,
+      }),
+      false
+    );
+  });
+
+  it("marks unattributed when no covering episode but non-IJP overlaps the month", () => {
+    const otherEarly = {
+      id: "ep-other-gap",
+      service_id: OTHER,
+      started_at: "2026-10-01",
+      ended_at: "2026-10-10",
+    };
+    // Gap on Oct 20 — non-IJP overlapped the month, so do not invent IJP via current.
+    assert.deepEqual(
+      classifyIjpTimeEntryAttribution({
+        serviceDate: "2026-10-20",
+        serviceEpisodeId: null,
+        clientEpisodes: [otherEarly],
+        ijpServiceIds: [GA_IJP],
+        currentServiceId: GA_IJP,
+      }),
+      { status: "unattributed", via: "unattributed_gap" }
+    );
+    assert.equal(
+      timeEntryAttributedToIjpService({
+        serviceDate: "2026-10-20",
+        serviceEpisodeId: null,
+        clientEpisodes: [otherEarly],
         ijpServiceIds: [GA_IJP],
         currentServiceId: GA_IJP,
       }),
