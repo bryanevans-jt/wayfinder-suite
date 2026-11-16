@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * One-time October attestation Drive copy/link planner.
- * Dry-run by default. Does NOT copy Drive files or write rows unless
- * --execute --confirm-execute are both passed (operator-only; not used in PR).
+ * Dry-run planner for October attestation Drive copy/link (counts only).
+ * Prefer the Super Admin control on IJP Billing for preview → confirm → Run.
+ * This CLI never executes Drive copies (use the staff UI after merge).
  *
  * Usage:
  *   node scripts/ijp-october-attestation-backfill.mjs
@@ -20,16 +20,10 @@ const OCTOBER_MONTH = "2026-10-01";
 
 const args = new Set(process.argv.slice(2));
 const wantJson = args.has("--json");
-const execute = args.has("--execute") && args.has("--confirm-execute");
 
-if (args.has("--execute") && !args.has("--confirm-execute")) {
-  console.error("Refusing execute without --confirm-execute.");
-  process.exit(2);
-}
-
-if (execute) {
+if (args.has("--execute") || args.has("--confirm-execute")) {
   console.error(
-    "Execute path is intentionally not implemented in this script build. Dry-run only."
+    "CLI execute is disabled. Use Super Admin → IJP Billing → Copy Oct/Nov signatures to October 2026."
   );
   process.exit(2);
 }
@@ -77,7 +71,7 @@ if (clientIds.length > 0) {
   }
 }
 
-let wouldCopy = 0;
+const clientsToCopy = new Set();
 let alreadyLinkedOctober = 0;
 let skippedMissingDrive = 0;
 for (const src of sources ?? []) {
@@ -86,14 +80,21 @@ for (const src of sources ?? []) {
     skippedMissingDrive += 1;
     continue;
   }
-  if (octoberByClient.get(src.client_id)) alreadyLinkedOctober += 1;
-  else wouldCopy += 1;
+  if (octoberByClient.get(src.client_id)) {
+    alreadyLinkedOctober += 1;
+    continue;
+  }
+  clientsToCopy.add(src.client_id);
 }
 
 const counts = {
   sourceWithDrive: (sources ?? []).filter((s) => s.attestation_drive_file_id).length,
-  wouldCopy,
-  alreadyLinkedOctober,
+  wouldCopy: clientsToCopy.size,
+  alreadyLinkedOctober: new Set(
+    (sources ?? [])
+      .filter((s) => s.attestation_drive_file_id && octoberByClient.get(s.client_id))
+      .map((s) => s.client_id)
+  ).size,
   skippedMissingDrive,
 };
 
@@ -114,4 +115,5 @@ if (wantJson) {
   console.log(`  wouldCopy: ${counts.wouldCopy}`);
   console.log(`  alreadyLinkedOctober: ${counts.alreadyLinkedOctober}`);
   console.log(`  skippedMissingDrive: ${counts.skippedMissingDrive}`);
+  console.log("  Execute via Super Admin IJP Billing UI after merge (not this CLI).");
 }
