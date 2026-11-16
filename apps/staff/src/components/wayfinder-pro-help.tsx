@@ -262,7 +262,7 @@ function sectionsForRole(role: string | null): Section[] {
         body:
           "Log contacts and applications carefully — counselors see your contact notes. Billable time on a contact feeds state billing and payroll from billable hours.",
         steps: [
-          "Log every contact and job application on the client profile.",
+          "Log every contact and job application on the client profile. Submitted Official Reports lists every filed PDF for that client across all services (Prior service labeled; paginated 10 / 25 / All).",
           "When logging service time, enter duration plus a start time, end time, or both. If start and end disagree with duration, clock times win.",
           "You may log the same clock time on more than one client when the work applies to each (for example multi-client job canvass).",
           "Use suggested chips when logging contacts to speed up common entries.",
