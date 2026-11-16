@@ -23,9 +23,14 @@ import {
   EsApplicationPipelineBoard,
   type PipelineApplication,
 } from "@/components/es-application-pipeline-board";
+import { AccountsClientsReadonlyTable } from "@/components/accounts-clients-readonly-table";
 import { EsClientsTable } from "@/components/es-clients-table";
 import { EsClientsTodayStrip } from "@/components/es-clients-today-strip";
 import { loadCaseloadTriageFlags } from "@/lib/caseload-operations";
+import {
+  canAccessAccountsClientsList,
+  loadAccountsClientsList,
+} from "@/lib/accounts-client-list";
 import { fetchEsCaseloadClients, getEsCaseloadAdmin } from "@/lib/es-caseload-data";
 import { filterSunsetServices, loadSunsetKeepIds } from "@/lib/sunset-tn";
 import { loadIjpSignatureUiStatusesBatched } from "@/lib/ijp-attestation-status";
@@ -50,6 +55,38 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
 
   const effectiveRole = session.effectiveRole;
   const effectiveUserId = session.effectiveUserId;
+
+  // Accounts Specialist (and other view-only profile roles): read-only org list.
+  // Field specialists keep the caseload board below unchanged.
+  if (canAccessAccountsClientsList(effectiveRole)) {
+    const admin = getEsCaseloadAdmin();
+    if (!admin) {
+      redirect(staffHomePath(effectiveRole));
+    }
+    let rows: Awaited<ReturnType<typeof loadAccountsClientsList>> = [];
+    let loadError: string | null = null;
+    try {
+      rows = await loadAccountsClientsList(admin);
+    } catch (e) {
+      loadError = e instanceof Error ? e.message : USER_FACING_SYSTEM_ERROR;
+    }
+    return (
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+        <h1 className="text-2xl font-semibold text-brand-black">Clients</h1>
+        <p className="mt-1 text-sm text-brand-black/70">
+          View-only directory for Accounts. Open a client to see the profile and activity feed.
+          You cannot edit, reassign, or delete.
+        </p>
+        {loadError ? (
+          <p className="mt-4 text-sm text-red-700">{loadError}</p>
+        ) : (
+          <div className="mt-6">
+            <AccountsClientsReadonlyTable rows={rows} />
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (!isFieldSpecialistRole(effectiveRole)) {
     redirect(staffHomePath(effectiveRole));
