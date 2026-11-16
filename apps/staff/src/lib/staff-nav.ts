@@ -510,7 +510,17 @@ export function staffNavSectionsForRole(
           label: "Accounts",
           items: withPreEtsNav(
             withPtoNav(
-              [intakeBillingNav, ijpBillingNav, billableHoursNav, dataExportsNav],
+              [
+                {
+                  href: "/dashboard/clients",
+                  label: "Clients",
+                  match: (p) => p.startsWith("/dashboard/clients"),
+                },
+                intakeBillingNav,
+                ijpBillingNav,
+                billableHoursNav,
+                dataExportsNav,
+              ],
               staffRole
             ),
             showPreEtsNav

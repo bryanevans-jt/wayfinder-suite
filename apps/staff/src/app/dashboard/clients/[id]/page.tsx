@@ -36,6 +36,7 @@ import { findEmployerMatches } from "@/lib/employer-matching";
 import { loadHospitalityIntakeOptions } from "@/lib/hospitality-intake-options";
 import { loadStaffNameById } from "@/lib/staff-names";
 import { supabaseEmbedName } from "@/lib/supabase-embed";
+import { resolveSupervisorUserIdForFieldSpecialist } from "@wayfinder/supabase/referral-field-specialists";
 import { ClientProfileForm, type ClientProfileData } from "@/components/client-profile-form";
 import { ClientEsAssignmentPanel } from "@/components/client-es-assignment-panel";
 import { ClientIntakeAppointmentPanel } from "@/components/client-intake-appointment-panel";
@@ -82,6 +83,7 @@ type ClientDetailRow = {
   current_stage_id: string | null;
   office_id: string | null;
   counselor_id: string | null;
+  supervisor_user_id: string | null;
   job_start_date: string | null;
   home_address_line1: string | null;
   home_address_line2: string | null;
@@ -105,7 +107,7 @@ type ClientDetailRow = {
 };
 
 const CLIENT_SELECT_FULL =
-  "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, office_id, counselor_id, job_start_date, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other, prior_client_id, intake_status, intake_scheduling_needed, disability_history, authorized_hours, authorization_end_date";
+  "id, user_id, profile_id, full_name, contact_email, current_service_id, current_stage_id, office_id, counselor_id, supervisor_user_id, job_start_date, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other, prior_client_id, intake_status, intake_scheduling_needed, disability_history, authorized_hours, authorization_end_date";
 
 const CLIENT_SELECT_FULL_WITHOUT_AUTH_HOURS = CLIENT_SELECT_FULL.replace(
   ", authorized_hours, authorization_end_date",
@@ -113,7 +115,7 @@ const CLIENT_SELECT_FULL_WITHOUT_AUTH_HOURS = CLIENT_SELECT_FULL.replace(
 );
 
 const CLIENT_SELECT_CORE =
-  "id, user_id, profile_id, contact_email, current_service_id, current_stage_id, office_id, counselor_id, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other";
+  "id, user_id, profile_id, contact_email, current_service_id, current_stage_id, office_id, counselor_id, supervisor_user_id, home_address_line1, home_address_line2, home_city, home_state, home_zip, home_latitude, home_longitude, primary_phone, secondary_phone, employment_goal_primary, employment_goal_primary_other, employment_goal_secondary, employment_goal_secondary_other";
 
 async function loadClientDetailRow(
   admin: NonNullable<ReturnType<typeof getEsCaseloadAdmin>>,
@@ -299,11 +301,27 @@ export default async function EsClientDetailPage({ params }: PageProps) {
   const assignedEsUserId =
     (((esAssignment as { es_user_id?: string }[] | null)?.[0]?.es_user_id as string | undefined) ??
       null);
-  const assignedEsNames = assignedEsUserId
-    ? await loadStaffNameById(admin, [assignedEsUserId], "Employment Specialist")
-    : new Map<string, string>();
+  let supervisorUserId =
+    ((client.supervisor_user_id as string | null) ?? "").trim() || null;
+  if (!supervisorUserId && assignedEsUserId) {
+    supervisorUserId = await resolveSupervisorUserIdForFieldSpecialist(
+      admin,
+      assignedEsUserId,
+      (client.office_id as string | null) ?? null
+    );
+  }
+  const staffNameIds = [assignedEsUserId, supervisorUserId].filter(
+    (id): id is string => Boolean(id)
+  );
+  const staffNames =
+    staffNameIds.length > 0
+      ? await loadStaffNameById(admin, staffNameIds, "Staff")
+      : new Map<string, string>();
   const assignedEsName = assignedEsUserId
-    ? (assignedEsNames.get(assignedEsUserId) ?? "Employment Specialist")
+    ? (staffNames.get(assignedEsUserId) ?? "Employment Specialist")
+    : null;
+  const supervisorName = supervisorUserId
+    ? (staffNames.get(supervisorUserId) ?? "Supervisor")
     : null;
 
   const milestoneOptions = (milestones ?? []).map((m) => ({
@@ -569,6 +587,10 @@ export default async function EsClientDetailPage({ params }: PageProps) {
           <div>
             <dt className="font-medium text-brand-black/55">Employment Specialist</dt>
             <dd className="text-brand-black">{assignedEsName ?? "—"}</dd>
+          </div>
+          <div>
+            <dt className="font-medium text-brand-black/55">Supervisor</dt>
+            <dd className="text-brand-black">{supervisorName ?? "—"}</dd>
           </div>
         </dl>
         <p className="mt-3 text-xs text-brand-black/55">
