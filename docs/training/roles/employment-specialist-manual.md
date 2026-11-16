@@ -53,7 +53,7 @@ Share [Getting Signed In](../shared/getting-signed-in.md) with every participant
 | **Applications** | Track job search pipeline; update status (Applied → Interview → Offer → Hired) |
 | **Messages** | Thread with participant (48 business-hour response goal) |
 | **Job start date** | Set when hired — triggers 30/60/90-day celebrations for counselors |
-| **Formal reports** | History of submitted Joshua Tree Reports for this client |
+| **Formal reports** | **Submitted Official Reports** — every submitted Joshua Tree Report for this client across all services (newest first; paginated). Reports filed under a previous service show a **Prior service** label with that service’s display name (IJP appears as Individual Job Placement). |
 
 > **Screenshots:** `es-client-profile-contacts.png`, `es-client-applications.png`
 

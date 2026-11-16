@@ -125,7 +125,7 @@ After your first magic-link sign-in, choose **Sign in with passkey** on the logi
 | **Applications** | Track pipeline: Applied → Interview → Offer → Hired |
 | **Messages** | Thread with participant (24 business-hour response goal) |
 | **Job start date** | Set when hired — triggers 30/60/90-day celebrations for counselors |
-| **Formal reports** | History of submitted Joshua Tree Reports |
+| **Formal reports** | **Submitted Official Reports** — all submitted Joshua Tree Reports across services (Prior service labeled; paginated) |
 
 > **Figure 4.2:** Client Contact Log — `assets/screenshots/es-client-profile-contacts.png`  
 > **Figure 4.3:** Application Log — `assets/screenshots/es-client-applications.png`
