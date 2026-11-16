@@ -15,6 +15,7 @@ import {
   type GaIjpEpisodeRow,
   type GaIjpServiceRow,
 } from "@wayfinder/supabase/ijp-billing-eligibility";
+import { preferAttestationServiceMonth } from "@wayfinder/supabase/ijp-billing-month-ledger";
 import { resolveGaIjpServiceIds } from "@wayfinder/supabase/ijp-billing-settings";
 import { localDateStringInTz, STAFF_CLOCK_TIMEZONE } from "@wayfinder/supabase/staff-time-clock-shared";
 
@@ -28,6 +29,8 @@ export type IjpSignatureUiStatus = {
   showCollectSignature: boolean;
   captureOpen: boolean;
   isTest: false;
+  /** Months whose capture window is open (Accounts may pick among these). */
+  availableMonths?: Array<{ serviceMonth: string; serviceMonthLabel: string }>;
 };
 
 export type IjpSignatureClientSnapshot = {
@@ -93,33 +96,50 @@ function statusForMonth(
  * Pure status computation from a preloaded client snapshot.
  * Used by both the single-client loader and the batched list-flags path.
  */
+function availableMonthsForSnapshot(
+  snapshot: IjpSignatureClientSnapshot,
+  gaIjpServiceId: string | readonly string[],
+  now: Date
+): Array<{ serviceMonth: string; serviceMonthLabel: string }> {
+  const current = currentServiceMonthStart(now);
+  const prior = priorServiceMonthStart(now);
+  const out: Array<{ serviceMonth: string; serviceMonthLabel: string }> = [];
+  for (const month of [prior, current]) {
+    if (
+      attestationCaptureWindowOpen(month, now) &&
+      onIjpForMonth(snapshot, month, gaIjpServiceId)
+    ) {
+      out.push({ serviceMonth: month, serviceMonthLabel: serviceMonthLabel(month) });
+    }
+  }
+  return out;
+}
+
 export function computeIjpSignatureUiStatusFromSnapshot(
   snapshot: IjpSignatureClientSnapshot,
   gaIjpServiceId: string | readonly string[],
   now = new Date()
 ): IjpSignatureUiStatus | null {
   const monthStart = currentServiceMonthStart(now);
-  const onIjp = onIjpForMonth(snapshot, monthStart, gaIjpServiceId);
-  if (!onIjp) {
-    const prior = priorServiceMonthStart(now);
-    if (attestationCaptureWindowOpen(prior, now)) {
-      if (onIjpForMonth(snapshot, prior, gaIjpServiceId)) {
-        return statusForMonth(snapshot, prior, gaIjpServiceId, now);
-      }
-    }
-    return null;
-  }
-
-  if (attestationCaptureWindowOpen(monthStart, now)) {
-    return statusForMonth(snapshot, monthStart, gaIjpServiceId, now);
-  }
-
   const prior = priorServiceMonthStart(now);
-  if (attestationCaptureWindowOpen(prior, now)) {
-    return statusForMonth(snapshot, prior, gaIjpServiceId, now);
-  }
-
-  return statusForMonth(snapshot, monthStart, gaIjpServiceId, now);
+  const onIjpInCurrent = onIjpForMonth(snapshot, monthStart, gaIjpServiceId);
+  const onIjpInPrior = onIjpForMonth(snapshot, prior, gaIjpServiceId);
+  const preferred = preferAttestationServiceMonth({
+    nowYmd: localDateStringInTz(now, STAFF_CLOCK_TIMEZONE),
+    currentMonthStart: monthStart,
+    priorMonthStart: prior,
+    priorWindowOpen: attestationCaptureWindowOpen(prior, now),
+    currentWindowOpen: attestationCaptureWindowOpen(monthStart, now),
+    onIjpInPrior,
+    onIjpInCurrent,
+  });
+  if (!preferred) return null;
+  const status = statusForMonth(snapshot, preferred, gaIjpServiceId, now);
+  if (!status) return null;
+  return {
+    ...status,
+    availableMonths: availableMonthsForSnapshot(snapshot, gaIjpServiceId, now),
+  };
 }
 
 /** Pure batch: same logic as computing each client independently. */
@@ -181,7 +201,8 @@ export async function loadIjpSignatureUiStatus(
   admin: SupabaseClient,
   clientId: string,
   now = new Date(),
-  gaIjpServiceIdResolved?: string | readonly string[] | null
+  gaIjpServiceIdResolved?: string | readonly string[] | null,
+  opts?: { serviceMonthOverride?: string | null }
 ): Promise<IjpSignatureUiStatus | null> {
   const gaIjpServiceId =
     gaIjpServiceIdResolved === undefined
@@ -195,28 +216,46 @@ export async function loadIjpSignatureUiStatus(
   }
 
   const monthStart = currentServiceMonthStart(now);
-  const onIjp = await clientOnGaIjpDuringMonth(admin, clientId, monthStart, gaIjpServiceId);
-  if (!onIjp) {
-    const prior = priorServiceMonthStart(now);
-    if (attestationCaptureWindowOpen(prior, now)) {
-      const onPrior = await clientOnGaIjpDuringMonth(admin, clientId, prior, gaIjpServiceId);
-      if (onPrior) {
-        return loadForMonth(admin, clientId, prior, now, gaIjpServiceId);
-      }
-    }
-    return null;
-  }
-
-  if (attestationCaptureWindowOpen(monthStart, now)) {
-    return loadForMonth(admin, clientId, monthStart, now, gaIjpServiceId);
-  }
-
   const prior = priorServiceMonthStart(now);
-  if (attestationCaptureWindowOpen(prior, now)) {
-    return loadForMonth(admin, clientId, prior, now, gaIjpServiceId);
-  }
+  const [onIjpInCurrent, onIjpInPrior] = await Promise.all([
+    clientOnGaIjpDuringMonth(admin, clientId, monthStart, gaIjpServiceId),
+    clientOnGaIjpDuringMonth(admin, clientId, prior, gaIjpServiceId),
+  ]);
+  const preferred = preferAttestationServiceMonth({
+    nowYmd: localDateStringInTz(now, STAFF_CLOCK_TIMEZONE),
+    currentMonthStart: monthStart,
+    priorMonthStart: prior,
+    priorWindowOpen: attestationCaptureWindowOpen(prior, now),
+    currentWindowOpen: attestationCaptureWindowOpen(monthStart, now),
+    onIjpInPrior,
+    onIjpInCurrent,
+  });
+  if (!preferred) return null;
 
-  return loadForMonth(admin, clientId, monthStart, now, gaIjpServiceId);
+  const override = opts?.serviceMonthOverride
+    ? serviceMonthStartFromYmd(opts.serviceMonthOverride)
+    : null;
+  const target =
+    override &&
+    attestationCaptureWindowOpen(override, now) &&
+    (override === prior ? onIjpInPrior : override === monthStart ? onIjpInCurrent : false)
+      ? override
+      : preferred;
+
+  const status = await loadForMonth(admin, clientId, target, now, gaIjpServiceId);
+  if (!status) return null;
+
+  const availableMonths: Array<{ serviceMonth: string; serviceMonthLabel: string }> = [];
+  for (const month of [prior, monthStart]) {
+    const onMonth = month === prior ? onIjpInPrior : onIjpInCurrent;
+    if (attestationCaptureWindowOpen(month, now) && onMonth) {
+      availableMonths.push({
+        serviceMonth: month,
+        serviceMonthLabel: serviceMonthLabel(month),
+      });
+    }
+  }
+  return { ...status, availableMonths };
 }
 
 function monthsNeededForFlags(now: Date): string[] {

@@ -774,6 +774,7 @@ export async function compileIjpInvoicePdf(
       invoice_date: invoiceDate,
       invoice_only_drive_file_id: uploaded.fileId,
       compiled_at: new Date().toISOString(),
+      needs_rebuild: false,
       updated_at: new Date().toISOString(),
     })
     .eq("id", invoiceId);

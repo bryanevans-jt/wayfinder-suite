@@ -76,6 +76,8 @@
     "./ijp-billing-entry-billing": "./src/ijp-billing-entry-billing.ts",
     "./ijp-billing-month-roster": "./src/ijp-billing-month-roster.ts",
     "./ijp-billing-lines": "./src/ijp-billing-lines.ts",
+    "./ijp-billing-month-ledger": "./src/ijp-billing-month-ledger.ts",
+    "./ijp-billing-pdf-placeholders": "./src/ijp-billing-pdf-placeholders.ts",
     "./ijp-template-placeholders": "./src/ijp-template-placeholders.ts",
     "./intake-billing": "./src/intake-billing.ts",
     "./intake-scheduling": "./src/intake-scheduling.ts",

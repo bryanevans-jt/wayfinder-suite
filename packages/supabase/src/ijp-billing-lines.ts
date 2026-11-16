@@ -12,6 +12,7 @@ import {
 } from "./ijp-billing-eligibility";
 import { formatServiceTimeOfDay } from "./es-time-tracking";
 import { resolveGaIjpServiceIds, formatIjpInvoiceAmount, formatIjpRateDollars } from "./ijp-billing-settings";
+import { withIjpPdfEmptyHeaderSpaces } from "./ijp-billing-pdf-placeholders";
 
 /** GVRA IJP vocational invoice service code on every line. */
 export const IJP_INVOICE_SERVICE_CODE = "00270";
@@ -637,7 +638,7 @@ export function buildIjpInvoiceHeaderPlaceholders(opts: {
   totalAmountCents: number;
   instructorFacilitatorSummary: string;
 }): Record<string, string> {
-  return {
+  return withIjpPdfEmptyHeaderSpaces({
     InvoiceDate: opts.invoiceDate,
     ProviderName: opts.providerName,
     RemitAddress: opts.remitAddress,
@@ -657,7 +658,7 @@ export function buildIjpInvoiceHeaderPlaceholders(opts: {
     TotalAmount: formatIjpInvoiceAmount(opts.totalAmountCents),
     RateDollars: formatIjpRateDollars(opts.hourlyRateCents),
     InstructorFacilitatorName: opts.instructorFacilitatorSummary,
-  };
+  });
 }
 
 export function buildIjpAttestationPlaceholders(opts: {
@@ -666,12 +667,12 @@ export function buildIjpAttestationPlaceholders(opts: {
   authorizationNumber: string;
   attestationDate: string;
 }): Record<string, string> {
-  return {
+  return withIjpPdfEmptyHeaderSpaces({
     AttestationProviderName: opts.attestationProviderName,
     ProviderInvoiceNumber: opts.providerInvoiceNumber,
     InvoiceNumber: opts.providerInvoiceNumber,
     AuthorizationNumber: opts.authorizationNumber,
     AuthNumber: opts.authorizationNumber,
     AttestationDate: opts.attestationDate,
-  };
+  });
 }
