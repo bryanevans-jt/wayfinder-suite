@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  isAccountantRole,
   isAdminTierRole,
   isFieldSpecialistRole,
   isSupervisorRole,
@@ -7,11 +8,16 @@ import {
 import { esIsAssignedToClient } from "@/lib/es-caseload-data";
 import { clientInSupervisorScope, loadSupervisorScope } from "@/lib/supervisor-client-scope";
 
+/** Accounts Specialist / Admin may choose which open capture month a signature applies to. */
+export function canPickIjpAttestationMonth(role: string | null | undefined): boolean {
+  return isAdminTierRole(role) || isAccountantRole(role);
+}
+
 export async function canAccessIjpClientSignature(
   admin: SupabaseClient,
   opts: { role: string; userId: string; clientId: string }
 ): Promise<boolean> {
-  if (isAdminTierRole(opts.role)) return true;
+  if (isAdminTierRole(opts.role) || isAccountantRole(opts.role)) return true;
 
   const { data: client } = await admin
     .from("clients")

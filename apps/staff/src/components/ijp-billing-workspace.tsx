@@ -18,6 +18,7 @@ import {
 import { USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { IjpBillingClientPicker } from "@/components/ijp-billing-client-picker";
+import { IjpBillingHoursLedger } from "@/components/ijp-billing-hours-ledger";
 import { IjpBillingTestPreview } from "@/components/ijp-billing-test-preview";
 import { formatIjpGenerateInvoicesSummary } from "@/lib/ijp-billing-month-run-drain";
 
@@ -429,9 +430,10 @@ export function IjpBillingWorkspace() {
       <div>
         <h1 className="text-2xl font-semibold text-brand-black">IJP Billing</h1>
         <p className="mt-1 text-sm text-brand-black/70">
-          Every client with Individual Job Placement activity this month appears below (including
-          Not invoiced yet). Generate Invoices creates or refreshes drafts and compiles PDFs.
-          Downloads may warn when attestation is missing.
+          Use the month hours ledger for billed / not billed status, live attestation, and reliable
+          bill or uncheck actions. Generate Invoices still creates or refreshes drafts and compiles
+          PDFs. Empty drafts stay visible but do not hide hours or completeness. Downloads may warn
+          when attestation is missing.
         </p>
       </div>
 
@@ -579,6 +581,19 @@ export function IjpBillingWorkspace() {
           </button>
         ) : null}
       </div>
+
+      {canGenerate ? (
+        <IjpBillingHoursLedger
+          month={month}
+          canEdit={canEdit}
+          onMessage={setMessage}
+          onError={setError}
+          onChanged={() => {
+            void load();
+            void loadCompleteness();
+          }}
+        />
+      ) : null}
 
       {canGenerate && completeness ? (
         <div

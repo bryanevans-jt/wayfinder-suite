@@ -13,6 +13,7 @@ type Status = {
   hasAttestation: boolean;
   showListFlag: boolean;
   captureOpen: boolean;
+  availableMonths?: Array<{ serviceMonth: string; serviceMonthLabel: string }>;
 };
 
 type Props = {
@@ -21,21 +22,34 @@ type Props = {
 
 export function IjpClientSignatureSection({ clientId }: Props) {
   const [status, setStatus] = useState<Status | null>(null);
+  const [canPickMonth, setCanPickMonth] = useState(false);
+  const [pickedMonth, setPickedMonth] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [signature, setSignature] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (month?: string | null) => {
     setLoading(true);
-    const res = await fetch(`/api/clients/${clientId}/ijp-attestation`);
-    const data = (await res.json()) as { status?: Status | null; error?: string };
+    const qs =
+      month && month.trim()
+        ? `?month=${encodeURIComponent(month.trim())}`
+        : "";
+    const res = await fetch(`/api/clients/${clientId}/ijp-attestation${qs}`);
+    const data = (await res.json()) as {
+      status?: Status | null;
+      canPickMonth?: boolean;
+      error?: string;
+    };
     if (!res.ok) {
       setError(data.error ?? USER_FACING_SYSTEM_ERROR);
       setStatus(null);
+      setCanPickMonth(false);
     } else {
       setStatus(data.status ?? null);
+      setCanPickMonth(Boolean(data.canPickMonth));
+      setPickedMonth((prev) => month ?? prev ?? data.status?.serviceMonth ?? null);
       setError(null);
     }
     setLoading(false);
@@ -45,8 +59,14 @@ export function IjpClientSignatureSection({ clientId }: Props) {
     void reload();
   }, [reload]);
 
+  const activeMonth = pickedMonth || status?.serviceMonth || null;
+  const activeLabel =
+    status?.availableMonths?.find((m) => m.serviceMonth === activeMonth)?.serviceMonthLabel ||
+    status?.serviceMonthLabel ||
+    "";
+
   async function submitDigital() {
-    if (!status || !signature.startsWith("data:image/")) {
+    if (!status || !activeMonth || !signature.startsWith("data:image/")) {
       setError("Ask the client to sign before submitting.");
       return;
     }
@@ -56,7 +76,7 @@ export function IjpClientSignatureSection({ clientId }: Props) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        serviceMonth: status.serviceMonth,
+        serviceMonth: activeMonth,
         signatureDataUrl: signature,
       }),
     });
@@ -72,7 +92,7 @@ export function IjpClientSignatureSection({ clientId }: Props) {
   }
 
   async function submitUpload(file: File) {
-    if (!status) return;
+    if (!status || !activeMonth) return;
     if (file.size > 10 * 1024 * 1024) {
       setError("File must be 10 MB or smaller.");
       return;
@@ -92,11 +112,11 @@ export function IjpClientSignatureSection({ clientId }: Props) {
       body: JSON.stringify(
         isPdf
           ? {
-              serviceMonth: status.serviceMonth,
+              serviceMonth: activeMonth,
               uploadPdfBase64: base64,
             }
           : {
-              serviceMonth: status.serviceMonth,
+              serviceMonth: activeMonth,
               uploadImageBase64: base64,
               uploadMimeType: file.type || "image/jpeg",
             }
@@ -140,13 +160,13 @@ export function IjpClientSignatureSection({ clientId }: Props) {
         {status.signatureNeeded ? (
           <span
             className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900"
-            title={status.serviceMonthLabel}
+            title={activeLabel}
           >
             Signature needed
           </span>
         ) : status.hasAttestation ? (
           <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-900">
-            Received — {status.serviceMonthLabel}
+            Received — {activeLabel}
           </span>
         ) : null}
       </div>
@@ -154,13 +174,46 @@ export function IjpClientSignatureSection({ clientId }: Props) {
       {message ? <p className="mt-2 text-sm text-emerald-800">{message}</p> : null}
       {error ? <p className="mt-2 text-sm text-red-700">{error}</p> : null}
 
+      {canPickMonth && (status.availableMonths?.length ?? 0) > 1 ? (
+        <label className="mt-3 block text-sm text-brand-black/80">
+          Service month for this signature
+          <select
+            className="mt-1 block rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm"
+            value={activeMonth ?? ""}
+            onChange={(e) => {
+              const next = e.target.value;
+              setPickedMonth(next);
+              void reload(next);
+            }}
+          >
+            {(status.availableMonths ?? []).map((m) => (
+              <option key={m.serviceMonth} value={m.serviceMonth}>
+                {m.serviceMonthLabel}
+                {m.serviceMonth === status.serviceMonth ? " (default)" : ""}
+              </option>
+            ))}
+          </select>
+          <span className="mt-1 block text-xs text-brand-black/55">
+            During the prior month&apos;s grace window, signatures default to that prior month.
+            Accounts Specialists and Admins can choose the month.
+          </span>
+        </label>
+      ) : (
+        <p className="mt-2 text-xs text-brand-black/55">
+          Applying to {activeLabel}
+          {status.availableMonths && status.availableMonths.length === 1
+            ? " (grace-window default when applicable)."
+            : "."}
+        </p>
+      )}
+
       {canCollectSignature ? (
         <div className="mt-4 space-y-4">
           <p className="text-sm leading-relaxed text-brand-black/85">{IJP_ATTESTATION_TEXT}</p>
           {!status.signatureNeeded ? (
             <p className="text-sm text-brand-black/65">
-              Billable time for {status.serviceMonthLabel} may not be logged yet. You can still
-              collect the client&apos;s signature during the attestation window.
+              Billable time for {activeLabel} may not be logged yet. You can still collect the
+              client&apos;s signature during the attestation window.
             </p>
           ) : null}
           <SignaturePad
@@ -179,7 +232,7 @@ export function IjpClientSignatureSection({ clientId }: Props) {
               Save IJP signature
             </button>
             <a
-              href={`/api/clients/${clientId}/ijp-attestation/blank?month=${encodeURIComponent(status.serviceMonth)}`}
+              href={`/api/clients/${clientId}/ijp-attestation/blank?month=${encodeURIComponent(activeMonth ?? status.serviceMonth)}`}
               className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-brand-black"
             >
               Download blank PDF
@@ -202,16 +255,15 @@ export function IjpClientSignatureSection({ clientId }: Props) {
         </div>
       ) : status.hasAttestation ? (
         <p className="mt-2 text-sm text-brand-black/70">
-          Attestation on file for {status.serviceMonthLabel}.
+          Attestation on file for {activeLabel}.
         </p>
       ) : status.signatureNeeded ? (
         <p className="mt-2 text-sm text-brand-black/70">
-          Capture window closed for {status.serviceMonthLabel}. Signature is still needed for
-          billing.
+          Capture window closed for {activeLabel}. Signature is still needed for billing.
         </p>
       ) : (
         <p className="mt-2 text-sm text-brand-black/70">
-          No attestation required for {status.serviceMonthLabel}.
+          No attestation required for {activeLabel}.
         </p>
       )}
     </section>

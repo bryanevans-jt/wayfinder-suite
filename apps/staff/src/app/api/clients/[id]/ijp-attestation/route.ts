@@ -5,11 +5,19 @@ import {
   USER_FACING_AUTH_REQUIRED,
   USER_FACING_FORBIDDEN,
 } from "@wayfinder/supabase/error-log";
+import {
+  attestationCaptureWindowOpen,
+  serviceMonthStartFromYmd,
+} from "@wayfinder/supabase/ijp-billing-eligibility";
 import { loadIjpBillingSettings } from "@wayfinder/supabase/ijp-billing-settings";
 import { loadStaffNameById } from "@/lib/staff-names";
-import { canAccessIjpClientSignature } from "@/lib/ijp-field-access";
+import {
+  canAccessIjpClientSignature,
+  canPickIjpAttestationMonth,
+} from "@/lib/ijp-field-access";
 import { loadIjpSignatureUiStatus } from "@/lib/ijp-attestation-status";
 import { saveIjpAttestation, ensureIjpInvoiceRow } from "@/lib/ijp-billing-service";
+import { syncIjpInvoiceMissingAttestationFlags } from "@/lib/ijp-billing-ledger-actions";
 import { NextResponse } from "next/server";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -31,7 +39,7 @@ async function fieldSession() {
   return { session, role, userId: session.effectiveUserId, profile };
 }
 
-export async function GET(_request: Request, ctx: Ctx) {
+export async function GET(request: Request, ctx: Ctx) {
   const { id: clientId } = await ctx.params;
   const auth = await fieldSession();
   if (!auth) {
@@ -48,8 +56,19 @@ export async function GET(_request: Request, ctx: Ctx) {
     return NextResponse.json({ error: USER_FACING_FORBIDDEN }, { status: 403 });
   }
 
-  const status = await loadIjpSignatureUiStatus(admin, clientId);
-  return NextResponse.json({ status });
+  const canPick = canPickIjpAttestationMonth(auth.role);
+  const monthParam = new URL(request.url).searchParams.get("month")?.trim() || null;
+  const status = await loadIjpSignatureUiStatus(
+    admin,
+    clientId,
+    new Date(),
+    undefined,
+    canPick && monthParam ? { serviceMonthOverride: monthParam } : undefined
+  );
+  return NextResponse.json({
+    status,
+    canPickMonth: canPick,
+  });
 }
 
 export async function POST(request: Request, ctx: Ctx) {
@@ -85,13 +104,38 @@ export async function POST(request: Request, ctx: Ctx) {
   }
 
   const status = isTest ? null : await loadIjpSignatureUiStatus(admin, clientId);
-  const serviceMonth = body.serviceMonth?.trim() || status?.serviceMonth;
+  const requestedMonth = body.serviceMonth?.trim()
+    ? serviceMonthStartFromYmd(body.serviceMonth.trim())
+    : null;
+  const canPick = canPickIjpAttestationMonth(auth.role);
+  const serviceMonth =
+    (canPick && requestedMonth
+      ? requestedMonth
+      : status?.serviceMonth) ||
+    requestedMonth ||
+    null;
   if (!serviceMonth) {
     return NextResponse.json({ error: "No active attestation month." }, { status: 400 });
   }
 
-  if (!isTest && status && !status.captureOpen) {
-    return NextResponse.json({ error: "Attestation window is closed for this month." }, { status: 400 });
+  if (!isTest) {
+    if (!attestationCaptureWindowOpen(serviceMonth)) {
+      return NextResponse.json(
+        { error: "Attestation window is closed for this month." },
+        { status: 400 }
+      );
+    }
+    if (
+      canPick &&
+      requestedMonth &&
+      status?.availableMonths &&
+      !status.availableMonths.some((m) => m.serviceMonth === requestedMonth)
+    ) {
+      return NextResponse.json(
+        { error: "That service month is not available for attestation right now." },
+        { status: 400 }
+      );
+    }
   }
 
   const names = await loadStaffNameById(admin, [auth.userId], "Staff");
@@ -125,6 +169,14 @@ export async function POST(request: Request, ctx: Ctx) {
       captureMethod:
         body.uploadPdfBase64 || body.uploadImageBase64 ? "upload" : "digital",
     });
+
+    if (!isTest) {
+      await syncIjpInvoiceMissingAttestationFlags(admin, {
+        clientId,
+        serviceMonth,
+        isTest: false,
+      });
+    }
 
     return NextResponse.json({ ok: true, ...result, isTest });
   } catch (e) {
