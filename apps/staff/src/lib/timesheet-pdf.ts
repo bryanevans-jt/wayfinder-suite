@@ -15,6 +15,8 @@ export type ClientTimesheetPdfInput = {
   esName: string;
   weekStart: string;
   weekEnd: string;
+  /** Optional override for the period line (e.g. month label). */
+  periodLabel?: string;
   entries: EsTimeEntryRow[];
   approvedAt: string | null;
   approvedByName: string | null;
@@ -196,7 +198,9 @@ export async function buildClientTimesheetPdf(input: ClientTimesheetPdfInput): P
   const metaLines = [
     `Client: ${input.clientName}`,
     `Employment Specialist: ${input.esName}`,
-    `Pay week: ${formatDisplayDate(input.weekStart)} – ${formatDisplayDate(input.weekEnd)}`,
+    input.periodLabel
+      ? input.periodLabel
+      : `Pay week: ${formatDisplayDate(input.weekStart)} – ${formatDisplayDate(input.weekEnd)}`,
   ];
 
   const approvedLabel = formatApprovedAt(input.approvedAt);
@@ -277,9 +281,12 @@ export function groupApprovedClientEntries(entries: EsTimeEntryRow[]): ClientTim
 
 export async function buildClientTimesheetPdfZip(
   groups: ClientTimesheetGroup[],
-  shared: Omit<ClientTimesheetPdfInput, "clientName" | "entries">
+  shared: Omit<ClientTimesheetPdfInput, "clientName" | "entries"> & {
+    fileStem?: string;
+  }
 ): Promise<Uint8Array> {
   const zip = new JSZip();
+  const stem = shared.fileStem ?? shared.weekStart;
 
   for (const group of groups) {
     const pdfBytes = await buildClientTimesheetPdf({
@@ -287,7 +294,7 @@ export async function buildClientTimesheetPdfZip(
       clientName: group.clientName,
       entries: group.entries,
     });
-    const filename = `timesheet-${sanitizeFilename(group.clientName)}-${shared.weekStart}.pdf`;
+    const filename = `timesheet-${sanitizeFilename(group.clientName)}-${stem}.pdf`;
     zip.file(filename, pdfBytes);
   }
 

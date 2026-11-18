@@ -1,3 +1,4 @@
+import { serviceDisplayName } from "@wayfinder/branding";
 import {
   formatBillableHours,
   sumBillableMinutesFromTimeEntryRows,
@@ -9,6 +10,10 @@ import {
   displayServiceTimes,
   type ServiceActivityType,
 } from "@wayfinder/supabase/es-time-tracking";
+import {
+  findEpisodeCoveringServiceDate,
+  type IjpAttributionEpisode,
+} from "@wayfinder/supabase/ijp-billing-eligibility";
 import {
   localDateStringInTz,
   STAFF_CLOCK_TIMEZONE,
@@ -30,103 +35,303 @@ export type {
   EsWeekSubmissionRow,
   SupervisedEsOption,
   TimesheetClientOption,
+  ClientServiceBillableGroup,
 } from "@/lib/es-time-client";
-export { summarizeTimeEntries, shiftWeekStart } from "@/lib/es-time-client";
+export {
+  summarizeTimeEntries,
+  summarizeTimeEntriesByClientService,
+  shiftWeekStart,
+  shiftMonthKey,
+} from "@/lib/es-time-client";
 export type { ServiceActivityType };
-export async function loadEsTimeEntriesForWeek(
-  admin: ReturnType<typeof createServiceRoleClient>,
-  esUserId: string,
-  weekStart: string
-): Promise<EsTimeEntryRow[]> {
-  const weekEnd = weekEndSaturday(weekStart);
 
+type AdminClient = ReturnType<typeof createServiceRoleClient>;
+
+type RawTimeEntryRow = {
+  id: string;
+  es_user_id: string;
+  client_id: string | null;
+  activity_type_id: string;
+  service_date: string;
+  duration_minutes: number;
+  service_start_at: string | null;
+  service_end_at: string | null;
+  created_at: string | null;
+  narrative: string | null;
+  linked_source_type: string | null;
+  status: string;
+  flags: Record<string, boolean> | null;
+  client_present: boolean | null;
+  delivery_mode: string | null;
+  service_episode_id: string | null;
+  service_activity_types:
+    | {
+        code: string;
+        name: string;
+        category: string;
+        counts_toward_client_billable?: boolean;
+      }
+    | {
+        code: string;
+        name: string;
+        category: string;
+        counts_toward_client_billable?: boolean;
+      }[]
+    | null;
+};
+
+const TIME_ENTRY_SELECT = `
+  id,
+  es_user_id,
+  client_id,
+  activity_type_id,
+  service_date,
+  duration_minutes,
+  service_start_at,
+  service_end_at,
+  created_at,
+  narrative,
+  linked_source_type,
+  status,
+  flags,
+  client_present,
+  delivery_mode,
+  service_episode_id,
+  service_activity_types ( code, name, category, counts_toward_client_billable )
+`;
+
+async function resolveServiceLabelsForEntries(
+  admin: AdminClient,
+  rows: RawTimeEntryRow[]
+): Promise<Map<string, { serviceId: string | null; serviceName: string | null }>> {
+  const labels = new Map<string, { serviceId: string | null; serviceName: string | null }>();
+  if (rows.length === 0) return labels;
+
+  const clientIds = [
+    ...new Set(
+      rows
+        .map((r) => r.client_id)
+        .filter((id): id is string => typeof id === "string" && id.length > 0)
+    ),
+  ];
+  const episodeIds = [
+    ...new Set(
+      rows
+        .map((r) => r.service_episode_id)
+        .filter((id): id is string => typeof id === "string" && id.length > 0)
+    ),
+  ];
+
+  const [{ data: clientRows }, { data: linkedEpisodes }, { data: clientEpisodes }] =
+    await Promise.all([
+      clientIds.length > 0
+        ? admin.from("clients").select("id, current_service_id").in("id", clientIds)
+        : Promise.resolve({ data: [] as Array<{ id: string; current_service_id: string | null }> }),
+      episodeIds.length > 0
+        ? admin
+            .from("service_episodes")
+            .select("id, service_id, started_at, ended_at, client_id")
+            .in("id", episodeIds)
+        : Promise.resolve({
+            data: [] as Array<{
+              id: string;
+              service_id: string | null;
+              started_at: string | null;
+              ended_at: string | null;
+              client_id: string;
+            }>,
+          }),
+      clientIds.length > 0
+        ? admin
+            .from("service_episodes")
+            .select("id, service_id, started_at, ended_at, client_id")
+            .in("client_id", clientIds)
+        : Promise.resolve({
+            data: [] as Array<{
+              id: string;
+              service_id: string | null;
+              started_at: string | null;
+              ended_at: string | null;
+              client_id: string;
+            }>,
+          }),
+    ]);
+
+  const currentServiceByClient = new Map<string, string | null>();
+  for (const c of clientRows ?? []) {
+    currentServiceByClient.set(c.id as string, (c.current_service_id as string | null) ?? null);
+  }
+
+  const episodeById = new Map<string, IjpAttributionEpisode & { client_id?: string }>();
+  const episodesByClient = new Map<string, IjpAttributionEpisode[]>();
+
+  for (const ep of [...(linkedEpisodes ?? []), ...(clientEpisodes ?? [])]) {
+    const mapped: IjpAttributionEpisode & { client_id?: string } = {
+      id: ep.id as string,
+      service_id: (ep.service_id as string | null) ?? null,
+      started_at: (ep.started_at as string | null) ?? null,
+      ended_at: (ep.ended_at as string | null) ?? null,
+      client_id: ep.client_id as string,
+    };
+    episodeById.set(ep.id as string, mapped);
+    const list = episodesByClient.get(ep.client_id as string) ?? [];
+    if (!list.some((existing) => existing.id === mapped.id)) {
+      list.push(mapped);
+    }
+    episodesByClient.set(ep.client_id as string, list);
+  }
+
+  const serviceIds = new Set<string>();
+  const resolvedServiceIdByEntry = new Map<string, string | null>();
+
+  for (const row of rows) {
+    let serviceId: string | null = null;
+    const linkedId = row.service_episode_id;
+    if (linkedId && episodeById.has(linkedId)) {
+      serviceId = episodeById.get(linkedId)?.service_id ?? null;
+    } else if (row.client_id) {
+      const covering = findEpisodeCoveringServiceDate(
+        episodesByClient.get(row.client_id) ?? [],
+        row.service_date
+      );
+      if (covering?.service_id) {
+        serviceId = covering.service_id;
+      } else {
+        serviceId = currentServiceByClient.get(row.client_id) ?? null;
+      }
+    }
+    resolvedServiceIdByEntry.set(row.id, serviceId);
+    if (serviceId) serviceIds.add(serviceId);
+  }
+
+  const { data: serviceRows } =
+    serviceIds.size > 0
+      ? await admin
+          .from("services")
+          .select("id, name, state")
+          .in("id", [...serviceIds])
+      : { data: [] as Array<{ id: string; name: string; state: string | null }> };
+
+  const serviceNameById = new Map<string, string>();
+  for (const s of serviceRows ?? []) {
+    serviceNameById.set(
+      s.id as string,
+      serviceDisplayName({
+        id: s.id as string,
+        name: s.name as string,
+        state: (s.state as string | null) ?? null,
+      })
+    );
+  }
+
+  for (const row of rows) {
+    const serviceId = resolvedServiceIdByEntry.get(row.id) ?? null;
+    labels.set(row.id, {
+      serviceId,
+      serviceName: serviceId ? (serviceNameById.get(serviceId) ?? null) : null,
+    });
+  }
+
+  return labels;
+}
+
+async function mapEsTimeEntryRows(
+  admin: AdminClient,
+  data: RawTimeEntryRow[]
+): Promise<EsTimeEntryRow[]> {
+  const clientIds = [
+    ...new Set(
+      data
+        .map((r) => r.client_id)
+        .filter((id): id is string => typeof id === "string")
+    ),
+  ];
+  const [clientNameById, serviceLabels] = await Promise.all([
+    loadClientDisplayNameById(admin, clientIds),
+    resolveServiceLabelsForEntries(admin, data),
+  ]);
+
+  return data.map((row) => {
+    const embed = row.service_activity_types;
+    const activity = Array.isArray(embed) ? embed[0] : embed;
+    const minutes = row.duration_minutes;
+    const countsTowardClient = activity?.counts_toward_client_billable !== false;
+    const service = serviceLabels.get(row.id);
+    return {
+      id: row.id,
+      es_user_id: row.es_user_id,
+      client_id: row.client_id ?? null,
+      client_name: row.client_id ? (clientNameById.get(row.client_id) ?? null) : null,
+      activity_type_id: row.activity_type_id,
+      activity_code: activity?.code ?? "",
+      activity_name: activity?.name ?? "",
+      activity_category: activity?.category ?? "",
+      counts_toward_client_billable: countsTowardClient,
+      service_date: row.service_date,
+      duration_minutes: minutes,
+      duration_hours: formatBillableHours(minutes),
+      client_billable_hours: countsTowardClient ? formatBillableHours(minutes) : "0.0",
+      service_start_at: row.service_start_at ?? null,
+      service_end_at: row.service_end_at ?? null,
+      created_at: row.created_at ?? null,
+      narrative: row.narrative ?? null,
+      linked_source_type: row.linked_source_type ?? null,
+      status: row.status,
+      flags: row.flags ?? {},
+      client_present: row.client_present ?? null,
+      delivery_mode: row.delivery_mode ?? null,
+      service_episode_id: row.service_episode_id ?? null,
+      service_id: service?.serviceId ?? null,
+      service_name: service?.serviceName ?? null,
+    };
+  });
+}
+
+export async function loadEsTimeEntriesForDateRange(
+  admin: AdminClient,
+  esUserId: string,
+  rangeStart: string,
+  rangeEnd: string
+): Promise<EsTimeEntryRow[]> {
   const { data, error } = await admin
     .from("es_time_entries")
-    .select(
-      `
-      id,
-      es_user_id,
-      client_id,
-      activity_type_id,
-      service_date,
-      duration_minutes,
-      service_start_at,
-      service_end_at,
-      created_at,
-      narrative,
-      linked_source_type,
-      status,
-      flags,
-      client_present,
-      delivery_mode,
-      service_activity_types ( code, name, category, counts_toward_client_billable )
-    `
-    )
+    .select(TIME_ENTRY_SELECT)
     .eq("es_user_id", esUserId)
-    .gte("service_date", weekStart)
-    .lte("service_date", weekEnd)
-    .order("service_date", { ascending: true });
+    .gte("service_date", rangeStart)
+    .lte("service_date", rangeEnd)
+    .order("service_date", { ascending: true })
+    .order("created_at", { ascending: true });
 
   if (error) {
     throw new Error(error.message);
   }
 
-  const clientIds = [
-    ...new Set(
-      (data ?? [])
-        .map((r) => r.client_id as string | null)
-        .filter((id): id is string => typeof id === "string")
-    ),
-  ];
+  return mapEsTimeEntryRows(admin, (data ?? []) as unknown as RawTimeEntryRow[]);
+}
 
-  const clientNameById = await loadClientDisplayNameById(admin, clientIds);
+export async function loadEsTimeEntriesForWeek(
+  admin: AdminClient,
+  esUserId: string,
+  weekStart: string
+): Promise<EsTimeEntryRow[]> {
+  const weekEnd = weekEndSaturday(weekStart);
+  return loadEsTimeEntriesForDateRange(admin, esUserId, weekStart, weekEnd);
+}
 
-  return (data ?? []).map((row) => {
-    const embed = row.service_activity_types as
-      | {
-          code: string;
-          name: string;
-          category: string;
-          counts_toward_client_billable?: boolean;
-        }
-      | {
-          code: string;
-          name: string;
-          category: string;
-          counts_toward_client_billable?: boolean;
-        }[]
-      | null;
-    const activity = Array.isArray(embed) ? embed[0] : embed;
-    const minutes = row.duration_minutes as number;
-    const countsTowardClient =
-      activity?.counts_toward_client_billable !== false;
-    return {
-      id: row.id as string,
-      es_user_id: row.es_user_id as string,
-      client_id: (row.client_id as string | null) ?? null,
-      client_name: row.client_id
-        ? (clientNameById.get(row.client_id as string) ?? null)
-        : null,
-      activity_type_id: row.activity_type_id as string,
-      activity_code: activity?.code ?? "",
-      activity_name: activity?.name ?? "",
-      activity_category: activity?.category ?? "",
-      counts_toward_client_billable: countsTowardClient,
-      service_date: row.service_date as string,
-      duration_minutes: minutes,
-      duration_hours: formatBillableHours(minutes),
-      client_billable_hours: countsTowardClient ? formatBillableHours(minutes) : "0.0",
-      service_start_at: (row.service_start_at as string | null) ?? null,
-      service_end_at: (row.service_end_at as string | null) ?? null,
-      created_at: (row.created_at as string | null) ?? null,
-      narrative: (row.narrative as string | null) ?? null,
-      linked_source_type: (row.linked_source_type as string | null) ?? null,
-      status: row.status as string,
-      flags: (row.flags as Record<string, boolean>) ?? {},
-      client_present: (row.client_present as boolean | null) ?? null,
-      delivery_mode: (row.delivery_mode as string | null) ?? null,
-    };
-  });
+/** Calendar-month entries (YYYY-MM) for the monthly billable hours ledger. */
+export async function loadEsTimeEntriesForMonth(
+  admin: AdminClient,
+  esUserId: string,
+  monthKey: string
+): Promise<EsTimeEntryRow[]> {
+  const { start, end } = calendarMonthBoundsFromKey(monthKey);
+  return loadEsTimeEntriesForDateRange(admin, esUserId, start, end);
+}
+
+/** Current calendar month key in America/New_York (YYYY-MM). */
+export function currentMonthKey(now: Date = new Date()): string {
+  const today = localDateStringInTz(now, STAFF_CLOCK_TIMEZONE);
+  return today.slice(0, 7);
 }
 
 export async function loadBillableMinutesForDateRange(
@@ -336,12 +541,19 @@ export async function loadMyBillableHoursSummary(
 
 
 
-export function esTimeEntriesToCsv(entries: EsTimeEntryRow[], esName: string, weekStart: string): string {
+export function esTimeEntriesToCsv(
+  entries: EsTimeEntryRow[],
+  esName: string,
+  periodLabel: string,
+  opts?: { periodColumn?: string }
+): string {
+  const periodColumn = opts?.periodColumn ?? "week_start";
   const header = [
-    "week_start",
+    periodColumn,
     "es_name",
     "service_date",
     "client_name",
+    "service_name",
     "activity_code",
     "activity_name",
     "billable_minutes",
@@ -358,10 +570,11 @@ export function esTimeEntriesToCsv(entries: EsTimeEntryRow[], esName: string, we
     ...entries.map((e) => {
       const times = displayServiceTimes(e);
       return [
-        weekStart,
+        periodLabel,
         esName,
         e.service_date,
         e.client_name ?? "",
+        e.service_name ?? "",
         e.activity_code,
         e.activity_name,
         String(e.duration_minutes),
@@ -385,6 +598,7 @@ export function esTimeEntriesToCsv(entries: EsTimeEntryRow[], esName: string, we
       "",
       "",
       "",
+      "",
       "hours_worked_payroll",
       String(summary.workedMinutes),
       minutesToDecimalHours(summary.workedMinutes),
@@ -401,6 +615,7 @@ export function esTimeEntriesToCsv(entries: EsTimeEntryRow[], esName: string, we
     [
       "SUMMARY",
       esName,
+      "",
       "",
       "",
       "",

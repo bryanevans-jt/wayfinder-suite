@@ -9,10 +9,14 @@ import { getAppSession } from "@wayfinder/supabase/preview-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { NextResponse } from "next/server";
 import {
+  currentMonthKey,
   esTimeEntriesToCsv,
+  loadEsTimeEntriesForMonth,
   loadEsTimeEntriesForWeek,
 } from "@/lib/es-time-data";
 import { esUserAllowedForSupervisor, loadSupervisorScope } from "@/lib/supervisor-client-scope";
+
+const MONTH_KEY_RE = /^(\d{4})-(0[1-9]|1[0-2])$/;
 
 export async function GET(request: Request) {
   const route = "api/exports/time";
@@ -34,7 +38,11 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
-  const weekStart = weekStartSunday(url.searchParams.get("week") ?? new Date());
+  const monthParam = url.searchParams.get("month")?.trim() ?? "";
+  const weekParam = url.searchParams.get("week");
+  const useMonth = MONTH_KEY_RE.test(monthParam) || !weekParam;
+  const monthKey = MONTH_KEY_RE.test(monthParam) ? monthParam : currentMonthKey();
+  const weekStart = weekStartSunday(weekParam ?? new Date());
   const requestedEs = url.searchParams.get("es");
   let esUserId = session.effectiveUserId;
 
@@ -59,7 +67,9 @@ export async function GET(request: Request) {
       }
     }
 
-    let entries = await loadEsTimeEntriesForWeek(admin, esUserId, weekStart);
+    let entries = useMonth
+      ? await loadEsTimeEntriesForMonth(admin, esUserId, monthKey)
+      : await loadEsTimeEntriesForWeek(admin, esUserId, weekStart);
     const clientFilter = url.searchParams.get("client")?.trim();
     if (clientFilter) {
       entries = entries.filter((e) => e.client_id === clientFilter);
@@ -71,13 +81,15 @@ export async function GET(request: Request) {
       .maybeSingle();
 
     const esName = (profile?.full_name as string | null)?.trim() || "ES";
-
-    const csv = esTimeEntriesToCsv(entries, esName, weekStart);
+    const periodLabel = useMonth ? monthKey : weekStart;
+    const csv = esTimeEntriesToCsv(entries, esName, periodLabel, {
+      periodColumn: useMonth ? "month" : "week_start",
+    });
 
     return new NextResponse(csv, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="wayfinder-timesheet-${weekStart}.csv"`,
+        "Content-Disposition": `attachment; filename="wayfinder-timesheet-${periodLabel}.csv"`,
       },
     });
   } catch (err) {

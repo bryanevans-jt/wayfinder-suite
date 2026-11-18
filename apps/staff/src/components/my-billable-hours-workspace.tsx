@@ -68,7 +68,7 @@ export function MyBillableHoursWorkspace({
                 href={timesheetHref}
                 className="rounded-lg border border-brand-green bg-brand-green px-4 py-2 text-sm font-semibold text-white hover:bg-brand-green/90"
               >
-                Open weekly timesheet
+                Open monthly timesheet
               </Link>
             ) : null}
             {showTeamTimesheetLink && teamTimesheetHref ? (

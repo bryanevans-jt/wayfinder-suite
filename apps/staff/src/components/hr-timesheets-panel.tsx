@@ -13,7 +13,7 @@ export function HrTimesheetsPanel() {
           is no week submit/approve step.
         </p>
         <Link
-          href="/dashboard/billable-hours#weekly-timesheet"
+          href="/dashboard/billable-hours#monthly-timesheet"
           className="mt-4 inline-flex rounded-lg border border-brand-gold bg-brand-gold px-4 py-2 text-sm font-semibold text-white"
         >
           Open Weekly Timesheet

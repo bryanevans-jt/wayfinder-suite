@@ -26,7 +26,9 @@ import {
 import { AccountsClientsReadonlyTable } from "@/components/accounts-clients-readonly-table";
 import { EsClientsTable } from "@/components/es-clients-table";
 import { EsClientsTodayStrip } from "@/components/es-clients-today-strip";
+import { MyKraBillableExpectationCard } from "@/components/my-kra-billable-expectation-card";
 import { loadCaseloadTriageFlags } from "@/lib/caseload-operations";
+import { currentMonthKey } from "@/lib/es-time-data";
 import {
   canAccessAccountsClientsList,
   loadAccountsClientsList,
@@ -356,6 +358,8 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
           </Suspense>
         </div>
       </div>
+
+      <MyKraBillableExpectationCard initialMonthKey={currentMonthKey()} />
 
       {!includeArchived ? (
         <EsClientsTodayStrip

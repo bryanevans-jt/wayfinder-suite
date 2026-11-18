@@ -35,6 +35,9 @@ export type EsTimeEntryRow = {
   flags: Record<string, boolean>;
   client_present?: boolean | null;
   delivery_mode?: string | null;
+  service_episode_id?: string | null;
+  service_id?: string | null;
+  service_name?: string | null;
 };
 
 export type EsWeekSubmissionRow = {
@@ -53,6 +56,18 @@ export type EsWeekSubmissionRow = {
 export type SupervisedEsOption = { id: string; name: string };
 
 export type TimesheetClientOption = { id: string; name: string };
+
+export type ClientServiceBillableGroup = {
+  key: string;
+  clientId: string | null;
+  clientName: string;
+  serviceId: string | null;
+  serviceName: string;
+  billableMinutes: number;
+  /** All entries for this client+service (billable and non-billable). */
+  entryCount: number;
+  entries: EsTimeEntryRow[];
+};
 
 export function summarizeTimeEntries(entries: EsTimeEntryRow[]) {
   const byClient = new Map<
@@ -109,8 +124,66 @@ export function summarizeTimeEntries(entries: EsTimeEntryRow[]) {
   };
 }
 
+/**
+ * Group entries by client + service for the monthly billable hours ledger.
+ * Billable minutes exclude Case File Review / note-only; entry counts include all logs.
+ */
+export function summarizeTimeEntriesByClientService(
+  entries: EsTimeEntryRow[]
+): ClientServiceBillableGroup[] {
+  const groups = new Map<string, ClientServiceBillableGroup>();
+
+  for (const e of entries) {
+    const clientId = e.client_id;
+    const clientName = clientId
+      ? (e.client_name ?? "Unknown client")
+      : "Non-client time";
+    const serviceId = e.service_id ?? null;
+    const serviceName = e.service_name?.trim() || "Unassigned service";
+    const key = `${clientId ?? "non-client"}::${serviceId ?? "none"}::${serviceName}`;
+    const group = groups.get(key) ?? {
+      key,
+      clientId,
+      clientName,
+      serviceId,
+      serviceName,
+      billableMinutes: 0,
+      entryCount: 0,
+      entries: [],
+    };
+    if (
+      entryCountsTowardClientBillable({
+        duration_minutes: e.duration_minutes,
+        counts_toward_client_billable: e.counts_toward_client_billable,
+      })
+    ) {
+      group.billableMinutes += e.duration_minutes;
+    }
+    group.entryCount += 1;
+    group.entries.push(e);
+    groups.set(key, group);
+  }
+
+  return [...groups.values()].sort((a, b) => {
+    const byName = a.clientName.localeCompare(b.clientName, undefined, {
+      sensitivity: "base",
+    });
+    if (byName !== 0) return byName;
+    return a.serviceName.localeCompare(b.serviceName, undefined, {
+      sensitivity: "base",
+    });
+  });
+}
+
 export function shiftWeekStart(weekStart: string, deltaWeeks: number): string {
   const d = parseLocalDate(weekStart);
   d.setDate(d.getDate() + deltaWeeks * 7);
   return weekStartSunday(d);
+}
+
+/** Shift a YYYY-MM month key by whole months. */
+export function shiftMonthKey(monthKey: string, deltaMonths: number): string {
+  const [y, m] = monthKey.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1 + deltaMonths, 1, 12, 0, 0));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}`;
 }

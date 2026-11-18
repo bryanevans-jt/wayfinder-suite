@@ -1,4 +1,3 @@
-import { weekEndSaturday, weekStartSunday } from "@wayfinder/supabase/es-time-tracking";
 import type { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
   isAdminTierRole,
@@ -6,9 +5,12 @@ import {
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
 import {
+  calendarMonthBoundsFromKey,
+  currentMonthKey,
   loadEsCaseloadClientOptions,
-  loadEsTimeEntriesForWeek,
+  loadEsTimeEntriesForMonth,
   loadStaffEsPickerOptions,
+  monthLabelFromKey,
 } from "@/lib/es-time-data";
 import { loadStaffNameById } from "@/lib/operations-data";
 import { esUserAllowedForSupervisor, loadSupervisorScope } from "@/lib/supervisor-client-scope";
@@ -17,6 +19,8 @@ import type { EsTimeEntryRow, SupervisedEsOption, TimesheetClientOption } from "
 type AdminClient = ReturnType<typeof createServiceRoleClient>;
 
 export type TimesheetSectionSearchParams = {
+  month?: string;
+  /** @deprecated Prefer month — kept so old week links still resolve. */
   week?: string;
   es?: string;
   client?: string;
@@ -26,8 +30,10 @@ export type TimesheetWorkspaceServerProps = {
   role: string;
   esUserId: string;
   esName: string;
-  weekStart: string;
-  weekEnd: string;
+  monthKey: string;
+  monthStart: string;
+  monthEnd: string;
+  monthLabel: string;
   entries: EsTimeEntryRow[];
   readOnly: boolean;
   supervisedEsOptions: SupervisedEsOption[];
@@ -44,6 +50,8 @@ export type TimesheetSectionLoadResult =
 
 export const BILLABLE_HOURS_TIMESHEET_PATH = "/dashboard/billable-hours";
 
+const MONTH_KEY_RE = /^(\d{4})-(0[1-9]|1[0-2])$/;
+
 export function canAccessWeeklyTimesheetSection(role: string | null | undefined): boolean {
   return (
     isFieldSpecialistRole(role) ||
@@ -56,10 +64,22 @@ export function canAccessWeeklyTimesheetSection(role: string | null | undefined)
 
 function timesheetUrl(basePath: string, params: URLSearchParams): string {
   const qs = params.toString();
-  return `${basePath}${qs ? `?${qs}` : ""}#weekly-timesheet`;
+  return `${basePath}${qs ? `?${qs}` : ""}#monthly-timesheet`;
 }
 
-/** Shared loader for weekly timesheet UI on Billable Hours (legacy /timesheet redirects here). */
+function resolveMonthKey(params: TimesheetSectionSearchParams): string {
+  const raw = params.month?.trim() ?? "";
+  if (MONTH_KEY_RE.test(raw)) {
+    return raw;
+  }
+  // Legacy week deep-links → month containing that week start.
+  if (params.week && /^\d{4}-\d{2}-\d{2}$/.test(params.week)) {
+    return params.week.slice(0, 7);
+  }
+  return currentMonthKey();
+}
+
+/** Shared loader for monthly timesheet UI on Billable Hours. */
 export async function loadTimesheetSection(
   admin: AdminClient,
   opts: {
@@ -77,8 +97,9 @@ export async function loadTimesheetSection(
     return { kind: "hidden" };
   }
 
-  const weekStart = weekStartSunday(params.week ?? new Date());
-  const weekEnd = weekEndSaturday(weekStart);
+  const monthKey = resolveMonthKey(params);
+  const { start: monthStart, end: monthEnd } = calendarMonthBoundsFromKey(monthKey);
+  const monthLabel = monthLabelFromKey(monthKey);
 
   const canPickEs =
     isSupervisorRole(role) ||
@@ -97,7 +118,7 @@ export async function loadTimesheetSection(
     if (params.es) {
       const allowed = esPickerOptions.some((opt) => opt.id === params.es);
       if (!allowed) {
-        const qs = new URLSearchParams({ week: weekStart });
+        const qs = new URLSearchParams({ month: monthKey });
         if (esPickerOptions[0]) {
           qs.set("es", esPickerOptions[0].id);
         }
@@ -108,7 +129,7 @@ export async function loadTimesheetSection(
       }
       esUserId = params.es;
     } else if (esPickerOptions.length > 0) {
-      const qs = new URLSearchParams({ es: esPickerOptions[0]!.id, week: weekStart });
+      const qs = new URLSearchParams({ es: esPickerOptions[0]!.id, month: monthKey });
       if (params.client) {
         qs.set("client", params.client);
       }
@@ -119,14 +140,14 @@ export async function loadTimesheetSection(
   if (isSupervisorRole(role) && !isAdminTierRole(role) && params.es) {
     const scope = await loadSupervisorScope(admin, effectiveUserId);
     if (!esUserAllowedForSupervisor(scope, esUserId)) {
-      const qs = new URLSearchParams({ week: weekStart });
+      const qs = new URLSearchParams({ month: monthKey });
       return { kind: "redirect", url: timesheetUrl(basePath, qs) };
     }
   }
 
   const [esNames, entries, caseloadClients] = await Promise.all([
     loadStaffNameById(admin, [esUserId], "Team member"),
-    loadEsTimeEntriesForWeek(admin, esUserId, weekStart),
+    loadEsTimeEntriesForMonth(admin, esUserId, monthKey),
     canPickEs && !isFieldSpecialistRole(role)
       ? loadEsCaseloadClientOptions(admin, esUserId)
       : Promise.resolve([]),
@@ -140,8 +161,10 @@ export async function loadTimesheetSection(
       role: role ?? "",
       esUserId,
       esName,
-      weekStart,
-      weekEnd,
+      monthKey,
+      monthStart,
+      monthEnd,
+      monthLabel,
       entries,
       readOnly: isPreviewing,
       supervisedEsOptions: esPickerOptions,

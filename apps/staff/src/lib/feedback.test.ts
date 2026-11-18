@@ -24,7 +24,7 @@ describe("parseFeedbackSubmitInput", () => {
       description: "The week view never loads for me.",
       pageUrl: "https://wayfinder-pro.thejoshuatree.org/dashboard/feedback",
       userAgent: "Mozilla/5.0",
-      appVersion: "1.3.1",
+      appVersion: "1.3.2",
     });
     assert.equal(parsed.ok, true);
     if (!parsed.ok) return;

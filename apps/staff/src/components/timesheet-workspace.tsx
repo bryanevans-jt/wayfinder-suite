@@ -1,7 +1,6 @@
 "use client";
 
 import { formatBillableHours } from "@wayfinder/supabase/client-billable";
-import { displayServiceTimes } from "@wayfinder/supabase/es-time-tracking";
 import {
   canViewClientProfiles,
   isAdminTierRole,
@@ -10,37 +9,75 @@ import {
 } from "@wayfinder/supabase/roles";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import type { EsTimeEntryRow, SupervisedEsOption, TimesheetClientOption } from "@/lib/es-time-client";
-import { shiftWeekStart, summarizeTimeEntries } from "@/lib/es-time-client";
+import {
+  shiftMonthKey,
+  summarizeTimeEntries,
+  summarizeTimeEntriesByClientService,
+} from "@/lib/es-time-client";
 
 type Props = {
   role: string;
   esUserId: string;
   esName: string;
-  weekStart: string;
-  weekEnd: string;
+  monthKey: string;
+  monthStart: string;
+  monthEnd: string;
+  monthLabel: string;
   entries: EsTimeEntryRow[];
   readOnly?: boolean;
   supervisedEsOptions?: SupervisedEsOption[];
   caseloadClients?: TimesheetClientOption[];
   initialClientFilter?: string;
   canPickEs?: boolean;
-  /** Route used for week / ES / client query updates (default Billable Hours). */
+  /** Route used for month / ES / client query updates (default Billable Hours). */
   basePath?: string;
 };
 
-function formatWeekLabel(start: string, end: string): string {
-  const fmt = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
-  return `${fmt.format(new Date(start + "T12:00:00"))} – ${fmt.format(new Date(end + "T12:00:00"))}`;
+function formatEntryCreatedAt(iso: string | null): string {
+  if (!iso) return "—";
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(new Date(iso));
+  } catch {
+    return iso;
+  }
+}
+
+function formatServiceDate(isoDate: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }).format(new Date(`${isoDate}T12:00:00`));
+  } catch {
+    return isoDate;
+  }
+}
+
+function monthInputValue(monthKey: string): string {
+  return `${monthKey}-01`;
+}
+
+function monthKeyFromInput(value: string): string {
+  return value.slice(0, 7);
 }
 
 export function TimesheetWorkspace({
   role,
   esUserId,
   esName,
-  weekStart,
-  weekEnd,
+  monthKey,
+  monthStart,
+  monthEnd,
+  monthLabel,
   entries,
   supervisedEsOptions = [],
   caseloadClients = [],
@@ -51,6 +88,7 @@ export function TimesheetWorkspace({
   const router = useRouter();
   const [error] = useState<string | null>(null);
   const [clientFilter, setClientFilter] = useState(initialClientFilter);
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
   const visibleEntries = useMemo(() => {
     if (!clientFilter) {
@@ -75,8 +113,10 @@ export function TimesheetWorkspace({
   }, [caseloadClients, entries]);
 
   const summary = summarizeTimeEntries(visibleEntries);
+  const byClientService = summarizeTimeEntriesByClientService(visibleEntries);
+
   const exportParams = new URLSearchParams({
-    week: weekStart,
+    month: monthKey,
     es: esUserId,
   });
   if (clientFilter) {
@@ -84,10 +124,11 @@ export function TimesheetWorkspace({
   }
   const csvHref = `/api/exports/time?${exportParams.toString()}`;
   const pdfHref = `/api/exports/time/pdf?${exportParams.toString()}`;
-  const canDownloadPdf = summary.byClient.some((c) => Boolean(c.clientId));
+  const canDownloadPdf = byClientService.some((c) => Boolean(c.clientId));
 
   function pushTimesheetQuery(updates: Record<string, string | null>) {
     const params = new URLSearchParams(window.location.search);
+    params.delete("week");
     for (const [key, value] of Object.entries(updates)) {
       if (value) {
         params.set(key, value);
@@ -96,11 +137,16 @@ export function TimesheetWorkspace({
       }
     }
     const qs = params.toString();
-    router.push(`${basePath}${qs ? `?${qs}` : ""}#weekly-timesheet`);
+    router.push(`${basePath}${qs ? `?${qs}` : ""}#monthly-timesheet`);
   }
 
-  function changeWeek(delta: number) {
-    pushTimesheetQuery({ week: shiftWeekStart(weekStart, delta) });
+  function changeMonth(delta: number) {
+    pushTimesheetQuery({ month: shiftMonthKey(monthKey, delta) });
+  }
+
+  function onMonthPickerChange(nextMonthKey: string) {
+    if (!nextMonthKey) return;
+    pushTimesheetQuery({ month: nextMonthKey });
   }
 
   function onEsChange(nextEsId: string) {
@@ -109,7 +155,12 @@ export function TimesheetWorkspace({
 
   function onClientFilterChange(nextClientId: string) {
     setClientFilter(nextClientId);
+    setExpandedKey(null);
     pushTimesheetQuery({ client: nextClientId || null });
+  }
+
+  function toggleExpand(key: string) {
+    setExpandedKey((prev) => (prev === key ? null : key));
   }
 
   return (
@@ -166,29 +217,38 @@ export function TimesheetWorkspace({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-brand-black">
-              {isFieldSpecialistRole(role) ? "My Weekly Timesheet" : `${esName}'s Weekly Timesheet`}
+              {isFieldSpecialistRole(role) ? "My Monthly Timesheet" : `${esName}'s Monthly Timesheet`}
             </h2>
             <p className="text-sm text-brand-black/70">
-              Week (Sun–Sat): {formatWeekLabel(weekStart, weekEnd)}
+              Month: {monthLabel} ({monthStart} – {monthEnd}, Eastern)
             </p>
             <p className="mt-1 text-xs text-brand-black/55">
               Pay is based on billable hours. No week submit or supervisor approval is required.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-brand-black/70">Month</span>
+              <input
+                type="month"
+                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm text-brand-black"
+                value={monthInputValue(monthKey)}
+                onChange={(e) => onMonthPickerChange(monthKeyFromInput(e.target.value))}
+              />
+            </label>
             <button
               type="button"
-              onClick={() => changeWeek(-1)}
+              onClick={() => changeMonth(-1)}
               className="rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium"
             >
-              Previous week
+              Previous month
             </button>
             <button
               type="button"
-              onClick={() => changeWeek(1)}
+              onClick={() => changeMonth(1)}
               className="rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium"
             >
-              Next week
+              Next month
             </button>
             <a
               href={csvHref}
@@ -215,117 +275,147 @@ export function TimesheetWorkspace({
           <Stat label="Entries" value={String(visibleEntries.length)} />
           <Stat
             label="Clients served"
-            value={String(summary.byClient.filter((c) => c.name !== "Non-client time").length)}
+            value={String(
+              new Set(
+                byClientService
+                  .filter((c) => c.clientId)
+                  .map((c) => c.clientId as string)
+              ).size
+            )}
           />
         </div>
         <p className="mt-2 text-xs text-brand-black/55">
-          Billable hours count logged service time for this week (Sun–Sat, Eastern), whether or not
-          the client was marked present. Case File Review and note-only contact are excluded.
+          Billable hours count logged service time for this month (Eastern), whether or not the
+          client was marked present. Case File Review and note-only contact are excluded from
+          billable totals but still appear in the expanded entry list as non-billable.
         </p>
-
-        {summary.byClient.length > 0 ? (
-          <div className="mt-5">
-            <h3 className="text-sm font-semibold text-brand-black">Billable by Client</h3>
-            <p className="mt-1 text-xs text-brand-black/55">
-              Client totals exclude Case File Review and note-only contact only. Unchecking
-              &quot;Client was present&quot; does not remove hours from billable totals. Active
-              (in-person) % on the client profile is in-person with client present ÷ that
-              client&apos;s billable hours — not expected or authorized hours.
-            </p>
-            <ul className="mt-2 space-y-1 text-sm text-brand-black/80">
-              {summary.byClient.map((c) => (
-                <li key={c.name} className="flex flex-wrap items-center gap-2">
-                  <span>
-                    {c.name}: {formatBillableHours(c.minutes)} billable hrs ({c.count} entries)
-                  </span>
-                  {canDownloadPdf && c.clientId ? (
-                    <a
-                      href={`${pdfHref}&client=${encodeURIComponent(c.clientId)}`}
-                      className="text-xs font-semibold text-brand-green underline"
-                    >
-                      PDF
-                    </a>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-            {canDownloadPdf ? (
-              <p className="mt-2 text-xs text-brand-black/55">
-                One PDF per client with the Joshua Tree logo. Multiple clients download as a ZIP.
-              </p>
-            ) : null}
-          </div>
-        ) : null}
       </section>
 
-      <section>
-        <h3 className="text-base font-semibold text-brand-black">Line Items</h3>
-        {visibleEntries.length === 0 ? (
-          <p className="mt-2 text-sm text-brand-black/70">
+      <section className="rounded-xl border border-neutral-200 bg-white p-5">
+        <h3 className="text-base font-semibold text-brand-black">Clients &amp; services</h3>
+        <p className="mt-1 text-xs text-brand-black/55">
+          One row per client and service. Click the entry count to expand contact logs. Unchecking
+          &quot;Client was present&quot; does not remove hours from billable totals. PDFs include
+          the Joshua Tree logo; multiple clients download as a ZIP for the selected month.
+        </p>
+
+        {byClientService.length === 0 ? (
+          <p className="mt-4 text-sm text-brand-black/70">
             {isFieldSpecialistRole(role) || isSupervisorRole(role) ? (
               <>
-                No time entries this week. Log contact, applications, meetings, or stage updates from a{" "}
+                No time entries this month. Log contact, applications, meetings, or stage updates
+                from a{" "}
                 <Link href="/dashboard/clients" className="text-brand-green underline">
                   client profile
                 </Link>
                 , or add manual time there.
               </>
             ) : (
-              "No time entries this week for this team member."
+              "No time entries this month for this team member."
             )}
           </p>
         ) : (
-          <div className="mt-3 overflow-x-auto rounded-xl border border-neutral-200">
+          <div className="mt-4 overflow-x-auto rounded-xl border border-neutral-200">
             <table className="min-w-full text-left text-sm">
               <thead className="bg-neutral-50 text-xs uppercase tracking-wide text-brand-black/55">
                 <tr>
-                  <th className="px-3 py-2">Date</th>
                   <th className="px-3 py-2">Client</th>
-                  <th className="px-3 py-2">Activity</th>
+                  <th className="px-3 py-2">Service</th>
                   <th className="px-3 py-2">Billable hrs</th>
-                  <th className="px-3 py-2">Start</th>
-                  <th className="px-3 py-2">End</th>
-                  <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2">Narrative</th>
+                  <th className="px-3 py-2">Entries</th>
+                  <th className="px-3 py-2">PDF</th>
                 </tr>
               </thead>
               <tbody>
-                {visibleEntries.map((e) => {
-                  const times = displayServiceTimes(e);
+                {byClientService.map((group) => {
+                  const expanded = expandedKey === group.key;
                   return (
-                  <tr key={e.id} className="border-t border-neutral-100">
-                    <td className="px-3 py-2 whitespace-nowrap">{e.service_date}</td>
-                    <td className="px-3 py-2">
-                      {e.client_id &&
-                      e.client_name &&
-                      (isFieldSpecialistRole(role) || isSupervisorRole(role) || canViewClientProfiles(role)) ? (
-                        <Link
-                          href={`/dashboard/clients/${e.client_id}`}
-                          className="font-medium text-brand-green hover:underline"
-                        >
-                          {e.client_name}
-                        </Link>
-                      ) : (
-                        (e.client_name ?? "—")
-                      )}
-                    </td>
-                    <td className="px-3 py-2">{e.activity_name}</td>
-                    <td className="px-3 py-2 tabular-nums">
-                      {e.client_billable_hours} hrs
-                      {!e.counts_toward_client_billable ? (
-                        <span className="ml-1 text-xs text-brand-black/50">(excluded)</span>
+                    <Fragment key={group.key}>
+                      <tr className="border-t border-neutral-100">
+                        <td className="px-3 py-2">
+                          {group.clientId &&
+                          (isFieldSpecialistRole(role) ||
+                            isSupervisorRole(role) ||
+                            canViewClientProfiles(role)) ? (
+                            <Link
+                              href={`/dashboard/clients/${group.clientId}`}
+                              className="font-medium text-brand-green hover:underline"
+                            >
+                              {group.clientName}
+                            </Link>
+                          ) : (
+                            <span className="font-medium text-brand-black">{group.clientName}</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-brand-black/80">{group.serviceName}</td>
+                        <td className="px-3 py-2 tabular-nums">
+                          {formatBillableHours(group.billableMinutes)} hrs
+                        </td>
+                        <td className="px-3 py-2">
+                          <button
+                            type="button"
+                            onClick={() => toggleExpand(group.key)}
+                            className="font-semibold text-brand-green underline"
+                            aria-expanded={expanded}
+                          >
+                            {group.entryCount}
+                          </button>
+                        </td>
+                        <td className="px-3 py-2">
+                          {canDownloadPdf && group.clientId ? (
+                            <a
+                              href={`${pdfHref}&client=${encodeURIComponent(group.clientId)}`}
+                              className="text-xs font-semibold text-brand-green underline"
+                            >
+                              PDF
+                            </a>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                      </tr>
+                      {expanded ? (
+                        <tr className="border-t border-neutral-50 bg-neutral-50/60">
+                          <td colSpan={5} className="px-3 py-3">
+                            <ul className="space-y-3">
+                              {group.entries.map((entry) => (
+                                <li
+                                  key={entry.id}
+                                  className="rounded-lg border border-neutral-200 bg-white px-3 py-2"
+                                >
+                                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                                    <p className="text-sm font-medium text-brand-black">
+                                      {formatServiceDate(entry.service_date)}
+                                      <span className="ml-2 font-normal text-brand-black/60">
+                                        Logged {formatEntryCreatedAt(entry.created_at)}
+                                      </span>
+                                    </p>
+                                    <p className="text-xs text-brand-black/60">
+                                      {entry.counts_toward_client_billable ? (
+                                        <span className="tabular-nums">
+                                          {entry.client_billable_hours} billable hrs
+                                        </span>
+                                      ) : (
+                                        <span className="rounded bg-amber-50 px-1.5 py-0.5 font-semibold uppercase tracking-wide text-amber-800">
+                                          Non-billable
+                                        </span>
+                                      )}
+                                    </p>
+                                  </div>
+                                  <p className="mt-1 text-sm text-brand-black/80">
+                                    <span className="font-medium">Contact log:</span>{" "}
+                                    {entry.activity_name || "—"}
+                                  </p>
+                                  <p className="mt-1 whitespace-pre-wrap text-sm text-brand-black/70">
+                                    {entry.narrative?.trim() || "No notes"}
+                                  </p>
+                                </li>
+                              ))}
+                            </ul>
+                          </td>
+                        </tr>
                       ) : null}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap">{times.start}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{times.end}</td>
-                    <td className="px-3 py-2 capitalize">{e.status}</td>
-                    <td className="max-w-xs px-3 py-2 text-brand-black/75">
-                      {e.narrative ?? "—"}
-                      {e.flags?.late_entry ? (
-                        <span className="ml-1 text-xs text-amber-700">(late)</span>
-                      ) : null}
-                    </td>
-                  </tr>
+                    </Fragment>
                   );
                 })}
               </tbody>

@@ -3,7 +3,13 @@ import {
   buildClientTimesheetPdfZip,
   groupApprovedClientEntries,
 } from "@/lib/timesheet-pdf";
-import { loadEsTimeEntriesForWeek } from "@/lib/es-time-data";
+import {
+  calendarMonthBoundsFromKey,
+  currentMonthKey,
+  loadEsTimeEntriesForMonth,
+  loadEsTimeEntriesForWeek,
+  monthLabelFromKey,
+} from "@/lib/es-time-data";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { weekEndSaturday, weekStartSunday } from "@wayfinder/supabase/es-time-tracking";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
@@ -18,6 +24,8 @@ import { NextResponse } from "next/server";
 import { supervisorCanAccessEs } from "@/lib/supervisor-client-scope";
 
 export const runtime = "nodejs";
+
+const MONTH_KEY_RE = /^(\d{4})-(0[1-9]|1[0-2])$/;
 
 async function assertTimesheetExportAccess(
   session: NonNullable<Awaited<ReturnType<typeof getAppSession>>>,
@@ -59,8 +67,13 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
-  const weekStart = weekStartSunday(url.searchParams.get("week") ?? new Date());
+  const monthParam = url.searchParams.get("month")?.trim() ?? "";
+  const weekParam = url.searchParams.get("week");
+  const useMonth = MONTH_KEY_RE.test(monthParam);
+  const monthKey = useMonth ? monthParam : currentMonthKey();
+  const weekStart = weekStartSunday(weekParam ?? new Date());
   const weekEnd = weekEndSaturday(weekStart);
+  const monthBounds = calendarMonthBoundsFromKey(monthKey);
   const requestedEs = url.searchParams.get("es");
   const requestedClient = url.searchParams.get("client");
   let esUserId = session.effectiveUserId;
@@ -80,12 +93,14 @@ export async function GET(request: Request) {
     }
     const admin = adminOrResponse;
 
-    const entries = await loadEsTimeEntriesForWeek(admin, esUserId, weekStart);
+    const entries = useMonth || !weekParam
+      ? await loadEsTimeEntriesForMonth(admin, esUserId, monthKey)
+      : await loadEsTimeEntriesForWeek(admin, esUserId, weekStart);
     const clientGroups = groupApprovedClientEntries(entries);
 
     if (clientGroups.length === 0) {
       return NextResponse.json(
-        { error: "No client time entries for this week" },
+        { error: useMonth || !weekParam ? "No client time entries for this month" : "No client time entries for this week" },
         { status: 404 }
       );
     }
@@ -99,10 +114,20 @@ export async function GET(request: Request) {
     const esName =
       (esProfile?.full_name as string | null)?.trim() || "Employment Specialist";
 
+    const periodStart = useMonth || !weekParam ? monthBounds.start : weekStart;
+    const periodEnd = useMonth || !weekParam ? monthBounds.end : weekEnd;
+    const periodFileStem = useMonth || !weekParam ? monthKey : weekStart;
+    const periodLabel =
+      useMonth || !weekParam
+        ? `Month: ${monthLabelFromKey(monthKey)}`
+        : undefined;
+
     const shared = {
       esName,
-      weekStart,
-      weekEnd,
+      weekStart: periodStart,
+      weekEnd: periodEnd,
+      periodLabel,
+      fileStem: periodFileStem,
       approvedAt: null as string | null,
       approvedByName: null as string | null,
       publicDir: path.join(process.cwd(), "public"),
@@ -124,7 +149,7 @@ export async function GET(request: Request) {
       return new NextResponse(Buffer.from(pdfBytes), {
         headers: {
           "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="timesheet-${safeClient}-${weekStart}.pdf"`,
+          "Content-Disposition": `attachment; filename="timesheet-${safeClient}-${periodFileStem}.pdf"`,
         },
       });
     }
@@ -140,7 +165,7 @@ export async function GET(request: Request) {
       return new NextResponse(Buffer.from(pdfBytes), {
         headers: {
           "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="timesheet-${safeClient}-${weekStart}.pdf"`,
+          "Content-Disposition": `attachment; filename="timesheet-${safeClient}-${periodFileStem}.pdf"`,
         },
       });
     }
@@ -149,7 +174,7 @@ export async function GET(request: Request) {
     return new NextResponse(Buffer.from(zipBytes), {
       headers: {
         "Content-Type": "application/zip",
-        "Content-Disposition": `attachment; filename="timesheets-${weekStart}.zip"`,
+        "Content-Disposition": `attachment; filename="timesheets-${periodFileStem}.zip"`,
       },
     });
   } catch (err) {

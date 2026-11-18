@@ -17,7 +17,7 @@ import {
 } from "@/lib/load-timesheet-section";
 
 type PageProps = {
-  searchParams: Promise<{ week?: string; es?: string; client?: string }>;
+  searchParams: Promise<{ month?: string; week?: string; es?: string; client?: string }>;
 };
 
 export default async function MyBillableHoursPage({ searchParams }: PageProps) {
@@ -66,8 +66,8 @@ export default async function MyBillableHoursPage({ searchParams }: PageProps) {
       <p className="mt-2 max-w-2xl text-sm text-brand-black/75">
         Billable service time for this week, last week, and month-to-date (America/New_York), shown
         in hours to one decimal. Totals include logged time whether or not the client was marked
-        present; only Case File Review and note-only contact are excluded. Use the weekly timesheet
-        below for line-by-line review. Paid time off is under{" "}
+        present; only Case File Review and note-only contact are excluded. Use the monthly timesheet
+        below for clients, services, and contact-log detail. Paid time off is under{" "}
         <Link href="/dashboard/pto" className="font-medium text-brand-green underline">
           PTO
         </Link>
@@ -88,7 +88,7 @@ export default async function MyBillableHoursPage({ searchParams }: PageProps) {
         />
       ) : null}
       {timesheetLoad.kind === "ready" ? (
-        <div id="weekly-timesheet" className="scroll-mt-6">
+        <div id="monthly-timesheet" className="scroll-mt-6">
           <TimesheetWorkspace {...timesheetLoad.props} />
         </div>
       ) : null}
