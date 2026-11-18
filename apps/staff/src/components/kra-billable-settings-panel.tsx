@@ -1,13 +1,33 @@
 "use client";
 
 import {
+  dedupeServicesForSelect,
+  parseServiceParts,
+  serviceDisplayName,
+} from "@wayfinder/branding";
+import {
   DEFAULT_KRA_HOURS_PER_CLIENT,
   KRA_GVRA_SERVICE_NAMES,
   type KraBillableRule,
 } from "@wayfinder/supabase/kra-billable-settings";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type ServiceRow = { id: string; name: string; state: string | null };
+
+/** All catalog ids that collapse to the same picker option (for toggle/checked). */
+function siblingServiceIds(services: ServiceRow[], optionId: string): string[] {
+  const option = services.find((s) => s.id === optionId);
+  if (!option) return [optionId];
+  const optionLabel = serviceDisplayName(option);
+  const optionParts = parseServiceParts(option.name, option.state);
+  return services
+    .filter((s) => {
+      if (serviceDisplayName(s) !== optionLabel) return false;
+      const parts = parseServiceParts(s.name, s.state);
+      return (parts.state ?? "") === (optionParts.state ?? "");
+    })
+    .map((s) => s.id);
+}
 
 type Settings = {
   count_system_allowance_toward_kra: boolean;
@@ -51,9 +71,11 @@ export function KraBillableSettingsPanel() {
   function toggleService(ruleIndex: number, serviceId: string) {
     if (!settings) return;
     const rule = settings.rules[ruleIndex];
+    const siblings = siblingServiceIds(services, serviceId);
     const set = new Set(rule.service_ids);
-    if (set.has(serviceId)) set.delete(serviceId);
-    else set.add(serviceId);
+    const currentlyOn = siblings.some((id) => set.has(id));
+    for (const id of siblings) set.delete(id);
+    if (!currentlyOn) set.add(serviceId);
     updateRule(ruleIndex, { service_ids: [...set] });
   }
 
@@ -89,9 +111,23 @@ export function KraBillableSettingsPanel() {
     setMessage(res.ok ? "KRA billable settings saved." : "Could not save settings.");
   }
 
+  const serviceOptions = useMemo(
+    () => dedupeServicesForSelect(services, {
+      includeCustomizedSupportedEmployment: true,
+      includeTraditionalSupportedEmployment: true,
+      includeJobCoaching: true,
+      excludeTennessee: true,
+    }),
+    [services]
+  );
+
   if (!settings) return null;
 
-  const highlighted = new Set<string>([...KRA_GVRA_SERVICE_NAMES]);
+  const highlighted = new Set<string>([
+    ...KRA_GVRA_SERVICE_NAMES.map((name) =>
+      serviceDisplayName({ id: "x", name, state: null })
+    ),
+  ]);
 
   return (
     <section className="mt-10 max-w-3xl rounded-xl border border-neutral-200 bg-white p-5">
@@ -161,21 +197,24 @@ export function KraBillableSettingsPanel() {
             </div>
             <p className="mt-3 text-xs font-medium text-brand-black/60">Services in this rule</p>
             <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto text-sm">
-              {services.map((s) => (
-                <li key={s.id}>
-                  <label className="inline-flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={rule.service_ids.includes(s.id)}
-                      onChange={() => toggleService(ruleIndex, s.id)}
-                    />
-                    <span className={highlighted.has(s.name) ? "font-medium" : undefined}>
-                      {s.name}
-                      {s.state ? ` (${s.state})` : ""}
-                    </span>
-                  </label>
-                </li>
-              ))}
+              {serviceOptions.map((s) => {
+                const siblings = siblingServiceIds(services, s.id);
+                const checked = siblings.some((id) => rule.service_ids.includes(id));
+                return (
+                  <li key={s.id}>
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleService(ruleIndex, s.id)}
+                      />
+                      <span className={highlighted.has(s.name) ? "font-medium" : undefined}>
+                        {s.name}
+                      </span>
+                    </label>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         ))}
