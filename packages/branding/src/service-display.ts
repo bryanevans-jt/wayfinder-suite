@@ -32,28 +32,33 @@ const STATE_GROUP_LABELS: Record<string, string> = {
 
 const STATE_GROUP_ORDER = ["GA"];
 
-const STATE_SUFFIX_RE = /\s+\(([A-Z]{2})\)\s*$/;
+const STATE_SUFFIX_RE = /\s+\(([A-Z]{2})\)\s*$/i;
 
 /** Split a service name into base title and optional state code. */
 export function parseServiceParts(
   name: string,
   stateColumn?: string | null
 ): { baseName: string; state: string | null } {
-  const trimmed = name.trim();
-  const match = trimmed.match(STATE_SUFFIX_RE);
-  let baseName = trimmed;
+  let baseName = name.trim();
   let state = stateColumn?.trim().toUpperCase() || null;
 
-  if (match) {
-    baseName = trimmed.slice(0, match.index).trim();
-    state = state ?? match[1];
+  // Strip every trailing "(XX)" / "(GA) (GA)" so display never keeps a state suffix.
+  let match = baseName.match(STATE_SUFFIX_RE);
+  while (match) {
+    baseName = baseName.slice(0, match.index).trim();
+    state = state ?? match[1]!.toUpperCase();
+    match = baseName.match(STATE_SUFFIX_RE);
   }
 
   return { baseName, state };
 }
 
-export function formatServiceLabel(baseName: string, state: string | null): string {
-  return state ? `${baseName} (${state})` : baseName;
+/**
+ * On-screen service label — never appends a state suffix like " (GA)".
+ * `state` is accepted for call-site compatibility but ignored.
+ */
+export function formatServiceLabel(baseName: string, _state: string | null = null): string {
+  return baseName.trim();
 }
 
 /** Canonical on-screen label — never show "(GA)" or "IJP" abbreviation. */
@@ -180,8 +185,8 @@ export function serviceDisplayName(row: ServiceRowInput): string {
   if (isIndividualJobPlacementService(row)) {
     return INDIVIDUAL_JOB_PLACEMENT_DISPLAY_NAME;
   }
-  const { baseName, state } = parseServiceParts(row.name, row.state);
-  return formatServiceLabel(baseName, state);
+  const { baseName } = parseServiceParts(row.name, row.state);
+  return formatServiceLabel(baseName);
 }
 
 /** Display label when only the services.name / form string is available. */
@@ -191,8 +196,8 @@ export function displayServiceCatalogName(name: string | null | undefined): stri
   if (isIndividualJobPlacementServiceName(trimmed)) {
     return INDIVIDUAL_JOB_PLACEMENT_DISPLAY_NAME;
   }
-  const { baseName, state } = parseServiceParts(trimmed, null);
-  return formatServiceLabel(baseName, state);
+  const { baseName } = parseServiceParts(trimmed, null);
+  return formatServiceLabel(baseName);
 }
 
 function pickPreferredService(
@@ -275,7 +280,7 @@ export function dedupeServicesForSelect(
       const parts = parseServiceParts(row.name, row.state);
       selectOptions.push({
         id: row.id,
-        name: formatServiceLabel(parts.baseName, parts.state),
+        name: formatServiceLabel(canonicalServiceBaseName(parts.baseName)),
       });
     }
   }

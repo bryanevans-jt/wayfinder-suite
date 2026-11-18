@@ -410,7 +410,7 @@ export function sampleMergeVarsForTemplate(key: EmailTemplateKey): Record<string
     agency_label: "GVRA",
     client_name: "Jordan Example",
     counselor_name: "Alex Counselor",
-    service_name: "Individual Job Placement (GA)",
+    service_name: "Individual Job Placement",
     appointment_when: "Friday, August 28, 2026 at 10:00 AM",
     appointment_location: "Joshua Tree office — front lobby",
     submitted_by: "Sam Specialist",

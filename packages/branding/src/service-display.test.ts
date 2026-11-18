@@ -48,4 +48,33 @@ describe("Individual Job Placement identity", () => {
     assert.equal(ijp[0]?.name.includes("(GA)"), false);
     assert.ok(options.some((o) => o.name.includes("Workplace Readiness")));
   });
+
+  it("never appends (GA) to non-IJP service labels either", () => {
+    assert.equal(
+      displayServiceCatalogName("Workplace Readiness Training (GA)"),
+      "Workplace Readiness Training"
+    );
+    assert.equal(
+      displayServiceCatalogName("Job Coaching (GA) (GA)"),
+      "Job Coaching"
+    );
+    assert.equal(
+      serviceDisplayName({
+        id: "tse",
+        name: "Traditional Supported Employment (GA)",
+        state: "GA",
+      }),
+      "Traditional Supported Employment"
+    );
+    const options = dedupeServicesForSelect(
+      [
+        { id: "jc", name: "Job Coaching (GA)", state: "GA" },
+        { id: "jc2", name: "Job Coaching", state: "GA" },
+      ],
+      { includeJobCoaching: true }
+    );
+    assert.equal(options.length, 1);
+    assert.equal(options[0]?.name, "Job Coaching");
+    assert.equal(options[0]?.name.includes("(GA)"), false);
+  });
 });

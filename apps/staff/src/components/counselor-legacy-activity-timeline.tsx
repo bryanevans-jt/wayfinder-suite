@@ -1,6 +1,10 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { loadIntakeAppointmentsAsMeetings } from "@wayfinder/supabase/hospitality-intake-activity";
-import { buildClientActivityFeed, ClientActivityTimeline } from "@wayfinder/branding";
+import {
+  buildClientActivityFeed,
+  ClientActivityTimeline,
+  displayServiceCatalogName,
+} from "@wayfinder/branding";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type Props = {
@@ -68,7 +72,9 @@ export async function CounselorLegacyActivityTimeline({
       : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
   ]);
 
-  const meetingServiceNameById = new Map((meetingServices ?? []).map((s) => [s.id, s.name]));
+  const meetingServiceNameById = new Map(
+    (meetingServices ?? []).map((s) => [s.id, displayServiceCatalogName(s.name as string)])
+  );
   const meetingEsNameById = new Map((meetingEsProfiles ?? []).map((p) => [p.id, p.full_name]));
 
   const feed = buildClientActivityFeed({

@@ -108,17 +108,17 @@ export function isAllowedReferralCounselorEmail(state: ReferralState, email: str
   return e.endsWith("@tn.gov") || e.endsWith(".tn.gov");
 }
 
-/** Map public form service labels → services.name (Georgia catalog only). */
+/** Map public form service labels → services.name (Georgia catalog only; no state suffix). */
 export function mapReferralServiceName(state: ReferralState, serviceLabel: string): string | null {
   if (state !== "GA") {
     return null;
   }
   const s = serviceLabel.trim();
   const map: Record<string, string> = {
-    "Traditional Supported Employment": "Traditional Supported Employment (GA)",
-    "Job Coaching": "Job Coaching (GA)",
-    "Individual Job Placement": "Individual Job Placement (GA)",
-    "Workplace Readiness Training": "Workplace Readiness Training (GA)",
+    "Traditional Supported Employment": "Traditional Supported Employment",
+    "Job Coaching": "Job Coaching",
+    "Individual Job Placement": "Individual Job Placement",
+    "Workplace Readiness Training": "Workplace Readiness Training",
   };
   return map[s] ?? null;
 }
@@ -472,15 +472,40 @@ export async function findOrCreateReferralCounselor(
   return { counselorId: inserted.id as string };
 }
 
+function stripServiceStateSuffixes(name: string): string {
+  let out = name.trim();
+  // Repeatedly strip trailing "(XX)" including "(GA) (GA)".
+  while (/\s+\([A-Z]{2}\)\s*$/i.test(out)) {
+    out = out.replace(/\s+\([A-Z]{2}\)\s*$/i, "").trim();
+  }
+  return out;
+}
+
 async function resolveServiceId(
   admin: SupabaseClient,
   serviceName: string
 ): Promise<string | null> {
-  const { data } = await admin.from("services").select("id, name").ilike("name", serviceName).maybeSingle();
+  const wanted = serviceName.trim();
+  const wantedBase = stripServiceStateSuffixes(wanted).toLowerCase();
+
+  const { data } = await admin.from("services").select("id, name").ilike("name", wanted).maybeSingle();
   if (data?.id) return data.id as string;
+
   const { data: all } = await admin.from("services").select("id, name");
-  const hit = (all ?? []).find((s) => (s.name as string).toLowerCase() === serviceName.toLowerCase());
-  return (hit?.id as string) ?? null;
+  const rows = all ?? [];
+  const exact = rows.find((s) => (s.name as string).toLowerCase() === wanted.toLowerCase());
+  if (exact?.id) return exact.id as string;
+
+  // Match bare or legacy "(GA)" catalog rows by stripped base name.
+  const baseMatches = rows.filter(
+    (s) => stripServiceStateSuffixes(s.name as string).toLowerCase() === wantedBase
+  );
+  if (baseMatches.length === 0) return null;
+  const preferBare =
+    baseMatches.find(
+      (s) => stripServiceStateSuffixes(s.name as string) === (s.name as string).trim()
+    ) ?? baseMatches[0];
+  return (preferBare?.id as string) ?? null;
 }
 
 function parseAddress(address: string | undefined): {
@@ -905,8 +930,13 @@ export async function isPhase1IntakeStage(
 
 export async function isGaTseService(admin: SupabaseClient, serviceId: string | null | undefined): Promise<boolean> {
   if (!serviceId) return false;
-  const { data } = await admin.from("services").select("name").eq("id", serviceId).maybeSingle();
-  return (data?.name as string) === "Traditional Supported Employment (GA)";
+  const { data } = await admin.from("services").select("name, state").eq("id", serviceId).maybeSingle();
+  if (!data) return false;
+  const base = stripServiceStateSuffixes((data.name as string) ?? "").toLowerCase();
+  if (base !== "traditional supported employment") return false;
+  const state = String((data as { state?: string | null }).state ?? "").trim().toUpperCase();
+  // GA catalog rows (state column or legacy "(GA)" name) — exclude TN variants.
+  return !state || state === "GA";
 }
 
 export async function activateReferralToFirstStage(

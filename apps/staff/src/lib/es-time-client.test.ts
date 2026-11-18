@@ -42,7 +42,7 @@ describe("summarizeTimeEntriesByClientService", () => {
         duration_minutes: 30,
         client_billable_hours: "0.5",
         service_id: "svc-tse",
-        service_name: "Traditional Supported Employment (GA)",
+        service_name: "Traditional Supported Employment",
       }),
       entry({
         id: "3",

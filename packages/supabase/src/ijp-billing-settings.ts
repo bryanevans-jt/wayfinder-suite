@@ -24,13 +24,13 @@ export type IjpBillingSettingsRow = {
   updated_at: string;
 };
 
-/** Preferred catalog name when creating new IJP enrollments (do not delete the bare row). */
-export const GA_IJP_SERVICE_NAME = "Individual Job Placement (GA)";
+/** Preferred catalog name when creating new IJP enrollments (no state suffix). */
+export const GA_IJP_SERVICE_NAME = "Individual Job Placement";
 
-/** All known catalog / form labels for the same IJP service. */
+/** All known catalog / form labels for the same IJP service (legacy "(GA)" included). */
 export const GA_IJP_SERVICE_NAME_VARIANTS = [
-  "Individual Job Placement (GA)",
   "Individual Job Placement",
+  "Individual Job Placement (GA)",
   "IJP",
 ] as const;
 
@@ -68,11 +68,13 @@ export async function resolveGaIjpServiceIds(admin: SupabaseClient): Promise<str
   if (preferred && !ids.includes(preferred)) {
     return [preferred, ...ids];
   }
-  // Prefer the "(GA)" catalog row when settings have not pinned an id yet.
-  const gaNamed = matched.find((row) => (row.name as string) === GA_IJP_SERVICE_NAME);
-  if (gaNamed?.id) {
-    const gaId = gaNamed.id as string;
-    return [gaId, ...ids.filter((id) => id !== gaId)];
+  // Prefer the canonical bare catalog name; fall back to legacy "(GA)" name if still present.
+  const preferredNamed =
+    matched.find((row) => (row.name as string).trim() === GA_IJP_SERVICE_NAME) ??
+    matched.find((row) => (row.name as string).trim() === "Individual Job Placement (GA)");
+  if (preferredNamed?.id) {
+    const preferredId = preferredNamed.id as string;
+    return [preferredId, ...ids.filter((id) => id !== preferredId)];
   }
   return ids;
 }

@@ -4,7 +4,7 @@ export const DEMO_CLIENT_NAME = "Jordan Rivera";
 export const DEMO_CLIENT_EMAIL = "jordan.rivera@example.com";
 
 export const DEMO_SERVICE = {
-  name: "Traditional Supported Employment (GA)",
+  name: "Traditional Supported Employment",
   currentStageTitle: "Phase 2: Job Development",
   currentStageId: "stage-dev",
 };
@@ -63,7 +63,7 @@ export const DEMO_MEETING = {
   starts_at: "2026-07-10T18:00:00.000Z",
   timezone: "America/New_York",
   location: "Savannah office · Room B",
-  service_name: "Traditional Supported Employment (GA)",
+  service_name: "Traditional Supported Employment",
   es_name: "Taylor Brooks",
 };
 

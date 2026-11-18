@@ -1,6 +1,6 @@
 "use client";
 
-import { clientDisplayName } from "@wayfinder/branding";
+import { clientDisplayName, displayServiceCatalogName } from "@wayfinder/branding";
 import { friendlyClientError, USER_FACING_SYSTEM_ERROR } from "@wayfinder/supabase/error-log";
 import { useCallback, useEffect, useState } from "react";
 
@@ -77,7 +77,12 @@ export function DemoTrainingWorkspace() {
       }))
     );
     setOffices((bootstrap?.offices ?? []).map((o) => ({ id: o.id, label: o.name })));
-    setServices((bootstrap?.services ?? []).map((s) => ({ id: s.id, label: s.name })));
+    setServices(
+      (bootstrap?.services ?? []).map((s) => ({
+        id: s.id,
+        label: displayServiceCatalogName(s.name) || s.name,
+      }))
+    );
     setCounselors(
       (bootstrap?.counselors ?? []).map((c) => ({ id: c.id, label: c.full_name }))
     );

@@ -1,18 +1,14 @@
 #!/usr/bin/env node
 /**
- * Dry-run / apply helper for merging duplicate service catalog rows
- * (bare name vs "(GA)" suffix) into one canonical service.
+ * Dry-run / apply helper for merging duplicate service catalog rows and
+ * stripping trailing state suffixes like "(GA)" / "(GA) (GA)" from names.
  *
- * Default is dry-run (report only). Pass --apply to execute the same merges
- * as supabase/migrations/20261118120000_merge_duplicate_ga_services.sql.
+ * Default is dry-run (report only). Pass --apply only after Bryan approves;
+ * prefer applying supabase/migrations/20261118120000_merge_duplicate_ga_services.sql.
  *
  * Usage:
  *   node scripts/merge-duplicate-services.mjs
  *   node scripts/merge-duplicate-services.mjs --apply
- *
- * Requires NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY in .env.local
- * (or the environment). Never run --apply against production without Bryan's
- * explicit approval.
  */
 import { createClient } from "@supabase/supabase-js";
 import { existsSync, readFileSync } from "node:fs";
@@ -53,14 +49,20 @@ const admin = createClient(url, key, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-const STATE_SUFFIX_RE = /\s+\(([A-Z]{2})\)\s*$/i;
+function stripStateSuffixes(name) {
+  let out = String(name ?? "").trim();
+  while (/\s+\([A-Z]{2}\)\s*$/i.test(out)) {
+    out = out.replace(/\s+\([A-Z]{2}\)\s*$/i, "").trim();
+  }
+  return out;
+}
 
 function baseKey(name) {
-  return name.trim().replace(STATE_SUFFIX_RE, "").trim().toLowerCase();
+  return stripStateSuffixes(name).toLowerCase();
 }
 
 function hasStateSuffix(name) {
-  return STATE_SUFFIX_RE.test(name.trim());
+  return /\s+\([A-Z]{2}\)\s*$/i.test(String(name ?? "").trim());
 }
 
 async function countEq(table, column, id) {
@@ -114,64 +116,46 @@ async function kraRuleRefs(serviceId) {
   return refs;
 }
 
-async function reportGroup(canonical, duplicates) {
-  const lines = [];
-  lines.push(`Canonical: ${canonical.name} (${canonical.id})`);
-  for (const dup of duplicates) {
-    const milestoneIds = await milestoneIdsForService(dup.id);
-    const episodeIds = await episodeIdsForService(dup.id);
-    const [
-      clients,
-      episodes,
-      milestones,
-      meetings,
-      stageEvents,
-      timeEntries,
-      contactLogs,
-      applications,
-      kraRefs,
-      ijpSettings,
-    ] = await Promise.all([
-      countEq("clients", "current_service_id", dup.id),
-      countEq("service_episodes", "service_id", dup.id),
-      countEq("service_milestones", "service_id", dup.id),
-      countEq("client_meeting_requests", "service_id", dup.id),
-      countIn("client_stage_events", "milestone_id", milestoneIds),
-      countIn("es_time_entries", "service_episode_id", episodeIds),
-      countIn("contact_logs", "service_episode_id", episodeIds),
-      countIn("applications", "service_episode_id", episodeIds),
-      kraRuleRefs(dup.id),
-      countEq("ijp_billing_settings", "ga_ijp_service_id", dup.id),
-    ]);
+async function reportDuplicate(canonical, dup) {
+  const milestoneIds = await milestoneIdsForService(dup.id);
+  const episodeIds = await episodeIdsForService(dup.id);
+  const [
+    clients,
+    episodes,
+    milestones,
+    meetings,
+    stageEvents,
+    timeEntries,
+    contactLogs,
+    applications,
+    kraRefs,
+    ijpSettings,
+  ] = await Promise.all([
+    countEq("clients", "current_service_id", dup.id),
+    countEq("service_episodes", "service_id", dup.id),
+    countEq("service_milestones", "service_id", dup.id),
+    countEq("client_meeting_requests", "service_id", dup.id),
+    countIn("client_stage_events", "milestone_id", milestoneIds),
+    countIn("es_time_entries", "service_episode_id", episodeIds),
+    countIn("contact_logs", "service_episode_id", episodeIds),
+    countIn("applications", "service_episode_id", episodeIds),
+    kraRuleRefs(dup.id),
+    countEq("ijp_billing_settings", "ga_ijp_service_id", dup.id),
+  ]);
 
-    lines.push(`  Duplicate: ${dup.name} (${dup.id})`);
-    lines.push(`    clients.current_service_id → move: ${clients}`);
-    lines.push(`    service_episodes.service_id → move: ${episodes}`);
-    lines.push(`    service_milestones → delete after remap: ${milestones}`);
-    lines.push(`    client_meeting_requests.service_id → move: ${meetings}`);
-    lines.push(`    client_stage_events (via milestones) → remap: ${stageEvents}`);
-    lines.push(`    es_time_entries via episodes (ids unchanged): ${timeEntries}`);
-    lines.push(`    contact_logs via episodes (ids unchanged): ${contactLogs}`);
-    lines.push(`    applications via episodes (ids unchanged): ${applications}`);
-    lines.push(`    org_kra_billable_settings.rules service_ids → rewrite: ${kraRefs}`);
-    lines.push(`    ijp_billing_settings.ga_ijp_service_id → move: ${ijpSettings}`);
-  }
-  return lines.join("\n");
-}
-
-async function applyMerge(canonicalId, duplicateId) {
-  // Prefer the SQL function path when available; otherwise fall back to JS steps.
-  const { error: rpcError } = await admin.rpc("merge_duplicate_service_by_id", {
-    p_canonical_id: canonicalId,
-    p_duplicate_id: duplicateId,
-  });
-  if (!rpcError) return;
-
-  // Function may not exist outside the migration transaction — apply SQL file logic via statements.
-  throw new Error(
-    `RPC merge_duplicate_service_by_id unavailable (${rpcError.message}). ` +
-      `Apply supabase/migrations/20261118120000_merge_duplicate_ga_services.sql instead of --apply via this script.`
-  );
+  return [
+    `  Duplicate: ${dup.name} (${dup.id})`,
+    `    clients.current_service_id → move: ${clients}`,
+    `    service_episodes.service_id → move: ${episodes}`,
+    `    service_milestones → delete after remap: ${milestones}`,
+    `    client_meeting_requests.service_id → move: ${meetings}`,
+    `    client_stage_events (via milestones) → remap: ${stageEvents}`,
+    `    es_time_entries via episodes (ids unchanged): ${timeEntries}`,
+    `    contact_logs via episodes (ids unchanged): ${contactLogs}`,
+    `    applications via episodes (ids unchanged): ${applications}`,
+    `    org_kra_billable_settings.rules service_ids → rewrite: ${kraRefs}`,
+    `    ijp_billing_settings.ga_ijp_service_id → move: ${ijpSettings}`,
+  ].join("\n");
 }
 
 const { data: services, error } = await admin
@@ -205,30 +189,59 @@ const duplicateGroups = [...groups.entries()]
     };
   });
 
-console.log(APPLY ? "MODE: APPLY" : "MODE: DRY-RUN (report only)");
-console.log(`Found ${duplicateGroups.length} duplicate group(s).\n`);
+/** After merges, these ids would remain and may still need a rename. */
+const survivingIds = new Set((services ?? []).map((s) => s.id));
+for (const group of duplicateGroups) {
+  for (const dup of group.duplicates) survivingIds.delete(dup.id);
+}
 
-if (duplicateGroups.length === 0) {
-  console.log("No duplicate service groups to merge.");
+const plannedRenames = (services ?? [])
+  .filter((s) => survivingIds.has(s.id))
+  .map((s) => {
+    const next = stripStateSuffixes(s.name);
+    return { id: s.id, from: s.name, to: next, changes: s.name.trim() !== next };
+  })
+  .filter((r) => r.changes);
+
+console.log(APPLY ? "MODE: APPLY" : "MODE: DRY-RUN (report only)");
+console.log(`Found ${duplicateGroups.length} duplicate group(s) to merge.`);
+console.log(`Found ${plannedRenames.length} planned rename(s) after merge.\n`);
+
+if (duplicateGroups.length === 0 && plannedRenames.length === 0) {
+  console.log("Nothing to do — no duplicate groups and no state suffixes left.");
   process.exit(0);
 }
 
 for (const group of duplicateGroups) {
-  console.log(await reportGroup(group.canonical, group.duplicates));
+  console.log(
+    `MERGE group → keep canonical id ${group.canonical.id}\n` +
+      `  Canonical (pre-rename): ${group.canonical.name}\n` +
+      `  Will rename canonical to: ${stripStateSuffixes(group.canonical.name)}`
+  );
+  for (const dup of group.duplicates) {
+    console.log(await reportDuplicate(group.canonical, dup));
+  }
   console.log("");
 }
 
+console.log("PLANNED RENAMES (survivors; strip trailing state suffixes):");
+if (plannedRenames.length === 0) {
+  console.log("  (none)");
+} else {
+  for (const r of plannedRenames) {
+    console.log(`  ${r.from}  →  ${r.to}  [${r.id}]`);
+  }
+}
+console.log("");
+
 if (!APPLY) {
   console.log(
-    "Dry-run complete. Review the counts above, then apply the migration SQL (preferred) or re-run with --apply after the merge function exists."
+    "Dry-run complete. Review merges + renames above, then apply the migration SQL after Bryan approves."
   );
   process.exit(0);
 }
 
-for (const group of duplicateGroups) {
-  for (const dup of group.duplicates) {
-    console.log(`Merging ${dup.name} → ${group.canonical.name}…`);
-    await applyMerge(group.canonical.id, dup.id);
-  }
-}
-console.log("Apply complete.");
+console.error(
+  "--apply via this script is disabled for safety. Apply supabase/migrations/20261118120000_merge_duplicate_ga_services.sql instead."
+);
+process.exit(2);

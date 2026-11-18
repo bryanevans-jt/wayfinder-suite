@@ -7,8 +7,9 @@ const GVRA_ALLOWANCE_ACTIVITY_CODE = "JT-CSE-051";
 const ALLOWANCE_MINUTES = 120;
 
 const GVRA_MONTHLY_SERVICE_NAMES = new Set([
-  "Individual Job Placement (GA)",
   "Individual Job Placement",
+  "Individual Job Placement (GA)",
+  "Traditional Supported Employment",
   "Traditional Supported Employment (GA)",
 ]);
 
@@ -65,7 +66,7 @@ async function loadEligibleClients(
 }
 
 /**
- * Grant 2.0 billable hours per IJP/TSE (GA) client for a calendar month (Eastern).
+ * Grant 2.0 billable hours per IJP/TSE client for a calendar month (Eastern).
  * Idempotent per client + month. Excluded from Active (in-person) ratio via flags.
  */
 export async function grantGvraMonthlyAllowancesForMonth(

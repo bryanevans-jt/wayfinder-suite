@@ -21,16 +21,16 @@ function isReferralManagerRole(role: string | null | undefined): boolean {
 }
 
 /**
- * Production catalog names observed on Wayfinder-Production (plus form labels).
- * Both bare and "(GA)" variants exist for IJP and Job Coaching.
+ * Production catalog / form labels for services that use authorized hours fields.
+ * Includes legacy "(GA)" catalog names so checks keep working before/after rename.
  */
 export const AUTHORIZED_HOURS_SERVICE_NAMES = [
-  "Workplace Readiness Training (GA)",
   "Workplace Readiness Training",
-  "Individual Job Placement (GA)",
+  "Workplace Readiness Training (GA)",
   "Individual Job Placement",
-  "Job Coaching (GA)",
+  "Individual Job Placement (GA)",
   "Job Coaching",
+  "Job Coaching (GA)",
 ] as const;
 
 /** True when the service (catalog name or referral form label) uses these fields. */
