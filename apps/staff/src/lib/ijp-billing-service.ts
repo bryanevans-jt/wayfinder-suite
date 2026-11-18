@@ -60,12 +60,11 @@ async function resolveIjpClientDisplayName(
     full_name: string | null;
     first_name: string | null;
     last_name: string | null;
-    email: string | null;
   } | null = null;
   if (profileIds.length > 0) {
     const { data: profiles } = await admin
       .from("profiles")
-      .select("id, full_name, first_name, last_name, email")
+      .select("id, full_name, first_name, last_name")
       .in("id", profileIds);
     profile =
       (profiles ?? []).find((p) => p.id === client.user_id) ??
