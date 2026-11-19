@@ -471,3 +471,69 @@ body {
   object-fit: contain;
   object-position: left center;
 }
+
+/* FullCalendar — Team Calendar grid */
+.rv-calendar {
+  --fc-border-color: var(--rv-line);
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: color-mix(in srgb, var(--rv-mist) 55%, white);
+  --fc-list-event-hover-bg-color: color-mix(in srgb, var(--rv-sky-soft) 70%, white);
+  --fc-today-bg-color: color-mix(in srgb, var(--rv-sky-soft) 45%, transparent);
+  --fc-now-indicator-color: var(--rv-green-mid);
+  --fc-event-border-color: transparent;
+  --fc-small-font-size: 0.75rem;
+  font-family: var(--font-rv-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+.rv-calendar .fc {
+  max-width: 100%;
+}
+
+.rv-calendar .fc-theme-standard td,
+.rv-calendar .fc-theme-standard th {
+  border-color: var(--rv-line);
+}
+
+.rv-calendar .fc-col-header-cell-cushion,
+.rv-calendar .fc-daygrid-day-number,
+.rv-calendar .fc-list-day-text,
+.rv-calendar .fc-list-day-side-text,
+.rv-calendar .fc-timegrid-slot-label-cushion {
+  color: var(--rv-ink-soft);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.rv-calendar .fc-event {
+  cursor: pointer;
+  border-radius: 6px;
+  border: none;
+  box-shadow: 0 1px 2px rgba(20, 32, 22, 0.12);
+}
+
+.rv-calendar .fc-event:hover {
+  filter: brightness(1.05);
+}
+
+.rv-calendar .fc-daygrid-event {
+  margin-top: 1px;
+}
+
+.rv-calendar .fc-timegrid-event {
+  min-height: 1.4em;
+}
+
+.rv-calendar .fc-list-event-dot {
+  border-color: inherit;
+}
+
+.rv-calendar .fc-scrollgrid {
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+@media (max-width: 720px) {
+  .rv-calendar .fc-list-table {
+    font-size: 0.9rem;
+  }
+}

@@ -1,10 +1,10 @@
 import { createAdminClient, rendezvousSchema } from "@/lib/supabase/admin";
-import { invalidateBusyCache } from "@/lib/db";
+import { invalidateCalendarCaches } from "@/lib/db";
 import { NextResponse } from "next/server";
 
 /**
  * Google Calendar push notification receiver.
- * Invalidates free/busy cache for the channel's staff user.
+ * Invalidates free/busy and Team Calendar event caches for the channel's staff user.
  */
 export async function POST(request: Request) {
   const channelId = request.headers.get("x-goog-channel-id");
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (channel?.staff_user_id) {
-    await invalidateBusyCache(admin, channel.staff_user_id as string);
+    await invalidateCalendarCaches(admin, channel.staff_user_id as string);
   }
 
   return NextResponse.json({ ok: true });

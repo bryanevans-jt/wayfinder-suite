@@ -1,21 +1,20 @@
 /**
  * Team Calendar visibility (server-side).
  *
- * Supervisor scope reuses the existing Wayfinder helper `loadSupervisorScope`:
- * - `public.supervisor_es_assignments` (supervisor_user_id → es_user_id;
- *   supervisee may be ES or Transition Specialist)
- * - plus office-shared Transition Specialists / Instructors in the supervisor's
- *   offices (same rules as other Wayfinder caseload surfaces)
+ * Supervisor scope uses DIRECT REPORTS ONLY from
+ * `public.supervisor_es_assignments` (supervisor_user_id → es_user_id;
+ * supervisee may be ES or Transition Specialist). Office-shared
+ * Transition Specialists / Instructors are intentionally NOT included
+ * on Team Calendar (unlike Wayfinder caseload `loadSupervisorScope`).
  *
  * Rules:
  * - Admin / super_admin: every active ES, Transition Specialist, and Supervisor
- * - Supervisor: self + loadSupervisorScope staff (assignments + office-shared TS/instructors)
+ * - Supervisor: self + direct reports from supervisor_es_assignments
  * - Everyone else (ES/TS, …): self only
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isAdminTierRole, isSupervisorRole, normalizeRole } from "@wayfinder/supabase/roles";
-import { loadSupervisorScope } from "@wayfinder/supabase/supervisor-client-scope";
 
 /** Roles whose calendars admins may browse on Team Calendar. */
 export const TEAM_CALENDAR_ADMIN_VISIBLE_ROLES = [
@@ -52,15 +51,23 @@ export function isTeamCalendarAdminVisibleRole(role: string | null | undefined):
 }
 
 /**
- * Staff user IDs a supervisor may see on Team Calendar — same as Wayfinder
- * `loadSupervisorScope.esUserIds` (assignments + office-shared TS/instructors).
+ * Staff user IDs a supervisor may see on Team Calendar — direct reports only
+ * from `public.supervisor_es_assignments` (no office-shared TS/instructors).
  */
 export async function loadSupervisorTeamCalendarStaffUserIds(
   admin: SupabaseClient,
   supervisorUserId: string
 ): Promise<string[]> {
-  const scope = await loadSupervisorScope(admin, supervisorUserId);
-  return scope.esUserIds;
+  const { data, error } = await admin
+    .from("supervisor_es_assignments")
+    .select("es_user_id")
+    .eq("supervisor_user_id", supervisorUserId);
+  if (error) {
+    throw new Error(`supervisor_es_assignments read failed: ${error.message}`);
+  }
+  return Array.from(
+    new Set((data ?? []).map((row) => row.es_user_id as string).filter(Boolean))
+  );
 }
 
 /**

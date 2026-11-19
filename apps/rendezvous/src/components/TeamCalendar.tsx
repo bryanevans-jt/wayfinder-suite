@@ -1,27 +1,26 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import FullCalendar from "@fullcalendar/react";
+import dayGridPlugin from "@fullcalendar/daygrid";
+import timeGridPlugin from "@fullcalendar/timegrid";
+import listPlugin from "@fullcalendar/list";
+import interactionPlugin from "@fullcalendar/interaction";
+import type { EventClickArg, EventContentArg } from "@fullcalendar/core";
 import { PORTAL_DISPLAY_TIME_ZONE } from "@wayfinder/branding";
 import {
   resolveTeamCalendarPeoplePickerIds,
   type TeamCalendarStaffMember,
 } from "@/lib/team-calendar-staff";
-
-type Booking = {
-  id: string;
-  staff_user_id: string;
-  staffName: string;
-  starts_at: string;
-  ends_at: string;
-  counselor_name: string;
-  meeting_format: string;
-  location: string | null;
-  meet_link: string | null;
-  reason: string | null;
-  notes: string | null;
-};
+import type { TeamCalendarEvent } from "@/lib/team-calendar-events";
 
 type ViewMode = "day" | "week" | "month";
+
+type PersonError = {
+  staffUserId: string;
+  staffName: string;
+  message: string;
+};
 
 const COLORS = [
   "#3C6C25",
@@ -52,12 +51,35 @@ function rangeForView(anchor: Date, view: ViewMode): { from: Date; to: Date } {
     const sunday = addDays(day, -dow);
     return { from: sunday, to: addDays(sunday, 7) };
   }
+  // Month grid shows leading/trailing days — fetch a padded window.
   const first = new Date(day.getFullYear(), day.getMonth(), 1);
+  const padStart = addDays(first, -first.getDay());
   const nextMonth = new Date(day.getFullYear(), day.getMonth() + 1, 1);
-  return { from: first, to: nextMonth };
+  const lastVisible = addDays(nextMonth, 6 - nextMonth.getDay());
+  return { from: padStart, to: addDays(lastVisible, 1) };
 }
 
-function formatWhen(iso: string) {
+function fullCalendarView(view: ViewMode, narrow: boolean): string {
+  if (narrow) {
+    if (view === "month") return "listMonth";
+    if (view === "week") return "listWeek";
+    return "listDay";
+  }
+  if (view === "month") return "dayGridMonth";
+  if (view === "week") return "timeGridWeek";
+  return "timeGridDay";
+}
+
+function formatDetailWhen(iso: string, allDay: boolean) {
+  if (allDay) {
+    // All-day values are YYYY-MM-DD — parse as local calendar date.
+    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T12:00:00` : iso;
+    return new Intl.DateTimeFormat("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    }).format(new Date(dateOnly));
+  }
   return new Intl.DateTimeFormat("en-US", {
     timeZone: PORTAL_DISPLAY_TIME_ZONE,
     weekday: "short",
@@ -68,16 +90,131 @@ function formatWhen(iso: string) {
   }).format(new Date(iso));
 }
 
+function EventDetailModal({
+  event,
+  color,
+  onClose,
+}: {
+  event: TeamCalendarEvent;
+  color: string;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="rv-event-title"
+      onClick={onClose}
+    >
+      <div
+        className="rv-panel max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-3xl px-5 py-5 shadow-xl"
+        style={{ borderTopWidth: 6, borderTopColor: color }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-black/50">
+              {event.staffName}
+              {event.source === "rendezvous" ? " · Rendezvous" : " · Google"}
+              {event.visibility === "private" ? " · Private" : ""}
+            </p>
+            <h2 id="rv-event-title" className="mt-1 text-xl font-semibold text-brand-green">
+              {event.title}
+            </h2>
+          </div>
+          <button type="button" className="rv-btn-secondary shrink-0" onClick={onClose}>
+            Close
+          </button>
+        </div>
+        <dl className="mt-4 space-y-3 text-sm text-brand-black/80">
+          <div>
+            <dt className="font-medium text-brand-black/55">When</dt>
+            <dd>
+              {formatDetailWhen(event.startsAt, event.allDay)}
+              {!event.allDay ? ` – ${formatDetailWhen(event.endsAt, false)}` : null}
+            </dd>
+          </div>
+          {event.counselorName ? (
+            <div>
+              <dt className="font-medium text-brand-black/55">Counselor</dt>
+              <dd>{event.counselorName}</dd>
+            </div>
+          ) : null}
+          {event.meetLink || event.location || event.meetingFormat ? (
+            <div>
+              <dt className="font-medium text-brand-black/55">Where</dt>
+              <dd>
+                {event.meetLink ? (
+                  <a
+                    href={event.meetLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-brand-green underline"
+                  >
+                    {event.meetLink}
+                  </a>
+                ) : event.location ? (
+                  event.location
+                ) : event.meetingFormat === "google_meet" ? (
+                  "Virtual"
+                ) : event.meetingFormat === "in_person" ? (
+                  "In Person"
+                ) : null}
+              </dd>
+            </div>
+          ) : null}
+          {event.reason ? (
+            <div>
+              <dt className="font-medium text-brand-black/55">Reason</dt>
+              <dd>{event.reason}</dd>
+            </div>
+          ) : null}
+          {event.notes ? (
+            <div>
+              <dt className="font-medium text-brand-black/55">Notes</dt>
+              <dd className="whitespace-pre-wrap">{event.notes}</dd>
+            </div>
+          ) : null}
+          {event.description && !event.reason && !event.notes ? (
+            <div>
+              <dt className="font-medium text-brand-black/55">Description</dt>
+              <dd className="whitespace-pre-wrap">{event.description}</dd>
+            </div>
+          ) : event.description && (event.reason || event.notes) ? (
+            <div>
+              <dt className="font-medium text-brand-black/55">Description</dt>
+              <dd className="whitespace-pre-wrap">{event.description}</dd>
+            </div>
+          ) : null}
+        </dl>
+      </div>
+    </div>
+  );
+}
+
 export function TeamCalendar() {
+  const calendarRef = useRef<FullCalendar | null>(null);
   const [view, setView] = useState<ViewMode>("week");
   const [anchor, setAnchor] = useState(() => new Date());
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [events, setEvents] = useState<TeamCalendarEvent[]>([]);
   const [staff, setStaff] = useState<TeamCalendarStaffMember[]>([]);
+  const [personErrors, setPersonErrors] = useState<PersonError[]>([]);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [narrow, setNarrow] = useState(false);
+  const [selected, setSelected] = useState<TeamCalendarEvent | null>(null);
 
   const { from, to } = useMemo(() => rangeForView(anchor, view), [anchor, view]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 720px)");
+    const apply = () => setNarrow(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
 
   useEffect(() => {
     void (async () => {
@@ -89,17 +226,20 @@ export function TeamCalendar() {
       });
       const res = await fetch(`/api/calendar?${params}`);
       const data = (await res.json()) as {
-        bookings?: Booking[];
+        events?: TeamCalendarEvent[];
         staff?: TeamCalendarStaffMember[];
+        errors?: PersonError[];
         error?: string;
       };
       if (!res.ok) {
         setError(data.error || "Unable To Load Calendar");
-        setBookings([]);
+        setEvents([]);
         setStaff([]);
+        setPersonErrors([]);
       } else {
-        setBookings(data.bookings ?? []);
+        setEvents(data.events ?? []);
         setStaff(data.staff ?? []);
+        setPersonErrors(data.errors ?? []);
       }
       setLoading(false);
     })();
@@ -108,16 +248,16 @@ export function TeamCalendar() {
   const people = useMemo(() => {
     const ids = resolveTeamCalendarPeoplePickerIds({
       staff,
-      bookingStaffUserIds: bookings.map((b) => b.staff_user_id),
+      bookingStaffUserIds: events.map((e) => e.staffUserId),
     });
     const nameById = new Map(staff.map((s) => [s.id, s.name]));
-    for (const b of bookings) {
-      if (!nameById.has(b.staff_user_id)) nameById.set(b.staff_user_id, b.staffName);
+    for (const e of events) {
+      if (!nameById.has(e.staffUserId)) nameById.set(e.staffUserId, e.staffName);
     }
     return ids
       .map((id) => [id, nameById.get(id) || "Staff"] as const)
       .sort((a, b) => a[1].localeCompare(b[1]));
-  }, [staff, bookings]);
+  }, [staff, events]);
 
   const colorByStaff = useMemo(() => {
     const map = new Map<string, string>();
@@ -125,10 +265,74 @@ export function TeamCalendar() {
     return map;
   }, [people]);
 
-  const visible = bookings.filter((b) => !hidden.has(b.staff_user_id));
+  const visibleEvents = useMemo(
+    () => events.filter((e) => !hidden.has(e.staffUserId)),
+    [events, hidden]
+  );
+
+  const fcEvents = useMemo(
+    () =>
+      visibleEvents.map((e) => {
+        const color = colorByStaff.get(e.staffUserId) ?? COLORS[0];
+        return {
+          id: e.id,
+          title: e.title,
+          start: e.startsAt,
+          end: e.endsAt,
+          allDay: e.allDay,
+          backgroundColor: color,
+          borderColor: color,
+          textColor: "#ffffff",
+          extendedProps: { teamEvent: e },
+        };
+      }),
+    [visibleEvents, colorByStaff]
+  );
+
+  const fcView = fullCalendarView(view, narrow);
+
+  useEffect(() => {
+    const api = calendarRef.current?.getApi();
+    if (!api) return;
+    api.changeView(fcView);
+    api.gotoDate(anchor);
+  }, [fcView, anchor]);
+
+  function onEventClick(arg: EventClickArg) {
+    const teamEvent = arg.event.extendedProps.teamEvent as TeamCalendarEvent | undefined;
+    if (teamEvent) setSelected(teamEvent);
+  }
+
+  function renderEventContent(arg: EventContentArg) {
+    const teamEvent = arg.event.extendedProps.teamEvent as TeamCalendarEvent | undefined;
+    const label = teamEvent
+      ? `${teamEvent.staffName}: ${teamEvent.title}`
+      : arg.event.title;
+    return (
+      <div className="fc-event-main-frame overflow-hidden px-0.5 leading-tight">
+        {!arg.event.allDay ? (
+          <div className="fc-event-time text-[10px] opacity-90">{arg.timeText}</div>
+        ) : null}
+        <div className="fc-event-title fc-sticky truncate text-[11px] font-semibold sm:text-xs">
+          {label}
+        </div>
+      </div>
+    );
+  }
+
+  const rangeLabel = useMemo(() => {
+    const fmt = new Intl.DateTimeFormat("en-US", {
+      timeZone: PORTAL_DISPLAY_TIME_ZONE,
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    if (view === "day") return fmt.format(anchor);
+    return `${fmt.format(from)} – ${fmt.format(addDays(to, -1))}`;
+  }, [anchor, from, to, view]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-2">
         {(["day", "week", "month"] as ViewMode[]).map((mode) => (
           <button
@@ -143,7 +347,11 @@ export function TeamCalendar() {
         <button
           type="button"
           className="rv-btn-secondary"
-          onClick={() => setAnchor(addDays(anchor, view === "month" ? -28 : view === "week" ? -7 : -1))}
+          onClick={() =>
+            setAnchor(
+              addDays(anchor, view === "month" ? -28 : view === "week" ? -7 : -1)
+            )
+          }
         >
           Previous
         </button>
@@ -153,10 +361,13 @@ export function TeamCalendar() {
         <button
           type="button"
           className="rv-btn-secondary"
-          onClick={() => setAnchor(addDays(anchor, view === "month" ? 28 : view === "week" ? 7 : 1))}
+          onClick={() =>
+            setAnchor(addDays(anchor, view === "month" ? 28 : view === "week" ? 7 : 1))
+          }
         >
           Next
         </button>
+        <p className="ml-auto text-sm font-medium text-brand-black/65">{rangeLabel}</p>
       </div>
 
       {people.length > 0 ? (
@@ -193,40 +404,55 @@ export function TeamCalendar() {
 
       {loading ? <p className="text-brand-black/60">Loading…</p> : null}
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
+      {personErrors.length > 0 ? (
+        <div className="rounded-2xl border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <p className="font-medium">Some calendars could not be loaded</p>
+          <ul className="mt-1 list-disc pl-5">
+            {personErrors.map((e) => (
+              <li key={e.staffUserId}>
+                {e.staffName}: {e.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
-      <div className="space-y-3">
-        {visible.length === 0 && !loading ? (
-          <div className="rv-panel rounded-3xl px-6 py-14 text-center">
-            <p className="rv-display text-2xl">No Bookings In This Range</p>
-            <p className="mt-2 text-brand-black/65">
-              {people.length > 1
-                ? "Team members are listed above — try another day, week, or month, or toggle people."
-                : "Try another day, week, or month."}
-            </p>
-          </div>
+      <div className="rv-panel rv-calendar overflow-hidden rounded-3xl p-2 sm:p-4">
+        <FullCalendar
+          ref={calendarRef}
+          plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+          initialView={fcView}
+          initialDate={anchor}
+          headerToolbar={false}
+          height="auto"
+          expandRows
+          nowIndicator
+          weekends
+          timeZone={PORTAL_DISPLAY_TIME_ZONE}
+          events={fcEvents}
+          eventClick={onEventClick}
+          eventContent={renderEventContent}
+          dayMaxEvents={narrow ? 3 : 4}
+          slotMinTime="06:00:00"
+          slotMaxTime="21:00:00"
+          allDaySlot
+          stickyHeaderDates
+        />
+        {!loading && visibleEvents.length === 0 ? (
+          <p className="px-4 pb-6 text-center text-sm text-brand-black/55">
+            No events in this range
+            {people.length > 1 ? " — try another view or toggle people." : "."}
+          </p>
         ) : null}
-        {visible.map((b) => (
-          <article
-            key={b.id}
-            className="rv-panel rounded-2xl px-5 py-4 transition hover:-translate-y-0.5"
-            style={{ borderLeftWidth: 5, borderLeftColor: colorByStaff.get(b.staff_user_id) }}
-          >
-            <p className="text-lg font-semibold text-brand-green">{formatWhen(b.starts_at)}</p>
-            <p className="mt-1 text-sm text-brand-black/80">
-              {b.staffName} · With {b.counselor_name}
-            </p>
-            <p className="mt-1 text-sm text-brand-black/55">
-              {b.meeting_format === "google_meet"
-                ? b.meet_link || "Virtual"
-                : b.location || "In Person"}
-              {b.reason ? ` · ${b.reason}` : ""}
-            </p>
-            {b.notes ? (
-              <p className="mt-1 text-sm text-brand-black/55">Notes: {b.notes}</p>
-            ) : null}
-          </article>
-        ))}
       </div>
+
+      {selected ? (
+        <EventDetailModal
+          event={selected}
+          color={colorByStaff.get(selected.staffUserId) ?? COLORS[0]}
+          onClose={() => setSelected(null)}
+        />
+      ) : null}
     </div>
   );
 }

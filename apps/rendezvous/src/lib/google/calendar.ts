@@ -48,6 +48,81 @@ export async function fetchFreeBusy(opts: {
     .map((b) => ({ start: new Date(b.start), end: new Date(b.end) }));
 }
 
+/** Normalized event from events.list (includes private event details when impersonating the owner). */
+export type CalendarEventListItem = {
+  googleEventId: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  allDay: boolean;
+  location: string | null;
+  meetLink: string | null;
+  description: string | null;
+  visibility: string | null;
+  status: string | null;
+};
+
+const EVENTS_CACHE_TTL_MS = 300_000; // 5 min; push watches invalidate sooner
+
+/**
+ * List all events on a staff member's calendar for a window.
+ * Uses domain-wide delegation as the calendar owner, so private events
+ * return full title/description/location (Bryan-approved for Team Calendar).
+ */
+export async function fetchCalendarEvents(opts: {
+  staffEmail: string;
+  calendarId?: string;
+  timeMin: Date;
+  timeMax: Date;
+}): Promise<CalendarEventListItem[]> {
+  const calendar = getCalendarClientForUser(opts.staffEmail);
+  const calendarId = opts.calendarId ?? "primary";
+  const items: CalendarEventListItem[] = [];
+  let pageToken: string | undefined;
+
+  do {
+    const res = await calendar.events.list({
+      calendarId,
+      timeMin: opts.timeMin.toISOString(),
+      timeMax: opts.timeMax.toISOString(),
+      singleEvents: true,
+      orderBy: "startTime",
+      maxResults: 2500,
+      pageToken,
+    });
+
+    for (const event of res.data.items ?? []) {
+      if (!event.id) continue;
+      const startRaw = event.start?.dateTime ?? event.start?.date ?? null;
+      const endRaw = event.end?.dateTime ?? event.end?.date ?? null;
+      if (!startRaw || !endRaw) continue;
+      const allDay = Boolean(event.start?.date && !event.start?.dateTime);
+      const meetLink =
+        event.hangoutLink ??
+        event.conferenceData?.entryPoints?.find((e) => e.entryPointType === "video")
+          ?.uri ??
+        null;
+      items.push({
+        googleEventId: event.id,
+        title: (event.summary ?? "").trim() || "(No title)",
+        // Keep all-day values as YYYY-MM-DD so FullCalendar does not shift days in local TZ.
+        startsAt: allDay ? startRaw : new Date(startRaw).toISOString(),
+        endsAt: allDay ? endRaw : new Date(endRaw).toISOString(),
+        allDay,
+        location: event.location ?? null,
+        meetLink,
+        description: event.description ?? null,
+        visibility: event.visibility ?? null,
+        status: event.status ?? null,
+      });
+    }
+
+    pageToken = res.data.nextPageToken ?? undefined;
+  } while (pageToken);
+
+  return items;
+}
+
 export async function createBookingEvent(opts: {
   staffEmail: string;
   calendarId?: string;
@@ -195,4 +270,4 @@ export function freeBusyCacheKey(staffUserId: string, timeMin: Date, timeMax: Da
     .digest("hex");
 }
 
-export { FREEBUSY_CACHE_TTL_MS };
+export { FREEBUSY_CACHE_TTL_MS, EVENTS_CACHE_TTL_MS };

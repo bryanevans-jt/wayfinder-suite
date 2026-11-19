@@ -20,7 +20,7 @@ export default async function CalendarPage() {
 
   return (
     <AppShell showStaffNav signOutSlot={<SignOutButton />}>
-      <main className="rv-shell">
+      <main className="rv-shell max-w-6xl">
         <Link href="/" className="rv-nav-link">
           ← Home
         </Link>
@@ -29,7 +29,8 @@ export default async function CalendarPage() {
           Team Calendar
         </h1>
         <p className="rv-rise rv-rise-delay-2 mt-3 max-w-2xl text-lg text-brand-black/70">
-          Day, week, and month views. Use the checkboxes to show or hide people.
+          Day, week, and month grid with each person&apos;s Google Calendar overlaid.
+          Use the checkboxes to show or hide people. Tap an event for details.
         </p>
         <div className="rv-rise rv-rise-delay-3 mt-10">
           <TeamCalendar />

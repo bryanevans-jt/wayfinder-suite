@@ -1,7 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { rendezvousSchema } from "./supabase/admin";
 import type { BusyRange, WeeklyHour } from "./scheduling/slots";
-import { FREEBUSY_CACHE_TTL_MS, fetchFreeBusy } from "./google/calendar";
+import {
+  EVENTS_CACHE_TTL_MS,
+  FREEBUSY_CACHE_TTL_MS,
+  fetchCalendarEvents,
+  fetchFreeBusy,
+  type CalendarEventListItem,
+} from "./google/calendar";
 
 export type StaffScheduleRow = {
   id: string;
@@ -182,4 +188,85 @@ export async function invalidateBusyCache(
   staffUserId: string
 ): Promise<void> {
   await rendezvousSchema(admin).from("busy_cache").delete().eq("staff_user_id", staffUserId);
+}
+
+/**
+ * Google events.list with short-TTL DB cache. Push webhook / booking mutations
+ * clear cache rows for the staff user.
+ */
+export async function getCalendarEventsCached(opts: {
+  admin: SupabaseClient;
+  staffUserId: string;
+  staffEmail: string;
+  calendarId: string;
+  timeMin: Date;
+  timeMax: Date;
+}): Promise<CalendarEventListItem[]> {
+  const { admin, staffUserId, staffEmail, calendarId, timeMin, timeMax } = opts;
+  const db = rendezvousSchema(admin);
+
+  const { data: cached } = await db
+    .from("events_cache")
+    .select("events, fetched_at")
+    .eq("staff_user_id", staffUserId)
+    .eq("window_start", timeMin.toISOString())
+    .eq("window_end", timeMax.toISOString())
+    .maybeSingle();
+
+  if (cached?.fetched_at) {
+    const age = Date.now() - new Date(cached.fetched_at as string).getTime();
+    if (age >= 0 && age < EVENTS_CACHE_TTL_MS) {
+      return ((cached.events as CalendarEventListItem[]) ?? []).map((e) => ({
+        ...e,
+        googleEventId: String(e.googleEventId),
+        title: String(e.title ?? "(No title)"),
+        startsAt: String(e.startsAt),
+        endsAt: String(e.endsAt),
+        allDay: Boolean(e.allDay),
+        location: e.location ?? null,
+        meetLink: e.meetLink ?? null,
+        description: e.description ?? null,
+        visibility: e.visibility ?? null,
+        status: e.status ?? null,
+      }));
+    }
+  }
+
+  const events = await fetchCalendarEvents({
+    staffEmail,
+    calendarId,
+    timeMin,
+    timeMax,
+  });
+
+  await db.from("events_cache").upsert(
+    {
+      staff_user_id: staffUserId,
+      window_start: timeMin.toISOString(),
+      window_end: timeMax.toISOString(),
+      events,
+      fetched_at: new Date().toISOString(),
+    },
+    { onConflict: "staff_user_id,window_start,window_end" }
+  );
+
+  return events;
+}
+
+export async function invalidateEventsCache(
+  admin: SupabaseClient,
+  staffUserId: string
+): Promise<void> {
+  await rendezvousSchema(admin).from("events_cache").delete().eq("staff_user_id", staffUserId);
+}
+
+/** Invalidate both free/busy and Team Calendar event caches for a staff user. */
+export async function invalidateCalendarCaches(
+  admin: SupabaseClient,
+  staffUserId: string
+): Promise<void> {
+  await Promise.all([
+    invalidateBusyCache(admin, staffUserId),
+    invalidateEventsCache(admin, staffUserId),
+  ]);
 }

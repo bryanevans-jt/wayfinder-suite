@@ -5,7 +5,7 @@ import {
   getBusyTimesCached,
   getScheduleBySlug,
   getStaffEmail,
-  invalidateBusyCache,
+  invalidateCalendarCaches,
   listConfirmedBookingsInRange,
   listWeeklyHours,
   type BookingRow,
@@ -272,7 +272,7 @@ export async function createPublicBooking(opts: {
     return { ok: false as const, status: 500 as const, error: error.message };
   }
 
-  await invalidateBusyCache(opts.admin, schedule.staff_user_id);
+  await invalidateCalendarCaches(opts.admin, schedule.staff_user_id);
 
   const cancelUrl = buildManageUrl("cancel", cancel.token);
   const rescheduleUrl = buildManageUrl("reschedule", reschedule.token);
@@ -372,7 +372,7 @@ export async function cancelBookingByToken(opts: {
     .eq("status", "confirmed");
   if (updErr) return { ok: false as const, status: 500 as const, error: updErr.message };
 
-  await invalidateBusyCache(opts.admin, row.staff_user_id);
+  await invalidateCalendarCaches(opts.admin, row.staff_user_id);
 
   const whenLabel = formatSlotEastern({
     start: new Date(row.starts_at),
@@ -491,7 +491,7 @@ export async function rescheduleBookingByToken(opts: {
     return { ok: false as const, status: 500 as const, error: updErr.message };
   }
 
-  await invalidateBusyCache(opts.admin, row.staff_user_id);
+  await invalidateCalendarCaches(opts.admin, row.staff_user_id);
 
   const staffName = schedule.display_name?.trim() || staff.fullName;
   const whenLabel = formatSlotEastern({ start: startsAt, end: endsAt });

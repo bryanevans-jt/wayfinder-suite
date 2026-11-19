@@ -7,7 +7,7 @@ import {
 import { resolveTeamCalendarVisibilityMode } from "./team-calendar-visibility";
 
 describe("buildTeamCalendarStaffDirectory", () => {
-  it("lists schedule staff for admins even when only the viewer has bookings", () => {
+  it("lists every allow-listed staff member even when only the viewer has bookings", () => {
     // Mirrors production: one confirmed booking (super_admin), many ES/TS schedules.
     const staff = buildTeamCalendarStaffDirectory({
       visibleStaffUserIds: ["bryan", "es-1", "ts-1", "sup-1"],
@@ -24,6 +24,21 @@ describe("buildTeamCalendarStaffDirectory", () => {
       ["bryan", "es-1", "sup-1", "ts-1"].sort()
     );
     assert.equal(staff.find((s) => s.id === "es-1")?.name, "Kayla Miley");
+  });
+
+  it("includes allow-listed staff without a schedule row", () => {
+    const staff = buildTeamCalendarStaffDirectory({
+      visibleStaffUserIds: ["es-1", "es-2"],
+      schedules: [{ staff_user_id: "es-1", display_name: "Kayla" }],
+      profileNames: { "es-2": "Pat" },
+    });
+    assert.deepEqual(
+      staff.map((s) => ({ id: s.id, name: s.name })),
+      [
+        { id: "es-1", name: "Kayla" },
+        { id: "es-2", name: "Pat" },
+      ]
+    );
   });
 
   it("never includes staff outside the visibility allow-list", () => {

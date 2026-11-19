@@ -7,12 +7,12 @@ import {
 
 /**
  * Team Calendar visibility mirrors listTeamCalendarVisibleStaffUserIds.
- * Supervisor reports match loadSupervisorScope: assignments + office-shared TS/instructors.
+ * Supervisor reports = direct reports from supervisor_es_assignments only.
  */
 function visibleStaffIds(opts: {
   viewer: { userId: string; role: string };
-  /** Combined loadSupervisorScope.esUserIds (assignments + office share). */
-  supervisorScopeEsUserIds?: string[];
+  /** Direct report IDs from supervisor_es_assignments.es_user_id. */
+  supervisorDirectReportIds?: string[];
   adminTeamIds?: string[];
 }): string[] {
   const mode = resolveTeamCalendarVisibilityMode(opts.viewer.role);
@@ -23,7 +23,7 @@ function visibleStaffIds(opts: {
   }
   if (mode === "supervisor_reports") {
     return Array.from(
-      new Set([opts.viewer.userId, ...(opts.supervisorScopeEsUserIds ?? [])])
+      new Set([opts.viewer.userId, ...(opts.supervisorDirectReportIds ?? [])])
     );
   }
   return [opts.viewer.userId];
@@ -44,24 +44,24 @@ describe("team calendar visibility rules", () => {
     assert.equal(resolveTeamCalendarVisibilityMode("super_admin"), "admin_team");
   });
 
-  it("supervisors see self + assigned ES/TS + office-shared TS/instructors", () => {
+  it("supervisors see self + direct reports only (no office-shared staff)", () => {
     assert.deepEqual(
       visibleStaffIds({
         viewer: { userId: "sup-1", role: "supervisor" },
-        // es-1 from supervisor_es_assignments; ts-office + instructor-1 from office share
-        supervisorScopeEsUserIds: ["es-1", "ts-office", "instructor-1"],
+        // Only assignment-table IDs — office-shared TS/instructors omitted
+        supervisorDirectReportIds: ["es-1", "ts-assigned"],
       }).sort(),
-      ["sup-1", "es-1", "ts-office", "instructor-1"].sort()
+      ["sup-1", "es-1", "ts-assigned"].sort()
     );
   });
 
-  it("keeps office-shared staff that loadSupervisorScope already includes", () => {
+  it("does not include office-shared TS/instructors without an assignment row", () => {
     assert.deepEqual(
       visibleStaffIds({
         viewer: { userId: "sup-1", role: "supervisor" },
-        supervisorScopeEsUserIds: ["es-1", "ts-shared"],
+        supervisorDirectReportIds: ["es-1"],
       }).sort(),
-      ["sup-1", "es-1", "ts-shared"].sort()
+      ["sup-1", "es-1"].sort()
     );
   });
 
