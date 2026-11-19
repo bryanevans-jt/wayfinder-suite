@@ -18,7 +18,7 @@ import {
 } from "@wayfinder/supabase/roles";
 import { canUseStaffPto } from "@wayfinder/supabase/staff-pto-shared";
 import { canUseWrtFacilitation } from "@wayfinder/supabase/staff-wrt-shared";
-import { buildReportsAppUrl } from "@wayfinder/branding";
+import { buildRendezvousAppUrl, buildReportsAppUrl } from "@wayfinder/branding";
 
 export { canAccessFormalReporting };
 
@@ -253,6 +253,13 @@ function withWrtFacilitationNav(items: StaffNavItem[], role: string | null): Sta
 
 export const PRE_ETS_DASHBOARD_PATH = preEtsNav.href;
 
+const rendezvousNav: StaffNavItem = {
+  href: buildRendezvousAppUrl("/calendar"),
+  label: "Rendezvous",
+  match: () => false,
+  external: true,
+};
+
 const cultureNavSection: StaffNavSection = {
   label: "Our Team",
   items: [teamDirectoryNav, coreFourNav, shareMomentsNav],
@@ -260,6 +267,19 @@ const cultureNavSection: StaffNavSection = {
 
 function withCultureAndHelp(sections: StaffNavSection[]): StaffNavSection[] {
   return withHelpSections([...sections, cultureNavSection]);
+}
+
+/** Supervisors / admins / super_admins get Rendezvous under Our Team. */
+function withRendezvousUnderOurTeam(
+  sections: StaffNavSection[],
+  role: string | null
+): StaffNavSection[] {
+  if (!isSupervisorTierRole(role)) return sections;
+  return sections.map((section) => {
+    if (section.label !== "Our Team") return section;
+    if (section.items.some((item) => item.href === rendezvousNav.href)) return section;
+    return { ...section, items: [...section.items, rendezvousNav] };
+  });
 }
 
 function withHelpSections(sections: StaffNavSection[]): StaffNavSection[] {
@@ -278,7 +298,7 @@ function withHelpAndProfile(sections: StaffNavSection[], role: string | null): S
   if (canEditOwnStaffProfile(role)) {
     out = [...out, { label: "Account", items: [profileNav] }];
   }
-  return withCultureAndHelp(out);
+  return withRendezvousUnderOurTeam(withCultureAndHelp(out), role);
 }
 
 /** Pre-ETS nav visibility — resolved server-side from pre_ets_settings.enabled_roles. */

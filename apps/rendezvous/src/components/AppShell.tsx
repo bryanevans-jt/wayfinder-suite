@@ -1,5 +1,10 @@
 import Link from "next/link";
+import { STAFF_APP_PRODUCT_NAME } from "@wayfinder/branding";
 import { SiteFooter } from "@/components/SiteFooter";
+
+const WAYFINDER_PRO_URL =
+  process.env.NEXT_PUBLIC_STAFF_APP_URL?.replace(/\/$/, "") ||
+  "https://wayfinder-pro.thejoshuatree.org";
 
 type Props = {
   children: React.ReactNode;
@@ -13,11 +18,19 @@ export function AppShell({ children, showStaffNav = false, signOutSlot }: Props)
     <div className="rv-atmosphere flex min-h-screen flex-col">
       {showStaffNav ? (
         <header className="relative z-10 border-b border-[color:var(--rv-line)] bg-white/40 backdrop-blur-md">
-          <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
             <Link href="/" className="rv-brand text-2xl sm:text-3xl">
               Rendezvous
             </Link>
-            <nav className="flex items-center gap-4 sm:gap-5">
+            <nav className="flex flex-wrap items-center justify-end gap-3 sm:gap-5">
+              <a
+                href={WAYFINDER_PRO_URL}
+                className="rv-nav-link"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {STAFF_APP_PRODUCT_NAME}
+              </a>
               <Link href="/calendar" className="rv-nav-link">
                 Team Calendar
               </Link>

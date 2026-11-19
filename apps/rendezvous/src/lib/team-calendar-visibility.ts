@@ -9,6 +9,7 @@
  *
  * Rules:
  * - Admin / super_admin: every active ES, Transition Specialist, and Supervisor
+ *   (admins' own calendars are never included for any viewer)
  * - Supervisor: self + direct reports from supervisor_es_assignments
  * - Everyone else (ES/TS, …): self only
  */
@@ -32,7 +33,7 @@ export type TeamCalendarVisibilityMode = "admin_team" | "supervisor_reports" | "
 
 export type TeamCalendarVisibility = {
   mode: TeamCalendarVisibilityMode;
-  /** Explicit staff user IDs allowed on the calendar. Never empty when viewer has a userId. */
+  /** Explicit staff user IDs allowed on the calendar (admins/super_admins never included). */
   staffUserIds: string[];
 };
 
@@ -48,6 +49,11 @@ export function resolveTeamCalendarVisibilityMode(
 export function isTeamCalendarAdminVisibleRole(role: string | null | undefined): boolean {
   const r = normalizeRole(role);
   return (TEAM_CALENDAR_ADMIN_VISIBLE_ROLES as readonly string[]).includes(r);
+}
+
+/** Admin / super_admin calendars are never shown on Team Calendar. */
+export function isTeamCalendarExcludedRole(role: string | null | undefined): boolean {
+  return isAdminTierRole(role);
 }
 
 /**
@@ -105,39 +111,62 @@ export async function loadAdminTeamCalendarStaffUserIds(
 }
 
 /**
+ * Drop any admin / super_admin IDs so those calendars never leave the server.
+ */
+export async function excludeAdminTierCalendars(
+  admin: SupabaseClient,
+  staffUserIds: string[]
+): Promise<string[]> {
+  const unique = Array.from(new Set(staffUserIds.filter(Boolean)));
+  if (unique.length === 0) return [];
+  const { data, error } = await admin
+    .from("profiles")
+    .select("id, role")
+    .in("id", unique);
+  if (error) {
+    throw new Error(`profiles role filter failed: ${error.message}`);
+  }
+  const allowed = new Set(
+    (data ?? [])
+      .filter((row) => !isTeamCalendarExcludedRole(row.role as string))
+      .map((row) => row.id as string)
+  );
+  // Preserve caller order; drop unknown ids that failed the profile read.
+  return unique.filter((id) => allowed.has(id));
+}
+
+/**
  * Server-side Team Calendar visibility for the signed-in viewer.
  * Always returns an explicit ID list (no unbounded "all").
+ * Admin / super_admin calendars are never included — including the viewer's own.
  */
 export async function listTeamCalendarVisibleStaffUserIds(
   admin: SupabaseClient,
   viewer: TeamCalendarViewer
 ): Promise<TeamCalendarVisibility> {
   const mode = resolveTeamCalendarVisibilityMode(viewer.role);
+  let candidateIds: string[];
   if (mode === "admin_team") {
-    const teamIds = await loadAdminTeamCalendarStaffUserIds(admin);
-    return {
-      mode,
-      staffUserIds: Array.from(new Set([viewer.userId, ...teamIds])),
-    };
-  }
-  if (mode === "supervisor_reports") {
+    // Do not add the admin viewer — their calendar is excluded for every viewer.
+    candidateIds = await loadAdminTeamCalendarStaffUserIds(admin);
+  } else if (mode === "supervisor_reports") {
     const scoped = await loadSupervisorTeamCalendarStaffUserIds(admin, viewer.userId);
-    return {
-      mode,
-      staffUserIds: Array.from(new Set([viewer.userId, ...scoped])),
-    };
+    candidateIds = Array.from(new Set([viewer.userId, ...scoped]));
+  } else {
+    candidateIds = [viewer.userId];
   }
-  return { mode: "self", staffUserIds: [viewer.userId] };
+
+  const staffUserIds = await excludeAdminTierCalendars(admin, candidateIds);
+  return { mode, staffUserIds };
 }
 
-/** Whether the viewer may see bookings for a specific staff user (calendar rules). */
+/** Whether the viewer may see calendar data for a specific staff user. */
 export async function canViewTeamCalendarStaff(
   admin: SupabaseClient,
   viewer: TeamCalendarViewer,
   targetStaffUserId: string
 ): Promise<boolean> {
   if (!targetStaffUserId) return false;
-  if (viewer.userId === targetStaffUserId) return true;
   const visibility = await listTeamCalendarVisibleStaffUserIds(admin, viewer);
   return visibility.staffUserIds.includes(targetStaffUserId);
 }

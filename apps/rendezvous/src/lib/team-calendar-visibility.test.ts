@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   isTeamCalendarAdminVisibleRole,
+  isTeamCalendarExcludedRole,
   resolveTeamCalendarVisibilityMode,
   TEAM_CALENDAR_ADMIN_VISIBLE_ROLES,
 } from "./team-calendar-visibility";
@@ -48,5 +49,15 @@ describe("supervisor calendar scope source (documented contract)", () => {
       "supervisor_es_assignments",
       "calendar supervisor scope must be supervisor_es_assignments direct reports"
     );
+  });
+});
+
+describe("isTeamCalendarExcludedRole", () => {
+  it("excludes admin and super_admin calendars for every viewer", () => {
+    assert.equal(isTeamCalendarExcludedRole("admin"), true);
+    assert.equal(isTeamCalendarExcludedRole("super_admin"), true);
+    assert.equal(isTeamCalendarExcludedRole("supervisor"), false);
+    assert.equal(isTeamCalendarExcludedRole("es"), false);
+    assert.equal(isTeamCalendarExcludedRole("transition_specialist"), false);
   });
 });

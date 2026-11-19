@@ -6,6 +6,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
+import luxonPlugin from "@fullcalendar/luxon3";
 import type { EventClickArg, EventContentArg } from "@fullcalendar/core";
 import { PORTAL_DISPLAY_TIME_ZONE } from "@wayfinder/branding";
 import {
@@ -13,8 +14,14 @@ import {
   type TeamCalendarStaffMember,
 } from "@/lib/team-calendar-staff";
 import type { TeamCalendarEvent } from "@/lib/team-calendar-events";
+import {
+  rangeForViewInEastern,
+  shiftEasternDays,
+  shiftEasternMonths,
+  type TeamCalendarViewMode,
+} from "@/lib/team-calendar-range";
 
-type ViewMode = "day" | "week" | "month";
+type ViewMode = TeamCalendarViewMode;
 
 type PersonError = {
   staffUserId: string;
@@ -33,32 +40,6 @@ const COLORS = [
   "#9A3412",
 ];
 
-function startOfDay(d: Date) {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-}
-
-function addDays(d: Date, n: number) {
-  const x = new Date(d);
-  x.setDate(x.getDate() + n);
-  return x;
-}
-
-function rangeForView(anchor: Date, view: ViewMode): { from: Date; to: Date } {
-  const day = startOfDay(anchor);
-  if (view === "day") return { from: day, to: addDays(day, 1) };
-  if (view === "week") {
-    const dow = day.getDay();
-    const sunday = addDays(day, -dow);
-    return { from: sunday, to: addDays(sunday, 7) };
-  }
-  // Month grid shows leading/trailing days — fetch a padded window.
-  const first = new Date(day.getFullYear(), day.getMonth(), 1);
-  const padStart = addDays(first, -first.getDay());
-  const nextMonth = new Date(day.getFullYear(), day.getMonth() + 1, 1);
-  const lastVisible = addDays(nextMonth, 6 - nextMonth.getDay());
-  return { from: padStart, to: addDays(lastVisible, 1) };
-}
-
 function fullCalendarView(view: ViewMode, narrow: boolean): string {
   if (narrow) {
     if (view === "month") return "listMonth";
@@ -72,7 +53,7 @@ function fullCalendarView(view: ViewMode, narrow: boolean): string {
 
 function formatDetailWhen(iso: string, allDay: boolean) {
   if (allDay) {
-    // All-day values are YYYY-MM-DD — parse as local calendar date.
+    // All-day values are YYYY-MM-DD — parse as noon local to avoid day-shift.
     const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T12:00:00` : iso;
     return new Intl.DateTimeFormat("en-US", {
       weekday: "short",
@@ -133,6 +114,7 @@ function EventDetailModal({
             <dd>
               {formatDetailWhen(event.startsAt, event.allDay)}
               {!event.allDay ? ` – ${formatDetailWhen(event.endsAt, false)}` : null}
+              {!event.allDay ? " ET" : null}
             </dd>
           </div>
           {event.counselorName ? (
@@ -176,12 +158,7 @@ function EventDetailModal({
               <dd className="whitespace-pre-wrap">{event.notes}</dd>
             </div>
           ) : null}
-          {event.description && !event.reason && !event.notes ? (
-            <div>
-              <dt className="font-medium text-brand-black/55">Description</dt>
-              <dd className="whitespace-pre-wrap">{event.description}</dd>
-            </div>
-          ) : event.description && (event.reason || event.notes) ? (
+          {event.description ? (
             <div>
               <dt className="font-medium text-brand-black/55">Description</dt>
               <dd className="whitespace-pre-wrap">{event.description}</dd>
@@ -206,7 +183,7 @@ export function TeamCalendar() {
   const [narrow, setNarrow] = useState(false);
   const [selected, setSelected] = useState<TeamCalendarEvent | null>(null);
 
-  const { from, to } = useMemo(() => rangeForView(anchor, view), [anchor, view]);
+  const { from, to } = useMemo(() => rangeForViewInEastern(anchor, view), [anchor, view]);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 720px)");
@@ -327,9 +304,23 @@ export function TeamCalendar() {
       day: "numeric",
       year: "numeric",
     });
-    if (view === "day") return fmt.format(anchor);
-    return `${fmt.format(from)} – ${fmt.format(addDays(to, -1))}`;
+    if (view === "day") return `${fmt.format(anchor)} ET`;
+    // `to` is exclusive Eastern midnight — label through the prior instant.
+    const lastInclusive = new Date(to.getTime() - 1);
+    return `${fmt.format(from)} – ${fmt.format(lastInclusive)} ET`;
   }, [anchor, from, to, view]);
+
+  function goPrevious() {
+    if (view === "month") setAnchor(shiftEasternMonths(anchor, -1));
+    else if (view === "week") setAnchor(shiftEasternDays(anchor, -7));
+    else setAnchor(shiftEasternDays(anchor, -1));
+  }
+
+  function goNext() {
+    if (view === "month") setAnchor(shiftEasternMonths(anchor, 1));
+    else if (view === "week") setAnchor(shiftEasternDays(anchor, 7));
+    else setAnchor(shiftEasternDays(anchor, 1));
+  }
 
   return (
     <div className="space-y-6">
@@ -344,27 +335,13 @@ export function TeamCalendar() {
             {mode[0].toUpperCase() + mode.slice(1)}
           </button>
         ))}
-        <button
-          type="button"
-          className="rv-btn-secondary"
-          onClick={() =>
-            setAnchor(
-              addDays(anchor, view === "month" ? -28 : view === "week" ? -7 : -1)
-            )
-          }
-        >
+        <button type="button" className="rv-btn-secondary" onClick={goPrevious}>
           Previous
         </button>
         <button type="button" className="rv-btn-secondary" onClick={() => setAnchor(new Date())}>
           Today
         </button>
-        <button
-          type="button"
-          className="rv-btn-secondary"
-          onClick={() =>
-            setAnchor(addDays(anchor, view === "month" ? 28 : view === "week" ? 7 : 1))
-          }
-        >
+        <button type="button" className="rv-btn-secondary" onClick={goNext}>
           Next
         </button>
         <p className="ml-auto text-sm font-medium text-brand-black/65">{rangeLabel}</p>
@@ -420,7 +397,7 @@ export function TeamCalendar() {
       <div className="rv-panel rv-calendar overflow-hidden rounded-3xl p-2 sm:p-4">
         <FullCalendar
           ref={calendarRef}
-          plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+          plugins={[luxonPlugin, dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
           initialView={fcView}
           initialDate={anchor}
           headerToolbar={false}

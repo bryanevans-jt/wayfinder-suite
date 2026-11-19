@@ -14,30 +14,44 @@ function visibleStaffIds(opts: {
   /** Direct report IDs from supervisor_es_assignments.es_user_id. */
   supervisorDirectReportIds?: string[];
   adminTeamIds?: string[];
+  /** Profile IDs whose role is admin/super_admin — always stripped. */
+  excludedAdminIds?: string[];
 }): string[] {
   const mode = resolveTeamCalendarVisibilityMode(opts.viewer.role);
+  // Admin / super_admin calendars are never included (including the viewer).
+  const exclude = new Set(opts.excludedAdminIds ?? []);
   if (mode === "admin_team") {
-    return Array.from(
-      new Set([opts.viewer.userId, ...(opts.adminTeamIds ?? [])])
-    );
+    return (opts.adminTeamIds ?? []).filter((id) => !exclude.has(id));
   }
   if (mode === "supervisor_reports") {
     return Array.from(
       new Set([opts.viewer.userId, ...(opts.supervisorDirectReportIds ?? [])])
-    );
+    ).filter((id) => !exclude.has(id));
   }
-  return [opts.viewer.userId];
+  return exclude.has(opts.viewer.userId) ? [] : [opts.viewer.userId];
 }
 
 describe("team calendar visibility rules", () => {
-  it("admins see ES, Transition Specialist, and Supervisor calendars (not counselors)", () => {
+  it("admins see ES, Transition Specialist, and Supervisor calendars (not themselves or counselors)", () => {
     const ids = visibleStaffIds({
       viewer: { userId: "admin-1", role: "admin" },
       adminTeamIds: ["es-1", "ts-1", "sup-2"],
+      excludedAdminIds: ["admin-1"],
     });
-    assert.deepEqual(ids.sort(), ["admin-1", "es-1", "sup-2", "ts-1"].sort());
+    assert.deepEqual(ids.sort(), ["es-1", "sup-2", "ts-1"].sort());
     assert.equal(isTeamCalendarAdminVisibleRole("es"), true);
     assert.equal(isTeamCalendarAdminVisibleRole("counselor"), false);
+  });
+
+  it("never surfaces another admin calendar even if present in a candidate list", () => {
+    assert.deepEqual(
+      visibleStaffIds({
+        viewer: { userId: "sup-1", role: "supervisor" },
+        supervisorDirectReportIds: ["es-1", "admin-2"],
+        excludedAdminIds: ["admin-2"],
+      }).sort(),
+      ["sup-1", "es-1"].sort()
+    );
   });
 
   it("super_admins use the same admin team visibility", () => {
