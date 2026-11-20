@@ -19,16 +19,24 @@ import {
   STAFF_CLOCK_TIMEZONE,
 } from "@wayfinder/supabase/staff-time-clock-shared";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import { fetchAllPostgrestRows } from "@wayfinder/supabase/postgrest-fetch-all";
 import { isAdminTierRole, isSupervisorRole } from "@wayfinder/supabase/roles";
 import { loadStaffNameById } from "@/lib/staff-names";
 import { loadClientDisplayNameById } from "@/lib/client-display-names";
 import { loadSupervisorScope } from "@/lib/supervisor-client-scope";
+import {
+  buildOrgMonthlyBillableHoursRows,
+  type OrgBillableLoggerProfile,
+  type OrgMonthlyBillableHoursRow,
+} from "@/lib/org-billable-hours-rollup";
 import {
   summarizeTimeEntries,
   type EsTimeEntryRow,
   type SupervisedEsOption,
   type TimesheetClientOption,
 } from "@/lib/es-time-client";
+
+export type { OrgMonthlyBillableHoursRow, OrgBillableRosterStatus } from "@/lib/org-billable-hours-rollup";
 
 export type {
   EsTimeEntryRow,
@@ -293,20 +301,25 @@ export async function loadEsTimeEntriesForDateRange(
   rangeStart: string,
   rangeEnd: string
 ): Promise<EsTimeEntryRow[]> {
-  const { data, error } = await admin
-    .from("es_time_entries")
-    .select(TIME_ENTRY_SELECT)
-    .eq("es_user_id", esUserId)
-    .gte("service_date", rangeStart)
-    .lte("service_date", rangeEnd)
-    .order("service_date", { ascending: true })
-    .order("created_at", { ascending: true });
+  const data = await fetchAllPostgrestRows<RawTimeEntryRow>(
+    admin,
+    "es_time_entries",
+    TIME_ENTRY_SELECT,
+    {
+      order: [
+        { column: "service_date", ascending: true },
+        { column: "created_at", ascending: true },
+        { column: "id", ascending: true },
+      ],
+      applyFilters: (query) =>
+        query
+          .eq("es_user_id", esUserId)
+          .gte("service_date", rangeStart)
+          .lte("service_date", rangeEnd),
+    }
+  );
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return mapEsTimeEntryRows(admin, (data ?? []) as unknown as RawTimeEntryRow[]);
+  return mapEsTimeEntryRows(admin, data as unknown as RawTimeEntryRow[]);
 }
 
 export async function loadEsTimeEntriesForWeek(
@@ -334,34 +347,41 @@ export function currentMonthKey(now: Date = new Date()): string {
   return today.slice(0, 7);
 }
 
+type BillableMinutesRow = {
+  duration_minutes: number;
+  flags: Record<string, boolean> | null;
+  service_activity_types:
+    | { code: string; counts_toward_client_billable?: boolean }
+    | { code: string; counts_toward_client_billable?: boolean }[]
+    | null;
+};
+
 export async function loadBillableMinutesForDateRange(
   admin: ReturnType<typeof createServiceRoleClient>,
   esUserId: string,
   rangeStart: string,
   rangeEnd: string
 ): Promise<number> {
-  const { data, error } = await admin
-    .from("es_time_entries")
-    .select(
-      "duration_minutes, flags, service_activity_types ( code, counts_toward_client_billable )"
-    )
-    .eq("es_user_id", esUserId)
-    .gte("service_date", rangeStart)
-    .lte("service_date", rangeEnd)
-    .neq("status", "rejected");
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  const data = await fetchAllPostgrestRows<BillableMinutesRow>(
+    admin,
+    "es_time_entries",
+    "duration_minutes, flags, service_activity_types ( code, counts_toward_client_billable )",
+    {
+      order: { column: "id", ascending: true },
+      applyFilters: (query) =>
+        query
+          .eq("es_user_id", esUserId)
+          .gte("service_date", rangeStart)
+          .lte("service_date", rangeEnd)
+          .neq("status", "rejected"),
+    }
+  );
 
   return sumBillableMinutesFromTimeEntryRows(
-    (data ?? []).map((row) => ({
+    data.map((row) => ({
       duration_minutes: row.duration_minutes as number,
       flags: (row.flags as Record<string, boolean>) ?? {},
-      service_activity_types: row.service_activity_types as
-        | { code: string; counts_toward_client_billable?: boolean }
-        | { code: string; counts_toward_client_billable?: boolean }[]
-        | null,
+      service_activity_types: row.service_activity_types,
     }))
   );
 }
@@ -413,17 +433,21 @@ export function monthLabelFromKey(monthKey: string): string {
   return monthLabelFromYmd(start);
 }
 
-export type OrgMonthlyBillableHoursRow = {
-  staffUserId: string;
-  staffName: string;
-  billableMinutes: number;
-  billableHours: string;
+type OrgMonthEntryRow = {
+  es_user_id: string;
+  duration_minutes: number;
+  flags: Record<string, boolean> | null;
+  service_activity_types:
+    | { code: string; counts_toward_client_billable?: boolean }
+    | { code: string; counts_toward_client_billable?: boolean }[]
+    | null;
 };
 
 /**
  * Billable minutes by staff for a calendar month (non-rejected; excludes note-only / case file review).
- * Intentionally not filtered by client archive, terminal stage, or service line — any logged time
- * in the month counts toward the ES/TS payroll rollup.
+ * Counts every non-rejected billable entry in the month — including former team members and
+ * mis-assigned non-staff loggers — so past months stay complete after deactivation.
+ * The live roster is used only to list zero-hour team members.
  */
 export async function loadOrgMonthlyBillableHoursRollup(
   admin: ReturnType<typeof createServiceRoleClient>,
@@ -431,56 +455,67 @@ export async function loadOrgMonthlyBillableHoursRollup(
 ): Promise<{ monthKey: string; monthLabel: string; range: { start: string; end: string }; rows: OrgMonthlyBillableHoursRow[] }> {
   const { start, end } = calendarMonthBoundsFromKey(monthKey);
   const staff = await loadOrgBillableHoursStaffPicker(admin);
-  const staffIds = staff.map((s) => s.id);
 
-  let query = admin
-    .from("es_time_entries")
-    .select(
-      "es_user_id, duration_minutes, flags, service_activity_types ( code, counts_toward_client_billable )"
-    )
-    .gte("service_date", start)
-    .lte("service_date", end)
-    .neq("status", "rejected");
-
-  if (staffIds.length > 0) {
-    query = query.in("es_user_id", staffIds);
-  }
-
-  const { data: entries, error } = await query;
-  if (error) {
-    throw new Error(error.message);
-  }
+  const entries = await fetchAllPostgrestRows<OrgMonthEntryRow>(
+    admin,
+    "es_time_entries",
+    "es_user_id, duration_minutes, flags, service_activity_types ( code, counts_toward_client_billable )",
+    {
+      order: { column: "id", ascending: true },
+      applyFilters: (query) =>
+        query
+          .gte("service_date", start)
+          .lte("service_date", end)
+          .neq("status", "rejected"),
+    }
+  );
 
   const minutesById = new Map<string, number>();
-  for (const s of staff) {
-    minutesById.set(s.id, 0);
-  }
-  for (const row of entries ?? []) {
+  for (const row of entries) {
     const id = row.es_user_id as string;
     const add = sumBillableMinutesFromTimeEntryRows([
       {
         duration_minutes: Number(row.duration_minutes) || 0,
         flags: (row.flags as Record<string, boolean>) ?? {},
-        service_activity_types: row.service_activity_types as
-          | { code: string; counts_toward_client_billable?: boolean }
-          | { code: string; counts_toward_client_billable?: boolean }[]
-          | null,
+        service_activity_types: row.service_activity_types,
       },
     ]);
+    if (add <= 0) continue;
     minutesById.set(id, (minutesById.get(id) ?? 0) + add);
   }
 
-  const nameById = await loadStaffNameById(admin, [...minutesById.keys()], "Team member");
-  const staffNameById = new Map(staff.map((s) => [s.id, s.name]));
+  const profileIds = [...new Set([...staff.map((s) => s.id), ...minutesById.keys()])];
+  const [{ data: profileRows }, nameById] = await Promise.all([
+    profileIds.length > 0
+      ? admin.from("profiles").select("id, role, is_active").in("id", profileIds)
+      : Promise.resolve({ data: [] as { id: string; role: string | null; is_active: boolean | null }[] }),
+    loadStaffNameById(admin, profileIds, "Team member"),
+  ]);
 
-  const rows: OrgMonthlyBillableHoursRow[] = [...minutesById.entries()]
-    .map(([staffUserId, billableMinutes]) => ({
-      staffUserId,
-      staffName: staffNameById.get(staffUserId) ?? nameById.get(staffUserId) ?? "Team member",
-      billableMinutes,
-      billableHours: formatBillableHours(billableMinutes),
-    }))
-    .sort((a, b) => a.staffName.localeCompare(b.staffName, undefined, { sensitivity: "base" }));
+  const roleActiveById = new Map(
+    (profileRows ?? []).map((p) => [
+      p.id as string,
+      {
+        role: (p.role as string | null) ?? null,
+        isActive: (p.is_active as boolean | null) ?? null,
+      },
+    ])
+  );
+  const profileById = new Map<string, OrgBillableLoggerProfile>();
+  for (const id of profileIds) {
+    const meta = roleActiveById.get(id);
+    profileById.set(id, {
+      role: meta?.role ?? null,
+      isActive: meta?.isActive ?? null,
+      displayName: nameById.get(id) ?? "Team member",
+    });
+  }
+
+  const rows = buildOrgMonthlyBillableHoursRows({
+    liveRoster: staff,
+    minutesByUserId: minutesById,
+    profileById,
+  });
 
   return {
     monthKey,

@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { minutesToDecimalHours } from "@wayfinder/supabase/es-time-tracking";
+import { fetchAllPostgrestRows } from "@wayfinder/supabase/postgrest-fetch-all";
 import { resolvePayPeriod, type PayrollSettingsRow } from "@wayfinder/supabase/payroll-period";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import {
@@ -58,16 +59,7 @@ export async function GET(request: Request) {
         ? { start: fromParam, end: toParam, frequency: settings.pay_period_frequency }
         : resolvePayPeriod(settings);
 
-    let query = admin
-      .from("es_time_entries")
-      .select(
-        "es_user_id, client_id, service_date, duration_minutes, service_start_at, service_end_at, activity_type_id, service_activity_types(code, name)"
-      )
-      .gte("service_date", period.start)
-      .lte("service_date", period.end)
-      .not("client_id", "is", null)
-      .neq("status", "rejected");
-
+    let scopedEsUserIds: string[] | null = null;
     if (isSupervisorRole(role) && !isAdminTierRole(role)) {
       const scope = await loadSupervisorScope(admin, session.effectiveUserId);
       if (scope.esUserIds.length === 0) {
@@ -81,15 +73,47 @@ export async function GET(request: Request) {
           }
         );
       }
-      query = query.in("es_user_id", scope.esUserIds);
+      scopedEsUserIds = scope.esUserIds;
     }
 
-    const { data: entries } = await query;
+    type BillableExportRow = {
+      es_user_id: string;
+      client_id: string | null;
+      service_date: string;
+      duration_minutes: number;
+      service_start_at: string | null;
+      service_end_at: string | null;
+      activity_type_id: string;
+      service_activity_types:
+        | { code: string; name: string }
+        | { code: string; name: string }[]
+        | null;
+    };
 
-    const esIds = [...new Set((entries ?? []).map((e) => e.es_user_id as string))];
+    const entries = await fetchAllPostgrestRows<BillableExportRow>(
+      admin,
+      "es_time_entries",
+      "es_user_id, client_id, service_date, duration_minutes, service_start_at, service_end_at, activity_type_id, service_activity_types(code, name)",
+      {
+        order: { column: "id", ascending: true },
+        applyFilters: (query) => {
+          let filtered = query
+            .gte("service_date", period.start)
+            .lte("service_date", period.end)
+            .not("client_id", "is", null)
+            .neq("status", "rejected");
+          if (scopedEsUserIds) {
+            filtered = filtered.in("es_user_id", scopedEsUserIds);
+          }
+          return filtered;
+        },
+      }
+    );
+
+    const esIds = [...new Set(entries.map((e) => e.es_user_id as string))];
     const clientIds = [
       ...new Set(
-        (entries ?? [])
+        entries
           .map((e) => e.client_id as string | null)
           .filter((id): id is string => Boolean(id))
       ),
@@ -103,7 +127,7 @@ export async function GET(request: Request) {
     const header =
       "es_name,es_user_id,client_name,client_id,service_date,billable_minutes,billable_hours,activity_code,activity_name,start_time,end_time\n";
     const escape = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
-    const lines = (entries ?? []).map((e) => {
+    const lines = entries.map((e) => {
       const types = e.service_activity_types as
         | { code: string; name: string }
         | { code: string; name: string }[]

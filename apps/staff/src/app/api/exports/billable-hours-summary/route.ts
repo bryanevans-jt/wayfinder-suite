@@ -3,6 +3,7 @@ import {
   formatBillableHours,
   sumBillableMinutesFromTimeEntryRows,
 } from "@wayfinder/supabase/client-billable";
+import { fetchAllPostgrestRows } from "@wayfinder/supabase/postgrest-fetch-all";
 import { resolvePayPeriod, type PayrollSettingsRow } from "@wayfinder/supabase/payroll-period";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import {
@@ -55,26 +56,46 @@ export async function GET(request: Request) {
       ? { start: fromParam, end: toParam }
       : resolvePayPeriod(settings);
 
-  let query = admin
-    .from("es_time_entries")
-    .select(
-      "es_user_id, duration_minutes, flags, service_activity_types ( code, counts_toward_client_billable )"
-    )
-    .gte("service_date", period.start)
-    .lte("service_date", period.end)
-    .neq("status", "rejected");
-
+  let scopedEsUserIds: string[] | null = null;
   if (isSupervisorRole(role) && !isAdminTierRole(role)) {
     const scope = await loadSupervisorScope(admin, session.effectiveUserId);
     if (scope.esUserIds.length === 0) {
       return NextResponse.json({ period, rows: [] });
     }
-    query = query.in("es_user_id", scope.esUserIds);
+    scopedEsUserIds = scope.esUserIds;
   }
 
-  const { data: entries } = await query;
+  type SummaryEntryRow = {
+    es_user_id: string;
+    duration_minutes: number;
+    flags: Record<string, boolean> | null;
+    service_activity_types:
+      | { code: string; counts_toward_client_billable?: boolean }
+      | { code: string; counts_toward_client_billable?: boolean }[]
+      | null;
+  };
+
+  const entries = await fetchAllPostgrestRows<SummaryEntryRow>(
+    admin,
+    "es_time_entries",
+    "es_user_id, duration_minutes, flags, service_activity_types ( code, counts_toward_client_billable )",
+    {
+      order: { column: "id", ascending: true },
+      applyFilters: (query) => {
+        let filtered = query
+          .gte("service_date", period.start)
+          .lte("service_date", period.end)
+          .neq("status", "rejected");
+        if (scopedEsUserIds) {
+          filtered = filtered.in("es_user_id", scopedEsUserIds);
+        }
+        return filtered;
+      },
+    }
+  );
+
   const byEs = new Map<string, number>();
-  for (const e of entries ?? []) {
+  for (const e of entries) {
     const id = e.es_user_id as string;
     const add = sumBillableMinutesFromTimeEntryRows([
       {

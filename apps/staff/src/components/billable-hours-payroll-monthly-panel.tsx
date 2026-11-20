@@ -8,6 +8,7 @@ type Row = {
   staffName: string;
   billableMinutes: number;
   billableHours: string;
+  rosterStatus?: "active" | "former" | "needs_review";
 };
 
 type Payload = {
@@ -65,9 +66,10 @@ export function BillableHoursPayrollMonthlyPanel({
         <div>
           <h2 className="text-lg font-semibold text-brand-green">Monthly billable hours (payroll)</h2>
           <p className="mt-1 max-w-2xl text-sm text-brand-black/70">
-            Billable service time by team member for a full calendar month (America/New_York).
-            Excludes Case File Review and note-only contact only — client present does not affect
-            totals. On the 1st, defaults to the previous month for payroll review.
+            Billable service time by team member for a full calendar month (America/New_York),
+            including former team members who logged hours that month. Excludes Case File Review
+            and note-only contact only — client present does not affect totals. On the 1st,
+            defaults to the previous month for payroll review.
           </p>
         </div>
         <label className="flex flex-col gap-1 text-sm">
@@ -103,7 +105,16 @@ export function BillableHoursPayrollMonthlyPanel({
             </thead>
             <tbody>
               {payload.rows.map((r) => (
-                <tr key={r.staffUserId} className="border-b border-neutral-100">
+                <tr
+                  key={r.staffUserId}
+                  className={
+                    r.rosterStatus === "needs_review"
+                      ? "border-b border-amber-100 bg-amber-50/40"
+                      : r.rosterStatus === "former"
+                        ? "border-b border-neutral-100 bg-neutral-50/60"
+                        : "border-b border-neutral-100"
+                  }
+                >
                   <td className="py-2 pr-4 text-brand-black">{r.staffName}</td>
                   <td className="py-2 font-medium tabular-nums text-brand-green">
                     {r.billableHours} hrs
