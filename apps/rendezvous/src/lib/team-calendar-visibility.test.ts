@@ -17,6 +17,11 @@ describe("resolveTeamCalendarVisibilityMode", () => {
     assert.equal(resolveTeamCalendarVisibilityMode("supervisor"), "supervisor_reports");
   });
 
+  it("gives directors role-derived director_scope mode", () => {
+    assert.equal(resolveTeamCalendarVisibilityMode("transition_director"), "director_scope");
+    assert.equal(resolveTeamCalendarVisibilityMode("vocational_director"), "director_scope");
+  });
+
   it("keeps ES/TS and other roles on self-only", () => {
     assert.equal(resolveTeamCalendarVisibilityMode("es"), "self");
     assert.equal(resolveTeamCalendarVisibilityMode("transition_specialist"), "self");

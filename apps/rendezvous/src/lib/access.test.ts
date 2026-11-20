@@ -40,8 +40,16 @@ describe("rendezvous access gating", () => {
     );
   });
 
-  it("allows ES/TS/supervisor/admin when openToAll is on", () => {
-    for (const role of ["super_admin", "admin", "supervisor", "es", "transition_specialist"]) {
+  it("allows ES/TS/supervisor/admin/directors when openToAll is on", () => {
+    for (const role of [
+      "super_admin",
+      "admin",
+      "supervisor",
+      "es",
+      "transition_specialist",
+      "transition_director",
+      "vocational_director",
+    ]) {
       assert.equal(
         canAccessRendezvousStaffApp({ featureEnabled: true, openToAll: true, role }),
         true,

@@ -3,6 +3,7 @@ import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import {
   isAdminTierRole,
+  isDirectorRole,
   isFieldSpecialistRole,
   isSuperAdminRole,
   isSupervisorRole,
@@ -19,7 +20,8 @@ function canEnterRendezvous(opts: {
   return (
     isFieldSpecialistRole(opts.role) ||
     isSupervisorRole(opts.role) ||
-    isAdminTierRole(opts.role)
+    isAdminTierRole(opts.role) ||
+    isDirectorRole(opts.role)
   );
 }
 
@@ -44,5 +46,5 @@ export default async function RendezvousEntryPage() {
     notFound();
   }
 
-  redirect(buildRendezvousAppUrl("/"));
+  redirect(buildRendezvousAppUrl("/calendar"));
 }

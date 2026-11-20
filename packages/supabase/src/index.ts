@@ -9,6 +9,7 @@ export { getSupabaseAnonKey, getSupabaseUrl } from "./env";
 export { wayfinderAuthOptions, wayfinderServerAuthOptions } from "./auth-client-options";
 export type { SupabaseCookieToSet } from "./cookie-types";
 export * from "./roles";
+export * from "./director-scope";
 export * from "./client-activity-fk";
 export * from "./contact-logs-query";
 export * from "./client-insert";

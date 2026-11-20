@@ -2857,6 +2857,10 @@ export function PortalWorkspace({
                   <option value="es">Employment Specialist</option>
                   <option value="transition_specialist">Transition Specialist</option>
                   <option value="supervisor">Regional Supervisor</option>
+                  <option value="transition_director">Director of Transition Services</option>
+                  <option value="vocational_director">
+                    Director of Development &amp; Vocational Services
+                  </option>
                   <option value="counselor">Counselor</option>
                   <option value="accountant">Accounts Specialist</option>
                   <option value="hospitality_specialist">Hospitality Specialist</option>

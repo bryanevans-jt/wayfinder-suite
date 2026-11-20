@@ -12,8 +12,14 @@ function ourTeamHrefs(role: string): string[] {
 describe("Our Team → Rendezvous nav", () => {
   const rendezvousHref = buildRendezvousAppUrl("/calendar");
 
-  it("shows Rendezvous for supervisors, admins, and super_admins", () => {
-    for (const role of ["supervisor", "admin", "super_admin"] as const) {
+  it("shows Rendezvous for supervisors, admins, super_admins, and directors", () => {
+    for (const role of [
+      "supervisor",
+      "admin",
+      "super_admin",
+      "transition_director",
+      "vocational_director",
+    ] as const) {
       const hrefs = ourTeamHrefs(role);
       assert.ok(
         hrefs.includes(rendezvousHref),

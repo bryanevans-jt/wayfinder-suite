@@ -2,20 +2,28 @@
  * Team Calendar visibility (server-side).
  *
  * Supervisor scope uses DIRECT REPORTS ONLY from
- * `public.supervisor_es_assignments` (supervisor_user_id → es_user_id;
- * supervisee may be ES or Transition Specialist). Office-shared
- * Transition Specialists / Instructors are intentionally NOT included
- * on Team Calendar (unlike Wayfinder caseload `loadSupervisorScope`).
+ * `public.supervisor_es_assignments` (supervisor_user_id → es_user_id).
+ *
+ * Directors use role-derived staff scope (no assignment tables):
+ * - transition_director → instructor, transition_specialist, supervisor
+ * - vocational_director → es, supervisor
  *
  * Rules:
  * - Admin / super_admin: every active ES, Transition Specialist, and Supervisor
  *   (admins' own calendars are never included for any viewer)
+ * - Director: staff matching directorVisibleStaffRoles (never admin calendars)
  * - Supervisor: self + direct reports from supervisor_es_assignments
  * - Everyone else (ES/TS, …): self only
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { isAdminTierRole, isSupervisorRole, normalizeRole } from "@wayfinder/supabase/roles";
+import { directorVisibleStaffRoles } from "@wayfinder/supabase/director-scope";
+import {
+  isAdminTierRole,
+  isDirectorRole,
+  isSupervisorRole,
+  normalizeRole,
+} from "@wayfinder/supabase/roles";
 
 /** Roles whose calendars admins may browse on Team Calendar. */
 export const TEAM_CALENDAR_ADMIN_VISIBLE_ROLES = [
@@ -29,7 +37,11 @@ export type TeamCalendarViewer = {
   role: string | null;
 };
 
-export type TeamCalendarVisibilityMode = "admin_team" | "supervisor_reports" | "self";
+export type TeamCalendarVisibilityMode =
+  | "admin_team"
+  | "director_scope"
+  | "supervisor_reports"
+  | "self";
 
 export type TeamCalendarVisibility = {
   mode: TeamCalendarVisibilityMode;
@@ -42,6 +54,7 @@ export function resolveTeamCalendarVisibilityMode(
   role: string | null | undefined
 ): TeamCalendarVisibilityMode {
   if (isAdminTierRole(role)) return "admin_team";
+  if (isDirectorRole(role)) return "director_scope";
   if (isSupervisorRole(role)) return "supervisor_reports";
   return "self";
 }
@@ -73,6 +86,40 @@ export async function loadSupervisorTeamCalendarStaffUserIds(
   }
   return Array.from(
     new Set((data ?? []).map((row) => row.es_user_id as string).filter(Boolean))
+  );
+}
+
+/**
+ * Active staff matching a director's role-derived scope (instructor/TS/supervisor or ES/supervisor).
+ */
+export async function loadDirectorTeamCalendarStaffUserIds(
+  admin: SupabaseClient,
+  directorRole: string | null | undefined
+): Promise<string[]> {
+  const roles = [...directorVisibleStaffRoles(directorRole)];
+  if (roles.length === 0) return [];
+  const full = await admin
+    .from("profiles")
+    .select("id, role, is_active")
+    .in("role", roles);
+  const result =
+    full.error?.message.includes("is_active")
+      ? await admin.from("profiles").select("id, role").in("role", roles)
+      : full;
+  if (result.error) {
+    throw new Error(`profiles read failed: ${result.error.message}`);
+  }
+  return Array.from(
+    new Set(
+      (result.data ?? [])
+        .filter((row) => {
+          const active = (row as { is_active?: boolean | null }).is_active;
+          if (active === false) return false;
+          return roles.includes(normalizeRole(row.role as string));
+        })
+        .map((row) => row.id as string)
+        .filter(Boolean)
+    )
   );
 }
 
@@ -131,7 +178,6 @@ export async function excludeAdminTierCalendars(
       .filter((row) => !isTeamCalendarExcludedRole(row.role as string))
       .map((row) => row.id as string)
   );
-  // Preserve caller order; drop unknown ids that failed the profile read.
   return unique.filter((id) => allowed.has(id));
 }
 
@@ -147,8 +193,9 @@ export async function listTeamCalendarVisibleStaffUserIds(
   const mode = resolveTeamCalendarVisibilityMode(viewer.role);
   let candidateIds: string[];
   if (mode === "admin_team") {
-    // Do not add the admin viewer — their calendar is excluded for every viewer.
     candidateIds = await loadAdminTeamCalendarStaffUserIds(admin);
+  } else if (mode === "director_scope") {
+    candidateIds = await loadDirectorTeamCalendarStaffUserIds(admin, viewer.role);
   } else if (mode === "supervisor_reports") {
     const scoped = await loadSupervisorTeamCalendarStaffUserIds(admin, viewer.userId);
     candidateIds = Array.from(new Set([viewer.userId, ...scoped]));

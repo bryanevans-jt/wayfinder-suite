@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { isDirectorRole, isReadOnlyStaffRole } from "@wayfinder/supabase/roles";
 import { requireRendezvousAccess } from "@/lib/session";
 import { createAdminClient, rendezvousSchema } from "@/lib/supabase/admin";
 import { AdminScheduleForm } from "@/components/AdminScheduleForm";
@@ -25,6 +26,10 @@ export default async function AdminPage() {
         </main>
       </AppShell>
     );
+  }
+
+  if (isDirectorRole(gate.session.role) || isReadOnlyStaffRole(gate.session.role)) {
+    redirect("/calendar");
   }
 
   const admin = createAdminClient();

@@ -10,10 +10,17 @@ type Props = {
   children: React.ReactNode;
   /** Compact top bar for authenticated staff pages. */
   showStaffNav?: boolean;
+  /** Hide schedule Admin Setup (e.g. view-only directors). Default true when staff nav is on. */
+  showAdminSetup?: boolean;
   signOutSlot?: React.ReactNode;
 };
 
-export function AppShell({ children, showStaffNav = false, signOutSlot }: Props) {
+export function AppShell({
+  children,
+  showStaffNav = false,
+  showAdminSetup = true,
+  signOutSlot,
+}: Props) {
   return (
     <div className="rv-atmosphere flex min-h-screen flex-col">
       {showStaffNav ? (
@@ -34,9 +41,11 @@ export function AppShell({ children, showStaffNav = false, signOutSlot }: Props)
               <Link href="/calendar" className="rv-nav-link">
                 Team Calendar
               </Link>
-              <Link href="/admin" className="rv-nav-link">
-                Admin Setup
-              </Link>
+              {showAdminSetup ? (
+                <Link href="/admin" className="rv-nav-link">
+                  Admin Setup
+                </Link>
+              ) : null}
               {signOutSlot}
             </nav>
           </div>

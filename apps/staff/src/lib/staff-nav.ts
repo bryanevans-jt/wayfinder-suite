@@ -3,6 +3,7 @@ import {
   canEditOwnStaffProfile,
   isAdminTierRole,
   isCounselorRole,
+  isDirectorRole,
   isGvraSupervisorRole,
   isEsRole,
   isFieldSpecialistRole,
@@ -12,7 +13,9 @@ import {
   isSuperAdminRole,
   isSupervisorRole,
   isSupervisorTierRole,
+  isTransitionDirectorRole,
   isTransitionSpecialistRole,
+  isVocationalDirectorRole,
   isWrtAdminRole,
   staffHomePath,
 } from "@wayfinder/supabase/roles";
@@ -269,12 +272,12 @@ function withCultureAndHelp(sections: StaffNavSection[]): StaffNavSection[] {
   return withHelpSections([...sections, cultureNavSection]);
 }
 
-/** Supervisors / admins / super_admins get Rendezvous under Our Team. */
+/** Supervisors / admins / super_admins / directors get Rendezvous under Our Team. */
 function withRendezvousUnderOurTeam(
   sections: StaffNavSection[],
   role: string | null
 ): StaffNavSection[] {
-  if (!isSupervisorTierRole(role)) return sections;
+  if (!isSupervisorTierRole(role) && !isDirectorRole(role)) return sections;
   return sections.map((section) => {
     if (section.label !== "Our Team") return section;
     if (section.items.some((item) => item.href === rendezvousNav.href)) return section;
@@ -363,6 +366,34 @@ export function staffNavSectionsForRole(
         ],
       },
     ]);
+  }
+
+  if (isDirectorRole(staffRole)) {
+    const daily: StaffNavItem[] = [
+      {
+        href: "/dashboard/director",
+        label: "Director Home",
+        match: (p) => p.startsWith("/dashboard/director"),
+      },
+      {
+        href: "/dashboard/clients",
+        label: "Clients",
+        match: (p) => p.startsWith("/dashboard/clients"),
+      },
+      billableHoursNav,
+    ];
+    if (isTransitionDirectorRole(staffRole) && showPreEtsNav) {
+      daily.splice(2, 0, preEtsNav);
+    }
+    return withHelpAndProfile(
+      [
+        {
+          label: "Oversight (view only)",
+          items: daily,
+        },
+      ],
+      staffRole
+    );
   }
 
   if (isSuperAdminRole(staffRole)) {
@@ -750,6 +781,7 @@ export function staffNavSectionsForRole(
 export function staffNavBadge(role: string | null | undefined): WayfinderNavBadge {
   if (isSuperAdminRole(role)) return "Super Admin";
   if (isAdminTierRole(role) && !isSuperAdminRole(role)) return "Admin";
+  if (isDirectorRole(role)) return "Director";
   if (isSupervisorTierRole(role) && !isAdminTierRole(role)) return "Supervisor";
   if (isCounselorRole(role)) return "Counselor";
   if (isGvraSupervisorRole(role)) return "GVRA Supervisor";
@@ -826,6 +858,7 @@ export function showStaffNotifications(role: string | null | undefined): boolean
   return (
     isFieldSpecialistRole(r) ||
     isInstructorRole(r) ||
+    isDirectorRole(r) ||
     r === "supervisor" ||
     r === "admin" ||
     r === "super_admin" ||
@@ -841,6 +874,10 @@ export function staffWorkspaceLabel(staffRole: string | null): string {
   if (isGvraSupervisorRole(staffRole)) return "GVRA Supervisor Workspace";
   if (isSuperAdminRole(staffRole)) return "Super Admin";
   if (isAdminTierRole(staffRole)) return "Admin Workspace";
+  if (isTransitionDirectorRole(staffRole)) return "Director of Transition Services";
+  if (isVocationalDirectorRole(staffRole)) {
+    return "Director of Development & Vocational Services";
+  }
   if (isSupervisorRole(staffRole)) return "Regional Supervisor Workspace";
   if (isTransitionSpecialistRole(staffRole)) return "Transition Specialist";
   if (isEsRole(staffRole)) return "Employment Specialist";

@@ -3,6 +3,11 @@ import {
   isGvraSupervisorRole,
   staffHomePath,
 } from "@wayfinder/supabase";
+import {
+  isDirectorAllowedStaffPath,
+  isReadOnlySafeHttpMethod,
+  readOnlyMutationAllowedPath,
+} from "@wayfinder/supabase/director-scope";
 import { wayfinderAuthMiddlewareWithContext } from "@wayfinder/supabase/middleware-app";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
@@ -19,7 +24,11 @@ import {
   isPreEtsApiPath,
   preEtsMiddlewareAccessAllowed,
 } from "@/lib/pre-ets-middleware-access";
-import { isInstructorRole } from "@wayfinder/supabase/roles";
+import {
+  isDirectorRole,
+  isInstructorRole,
+  isReadOnlyStaffRole,
+} from "@wayfinder/supabase/roles";
 import { APP_VERSION } from "@wayfinder/branding";
 
 function withDeployHeaders(response: NextResponse): NextResponse {
@@ -40,6 +49,31 @@ export async function middleware(request: NextRequest) {
   }
 
   const role = auth.effectiveRole;
+
+  // Directors are view-only: block mutating HTTP methods except auth/session paths.
+  if (
+    isReadOnlyStaffRole(role) &&
+    !isReadOnlySafeHttpMethod(request.method) &&
+    !readOnlyMutationAllowedPath(pathname)
+  ) {
+    if (pathname.startsWith("/api/")) {
+      return withDeployHeaders(
+        NextResponse.json({ error: "Forbidden — view-only role" }, { status: 403 })
+      );
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = staffHomePath(role);
+    return withDeployHeaders(NextResponse.redirect(url));
+  }
+
+  if (isDirectorRole(role) && !isDirectorAllowedStaffPath(pathname, role)) {
+    if (pathname.startsWith("/api/")) {
+      return withDeployHeaders(NextResponse.json({ error: "Forbidden" }, { status: 403 }));
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = staffHomePath(role);
+    return withDeployHeaders(NextResponse.redirect(url));
+  }
 
   if (isPortalPath(pathname) && !portalPathAllowedForRole(pathname, role)) {
     const url = request.nextUrl.clone();

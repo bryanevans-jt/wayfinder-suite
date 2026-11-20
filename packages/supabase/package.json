@@ -11,6 +11,7 @@
     "./middleware": "./src/middleware.ts",
     "./middleware-app": "./src/middleware-app.ts",
     "./roles": "./src/roles.ts",
+    "./director-scope": "./src/director-scope.ts",
     "./admin-server": "./src/admin-server.ts",
     "./auth-callback": "./src/auth-callback.ts",
     "./auth-client-options": "./src/auth-client-options.ts",

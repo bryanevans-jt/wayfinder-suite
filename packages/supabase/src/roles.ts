@@ -11,6 +11,8 @@ export const STAFF_ROLES = [
   "hospitality_specialist",
   "wrt_admin",
   "instructor",
+  "transition_director",
+  "vocational_director",
 ] as const;
 
 export const CLIENT_ROLES = ["client", "support"] as const;
@@ -27,6 +29,8 @@ export const ASSIGNABLE_STAFF_ROLES = [
   "accountant",
   "counselor",
   "hospitality_specialist",
+  "transition_director",
+  "vocational_director",
 ] as const;
 
 /** Only Super Admin may assign these. Org Admin must never grant them. */
@@ -122,6 +126,27 @@ export function isInstructorRole(role: string | null | undefined): boolean {
   return normalizeRole(role) === "instructor";
 }
 
+export function isTransitionDirectorRole(role: string | null | undefined): boolean {
+  return normalizeRole(role) === "transition_director";
+}
+
+export function isVocationalDirectorRole(role: string | null | undefined): boolean {
+  return normalizeRole(role) === "vocational_director";
+}
+
+/** Director of Transition Services or Director of Development & Vocational Services. */
+export function isDirectorRole(role: string | null | undefined): boolean {
+  return isTransitionDirectorRole(role) || isVocationalDirectorRole(role);
+}
+
+/**
+ * Staff who may view scoped casework but must not mutate it.
+ * Enforced in middleware (non-GET), portal mutation helpers, and RLS write policies.
+ */
+export function isReadOnlyStaffRole(role: string | null | undefined): boolean {
+  return isDirectorRole(role);
+}
+
 export function canEditOwnStaffProfile(role: string | null | undefined): boolean {
   return isStaffRole(role) && !isGvraPartnerRole(role);
 }
@@ -132,7 +157,8 @@ export function canViewClientProfiles(role: string | null | undefined): boolean 
     isAdminTierRole(role) ||
     isHrRole(role) ||
     isAccountantRole(role) ||
-    isHospitalitySpecialistRole(role)
+    isHospitalitySpecialistRole(role) ||
+    isDirectorRole(role)
   );
 }
 
@@ -143,7 +169,8 @@ export function canViewStaffOnlyClientNotes(role: string | null | undefined): bo
     isHrRole(role) ||
     isHospitalitySpecialistRole(role) ||
     isSupervisorRole(role) ||
-    isFieldSpecialistRole(role)
+    isFieldSpecialistRole(role) ||
+    isDirectorRole(role)
   );
 }
 
@@ -154,6 +181,7 @@ export function canViewStaffOnlyDisabilityHistory(role: string | null | undefine
 
 /** Casework team may add or update disability/history when it was missing from the referral. */
 export function canEditStaffOnlyDisabilityHistory(role: string | null | undefined): boolean {
+  if (isReadOnlyStaffRole(role)) return false;
   return canViewStaffOnlyDisabilityHistory(role);
 }
 
@@ -167,6 +195,7 @@ export function canExecuteHospitalityIntakeOps(role: string | null | undefined):
 }
 
 export function canWriteStaffOnlyClientNotes(role: string | null | undefined): boolean {
+  if (isReadOnlyStaffRole(role)) return false;
   return canExecuteHospitalityIntakeOps(role) || isSupervisorRole(role);
 }
 
@@ -177,6 +206,7 @@ export function canLogHospitalityCheckIns(role: string | null | undefined): bool
 
 /** Assign / change ES or Transition Specialist on a client (intake + Regional Supervisor). */
 export function canAssignClientEs(role: string | null | undefined): boolean {
+  if (isReadOnlyStaffRole(role)) return false;
   return canExecuteHospitalityIntakeOps(role) || isSupervisorRole(role);
 }
 
@@ -209,6 +239,8 @@ export const TEAM_DIRECTORY_ROLES = [
   "transition_specialist",
   "es",
   "instructor",
+  "transition_director",
+  "vocational_director",
 ] as const;
 
 export type TeamDirectoryRole = (typeof TEAM_DIRECTORY_ROLES)[number];
@@ -288,6 +320,7 @@ export function staffHomePath(role: string | null | undefined): string {
   // Legacy `wrt_admin` accounts route to Clients (role no longer assignable from UI).
   if (r === "wrt_admin") return "/dashboard/clients";
   if (r === "instructor") return "/dashboard/pre-ets";
+  if (r === "transition_director" || r === "vocational_director") return "/dashboard/director";
   return "/dashboard/clients";
 }
 
@@ -315,6 +348,8 @@ export function roleDisplayName(role: string | null | undefined): string {
     hospitality_specialist: "Hospitality Specialist",
     wrt_admin: "WRT Admin",
     instructor: "Transition Instructor",
+    transition_director: "Director of Transition Services",
+    vocational_director: "Director of Development & Vocational Services",
   };
   const key = normalizeRole(role);
   return labels[key] ?? key;

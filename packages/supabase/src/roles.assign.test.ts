@@ -31,6 +31,8 @@ describe("staff role assignment gates", () => {
     assert.equal(canActorAssignStaffRole("super_admin", "es"), true);
     assert.equal(canActorAssignStaffRole("admin", "es"), true);
     assert.equal(canActorAssignStaffRole("admin", "accountant"), true);
+    assert.equal(canActorAssignStaffRole("admin", "transition_director"), true);
+    assert.equal(canActorAssignStaffRole("admin", "vocational_director"), true);
     assert.equal(canActorAssignStaffRole("supervisor", "es"), false);
   });
 

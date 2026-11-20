@@ -5,8 +5,10 @@ import {
   isEsRole,
   isHrRole,
   isInstructorRole,
+  isReadOnlyStaffRole,
   isSuperAdminRole,
   isSupervisorRole,
+  isTransitionDirectorRole,
   isTransitionSpecialistRole,
   normalizeRole,
 } from "./roles";
@@ -20,6 +22,7 @@ export const PRE_ETS_ROLLOUT_ROLES = [
   "transition_specialist",
   "instructor",
   "hr",
+  "transition_director",
 ] as const;
 
 export type PreEtsRolloutRole = (typeof PRE_ETS_ROLLOUT_ROLES)[number];
@@ -239,6 +242,8 @@ export function canAccessPreEts(
   if (!r) return false;
   if (isSuperAdminRole(r)) return true;
   if (settings && !settings.module_enabled) return false;
+  // Transition director: view-only Pre-ETS oversight whenever the module is on.
+  if (isTransitionDirectorRole(r)) return true;
   const enabled = settings?.enabled_roles ?? DEFAULT_PRE_ETS_SETTINGS.enabled_roles;
   const enabledSet = new Set(enabled.map(normalizeRole));
   if (enabledSet.has(r)) return true;
@@ -319,6 +324,7 @@ export function canDeliverPreEtsSessions(
   role: string | null | undefined,
   settings?: Pick<PreEtsSettingsRow, "module_enabled" | "enabled_roles"> | null
 ): boolean {
+  if (isReadOnlyStaffRole(role)) return false;
   const r = normalizeRole(role);
   if (isTransitionSpecialistRole(r) || isInstructorRole(r)) {
     return canAccessPreEts(r, settings);
@@ -334,6 +340,7 @@ export function canManagePreEtsSetup(
   role: string | null | undefined,
   settings?: Pick<PreEtsSettingsRow, "module_enabled" | "enabled_roles"> | null
 ): boolean {
+  if (isReadOnlyStaffRole(role)) return false;
   const r = normalizeRole(role);
   if (isSuperAdminRole(r)) return true;
   if (isAdminRole(r) || isAccountantRole(r) || isHrRole(r) || isSupervisorRole(r)) {

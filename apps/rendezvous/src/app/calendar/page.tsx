@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { isDirectorRole } from "@wayfinder/supabase/roles";
 import { requireRendezvousAccess } from "@/lib/session";
 import { TeamCalendar } from "@/components/TeamCalendar";
 import { AppShell } from "@/components/AppShell";
@@ -18,8 +19,14 @@ export default async function CalendarPage() {
     );
   }
 
+  const showAdminSetup = !isDirectorRole(gate.session.role);
+
   return (
-    <AppShell showStaffNav signOutSlot={<SignOutButton />}>
+    <AppShell
+      showStaffNav
+      showAdminSetup={showAdminSetup}
+      signOutSlot={<SignOutButton />}
+    >
       <main className="rv-shell max-w-6xl">
         <Link href="/" className="rv-nav-link">
           ← Home

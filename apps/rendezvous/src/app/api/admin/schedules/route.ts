@@ -1,3 +1,4 @@
+import { isReadOnlyStaffRole } from "@wayfinder/supabase/roles";
 import { requireRendezvousAccess } from "@/lib/session";
 import { createAdminClient, createUserDb } from "@/lib/supabase/admin";
 import { isValidSlug } from "@/lib/scheduling/slug";
@@ -12,6 +13,16 @@ import {
   slugFromPersonName,
 } from "@/lib/scheduling/schedule-defaults";
 import { NextResponse } from "next/server";
+
+function rejectReadOnly(gate: Awaited<ReturnType<typeof requireRendezvousAccess>>) {
+  if (!gate.ok) {
+    return NextResponse.json({ error: "Not found" }, { status: gate.status });
+  }
+  if (isReadOnlyStaffRole(gate.session.role)) {
+    return NextResponse.json({ error: "Forbidden — view-only role" }, { status: 403 });
+  }
+  return null;
+}
 
 export async function GET() {
   const gate = await requireRendezvousAccess();
@@ -39,9 +50,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const gate = await requireRendezvousAccess();
-  if (!gate.ok) {
-    return NextResponse.json({ error: "Not found" }, { status: gate.status });
-  }
+  const denied = rejectReadOnly(gate);
+  if (denied) return denied;
 
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
@@ -161,9 +171,8 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   const gate = await requireRendezvousAccess();
-  if (!gate.ok) {
-    return NextResponse.json({ error: "Not found" }, { status: gate.status });
-  }
+  const denied = rejectReadOnly(gate);
+  if (denied) return denied;
 
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   const id = typeof body?.id === "string" ? body.id : "";

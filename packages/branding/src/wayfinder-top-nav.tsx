@@ -9,7 +9,8 @@ export type WayfinderNavBadge =
   | "Client"
   | "Super Admin"
   | "Admin"
-  | "Supervisor";
+  | "Supervisor"
+  | "Director";
 
 type Props = {
   badgeLabel: WayfinderNavBadge;

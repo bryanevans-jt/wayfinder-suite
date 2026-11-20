@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { isDirectorRole } from "@wayfinder/supabase/roles";
 import { requireRendezvousAccess } from "@/lib/session";
 import { createUserDb } from "@/lib/supabase/admin";
 import { buildPublicBookingUrl } from "@/lib/env";
@@ -20,6 +21,8 @@ export default async function HomePage() {
     );
   }
 
+  const showAdminSetup = !isDirectorRole(gate.session.role);
+
   const { db } = await createUserDb();
   const { data: mySchedule } = await db
     .from("staff_schedules")
@@ -32,7 +35,11 @@ export default async function HomePage() {
     : null;
 
   return (
-    <AppShell showStaffNav signOutSlot={<SignOutButton />}>
+    <AppShell
+      showStaffNav
+      showAdminSetup={showAdminSetup}
+      signOutSlot={<SignOutButton />}
+    >
       <section className="rv-hero-plane">
         <div className="rv-hero-content mx-auto max-w-5xl">
           <h1 className="rv-rise rv-brand text-6xl sm:text-7xl md:text-8xl">Rendezvous</h1>
@@ -43,9 +50,11 @@ export default async function HomePage() {
             <Link href="/calendar" className="rv-btn-primary">
               Open Team Calendar
             </Link>
-            <Link href="/admin" className="rv-btn-secondary">
-              Admin Setup
-            </Link>
+            {showAdminSetup ? (
+              <Link href="/admin" className="rv-btn-secondary">
+                Admin Setup
+              </Link>
+            ) : null}
           </div>
         </div>
       </section>

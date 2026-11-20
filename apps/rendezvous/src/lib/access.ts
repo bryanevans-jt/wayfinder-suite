@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   isAdminTierRole,
+  isDirectorRole,
   isFieldSpecialistRole,
   isSuperAdminRole,
   isSupervisorRole,
@@ -74,7 +75,8 @@ export function canAccessRendezvousStaffApp(opts: {
   return (
     isFieldSpecialistRole(opts.role) ||
     isSupervisorRole(opts.role) ||
-    isAdminTierRole(opts.role)
+    isAdminTierRole(opts.role) ||
+    isDirectorRole(opts.role)
   );
 }
 

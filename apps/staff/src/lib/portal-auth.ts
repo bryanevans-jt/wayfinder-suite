@@ -10,6 +10,7 @@ import {
 import { getAppSession, assertNotPreviewMutation } from "@wayfinder/supabase/preview-server";
 import {
   isAdminTierRole,
+  isReadOnlyStaffRole,
   isSuperAdminRole,
   isSupervisorTierRole,
   type PortalTier,
@@ -74,10 +75,14 @@ export async function assertPortalSession(minTier: PortalTier) {
   };
 }
 
-/** Portal write operations — blocks super_admin preview impersonation. */
+/** Portal write operations — blocks super_admin preview impersonation and read-only directors. */
 export async function assertPortalMutation(minTier: PortalTier) {
   await assertNotPreviewMutation();
-  return assertPortalSession(minTier);
+  const session = await assertPortalSession(minTier);
+  if (isReadOnlyStaffRole(session.role)) {
+    throw new PortalAuthError("Forbidden", 403);
+  }
+  return session;
 }
 
 function portalAuthUserMessage(error: PortalAuthError): string {
