@@ -160,11 +160,14 @@ export function emptyStaffComplianceRow(staffUserId: string): KraStaffCompliance
   return {
     staffUserId,
     staffName: "Team member",
+    role: null,
     inScopeClientCount: 0,
     metCount: 0,
     missedCount: 0,
     complianceLabel: "0 / 0",
     averageBillableHoursPerClient: "0.0",
+    expectedBillableMinutes: 0,
+    expectedBillableHours: "0.0",
     clients: [],
   };
 }

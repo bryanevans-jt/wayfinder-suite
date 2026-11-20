@@ -1,6 +1,7 @@
 "use client";
 
 import type { KraStaffComplianceRow } from "@wayfinder/supabase/kra-billable-compliance";
+import { formatBillableHours } from "@wayfinder/supabase/client-billable";
 import { DEFAULT_KRA_HOURS_PER_CLIENT } from "@wayfinder/supabase/kra-billable-settings";
 import { useCallback, useEffect, useState } from "react";
 
@@ -8,6 +9,9 @@ type MinePayload = {
   monthKey: string;
   monthLabel: string;
   expectedHoursPerClient: number;
+  expectedBillableMinutes?: number;
+  expectedBillableHours?: string;
+  billedMinutes?: number;
   row: KraStaffComplianceRow;
   error?: string;
 };
@@ -45,8 +49,13 @@ export function MyKraBillableExpectationCard({ initialMonthKey }: Props) {
   const met = payload?.row.metCount ?? 0;
   const total = payload?.row.inScopeClientCount ?? 0;
   const pct = total > 0 ? Math.round((met / total) * 100) : null;
-  const expected =
+  const expectedPerClient =
     payload?.expectedHoursPerClient ?? DEFAULT_KRA_HOURS_PER_CLIENT;
+  const expectedHours =
+    payload?.expectedBillableHours ??
+    payload?.row.expectedBillableHours ??
+    "0.0";
+  const billedHours = formatBillableHours(payload?.billedMinutes ?? 0);
 
   return (
     <section className="mt-6 rounded-xl border border-brand-green/25 bg-gradient-to-br from-brand-green/5 to-white p-5 shadow-sm">
@@ -75,11 +84,31 @@ export function MyKraBillableExpectationCard({ initialMonthKey }: Props) {
               ) : null}
             </p>
             <p className="mt-1 text-xs text-brand-black/60">
-              Expected {expected} billable hours per client
+              Expected {expectedPerClient} billable hours per client
             </p>
           </div>
         )}
       </div>
+      {!loading && !error ? (
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-lg border border-neutral-100 bg-white/80 px-3 py-2.5">
+            <p className="text-xs font-medium uppercase tracking-wide text-brand-black/55">
+              Hours billed so far
+            </p>
+            <p className="mt-0.5 text-lg font-semibold tabular-nums text-brand-black">
+              {billedHours} hrs
+            </p>
+          </div>
+          <div className="rounded-lg border border-neutral-100 bg-white/80 px-3 py-2.5">
+            <p className="text-xs font-medium uppercase tracking-wide text-brand-black/55">
+              Expected this month
+            </p>
+            <p className="mt-0.5 text-lg font-semibold tabular-nums text-brand-black">
+              {expectedHours} hrs
+            </p>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

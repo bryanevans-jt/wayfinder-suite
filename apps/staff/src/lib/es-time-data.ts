@@ -19,6 +19,12 @@ import {
   STAFF_CLOCK_TIMEZONE,
 } from "@wayfinder/supabase/staff-time-clock-shared";
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
+import {
+  buildBillableMonthWeekBuckets,
+  hoursDeltaLabel,
+  priorMonthKeyFrom,
+  type BillableMonthWeekBucket,
+} from "@wayfinder/supabase/billable-month-comparisons";
 import { fetchAllPostgrestRows } from "@wayfinder/supabase/postgrest-fetch-all";
 import { isAdminTierRole, isSupervisorRole } from "@wayfinder/supabase/roles";
 import { loadStaffNameById } from "@/lib/staff-names";
@@ -454,6 +460,7 @@ export function monthLabelFromKey(monthKey: string): string {
 type OrgMonthEntryRow = {
   es_user_id: string;
   client_id: string | null;
+  service_date: string;
   duration_minutes: number;
   flags: Record<string, boolean> | null;
   service_activity_types:
@@ -463,23 +470,47 @@ type OrgMonthEntryRow = {
   clients: { is_demo: boolean | null } | { is_demo: boolean | null }[] | null;
 };
 
-/**
- * Billable minutes by staff for a calendar month (non-rejected; excludes note-only / case file review).
- * Counts every non-rejected billable entry in the month — including former team members and
- * mis-assigned non-staff loggers — so past months stay complete after deactivation.
- * Demo clients (is_demo) are excluded. The live roster is used only to list zero-hour team members.
- */
-export async function loadOrgMonthlyBillableHoursRollup(
+export type OrgMonthlyBillableHoursPayload = {
+  monthKey: string;
+  monthLabel: string;
+  range: { start: string; end: string };
+  rows: Array<
+    OrgMonthlyBillableHoursRow & {
+      expectedBillableMinutes: number;
+      expectedBillableHours: string;
+      priorMonthMinutes: number;
+      priorMonthHours: string;
+      deltaVsPriorMinutes: number;
+      deltaVsPriorHours: string;
+      deltaVsExpectedMinutes: number;
+      deltaVsExpectedHours: string;
+    }
+  >;
+  orgTotalMinutes: number;
+  orgTotalHours: string;
+  priorMonthKey: string;
+  priorMonthLabel: string;
+  priorMonthMinutes: number;
+  priorMonthHours: string;
+  deltaVsPriorMinutes: number;
+  deltaVsPriorHours: string;
+  weeks: BillableMonthWeekBucket[];
+};
+
+async function loadOrgMonthBillableMinutesByStaff(
   admin: ReturnType<typeof createServiceRoleClient>,
   monthKey: string
-): Promise<{ monthKey: string; monthLabel: string; range: { start: string; end: string }; rows: OrgMonthlyBillableHoursRow[] }> {
+): Promise<{
+  start: string;
+  end: string;
+  minutesById: Map<string, number>;
+  weekEntries: Array<{ service_date: string; billableMinutes: number }>;
+}> {
   const { start, end } = calendarMonthBoundsFromKey(monthKey);
-  const staff = await loadOrgBillableHoursStaffPicker(admin);
-
   const entries = await fetchAllPostgrestRows<OrgMonthEntryRow>(
     admin,
     "es_time_entries",
-    "es_user_id, client_id, duration_minutes, flags, service_activity_types ( code, counts_toward_client_billable ), clients ( is_demo )",
+    "es_user_id, client_id, service_date, duration_minutes, flags, service_activity_types ( code, counts_toward_client_billable ), clients ( is_demo )",
     {
       order: { column: "id", ascending: true },
       applyFilters: (query) =>
@@ -491,6 +522,7 @@ export async function loadOrgMonthlyBillableHoursRollup(
   );
 
   const minutesById = new Map<string, number>();
+  const weekEntries: Array<{ service_date: string; billableMinutes: number }> = [];
   for (const row of entries) {
     if (
       !countsTowardBillableHoursTotals({
@@ -500,7 +532,6 @@ export async function loadOrgMonthlyBillableHoursRollup(
     ) {
       continue;
     }
-    const id = row.es_user_id as string;
     const add = sumBillableMinutesFromTimeEntryRows([
       {
         duration_minutes: Number(row.duration_minutes) || 0,
@@ -509,10 +540,39 @@ export async function loadOrgMonthlyBillableHoursRollup(
       },
     ]);
     if (add <= 0) continue;
+    const id = row.es_user_id as string;
     minutesById.set(id, (minutesById.get(id) ?? 0) + add);
+    weekEntries.push({ service_date: row.service_date, billableMinutes: add });
   }
+  return { start, end, minutesById, weekEntries };
+}
 
-  const profileIds = [...new Set([...staff.map((s) => s.id), ...minutesById.keys()])];
+/**
+ * Billable minutes by staff for a calendar month (non-rejected; excludes note-only / case file review).
+ * Counts every non-rejected billable entry in the month — including former team members and
+ * mis-assigned non-staff loggers — so past months stay complete after deactivation.
+ * Demo clients (is_demo) are excluded. The live roster is used only to list zero-hour team members.
+ * Includes week-by-week org buckets and vs-prior-month hour deltas (not percentages).
+ */
+export async function loadOrgMonthlyBillableHoursRollup(
+  admin: ReturnType<typeof createServiceRoleClient>,
+  monthKey: string,
+  opts?: { expectedMinutesByStaffId?: Map<string, number> }
+): Promise<OrgMonthlyBillableHoursPayload> {
+  const staff = await loadOrgBillableHoursStaffPicker(admin);
+  const priorKey = priorMonthKeyFrom(monthKey);
+  const [current, prior] = await Promise.all([
+    loadOrgMonthBillableMinutesByStaff(admin, monthKey),
+    loadOrgMonthBillableMinutesByStaff(admin, priorKey),
+  ]);
+
+  const profileIds = [
+    ...new Set([
+      ...staff.map((s) => s.id),
+      ...current.minutesById.keys(),
+      ...prior.minutesById.keys(),
+    ]),
+  ];
   const [{ data: profileRows }, nameById] = await Promise.all([
     profileIds.length > 0
       ? admin.from("profiles").select("id, role, is_active").in("id", profileIds)
@@ -539,17 +599,54 @@ export async function loadOrgMonthlyBillableHoursRollup(
     });
   }
 
-  const rows = buildOrgMonthlyBillableHoursRows({
+  const baseRows = buildOrgMonthlyBillableHoursRows({
     liveRoster: staff,
-    minutesByUserId: minutesById,
+    minutesByUserId: current.minutesById,
     profileById,
+  });
+
+  const expectedById = opts?.expectedMinutesByStaffId ?? new Map<string, number>();
+  const rows = baseRows.map((row) => {
+    const priorMonthMinutes = prior.minutesById.get(row.staffUserId) ?? 0;
+    const expectedBillableMinutes = expectedById.get(row.staffUserId) ?? 0;
+    const vsPrior = hoursDeltaLabel(row.billableMinutes, priorMonthMinutes);
+    const vsExpected = hoursDeltaLabel(row.billableMinutes, expectedBillableMinutes);
+    return {
+      ...row,
+      expectedBillableMinutes,
+      expectedBillableHours: formatBillableHours(expectedBillableMinutes),
+      priorMonthMinutes,
+      priorMonthHours: formatBillableHours(priorMonthMinutes),
+      deltaVsPriorMinutes: vsPrior.deltaMinutes,
+      deltaVsPriorHours: vsPrior.deltaHours,
+      deltaVsExpectedMinutes: vsExpected.deltaMinutes,
+      deltaVsExpectedHours: vsExpected.deltaHours,
+    };
+  });
+
+  const orgTotalMinutes = rows.reduce((s, r) => s + r.billableMinutes, 0);
+  const priorMonthMinutes = [...prior.minutesById.values()].reduce((s, n) => s + n, 0);
+  const orgVsPrior = hoursDeltaLabel(orgTotalMinutes, priorMonthMinutes);
+  const weeks = buildBillableMonthWeekBuckets({
+    rangeStart: current.start,
+    rangeEnd: current.end,
+    entries: current.weekEntries,
   });
 
   return {
     monthKey,
     monthLabel: monthLabelFromKey(monthKey),
-    range: { start, end },
+    range: { start: current.start, end: current.end },
     rows,
+    orgTotalMinutes,
+    orgTotalHours: formatBillableHours(orgTotalMinutes),
+    priorMonthKey: priorKey,
+    priorMonthLabel: monthLabelFromKey(priorKey),
+    priorMonthMinutes,
+    priorMonthHours: formatBillableHours(priorMonthMinutes),
+    deltaVsPriorMinutes: orgVsPrior.deltaMinutes,
+    deltaVsPriorHours: orgVsPrior.deltaHours,
+    weeks,
   };
 }
 

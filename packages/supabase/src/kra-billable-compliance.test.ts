@@ -5,6 +5,24 @@ import {
   lastAssigneeInCalendarMonth,
   type AssignmentEventRow,
 } from "./es-client-assignment-events";
+import { KRA_ROSTER_ROLES } from "./kra-billable-compliance";
+import { POSTGREST_DEFAULT_PAGE_SIZE } from "./postgrest-fetch-all";
+
+describe("KRA roster roles", () => {
+  it("includes supervisors alongside ES and transition specialists", () => {
+    assert.deepEqual([...KRA_ROSTER_ROLES].sort(), [
+      "es",
+      "supervisor",
+      "transition_specialist",
+    ]);
+  });
+});
+
+describe("KRA pagination contract", () => {
+  it("documents PostgREST page size so KRA fetchAll loops must exceed 1000 rows", () => {
+    assert.equal(POSTGREST_DEFAULT_PAGE_SIZE, 1000);
+  });
+});
 
 describe("KRA assignment month helpers", () => {
   const events: AssignmentEventRow[] = [

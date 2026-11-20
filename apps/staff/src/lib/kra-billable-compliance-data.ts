@@ -1,5 +1,8 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
-import { loadKraBillableComplianceRollup } from "@wayfinder/supabase/kra-billable-compliance";
+import {
+  KRA_ROSTER_ROLES,
+  loadKraBillableComplianceRollup,
+} from "@wayfinder/supabase/kra-billable-compliance";
 import { loadClientDisplayNameById } from "@/lib/client-display-names";
 import { loadStaffNameById } from "@/lib/staff-names";
 
@@ -8,7 +11,7 @@ export async function loadOrgKraBillableComplianceRollup(monthKey: string) {
   const { data: staffProfiles } = await admin
     .from("profiles")
     .select("id")
-    .in("role", ["es", "transition_specialist"])
+    .in("role", [...KRA_ROSTER_ROLES])
     .neq("is_active", false);
   const staffIds = (staffProfiles ?? []).map((p) => p.id as string);
   const nameByStaffId = await loadStaffNameById(admin, staffIds, "Team member");

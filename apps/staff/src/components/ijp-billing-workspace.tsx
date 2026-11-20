@@ -8,7 +8,7 @@ import {
   isManualIjpLine,
   roundIjpLineHours,
 } from "@wayfinder/supabase/ijp-billing-lines";
-import { priorServiceMonthStart } from "@wayfinder/supabase/ijp-billing-eligibility";
+import { currentServiceMonthStart } from "@wayfinder/supabase/ijp-billing-eligibility";
 import {
   formatIjpInvoiceAmount,
   formatIjpListHours,
@@ -100,7 +100,7 @@ function monthClientStatusLabel(status: string): string {
 }
 
 export function IjpBillingWorkspace() {
-  const [month, setMonth] = useState(priorServiceMonthStart());
+  const [month, setMonth] = useState(currentServiceMonthStart());
   const [clients, setClients] = useState<MonthClientRow[]>([]);
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -115,7 +115,7 @@ export function IjpBillingWorkspace() {
   const [canGenerate, setCanGenerate] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
   const [testClientId, setTestClientId] = useState("");
-  const [testMonth, setTestMonth] = useState(priorServiceMonthStart());
+  const [testMonth, setTestMonth] = useState(currentServiceMonthStart());
   const [testSignature, setTestSignature] = useState("");
   const [addClientId, setAddClientId] = useState("");
   const [detailProviderInvoice, setDetailProviderInvoice] = useState("");

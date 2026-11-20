@@ -3,12 +3,16 @@ import { canAccessBillableHoursPage } from "@wayfinder/supabase/staff-time-clock
 import { getAppSession } from "@wayfinder/supabase/preview-server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BillableHoursPayrollMonthlyPanel } from "@/components/billable-hours-payroll-monthly-panel";
+import { BillableHoursMonthlyOversight } from "@/components/billable-hours-monthly-oversight";
 import { MyBillableHoursWorkspace } from "@/components/my-billable-hours-workspace";
-import { BillableHoursKraCompliancePanel } from "@/components/billable-hours-kra-compliance-panel";
+import { MyKraBillableExpectationCard } from "@/components/my-kra-billable-expectation-card";
 import { canViewPayrollMonthlyBillableHours } from "@/lib/billable-hours-payroll-access";
-import { isSuperAdminRole } from "@wayfinder/supabase/roles";
-import { defaultPayrollMonthKey } from "@/lib/es-time-data";
+import {
+  isFieldSpecialistRole,
+  isSuperAdminRole,
+  isSupervisorRole,
+} from "@wayfinder/supabase/roles";
+import { currentMonthKey } from "@/lib/es-time-data";
 import { TimesheetWorkspace } from "@/components/timesheet-workspace";
 import { loadMyBillableHoursSummary } from "@/lib/es-time-data";
 import {
@@ -43,9 +47,9 @@ export default async function MyBillableHoursPage({ searchParams }: PageProps) {
   const summary = await loadMyBillableHoursSummary(admin, esUserId);
   const showTimesheet = canAccessWeeklyTimesheetSection(role);
   const showPayrollMonthly = canViewPayrollMonthlyBillableHours(role);
-  const showKraCompliance = showPayrollMonthly;
   const canCloseKraMonth = isSuperAdminRole(role);
-  const payrollMonthKey = defaultPayrollMonthKey();
+  const monthKey = currentMonthKey();
+  const showOwnKraCard = isFieldSpecialistRole(role) || isSupervisorRole(role);
 
   const timesheetLoad = showTimesheet
     ? await loadTimesheetSection(admin, {
@@ -78,13 +82,11 @@ export default async function MyBillableHoursPage({ searchParams }: PageProps) {
         showTimesheetLink={false}
         showTeamTimesheetLink={false}
       />
+      {showOwnKraCard ? <MyKraBillableExpectationCard initialMonthKey={monthKey} /> : null}
       {showPayrollMonthly ? (
-        <BillableHoursPayrollMonthlyPanel initialMonthKey={payrollMonthKey} />
-      ) : null}
-      {showKraCompliance ? (
-        <BillableHoursKraCompliancePanel
-          initialMonthKey={payrollMonthKey}
-          canCloseMonth={canCloseKraMonth}
+        <BillableHoursMonthlyOversight
+          initialMonthKey={monthKey}
+          canCloseKraMonth={canCloseKraMonth}
         />
       ) : null}
       {timesheetLoad.kind === "ready" ? (
