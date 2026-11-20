@@ -72,6 +72,8 @@
     "./es-client-assignment-events": "./src/es-client-assignment-events.ts",
     "./kra-billable-settings": "./src/kra-billable-settings.ts",
     "./kra-billable-compliance": "./src/kra-billable-compliance.ts",
+    "./staff-badges": "./src/staff-badges.ts",
+    "./staff-badges-shared": "./src/staff-badges-shared.ts",
     "./ijp-billing-settings": "./src/ijp-billing-settings.ts",
     "./ijp-billing-eligibility": "./src/ijp-billing-eligibility.ts",
     "./ijp-billing-entry-billing": "./src/ijp-billing-entry-billing.ts",
