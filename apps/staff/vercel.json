@@ -63,10 +63,6 @@
     {
       "path": "/api/cron/authorization-warnings",
       "schedule": "0 12 * * *"
-    },
-    {
-      "path": "/api/cron/staff-badges",
-      "schedule": "30 6 1 * *"
     }
   ]
 }
