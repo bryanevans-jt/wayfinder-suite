@@ -1,9 +1,9 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { createClient } from "@wayfinder/supabase/server";
+import { canUseViewAsPreview } from "@wayfinder/supabase/preview-policy";
 import {
-  isSuperAdminRole,
-  PREVIEWABLE_ROLES,
   roleDisplayName,
+  VIEW_AS_STAFF_ROLES,
 } from "@wayfinder/supabase/roles";
 import { personDisplayName } from "@wayfinder/branding";
 import {
@@ -34,16 +34,19 @@ export async function GET(request: Request) {
       .eq("id", user.id)
       .maybeSingle();
 
-    if (!profile?.is_active || !isSuperAdminRole(profile.role)) {
+    if (!profile?.is_active || !canUseViewAsPreview(profile.role)) {
       return NextResponse.json({ error: USER_FACING_FORBIDDEN }, { status: 403 });
     }
 
     const url = new URL(request.url);
     const roleFilter = url.searchParams.get("role")?.trim().toLowerCase();
 
-    if (!roleFilter || !PREVIEWABLE_ROLES.includes(roleFilter as (typeof PREVIEWABLE_ROLES)[number])) {
+    if (
+      !roleFilter ||
+      !(VIEW_AS_STAFF_ROLES as readonly string[]).includes(roleFilter)
+    ) {
       return NextResponse.json({
-        roles: PREVIEWABLE_ROLES.map((role) => ({
+        roles: VIEW_AS_STAFF_ROLES.map((role) => ({
           id: role,
           label: roleDisplayName(role),
         })),

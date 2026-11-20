@@ -58,7 +58,11 @@ export async function requirePortalPage(minTier: PortalTier) {
     redirect("/dashboard");
   }
 
-  return { user: { id: session.effectiveUserId }, role: role as string };
+  return {
+    user: { id: session.effectiveUserId },
+    role: role as string,
+    demoClientsOnly: session.demoClientsOnly === true,
+  };
 }
 
 export type PortalBootstrap = {
@@ -206,7 +210,7 @@ export type PortalWorkspaceConfig = {
 export async function loadPortalWorkspaceConfig(
   minTier: PortalTier
 ): Promise<PortalWorkspaceConfig> {
-  const { user, role } = await requirePortalPage(minTier);
+  const { user, role, demoClientsOnly } = await requirePortalPage(minTier);
   const admin = createServiceRoleClient();
   let scope:
     | { supervisorUserId?: string; officeIds?: string[]; esUserIds?: string[] }
@@ -221,6 +225,7 @@ export async function loadPortalWorkspaceConfig(
   }
   const bootstrap = await loadPortalBootstrap(admin, scope, {
     includeHiddenOffices: isSuperAdminRole(role),
+    demoClientsOnly,
   });
   return {
     bootstrap,
@@ -235,9 +240,10 @@ export async function loadPortalWorkspaceConfig(
 export async function loadPortalBootstrap(
   admin: ReturnType<typeof createServiceRoleClient>,
   scope?: { supervisorUserId?: string; officeIds?: string[]; esUserIds?: string[] },
-  options?: { includeHiddenOffices?: boolean }
+  options?: { includeHiddenOffices?: boolean; demoClientsOnly?: boolean }
 ): Promise<PortalBootstrap> {
   const officesPromise = queryAllOffices(admin);
+  const demoClientsOnly = options?.demoClientsOnly === true;
 
   const CLIENT_SELECT_FULL =
     "id, contact_email, office_id, user_id, profile_id, full_name, current_service_id, current_stage_id, counselor_id, archived_at, intake_status, referral_state, is_demo";
@@ -253,7 +259,9 @@ export async function loadPortalBootstrap(
 
   function withBootstrapClientFilters(applyFilters?: ClientQueryFilter): ClientQueryFilter {
     return (query) => {
-      const narrowed = query.eq("is_demo", false).neq("intake_status", "discarded");
+      const narrowed = query
+        .eq("is_demo", demoClientsOnly)
+        .neq("intake_status", "discarded");
       return applyFilters ? applyFilters(narrowed) : narrowed;
     };
   }
@@ -358,9 +366,10 @@ export async function loadPortalBootstrap(
   let officesRows: OfficeRecord[] = loadedOffices;
   let clientRowsLoaded: Array<Record<string, unknown>> = loadedClients;
 
-  clientRowsLoaded = clientRowsLoaded.filter(
-    (row) => (row as { is_demo?: boolean }).is_demo !== true
-  );
+  clientRowsLoaded = clientRowsLoaded.filter((row) => {
+    const isDemo = (row as { is_demo?: boolean }).is_demo === true;
+    return demoClientsOnly ? isDemo : !isDemo;
+  });
 
   const clientsQuery = { data: clientRowsLoaded, error: null as { message: string } | null };
 

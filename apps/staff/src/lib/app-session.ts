@@ -12,9 +12,34 @@ import {
   loadGvraSupervisorOfficeIds,
 } from "@/lib/gvra-supervisor-portal-data";
 import { getAppSession, type AppSession } from "@wayfinder/supabase/preview-server";
+import { previewMayViewClient } from "@wayfinder/supabase/preview-policy";
 import { notFound, redirect } from "next/navigation";
 import { esIsAssignedToClient } from "@/lib/es-caseload-data";
 import { clientInSupervisorScope, loadSupervisorScope } from "@/lib/supervisor-client-scope";
+
+async function loadClientIsDemo(clientId: string): Promise<boolean | null> {
+  let admin;
+  try {
+    admin = createServiceRoleClient();
+  } catch {
+    return null;
+  }
+  const { data: client } = await admin
+    .from("clients")
+    .select("is_demo")
+    .eq("id", clientId)
+    .maybeSingle();
+  return (client?.is_demo as boolean | null | undefined) ?? null;
+}
+
+async function enforcePreviewDemoClientsOnly(
+  session: AppSession,
+  clientId: string
+): Promise<boolean> {
+  if (!session.demoClientsOnly) return true;
+  const isDemo = await loadClientIsDemo(clientId);
+  return previewMayViewClient({ demoClientsOnly: true, clientIsDemo: isDemo });
+}
 
 export async function requireAppSession(): Promise<AppSession> {
   const session = await getAppSession();
@@ -119,18 +144,12 @@ export async function requireEsClientAccess(session: AppSession, clientId: strin
     return false;
   }
 
-  let admin;
-  try {
-    admin = createServiceRoleClient();
-  } catch {
-    return false;
+  if (session.demoClientsOnly) {
+    return enforcePreviewDemoClientsOnly(session, clientId);
   }
-  const { data: client } = await admin
-    .from("clients")
-    .select("is_demo")
-    .eq("id", clientId)
-    .maybeSingle();
-  if (client?.is_demo) {
+
+  const isDemo = await loadClientIsDemo(clientId);
+  if (isDemo === true) {
     return false;
   }
   return true;
@@ -138,6 +157,10 @@ export async function requireEsClientAccess(session: AppSession, clientId: strin
 
 export async function requireSupervisorClientAccess(session: AppSession, clientId: string) {
   if (!isSupervisorRole(session.effectiveRole)) {
+    return false;
+  }
+
+  if (!(await enforcePreviewDemoClientsOnly(session, clientId))) {
     return false;
   }
 
@@ -191,6 +214,9 @@ export async function requireStaffClientAccess(session: AppSession, clientId: st
 
 /** Assigned casework or org-wide view-only (Accounts, Hospitality, HR, Admin). */
 export async function requireStaffClientViewAccess(session: AppSession, clientId: string) {
+  if (!(await enforcePreviewDemoClientsOnly(session, clientId))) {
+    return false;
+  }
   if (canViewClientProfiles(session.effectiveRole)) {
     return true;
   }

@@ -7,6 +7,7 @@ import {
   USER_FACING_NOT_FOUND,
 } from "@wayfinder/supabase/error-log";
 import { getAppSession, assertNotPreviewMutation } from "@wayfinder/supabase/preview-server";
+import { previewMayViewClient } from "@wayfinder/supabase/preview-policy";
 import { canManageReferrals } from "@wayfinder/supabase/referral-intake";
 import {
   canViewClientProfiles,
@@ -73,6 +74,22 @@ export async function assertClientProfileAccess(clientId: string, forMutation = 
     admin = createServiceRoleClient();
   } catch {
     throw new ClientProfileAuthError("Server configuration error", 503);
+  }
+
+  if (session.demoClientsOnly) {
+    const { data: client } = await admin
+      .from("clients")
+      .select("is_demo")
+      .eq("id", clientId)
+      .maybeSingle();
+    if (
+      !previewMayViewClient({
+        demoClientsOnly: true,
+        clientIsDemo: client?.is_demo ?? null,
+      })
+    ) {
+      throw new ClientProfileAuthError("Forbidden", 403);
+    }
   }
 
   return {

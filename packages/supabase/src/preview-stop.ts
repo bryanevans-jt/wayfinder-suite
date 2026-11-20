@@ -50,6 +50,7 @@ export async function stopPreviewSession(
           target_user_id: preview.targetUserId,
           target_role: preview.targetRole,
           action: "exit",
+          demo_clients_only: preview.demoClientsOnly === true,
         });
       } catch {
         // Audit failure should not block exit.

@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import {
   PREVIEW_ACTOR_COOKIE,
+  PREVIEW_DEMO_ONLY_COOKIE,
   PREVIEW_NAME_COOKIE,
   PREVIEW_ROLE_COOKIE,
   PREVIEW_TARGET_COOKIE,
@@ -8,8 +9,12 @@ import {
 } from "@wayfinder/supabase/preview-cookies";
 import { previewRedirectUrl } from "@wayfinder/supabase/preview-server";
 import { buildClientPreviewHandoffUrl } from "@wayfinder/supabase/preview-handoff";
+import {
+  canUseViewAsPreview,
+  canViewAsTargetRole,
+} from "@wayfinder/supabase/preview-policy";
 import { createClient } from "@wayfinder/supabase/server";
-import { isClientRole, isKnownRole, isSuperAdminRole } from "@wayfinder/supabase/roles";
+import { isClientRole, isKnownRole } from "@wayfinder/supabase/roles";
 import {
   respondWithLoggedError,
   resolveErrorActor,
@@ -38,12 +43,16 @@ export async function POST(request: Request) {
       .eq("id", user.id)
       .maybeSingle();
 
-    if (!profile?.is_active || !isSuperAdminRole(profile.role)) {
+    if (!profile?.is_active || !canUseViewAsPreview(profile.role)) {
       return NextResponse.json({ error: USER_FACING_FORBIDDEN }, { status: 403 });
     }
 
-    const body = (await request.json()) as { targetUserId?: string };
+    const body = (await request.json()) as {
+      targetUserId?: string;
+      demoClientsOnly?: boolean;
+    };
     const targetUserId = body.targetUserId?.trim();
+    const demoClientsOnly = body.demoClientsOnly === true;
     if (!targetUserId) {
       return NextResponse.json({ error: "Please select a user to preview." }, { status: 400 });
     }
@@ -70,37 +79,53 @@ export async function POST(request: Request) {
       );
     }
 
+    const targetRole = targetProfile.role as string;
+    // Staff View as is limited to the approved role list; client/support handoff remains.
+    if (!isClientRole(targetRole) && !canViewAsTargetRole(targetRole)) {
+      return NextResponse.json(
+        { error: "That role is not available for View as." },
+        { status: 400 }
+      );
+    }
+
     await admin.from("preview_audit_logs").insert({
       actor_user_id: user.id,
       target_user_id: targetUserId,
-      target_role: targetProfile.role,
+      target_role: targetRole,
       action: "enter",
+      demo_clients_only: demoClientsOnly,
     });
 
-    const redirectUrl = isClientRole(targetProfile.role)
+    const redirectUrl = isClientRole(targetRole)
       ? buildClientPreviewHandoffUrl({
           targetUserId,
           actorUserId: user.id,
-          targetRole: targetProfile.role,
+          targetRole,
           targetName: (targetProfile.full_name as string | null) ?? null,
         })
-      : previewRedirectUrl(targetProfile.role);
+      : previewRedirectUrl(targetRole);
     const response = NextResponse.json({
       ok: true,
       redirectUrl,
       target: {
         id: targetUserId,
-        role: targetProfile.role,
+        role: targetRole,
         name: targetProfile.full_name,
+        demoClientsOnly,
       },
     });
 
     const opts = previewCookieOptions();
     response.cookies.set(PREVIEW_TARGET_COOKIE, targetUserId, opts);
     response.cookies.set(PREVIEW_ACTOR_COOKIE, user.id, opts);
-    response.cookies.set(PREVIEW_ROLE_COOKIE, targetProfile.role, opts);
+    response.cookies.set(PREVIEW_ROLE_COOKIE, targetRole, opts);
     if (targetProfile.full_name) {
       response.cookies.set(PREVIEW_NAME_COOKIE, targetProfile.full_name, opts);
+    }
+    if (demoClientsOnly) {
+      response.cookies.set(PREVIEW_DEMO_ONLY_COOKIE, "1", opts);
+    } else {
+      response.cookies.set(PREVIEW_DEMO_ONLY_COOKIE, "", { ...opts, maxAge: 0 });
     }
 
     return response;

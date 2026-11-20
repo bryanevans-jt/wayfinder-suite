@@ -5,6 +5,8 @@ export const PREVIEW_TARGET_COOKIE = "wf_preview_target";
 export const PREVIEW_ACTOR_COOKIE = "wf_preview_actor";
 export const PREVIEW_ROLE_COOKIE = "wf_preview_role";
 export const PREVIEW_NAME_COOKIE = "wf_preview_name";
+/** When "1", View as limits client personal data to is_demo clients only. */
+export const PREVIEW_DEMO_ONLY_COOKIE = "wf_preview_demo_only";
 
 export const PREVIEW_COOKIE_MAX_AGE_SEC = 60 * 60 * 8;
 
@@ -13,6 +15,7 @@ export type PreviewCookieSet = {
   actorUserId: string;
   targetRole: string;
   targetName: string | null;
+  demoClientsOnly: boolean;
 };
 
 export function readPreviewCookies(
@@ -28,7 +31,8 @@ export function readPreviewCookies(
     return null;
   }
   const targetName = get(PREVIEW_NAME_COOKIE) ?? null;
-  return { targetUserId, actorUserId, targetRole, targetName };
+  const demoClientsOnly = get(PREVIEW_DEMO_ONLY_COOKIE) === "1";
+  return { targetUserId, actorUserId, targetRole, targetName, demoClientsOnly };
 }
 
 export function previewCookieOptions(maxAge = PREVIEW_COOKIE_MAX_AGE_SEC) {
@@ -49,6 +53,7 @@ export const PREVIEW_COOKIE_NAMES = [
   PREVIEW_ACTOR_COOKIE,
   PREVIEW_ROLE_COOKIE,
   PREVIEW_NAME_COOKIE,
+  PREVIEW_DEMO_ONLY_COOKIE,
 ] as const;
 
 /** Clear preview cookies on a Next.js response (match domain from previewCookieOptions). */

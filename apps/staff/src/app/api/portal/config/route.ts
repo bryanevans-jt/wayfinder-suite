@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const minTier =
       tier === "super_admin" ? "super_admin" : tier === "supervisor" ? "supervisor" : "admin";
 
-    const { admin, user, role } = await assertPortalSession(minTier);
+    const { admin, user, role, session } = await assertPortalSession(minTier);
 
     let scope: { supervisorUserId?: string; officeIds?: string[]; esUserIds?: string[] } | undefined;
 
@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
 
     const bootstrap = await loadPortalBootstrap(admin, scope, {
       includeHiddenOffices: isSuperAdminRole(role),
+      demoClientsOnly: session.demoClientsOnly === true,
     });
     return Response.json({
       bootstrap,

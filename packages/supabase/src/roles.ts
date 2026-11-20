@@ -369,3 +369,25 @@ export const PREVIEWABLE_ROLES = [
   ...STAFF_ROLES,
   ...CLIENT_ROLES,
 ] as const;
+
+/**
+ * Staff roles Super Admin may pick in View as (audit preview).
+ * Matches owner-approved list: directors, supervisor, ES, TS, Transition Instructor.
+ */
+export const VIEW_AS_STAFF_ROLES = [
+  "transition_director",
+  "vocational_director",
+  "supervisor",
+  "es",
+  "transition_specialist",
+  "instructor",
+] as const;
+
+export type ViewAsStaffRole = (typeof VIEW_AS_STAFF_ROLES)[number];
+
+export function isViewAsStaffRole(
+  role: string | null | undefined
+): role is ViewAsStaffRole {
+  const r = normalizeRole(role);
+  return (VIEW_AS_STAFF_ROLES as readonly string[]).includes(r);
+}

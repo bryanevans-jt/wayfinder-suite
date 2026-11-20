@@ -3,6 +3,7 @@ import { cache } from "react";
 import { createClient } from "./server";
 import {
   PREVIEW_ACTOR_COOKIE,
+  PREVIEW_DEMO_ONLY_COOKIE,
   PREVIEW_NAME_COOKIE,
   PREVIEW_ROLE_COOKIE,
   PREVIEW_TARGET_COOKIE,
@@ -20,6 +21,8 @@ export type PreviewSession = {
   effectiveRole: string;
   targetEmail: string | null;
   targetName: string | null;
+  /** When true, client personal data is limited to is_demo clients. */
+  demoClientsOnly: boolean;
 };
 
 export type AppSession = {
@@ -28,6 +31,8 @@ export type AppSession = {
   /** Super Admin writable handoff into the ES training demo account. */
   isTrainingDemoHandoff?: boolean;
   trainingTargetName?: string | null;
+  /** View as: limit client lists/detail to is_demo clients. */
+  demoClientsOnly?: boolean;
   actorUserId: string;
   actorEmail: string | null;
   actorRole: string;
@@ -92,11 +97,13 @@ const loadAppSession = async (): Promise<AppSession | null> => {
       effectiveRole: previewCookies.targetRole,
       targetEmail: null,
       targetName: previewCookies.targetName,
+      demoClientsOnly: previewCookies.demoClientsOnly,
     };
 
     return {
       isPreviewing: true,
       isReadOnly: true,
+      demoClientsOnly: previewCookies.demoClientsOnly,
       actorUserId: user.id,
       actorEmail: user.email ?? null,
       actorRole: actorProfile.role,
@@ -156,6 +163,7 @@ export function previewRedirectUrl(role: string): string {
 
 export {
   PREVIEW_ACTOR_COOKIE,
+  PREVIEW_DEMO_ONLY_COOKIE,
   PREVIEW_NAME_COOKIE,
   PREVIEW_ROLE_COOKIE,
   PREVIEW_TARGET_COOKIE,

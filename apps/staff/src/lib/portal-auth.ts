@@ -68,6 +68,7 @@ export async function assertPortalSession(minTier: PortalTier) {
   return {
     supabase,
     admin,
+    session,
     user: { id: session.effectiveUserId },
     role: role as string,
     isSuperAdmin: isSuperAdminRole(profile.role),

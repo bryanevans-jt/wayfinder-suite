@@ -68,7 +68,9 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
     let rows: Awaited<ReturnType<typeof loadAccountsClientsList>> = [];
     let loadError: string | null = null;
     try {
-      rows = await loadAccountsClientsList(admin);
+      rows = await loadAccountsClientsList(admin, {
+        demoClientsOnly: session.demoClientsOnly === true,
+      });
     } catch (e) {
       loadError = e instanceof Error ? e.message : USER_FACING_SYSTEM_ERROR;
     }
@@ -101,6 +103,7 @@ export default async function EsClientsPage({ searchParams }: PageProps) {
   const caseload = await fetchEsCaseloadClients(effectiveUserId, {
     includeArchived,
     trainingDemoHandoff: session.isTrainingDemoHandoff === true,
+    demoClientsOnly: session.demoClientsOnly === true,
   });
   const pinServiceIds = (caseload.clients ?? []).map((c) => c.current_service_id);
 

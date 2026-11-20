@@ -25,6 +25,7 @@
     "./training-demo-cookies": "./src/training-demo-cookies.ts",
     "./preview-handoff": "./src/preview-handoff.ts",
     "./preview-middleware": "./src/preview-middleware.ts",
+    "./preview-policy": "./src/preview-policy.ts",
     "./preview-stop": "./src/preview-stop.ts",
     "./notify-user": "./src/notify-user.ts",
     "./notify-digest": "./src/notify-digest.ts",

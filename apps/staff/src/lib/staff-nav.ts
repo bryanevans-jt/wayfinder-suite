@@ -407,7 +407,7 @@ export function staffNavSectionsForRole(
     if (showAuditLink) {
       items.push({
         href: "/dashboard/audit",
-        label: "Audit",
+        label: "View as",
         match: (p) => p === "/dashboard/audit",
       });
     }

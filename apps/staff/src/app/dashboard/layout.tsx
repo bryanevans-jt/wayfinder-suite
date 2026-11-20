@@ -31,6 +31,7 @@ export default async function DashboardLayout({
           targetName={session.preview.targetName}
           targetRole={session.preview.effectiveRole}
           staffAppUrl={staffAppOrigin()}
+          demoClientsOnly={session.preview.demoClientsOnly}
         />
       ) : null}
       {session?.isTrainingDemoHandoff ? (

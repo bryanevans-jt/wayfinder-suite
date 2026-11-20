@@ -26,13 +26,15 @@ export type FetchEsCaseloadOptions = {
   includeArchived?: boolean;
   /** Super Admin ES training demo handoff — show only demo clients on the caseload. */
   trainingDemoHandoff?: boolean;
+  /** View as: limit caseload to is_demo clients only. */
+  demoClientsOnly?: boolean;
 };
 
 function filterCaseloadDemoClients<T extends { is_demo?: boolean | null }>(
   rows: T[],
-  trainingDemoHandoff: boolean
+  demoOnly: boolean
 ): T[] {
-  if (trainingDemoHandoff) {
+  if (demoOnly) {
     return rows.filter((c) => c.is_demo === true);
   }
   return rows.filter((c) => c.is_demo !== true);
@@ -98,7 +100,12 @@ export async function fetchEsCaseloadClients(
   esUserId: string,
   options: FetchEsCaseloadOptions = {}
 ): Promise<{ clients: EsCaseloadClientRow[]; error: string | null }> {
-  const { includeArchived = false, trainingDemoHandoff = false } = options;
+  const {
+    includeArchived = false,
+    trainingDemoHandoff = false,
+    demoClientsOnly = false,
+  } = options;
+  const demoOnly = trainingDemoHandoff || demoClientsOnly;
   const admin = getEsCaseloadAdmin();
   if (!admin) {
     return { clients: [], error: "Server configuration error" };
@@ -142,7 +149,7 @@ export async function fetchEsCaseloadClients(
         authorized_hours: null,
         authorization_end_date: null,
       }));
-      let clients = filterCaseloadDemoClients(rows, trainingDemoHandoff);
+      let clients = filterCaseloadDemoClients(rows, demoOnly);
       clients = includeArchived
         ? clients
         : clients.filter(
@@ -173,7 +180,7 @@ export async function fetchEsCaseloadClients(
       archived_at: null,
       job_start_date: null,
     })) as EsCaseloadClientRow[];
-    let clients = filterCaseloadDemoClients(rows, trainingDemoHandoff);
+    let clients = filterCaseloadDemoClients(rows, demoOnly);
     clients = includeArchived
       ? clients
       : clients.filter(
@@ -212,7 +219,7 @@ export async function fetchEsCaseloadClients(
   }
 
   const rows = (clientRows ?? []) as EsCaseloadClientRow[];
-  let clients = filterCaseloadDemoClients(rows, trainingDemoHandoff);
+  let clients = filterCaseloadDemoClients(rows, demoOnly);
   clients = includeArchived
     ? clients
     : clients.filter(

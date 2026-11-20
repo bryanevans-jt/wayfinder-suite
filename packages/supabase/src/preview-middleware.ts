@@ -1,11 +1,13 @@
 import type { NextRequest } from "next/server";
 import { readPreviewCookies } from "./preview-cookies";
+import { viewAsBlocksMutation } from "./preview-policy";
 import { isSuperAdminRole } from "./roles";
 
 export type ResolvedPreview = {
   effectiveRole: string;
   effectiveUserId: string;
   isPreviewReadOnly: boolean;
+  demoClientsOnly: boolean;
 };
 
 export function resolvePreviewSession(
@@ -20,6 +22,7 @@ export function resolvePreviewSession(
       effectiveRole: actorRole,
       effectiveUserId: actorUserId,
       isPreviewReadOnly: false,
+      demoClientsOnly: false,
     };
   }
 
@@ -27,6 +30,7 @@ export function resolvePreviewSession(
     effectiveRole: preview.targetRole,
     effectiveUserId: preview.targetUserId,
     isPreviewReadOnly: true,
+    demoClientsOnly: preview.demoClientsOnly,
   };
 }
 
@@ -34,16 +38,9 @@ export function isPreviewMutationBlocked(
   request: NextRequest,
   isPreviewReadOnly: boolean
 ): boolean {
-  if (!isPreviewReadOnly) {
-    return false;
-  }
-  const method = request.method.toUpperCase();
-  if (method === "GET" || method === "HEAD") {
-    return false;
-  }
-  const { pathname } = request.nextUrl;
-  if (pathname === "/api/preview/stop") {
-    return false;
-  }
-  return true;
+  return viewAsBlocksMutation({
+    method: request.method,
+    pathname: request.nextUrl.pathname,
+    isPreviewReadOnly,
+  });
 }

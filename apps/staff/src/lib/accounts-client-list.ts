@@ -76,8 +76,10 @@ export function resolveAccountsClientSupervisorUserId(opts: {
 }
 
 export async function loadAccountsClientsList(
-  admin: SupabaseClient
+  admin: SupabaseClient,
+  options?: { demoClientsOnly?: boolean }
 ): Promise<AccountsClientListRow[]> {
+  const demoClientsOnly = options?.demoClientsOnly === true;
   const clients = await fetchAllPostgrestRows<{
     id: string;
     full_name: string | null;
@@ -96,7 +98,8 @@ export async function loadAccountsClientsList(
     "id, full_name, contact_email, user_id, profile_id, current_service_id, current_stage_id, supervisor_user_id, office_id, is_demo, archived_at",
     {
       order: { column: "id", ascending: true },
-      applyFilters: (q) => q.is("archived_at", null).eq("is_demo", false),
+      applyFilters: (q) =>
+        q.is("archived_at", null).eq("is_demo", demoClientsOnly),
     }
   );
 

@@ -11,6 +11,7 @@ export function AuditPreviewWorkspace() {
   const [users, setUsers] = useState<UserOption[]>([]);
   const [role, setRole] = useState("");
   const [userId, setUserId] = useState("");
+  const [demoClientsOnly, setDemoClientsOnly] = useState(true);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +73,7 @@ export function AuditPreviewWorkspace() {
       const res = await fetch("/api/preview/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetUserId: userId }),
+        body: JSON.stringify({ targetUserId: userId, demoClientsOnly }),
         credentials: "include",
       });
       const data = (await res.json()) as { redirectUrl?: string; error?: string };
@@ -87,16 +88,17 @@ export function AuditPreviewWorkspace() {
   }
 
   if (loading) {
-    return <p className="mt-6 text-sm text-brand-black/60">Loading audit preview…</p>;
+    return <p className="mt-6 text-sm text-brand-black/60">Loading View as…</p>;
   }
 
   return (
     <section className="mt-8 max-w-xl space-y-6">
       <div className="rounded-xl border border-brand-green/25 bg-brand-green/5 p-5 text-sm text-brand-black/80">
         <p>
-          Open another user&apos;s dashboard as they see it — navigation, casework forms, and
-          timelines — without saving changes. The target user is not notified. Enter and exit
-          events are logged internally for super admins only.
+          See the app exactly as a director, supervisor, Employment Specialist, Transition
+          Specialist, or Transition Instructor does — including navigation, Team Calendars,
+          and expected-hours cards — without changing any records. Mutations stay blocked
+          server-side. Enter and exit are logged for Super Admins only.
         </p>
       </div>
 
@@ -108,7 +110,7 @@ export function AuditPreviewWorkspace() {
 
       <div className="space-y-4 rounded-xl border border-neutral-200 bg-white p-5">
         <label className="block space-y-1 text-sm">
-          <span className="font-medium text-brand-black">Role / account type</span>
+          <span className="font-medium text-brand-black">Role</span>
           <select
             value={role}
             onChange={(e) => {
@@ -127,7 +129,7 @@ export function AuditPreviewWorkspace() {
         </label>
 
         <label className="block space-y-1 text-sm">
-          <span className="font-medium text-brand-black">User</span>
+          <span className="font-medium text-brand-black">Team member</span>
           <select
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
@@ -135,7 +137,7 @@ export function AuditPreviewWorkspace() {
             className="w-full rounded-lg border border-neutral-300 px-3 py-2 disabled:opacity-50"
           >
             <option value="">
-              {!role ? "Choose a role first" : users.length === 0 ? "No active users" : "Select a user…"}
+              {!role ? "Choose a role first" : users.length === 0 ? "No active users" : "Select a team member…"}
             </option>
             {users.map((u) => (
               <option key={u.id} value={u.id}>
@@ -145,13 +147,30 @@ export function AuditPreviewWorkspace() {
           </select>
         </label>
 
+        <label className="flex items-start gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={demoClientsOnly}
+            onChange={(e) => setDemoClientsOnly(e.target.checked)}
+          />
+          <span>
+            <span className="font-medium text-brand-black">Demo clients only</span>
+            <span className="mt-0.5 block text-brand-black/65">
+              Limit client personal data to <code className="text-xs">is_demo</code> clients so you
+              can explore without viewing real client details. Leave unchecked to see the same
+              production clients that person can already access.
+            </span>
+          </span>
+        </label>
+
         <button
           type="button"
           disabled={busy || !userId}
           onClick={() => void startPreview()}
           className="rounded-lg bg-brand-gold px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
         >
-          {busy ? "Starting preview…" : "Start preview"}
+          {busy ? "Starting…" : "View as"}
         </button>
       </div>
     </section>

@@ -22,13 +22,16 @@ export default async function AuditPreviewPage() {
     created_at: string;
     actor_name: string;
     target_name: string;
+    demo_clients_only: boolean;
   }[] = [];
 
   try {
     const admin = createServiceRoleClient();
     const { data: logs } = await admin
       .from("preview_audit_logs")
-      .select("id, action, target_role, created_at, actor_user_id, target_user_id")
+      .select(
+        "id, action, target_role, created_at, actor_user_id, target_user_id, demo_clients_only"
+      )
       .order("created_at", { ascending: false })
       .limit(100);
 
@@ -47,6 +50,7 @@ export default async function AuditPreviewPage() {
       action: row.action as string,
       target_role: row.target_role as string,
       created_at: row.created_at as string,
+      demo_clients_only: (row as { demo_clients_only?: boolean }).demo_clients_only === true,
       actor_name: personDisplayName({
         id: row.actor_user_id as string,
         full_name: nameById.get(row.actor_user_id as string) ?? null,
@@ -62,17 +66,17 @@ export default async function AuditPreviewPage() {
 
   return (
     <main className="px-6 py-10">
-      <h1 className="text-2xl font-semibold text-brand-black">Audit Preview</h1>
+      <h1 className="text-2xl font-semibold text-brand-black">View as</h1>
       <p className="mt-2 max-w-2xl text-brand-black/75">
-        Preview another user&apos;s dashboard in read-only mode. Use this to verify layouts,
-        navigation, and data visibility before or after go-live.
+        Open another team member&apos;s experience in read-only mode. Mutations are blocked
+        server-side. Optionally limit client personal data to demo clients.
       </p>
       <AuditPreviewWorkspace />
 
       <section className="mt-10 max-w-4xl">
-        <h2 className="text-lg font-semibold text-brand-black">Preview Audit Log</h2>
+        <h2 className="text-lg font-semibold text-brand-black">View as audit log</h2>
         <p className="mt-1 text-sm text-brand-black/65">
-          Internal record of preview sessions (enter and exit). Visible to super admins only.
+          Internal record of View as sessions (enter and exit). Visible to Super Admins only.
         </p>
         <div className="mt-4 overflow-x-auto rounded-xl border border-neutral-200 bg-white">
           <table className="min-w-full text-left text-sm">
@@ -83,13 +87,14 @@ export default async function AuditPreviewPage() {
                 <th className="px-3 py-2">Super Admin</th>
                 <th className="px-3 py-2">Target</th>
                 <th className="px-3 py-2">Role</th>
+                <th className="px-3 py-2">Demo only</th>
               </tr>
             </thead>
             <tbody>
               {auditRows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-8 text-center text-brand-black/60">
-                    No preview sessions logged yet.
+                  <td colSpan={6} className="px-3 py-8 text-center text-brand-black/60">
+                    No View as sessions logged yet.
                   </td>
                 </tr>
               ) : (
@@ -102,6 +107,7 @@ export default async function AuditPreviewPage() {
                     <td className="px-3 py-2">{row.actor_name}</td>
                     <td className="px-3 py-2">{row.target_name}</td>
                     <td className="px-3 py-2">{roleDisplayName(row.target_role)}</td>
+                    <td className="px-3 py-2">{row.demo_clients_only ? "Yes" : "No"}</td>
                   </tr>
                 ))
               )}
