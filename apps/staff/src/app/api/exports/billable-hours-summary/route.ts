@@ -11,6 +11,7 @@ import {
   isHrRole,
   isSupervisorRole,
 } from "@wayfinder/supabase/roles";
+import { countsTowardBillableHoursTotals } from "@/lib/org-billable-hours-rollup";
 import { loadStaffNameById } from "@/lib/staff-names";
 import { loadSupervisorScope } from "@/lib/supervisor-client-scope";
 import { NextResponse } from "next/server";
@@ -67,18 +68,20 @@ export async function GET(request: Request) {
 
   type SummaryEntryRow = {
     es_user_id: string;
+    client_id: string | null;
     duration_minutes: number;
     flags: Record<string, boolean> | null;
     service_activity_types:
       | { code: string; counts_toward_client_billable?: boolean }
       | { code: string; counts_toward_client_billable?: boolean }[]
       | null;
+    clients: { is_demo: boolean | null } | { is_demo: boolean | null }[] | null;
   };
 
   const entries = await fetchAllPostgrestRows<SummaryEntryRow>(
     admin,
     "es_time_entries",
-    "es_user_id, duration_minutes, flags, service_activity_types ( code, counts_toward_client_billable )",
+    "es_user_id, client_id, duration_minutes, flags, service_activity_types ( code, counts_toward_client_billable ), clients ( is_demo )",
     {
       order: { column: "id", ascending: true },
       applyFilters: (query) => {
@@ -96,6 +99,16 @@ export async function GET(request: Request) {
 
   const byEs = new Map<string, number>();
   for (const e of entries) {
+    const embed = e.clients;
+    const client = Array.isArray(embed) ? embed[0] : embed;
+    if (
+      !countsTowardBillableHoursTotals({
+        clientId: e.client_id,
+        clientIsDemo: client?.is_demo ?? null,
+      })
+    ) {
+      continue;
+    }
     const id = e.es_user_id as string;
     const add = sumBillableMinutesFromTimeEntryRows([
       {

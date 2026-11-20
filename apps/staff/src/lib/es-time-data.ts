@@ -26,6 +26,7 @@ import { loadClientDisplayNameById } from "@/lib/client-display-names";
 import { loadSupervisorScope } from "@/lib/supervisor-client-scope";
 import {
   buildOrgMonthlyBillableHoursRows,
+  countsTowardBillableHoursTotals,
   type OrgBillableLoggerProfile,
   type OrgMonthlyBillableHoursRow,
 } from "@/lib/org-billable-hours-rollup";
@@ -348,13 +349,23 @@ export function currentMonthKey(now: Date = new Date()): string {
 }
 
 type BillableMinutesRow = {
+  client_id: string | null;
   duration_minutes: number;
   flags: Record<string, boolean> | null;
   service_activity_types:
     | { code: string; counts_toward_client_billable?: boolean }
     | { code: string; counts_toward_client_billable?: boolean }[]
     | null;
+  clients: { is_demo: boolean | null } | { is_demo: boolean | null }[] | null;
 };
+
+function clientIsDemoFromEmbed(
+  embed: { is_demo: boolean | null } | { is_demo: boolean | null }[] | null | undefined
+): boolean | null {
+  if (!embed) return null;
+  const row = Array.isArray(embed) ? embed[0] : embed;
+  return row?.is_demo ?? null;
+}
 
 export async function loadBillableMinutesForDateRange(
   admin: ReturnType<typeof createServiceRoleClient>,
@@ -365,7 +376,7 @@ export async function loadBillableMinutesForDateRange(
   const data = await fetchAllPostgrestRows<BillableMinutesRow>(
     admin,
     "es_time_entries",
-    "duration_minutes, flags, service_activity_types ( code, counts_toward_client_billable )",
+    "client_id, duration_minutes, flags, service_activity_types ( code, counts_toward_client_billable ), clients ( is_demo )",
     {
       order: { column: "id", ascending: true },
       applyFilters: (query) =>
@@ -378,11 +389,18 @@ export async function loadBillableMinutesForDateRange(
   );
 
   return sumBillableMinutesFromTimeEntryRows(
-    data.map((row) => ({
-      duration_minutes: row.duration_minutes as number,
-      flags: (row.flags as Record<string, boolean>) ?? {},
-      service_activity_types: row.service_activity_types,
-    }))
+    data
+      .filter((row) =>
+        countsTowardBillableHoursTotals({
+          clientId: row.client_id,
+          clientIsDemo: clientIsDemoFromEmbed(row.clients),
+        })
+      )
+      .map((row) => ({
+        duration_minutes: row.duration_minutes as number,
+        flags: (row.flags as Record<string, boolean>) ?? {},
+        service_activity_types: row.service_activity_types,
+      }))
   );
 }
 
@@ -435,19 +453,21 @@ export function monthLabelFromKey(monthKey: string): string {
 
 type OrgMonthEntryRow = {
   es_user_id: string;
+  client_id: string | null;
   duration_minutes: number;
   flags: Record<string, boolean> | null;
   service_activity_types:
     | { code: string; counts_toward_client_billable?: boolean }
     | { code: string; counts_toward_client_billable?: boolean }[]
     | null;
+  clients: { is_demo: boolean | null } | { is_demo: boolean | null }[] | null;
 };
 
 /**
  * Billable minutes by staff for a calendar month (non-rejected; excludes note-only / case file review).
  * Counts every non-rejected billable entry in the month — including former team members and
  * mis-assigned non-staff loggers — so past months stay complete after deactivation.
- * The live roster is used only to list zero-hour team members.
+ * Demo clients (is_demo) are excluded. The live roster is used only to list zero-hour team members.
  */
 export async function loadOrgMonthlyBillableHoursRollup(
   admin: ReturnType<typeof createServiceRoleClient>,
@@ -459,7 +479,7 @@ export async function loadOrgMonthlyBillableHoursRollup(
   const entries = await fetchAllPostgrestRows<OrgMonthEntryRow>(
     admin,
     "es_time_entries",
-    "es_user_id, duration_minutes, flags, service_activity_types ( code, counts_toward_client_billable )",
+    "es_user_id, client_id, duration_minutes, flags, service_activity_types ( code, counts_toward_client_billable ), clients ( is_demo )",
     {
       order: { column: "id", ascending: true },
       applyFilters: (query) =>
@@ -472,6 +492,14 @@ export async function loadOrgMonthlyBillableHoursRollup(
 
   const minutesById = new Map<string, number>();
   for (const row of entries) {
+    if (
+      !countsTowardBillableHoursTotals({
+        clientId: row.client_id,
+        clientIsDemo: clientIsDemoFromEmbed(row.clients),
+      })
+    ) {
+      continue;
+    }
     const id = row.es_user_id as string;
     const add = sumBillableMinutesFromTimeEntryRows([
       {

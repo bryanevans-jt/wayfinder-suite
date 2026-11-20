@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   buildOrgMonthlyBillableHoursRows,
   classifyOrgBillableLogger,
+  countsTowardBillableHoursTotals,
   formatOrgBillableStaffLabel,
 } from "./org-billable-hours-rollup";
 
@@ -87,5 +88,27 @@ describe("formatOrgBillableStaffLabel", () => {
       formatOrgBillableStaffLabel("", "needs_review"),
       "Unassigned / needs review"
     );
+  });
+});
+
+describe("countsTowardBillableHoursTotals", () => {
+  it("excludes demo clients from billable-hours totals", () => {
+    assert.equal(
+      countsTowardBillableHoursTotals({ clientId: "demo-1", clientIsDemo: true }),
+      false
+    );
+  });
+
+  it("includes production clients and entries with no client", () => {
+    assert.equal(
+      countsTowardBillableHoursTotals({ clientId: "prod-1", clientIsDemo: false }),
+      true
+    );
+    assert.equal(
+      countsTowardBillableHoursTotals({ clientId: "prod-1", clientIsDemo: null }),
+      true
+    );
+    assert.equal(countsTowardBillableHoursTotals({ clientId: null }), true);
+    assert.equal(countsTowardBillableHoursTotals({ clientId: undefined }), true);
   });
 });

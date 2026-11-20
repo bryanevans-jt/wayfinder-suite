@@ -50,6 +50,18 @@ export function formatOrgBillableStaffLabel(
 }
 
 /**
+ * Demo clients (is_demo = true) are excluded from org payroll rollups,
+ * per-staff billable totals, and billable exports. Entries with no client still count.
+ */
+export function countsTowardBillableHoursTotals(opts: {
+  clientId: string | null | undefined;
+  clientIsDemo?: boolean | null;
+}): boolean {
+  if (opts.clientId == null || opts.clientId === "") return true;
+  return opts.clientIsDemo !== true;
+}
+
+/**
  * Build monthly payroll rows: every logger with billable minutes in the month
  * (including deactivated / non-staff), plus live-roster team members at 0 hours.
  */

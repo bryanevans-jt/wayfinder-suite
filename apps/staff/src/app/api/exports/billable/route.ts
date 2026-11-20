@@ -11,6 +11,7 @@ import {
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { loadStaffNameById } from "@/lib/operations-data";
 import { loadClientDisplayNameById } from "@/lib/client-display-names";
+import { countsTowardBillableHoursTotals } from "@/lib/org-billable-hours-rollup";
 import { loadSupervisorScope } from "@/lib/supervisor-client-scope";
 import { NextResponse } from "next/server";
 
@@ -88,12 +89,13 @@ export async function GET(request: Request) {
         | { code: string; name: string }
         | { code: string; name: string }[]
         | null;
+      clients: { is_demo: boolean | null } | { is_demo: boolean | null }[] | null;
     };
 
-    const entries = await fetchAllPostgrestRows<BillableExportRow>(
+    const rawEntries = await fetchAllPostgrestRows<BillableExportRow>(
       admin,
       "es_time_entries",
-      "es_user_id, client_id, service_date, duration_minutes, service_start_at, service_end_at, activity_type_id, service_activity_types(code, name)",
+      "es_user_id, client_id, service_date, duration_minutes, service_start_at, service_end_at, activity_type_id, service_activity_types(code, name), clients ( is_demo )",
       {
         order: { column: "id", ascending: true },
         applyFilters: (query) => {
@@ -109,6 +111,15 @@ export async function GET(request: Request) {
         },
       }
     );
+
+    const entries = rawEntries.filter((e) => {
+      const embed = e.clients;
+      const client = Array.isArray(embed) ? embed[0] : embed;
+      return countsTowardBillableHoursTotals({
+        clientId: e.client_id,
+        clientIsDemo: client?.is_demo ?? null,
+      });
+    });
 
     const esIds = [...new Set(entries.map((e) => e.es_user_id as string))];
     const clientIds = [
