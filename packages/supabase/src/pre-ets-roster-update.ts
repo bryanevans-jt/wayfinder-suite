@@ -1,5 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FinalizeRosterStudentInput } from "./pre-ets-authorization-finalize";
+import { softHoldPreEtsRosterEntries } from "./pre-ets-field-release";
+import { isPreEtsAuthorizationReleasedToField } from "./pre-ets-release";
+import { notifyPreEtsRosterUpdated } from "./pre-ets-roster-released-notify";
 import type { PreEtsYtdWarning } from "./pre-ets-worksheet-import";
 
 export type UpdatePendingRosterResult =
@@ -30,7 +33,7 @@ export async function updatePendingPreEtsRoster(
   const { data: authRow, error: authErr } = await admin
     .from("pre_ets_authorizations")
     .select(
-      "id, auth_type, auth_number, school_id, pre_ets_schools(name, pre_ets_districts(school_year))"
+      "id, auth_type, auth_number, field_released_at, service_month, school_id, pre_ets_schools(name, pre_ets_districts(school_year))"
     )
     .eq("id", input.authorizationId)
     .maybeSingle();
@@ -70,11 +73,13 @@ export async function updatePendingPreEtsRoster(
 
   const { data: existingEntries } = await admin
     .from("pre_ets_roster_entries")
-    .select("id, student_id")
+    .select("id, student_id, removed_at")
     .eq("authorization_id", input.authorizationId);
 
-  const previousStudentIds = new Set(
-    (existingEntries ?? []).map((e) => e.student_id as string)
+  const previousActiveStudentIds = new Set(
+    (existingEntries ?? [])
+      .filter((e) => !e.removed_at)
+      .map((e) => e.student_id as string)
   );
   const keptStudentIds = new Set<string>();
 
@@ -109,6 +114,7 @@ export async function updatePendingPreEtsRoster(
 
     const units = Math.max(0, Math.floor(Number(row.unitsApproved) || 0));
 
+    // Upsert restores soft-held students (clears removed_at).
     await admin.from("pre_ets_roster_entries").upsert(
       {
         authorization_id: input.authorizationId,
@@ -117,26 +123,53 @@ export async function updatePendingPreEtsRoster(
         class_time: row.classTime ?? null,
         not_approved: false,
         list_order: row.listOrder ?? i + 1,
+        removed_at: null,
+        removed_reason: null,
       },
       { onConflict: "authorization_id,student_id" }
     );
   }
 
-  const toRemove = (existingEntries ?? []).filter(
-    (e) => !keptStudentIds.has(e.student_id as string)
+  const toHold = (existingEntries ?? []).filter(
+    (e) => !keptStudentIds.has(e.student_id as string) && !e.removed_at
   );
-  if (toRemove.length > 0) {
-    await admin
-      .from("pre_ets_roster_entries")
-      .delete()
-      .in(
-        "id",
-        toRemove.map((e) => e.id as string)
-      );
+  if (toHold.length > 0) {
+    await softHoldPreEtsRosterEntries(
+      admin,
+      toHold.map((e) => e.id as string),
+      "removed_from_active_roster"
+    );
   }
 
-  const removedStudentIds = toRemove.map((e) => e.student_id as string);
-  const addedStudentIds = [...keptStudentIds].filter((id) => !previousStudentIds.has(id));
+  const removedStudentIds = toHold.map((e) => e.student_id as string);
+  const addedStudentIds = [...keptStudentIds].filter(
+    (id) => !previousActiveStudentIds.has(id)
+  );
+
+  const schoolName = relationOne(
+    authRow.pre_ets_schools as { name: string } | { name: string }[] | null
+  )?.name;
+  if (
+    isPreEtsAuthorizationReleasedToField({
+      auth_number: authRow.auth_number as string | null,
+      auth_type: authRow.auth_type as string,
+      field_released_at: authRow.field_released_at as string | null,
+    }) &&
+    (addedStudentIds.length > 0 || removedStudentIds.length > 0)
+  ) {
+    const parts: string[] = [];
+    if (addedStudentIds.length) parts.push(`${addedStudentIds.length} student(s) added`);
+    if (removedStudentIds.length) {
+      parts.push(`${removedStudentIds.length} student(s) removed from the active roster`);
+    }
+    await notifyPreEtsRosterUpdated(admin, {
+      authorizationId: input.authorizationId,
+      schoolId,
+      schoolLabel: schoolName ?? "School",
+      serviceMonth: String(authRow.service_month ?? ""),
+      changeSummary: parts.join("; ") + ". Open Pre-ETS to review the updated roster.",
+    });
+  }
 
   return {
     ok: true,

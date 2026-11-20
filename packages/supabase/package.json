@@ -107,6 +107,7 @@
     "./pre-ets-staff-assignments": "./src/pre-ets-staff-assignments.ts",
     "./pre-ets-roster-filename": "./src/pre-ets-roster-filename.ts",
     "./pre-ets-release": "./src/pre-ets-release.ts",
+    "./pre-ets-field-release": "./src/pre-ets-field-release.ts",
     "./pre-ets-supervisor-scope": "./src/pre-ets-supervisor-scope.ts",
     "./pre-ets-upload-scope": "./src/pre-ets-upload-scope.ts",
     "./pre-ets-school-pipeline": "./src/pre-ets-school-pipeline.ts",

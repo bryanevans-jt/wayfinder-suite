@@ -41,6 +41,10 @@
       "schedule": "0 13,14,16,17,20,21 * * *"
     },
     {
+      "path": "/api/cron/pre-ets-roster-release",
+      "schedule": "0 13,14,15 * * *"
+    },
+    {
       "path": "/api/cron/intake-appointment-reminders",
       "schedule": "*/15 * * * *"
     },

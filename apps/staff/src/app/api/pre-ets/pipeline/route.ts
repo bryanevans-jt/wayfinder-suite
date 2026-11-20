@@ -79,6 +79,7 @@ export async function GET(request: Request) {
         isPreEtsAuthorizationReleasedToField({
           auth_number: row.authNumber,
           auth_type: row.authType ?? "pending",
+          field_released_at: row.fieldReleasedAt,
         })
       );
     }

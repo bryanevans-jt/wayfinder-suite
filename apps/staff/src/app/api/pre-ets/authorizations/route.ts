@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
+import { loadBlockedPreEtsServiceMonths } from "@wayfinder/supabase/pre-ets-field-release";
 import {
   filterAuthorizationsForFieldGate,
   isPreEtsAuthorizationVisibleToRole,
@@ -26,13 +27,16 @@ export async function GET(request: Request) {
   try {
     const admin = createServiceRoleClient();
 
+    const blockedMonths = await loadBlockedPreEtsServiceMonths(admin);
+
     if (studentId) {
       const { data: entries } = await admin
         .from("pre_ets_roster_entries")
         .select(
-          "id, units_approved, authorization_id, pre_ets_authorizations(id, auth_number, auth_type, service_code, service_month, service_label, school_id, pre_ets_schools(name))"
+          "id, units_approved, authorization_id, pre_ets_authorizations(id, auth_number, auth_type, field_released_at, service_code, service_month, service_label, school_id, pre_ets_schools(name))"
         )
-        .eq("student_id", studentId);
+        .eq("student_id", studentId)
+        .is("removed_at", null);
 
       const { data: ytd } = await admin
         .from("pre_ets_student_ytd_units")
@@ -44,11 +48,26 @@ export async function GET(request: Request) {
       const visibleEntries = gate
         ? (entries ?? []).filter((entry) => {
             const raw = entry.pre_ets_authorizations as
-              | { auth_number: string | null; auth_type: string }
-              | { auth_number: string | null; auth_type: string }[]
+              | {
+                  auth_number: string | null;
+                  auth_type: string;
+                  field_released_at?: string | null;
+                  service_month?: string | null;
+                }
+              | {
+                  auth_number: string | null;
+                  auth_type: string;
+                  field_released_at?: string | null;
+                  service_month?: string | null;
+                }[]
               | null;
             const row = Array.isArray(raw) ? raw[0] : raw;
-            return isPreEtsAuthorizationVisibleToRole(row, auth.role, auth.settings);
+            return isPreEtsAuthorizationVisibleToRole(
+              row,
+              auth.role,
+              auth.settings,
+              blockedMonths
+            );
           })
         : (entries ?? []);
 
@@ -67,7 +86,7 @@ export async function GET(request: Request) {
     let query = admin
       .from("pre_ets_authorizations")
       .select(
-        "id, auth_number, auth_type, service_code, service_label, service_month, status, school_id, pre_ets_schools(name), pre_ets_program_groups(group_name, instructor_name, class_time)"
+        "id, auth_number, auth_type, field_released_at, service_code, service_label, service_month, status, school_id, pre_ets_schools(name), pre_ets_program_groups(group_name, instructor_name, class_time)"
       )
       .order("service_month", { ascending: false })
       .limit(100);
@@ -89,7 +108,11 @@ export async function GET(request: Request) {
     }
 
     const gate = preEtsReleasedAuthorizationGateApplies(auth.role, auth.settings);
-    const authorizations = filterAuthorizationsForFieldGate(data ?? [], gate);
+    const authorizations = filterAuthorizationsForFieldGate(
+      data ?? [],
+      gate,
+      blockedMonths
+    );
 
     return NextResponse.json({ authorizations });
   } catch (err) {

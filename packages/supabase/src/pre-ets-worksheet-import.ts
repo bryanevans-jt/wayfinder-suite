@@ -31,6 +31,12 @@ import {
   worksheetGroupMappingMatchesParsedSchool,
 } from "./pre-ets-worksheet-group-mapping";
 import { fetchAllPostgrestRowsByIn } from "./postgrest-fetch-all";
+import {
+  maybeAutoReleaseServiceMonthAfterUpload,
+  softHoldPreEtsRosterEntries,
+} from "./pre-ets-field-release";
+import { isPreEtsAuthorizationReleasedToField } from "./pre-ets-release";
+import { notifyPreEtsRosterUpdated } from "./pre-ets-roster-released-notify";
 
 export type PreEtsYtdWarning = {
   participantId: string;
@@ -364,8 +370,20 @@ export async function commitWorksheetImport(
     const officeId = officeRow.id as string;
 
     for (const group of office.groups) {
+      // School + PID + name required; skip rows without PID or name; skip groups with zero PIDs.
+      if (!group.schoolName.trim()) {
+        skippedEmptyGroups.push({
+          schoolName: group.schoolName || "(missing school)",
+          groupName: group.groupName,
+          headerRaw: group.headerRaw,
+        });
+        continue;
+      }
       const groupStudents = group.students.filter(
-        (s) => !s.notApproved && s.participantId.trim().length > 0
+        (s) =>
+          !s.notApproved &&
+          s.participantId.trim().length > 0 &&
+          s.studentName.trim().length > 0
       );
       if (groupStudents.length === 0) {
         skippedEmptyGroups.push({
@@ -607,6 +625,8 @@ export async function commitWorksheetImport(
             billed_cents: number | null;
             not_approved: boolean;
             list_order: number;
+            removed_at: null;
+            removed_reason: null;
           }
         >();
         for (const row of students) {
@@ -642,6 +662,8 @@ export async function commitWorksheetImport(
             billed_cents: billedCents,
             not_approved: false,
             list_order: row.listOrder,
+            removed_at: null,
+            removed_reason: null,
           });
         }
 
@@ -664,6 +686,42 @@ export async function commitWorksheetImport(
               if (!error) authMatchStats.rosterEntriesUpdated++;
             }
           }
+        }
+
+        // Soft-hold students dropped from the spreadsheet for this authorization.
+        const { data: existingRoster } = await admin
+          .from("pre_ets_roster_entries")
+          .select("id, student_id, removed_at")
+          .eq("authorization_id", authId);
+        const keptIds = new Set(rosterByStudent.keys());
+        const dropIds = (existingRoster ?? [])
+          .filter((e) => !keptIds.has(e.student_id as string) && !e.removed_at)
+          .map((e) => e.id as string);
+        if (dropIds.length > 0) {
+          await softHoldPreEtsRosterEntries(admin, dropIds, "removed_from_worksheet");
+        }
+
+        const { data: authMeta } = await admin
+          .from("pre_ets_authorizations")
+          .select("auth_number, auth_type, field_released_at, service_code")
+          .eq("id", authId)
+          .maybeSingle();
+        if (
+          authMeta &&
+          isPreEtsAuthorizationReleasedToField({
+            auth_number: authMeta.auth_number as string | null,
+            auth_type: authMeta.auth_type as string,
+            field_released_at: authMeta.field_released_at as string | null,
+          }) &&
+          dropIds.length > 0
+        ) {
+          await notifyPreEtsRosterUpdated(admin, {
+            authorizationId: authId,
+            schoolId,
+            schoolLabel: schoolName,
+            serviceMonth: parsed.serviceMonth,
+            changeSummary: `${dropIds.length} student(s) removed from the active roster after spreadsheet update. Open Pre-ETS to review.`,
+          });
         }
 
         if (!first.authNumber) {
@@ -721,6 +779,16 @@ export async function commitWorksheetImport(
       commit_warnings: commitWarnings,
     })
     .eq("id", importId);
+
+  // Late uploads on/after the 20th auto-release next-month rosters to instructors.
+  try {
+    await maybeAutoReleaseServiceMonthAfterUpload(admin, {
+      serviceMonth: parsed.serviceMonth,
+      actorUserId: userId,
+    });
+  } catch {
+    // Release must not block a successful commit.
+  }
 
   return {
     ok: true,

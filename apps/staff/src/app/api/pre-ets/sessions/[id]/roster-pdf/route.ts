@@ -4,6 +4,7 @@ import {
   buildPreEtsRosterAttachmentFilename,
   buildPreEtsRosterFileLabel,
 } from "@wayfinder/supabase/pre-ets-roster-filename";
+import { formatPreEtsAuthNumberForPdf } from "@wayfinder/supabase/pre-ets-release";
 import { loadPreEtsSettings, resolvePreEtsServiceLabel } from "@wayfinder/supabase/pre-ets-settings";
 import { buildPreEtsRosterPdf } from "@/lib/pre-ets-roster-export";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
@@ -71,6 +72,7 @@ export async function GET(
       .select("list_order, pre_ets_students(participant_id, full_name)")
       .eq("authorization_id", authId)
       .eq("not_approved", false)
+      .is("removed_at", null)
       .order("list_order", { ascending: true });
 
     const students =
@@ -96,7 +98,7 @@ export async function GET(
     const topic = resolvePreEtsServiceLabel(serviceCode, authRow?.service_label, settings);
     const pdfBytes = await buildPreEtsRosterPdf(
       {
-        authorizationNumber: authRow?.auth_number ?? "",
+        authorizationNumber: formatPreEtsAuthNumberForPdf(authRow?.auth_number),
         authType,
         sessionDate: effectiveSessionDate,
         schoolName: school?.name ?? "",

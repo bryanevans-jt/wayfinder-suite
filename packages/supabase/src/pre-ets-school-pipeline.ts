@@ -26,6 +26,7 @@ export type PreEtsPipelineRow = {
   studentCount: number;
   authNumber: string | null;
   authType: string | null;
+  fieldReleasedAt: string | null;
   serviceCode: string | null;
   instructorName: string | null;
   classTime: string | null;
@@ -48,7 +49,11 @@ export function pickRepresentativePreEtsAuthorization<
 }
 
 function statusFromAuth(
-  auth: { auth_number: string | null; auth_type: string } | null,
+  auth: {
+    auth_number: string | null;
+    auth_type: string;
+    field_released_at?: string | null;
+  } | null,
   studentCount: number
 ): PreEtsPipelineStatus {
   if (!auth || studentCount === 0) {
@@ -114,6 +119,7 @@ export async function loadPreEtsSchoolPipeline(
           id: string;
           auth_number: string | null;
           auth_type: string;
+          field_released_at: string | null;
           service_code: string;
           worksheet_header_key: string | null;
         }
@@ -121,6 +127,7 @@ export async function loadPreEtsSchoolPipeline(
           id: string;
           auth_number: string | null;
           auth_type: string;
+          field_released_at: string | null;
           service_code: string;
           worksheet_header_key: string | null;
         }[]
@@ -130,7 +137,7 @@ export async function loadPreEtsSchoolPipeline(
   const groups = await fetchAllPostgrestRowsByIn<PipelineGroup>(
     admin,
     "pre_ets_program_groups",
-    "id, school_id, group_name, instructor_name, class_time, service_code, hidden_at, merged_into_program_group_id, header_raw, worksheet_header_key, pre_ets_authorizations(id, auth_number, auth_type, service_code, worksheet_header_key)",
+    "id, school_id, group_name, instructor_name, class_time, service_code, hidden_at, merged_into_program_group_id, header_raw, worksheet_header_key, pre_ets_authorizations(id, auth_number, auth_type, field_released_at, service_code, worksheet_header_key)",
     "school_id",
     schoolIds,
     {
@@ -149,6 +156,7 @@ export async function loadPreEtsSchoolPipeline(
       id: string;
       auth_number: string | null;
       auth_type: string;
+      field_released_at: string | null;
       service_code: string;
       worksheet_header_key: string | null;
     } | null
@@ -248,6 +256,7 @@ export async function loadPreEtsSchoolPipeline(
         studentCount: 0,
         authNumber: null,
         authType: null,
+        fieldReleasedAt: null,
         serviceCode: null,
         instructorName: null,
         classTime: null,
@@ -277,6 +286,7 @@ export async function loadPreEtsSchoolPipeline(
         studentCount,
         authNumber: auth?.auth_number ?? null,
         authType: auth?.auth_type ?? null,
+        fieldReleasedAt: auth?.field_released_at ?? null,
         serviceCode: (auth?.service_code as string) ?? (group.service_code as string) ?? null,
         instructorName: (group.instructor_name as string | null) ?? null,
         classTime: (group.class_time as string | null) ?? null,

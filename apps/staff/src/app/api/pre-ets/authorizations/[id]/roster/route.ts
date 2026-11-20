@@ -2,6 +2,7 @@ import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
 import { updatePreEtsAuthorizationAuthNumber } from "@wayfinder/supabase/pre-ets-authorization-auth-number";
 import { insertPreEtsAuthorizationEvent } from "@wayfinder/supabase/pre-ets-authorization-events";
+import { loadBlockedPreEtsServiceMonths } from "@wayfinder/supabase/pre-ets-field-release";
 import { refreshPreEtsDraftPacketTotals } from "@wayfinder/supabase/pre-ets-invoice-packet";
 import { updatePendingPreEtsRoster } from "@wayfinder/supabase/pre-ets-roster-update";
 import {
@@ -32,7 +33,7 @@ export async function GET(
     const { data: authRow } = await admin
       .from("pre_ets_authorizations")
       .select(
-        "auth_number, auth_type, service_code, service_label, service_month, pre_ets_schools(name), pre_ets_program_groups(group_name)"
+        "auth_number, auth_type, field_released_at, service_code, service_label, service_month, pre_ets_schools(name), pre_ets_program_groups(group_name)"
       )
       .eq("id", id)
       .maybeSingle();
@@ -51,6 +52,7 @@ export async function GET(
       )
       .eq("authorization_id", id)
       .eq("not_approved", false)
+      .is("removed_at", null)
       .order("list_order", { ascending: true });
 
     if (error) {
@@ -60,22 +62,26 @@ export async function GET(
       });
     }
 
+    const blockedMonths = await loadBlockedPreEtsServiceMonths(admin);
     if (
       authRow &&
       !isPreEtsAuthorizationVisibleToRole(
         {
           auth_number: authRow.auth_number as string | null,
           auth_type: authRow.auth_type as string,
+          field_released_at: authRow.field_released_at as string | null,
+          service_month: authRow.service_month as string | null,
         },
         auth.role,
-        auth.settings
+        auth.settings,
+        blockedMonths
       )
     ) {
       return NextResponse.json(
         {
           error: auth.settings.worksheet_testing_override_enabled
-            ? "This test roster is visible to Admin and Super Admin only until authorization numbers are finalized."
-            : "This roster is not available until an authorization number is entered.",
+            ? "This test roster is visible to Admin and Super Admin only until it is released to instructors."
+            : "This roster is not available until it is released to instructors.",
         },
         { status: 403 }
       );

@@ -77,7 +77,8 @@ export async function generatePreEtsRosterPdf(input: RosterPdfInput): Promise<Ui
 
   const authLabel =
     input.authType === "individual" ? "Individual Authorization #" : "Group Authorization #";
-  draw(`${authLabel}: ${input.authorizationNumber || "_______________"}`);
+  // Prefer caller-supplied spacer (20 spaces) when auth number is blank.
+  draw(`${authLabel}: ${input.authorizationNumber || " ".repeat(20)}`);
   draw(`Date: ${input.sessionDate || "_______________"}`);
   draw(
     `School: ${formatPreEtsRosterSchoolDisplayName(input.schoolName, input.groupName)}`

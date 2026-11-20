@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { formatPreEtsAuthNumberForPdf } from "@wayfinder/supabase/pre-ets-release";
 import { resolvePreEtsServiceLabel, type PreEtsSettingsRow } from "@wayfinder/supabase/pre-ets-settings";
 import { buildPreEtsRosterPdf } from "@/lib/pre-ets-roster-export";
 import { generatePreEtsRosterPdf, type RosterPdfInput } from "@/lib/pre-ets-roster-pdf";
@@ -66,6 +67,7 @@ export async function loadSessionRosterPdfInput(
     .select("student_id, list_order, pre_ets_students(id, participant_id, full_name)")
     .eq("authorization_id", authId)
     .eq("not_approved", false)
+    .is("removed_at", null)
     .order("list_order", { ascending: true });
 
   const students =
@@ -93,7 +95,7 @@ export async function loadSessionRosterPdfInput(
     authType === "individual" && students.length > 0 ? [students[0]] : students;
 
   return {
-    authorizationNumber: authRow?.auth_number ?? "",
+    authorizationNumber: formatPreEtsAuthNumberForPdf(authRow?.auth_number),
     authType,
     sessionDate:
       opts?.sessionDateOverride ??

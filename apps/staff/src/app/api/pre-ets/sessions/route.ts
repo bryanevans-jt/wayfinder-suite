@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
+import { loadBlockedPreEtsServiceMonths } from "@wayfinder/supabase/pre-ets-field-release";
 import { seedSessionAttendance } from "@wayfinder/supabase/pre-ets-session-attendance";
 import {
   loadPreEtsAssignedSchoolIds,
@@ -27,7 +28,7 @@ export async function GET(request: Request) {
     let query = admin
       .from("pre_ets_sessions")
       .select(
-        "id, session_date, start_time, end_time, status, instructor_name, primary_instructor_user_id, co_instructor_user_id, authorization_id, school_id, signed_roster_drive_file_id, signed_roster_drive_file_name, signed_roster_uploaded_at, documentation_completed_at, pre_ets_schools(name), pre_ets_authorizations(auth_number, auth_type, service_code, service_label), pre_ets_activity_reports(status)"
+        "id, session_date, start_time, end_time, status, instructor_name, primary_instructor_user_id, co_instructor_user_id, authorization_id, school_id, signed_roster_drive_file_id, signed_roster_drive_file_name, signed_roster_uploaded_at, documentation_completed_at, pre_ets_schools(name), pre_ets_authorizations(auth_number, auth_type, field_released_at, service_month, service_code, service_label), pre_ets_activity_reports(status)"
       )
       .order("session_date", { ascending: true })
       .limit(200);
@@ -49,7 +50,8 @@ export async function GET(request: Request) {
     }
 
     const gate = preEtsReleasedAuthorizationGateApplies(auth.role, auth.settings);
-    const sessions = filterSessionsForFieldGate(data ?? [], gate);
+    const blockedMonths = await loadBlockedPreEtsServiceMonths(admin);
+    const sessions = filterSessionsForFieldGate(data ?? [], gate, blockedMonths);
 
     return NextResponse.json({ sessions });
   } catch (err) {

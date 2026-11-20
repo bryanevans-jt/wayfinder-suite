@@ -1,5 +1,7 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
+import { isPreEtsAuthorizationReleasedToField } from "@wayfinder/supabase/pre-ets-release";
+import { notifyPreEtsRosterUpdated } from "@wayfinder/supabase/pre-ets-roster-released-notify";
 import {
   loadPreEtsSettings,
   resolvePreEtsServiceLabel,
@@ -7,6 +9,11 @@ import {
 } from "@wayfinder/supabase/pre-ets-settings";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
+
+function relationOne<T>(raw: T | T[] | null | undefined): T | null {
+  if (!raw) return null;
+  return Array.isArray(raw) ? (raw[0] ?? null) : raw;
+}
 
 /** Accounts / Admin / Super Admin — update GVRA service code on a roster authorization. */
 export async function PATCH(
@@ -36,13 +43,19 @@ export async function PATCH(
 
     const { data: row, error: findErr } = await admin
       .from("pre_ets_authorizations")
-      .select("id")
+      .select(
+        "id, service_code, auth_number, auth_type, field_released_at, service_month, school_id, pre_ets_schools(name)"
+      )
       .eq("id", id)
       .maybeSingle();
 
     if (findErr || !row) {
       return NextResponse.json({ error: "Authorization not found." }, { status: 404 });
     }
+
+    const previousCode = sanitizePreEtsServiceCodeText(
+      (row.service_code as string) || "UNKNOWN"
+    );
 
     const { error } = await admin
       .from("pre_ets_authorizations")
@@ -53,6 +66,26 @@ export async function PATCH(
       return respondWithLoggedError("staff", route, error, {
         userId: auth.userId,
         userRole: auth.role,
+      });
+    }
+
+    if (
+      previousCode !== serviceCode &&
+      isPreEtsAuthorizationReleasedToField({
+        auth_number: row.auth_number as string | null,
+        auth_type: row.auth_type as string,
+        field_released_at: row.field_released_at as string | null,
+      })
+    ) {
+      const school = relationOne(
+        row.pre_ets_schools as { name: string } | { name: string }[] | null
+      );
+      await notifyPreEtsRosterUpdated(admin, {
+        authorizationId: id,
+        schoolId: row.school_id as string,
+        schoolLabel: school?.name ?? "School",
+        serviceMonth: String(row.service_month ?? ""),
+        changeSummary: `Service code changed to ${serviceCode}. Open Pre-ETS to review.`,
       });
     }
 

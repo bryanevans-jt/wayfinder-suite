@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { notifyUser } from "./notify-user";
 import { canDeliverPreEtsSessions, loadPreEtsSettings } from "./pre-ets-settings";
 
-async function loadSchoolFieldRecipients(
+export async function loadSchoolFieldRecipients(
   admin: SupabaseClient,
   schoolId: string
 ): Promise<string[]> {
@@ -53,7 +53,7 @@ export async function notifyPreEtsRosterReleased(
     authorizationId: string;
     schoolId: string;
     schoolLabel: string;
-    authNumber: string;
+    authNumber: string | null;
     serviceMonth: string;
   }
 ): Promise<void> {
@@ -62,7 +62,10 @@ export async function notifyPreEtsRosterReleased(
 
   const month = input.serviceMonth.slice(0, 7);
   const title = `Roster ready: ${input.schoolLabel}`;
-  const body = `Authorization ${input.authNumber} is on file. You can schedule sessions and print sign-in rosters in Pre-ETS.`;
+  const authBit = (input.authNumber ?? "").trim();
+  const body = authBit
+    ? `Authorization ${authBit} is on file. You can schedule sessions and print sign-in rosters in Pre-ETS.`
+    : `Next-month roster is available (authorization pending). You can schedule sessions and print sign-in rosters; the A&I number will appear when Accounts adds it.`;
   const link_path = `/dashboard/pre-ets?tab=authorizations&month=${encodeURIComponent(month)}`;
 
   await Promise.all(
@@ -77,8 +80,47 @@ export async function notifyPreEtsRosterReleased(
         metadata: {
           authorizationId: input.authorizationId,
           schoolId: input.schoolId,
-          authNumber: input.authNumber,
+          authNumber: authBit || null,
           serviceMonth: input.serviceMonth,
+        },
+      })
+    )
+  );
+}
+
+/** Notify field staff that an already-released roster changed (students / service code / auth). */
+export async function notifyPreEtsRosterUpdated(
+  admin: SupabaseClient,
+  input: {
+    authorizationId: string;
+    schoolId: string;
+    schoolLabel: string;
+    serviceMonth: string;
+    changeSummary: string;
+  }
+): Promise<void> {
+  const recipientIds = await loadSchoolFieldRecipients(admin, input.schoolId);
+  if (recipientIds.length === 0) return;
+
+  const month = input.serviceMonth.slice(0, 7);
+  const title = `Roster updated: ${input.schoolLabel}`;
+  const body = input.changeSummary;
+  const link_path = `/dashboard/pre-ets?tab=authorizations&month=${encodeURIComponent(month)}`;
+
+  await Promise.all(
+    recipientIds.map((userId) =>
+      notifyUser(admin, {
+        userId,
+        app: "staff",
+        kind: "pre_ets_roster_updated",
+        title,
+        body,
+        link_path,
+        metadata: {
+          authorizationId: input.authorizationId,
+          schoolId: input.schoolId,
+          serviceMonth: input.serviceMonth,
+          changeSummary: input.changeSummary,
         },
       })
     )

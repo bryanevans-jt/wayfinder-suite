@@ -5,7 +5,12 @@ import {
   resolvePreEtsServiceLabel,
   sanitizePreEtsServiceCodeText,
 } from "./pre-ets-settings";
-import { notifyPreEtsRosterReleased } from "./pre-ets-roster-released-notify";
+import { softHoldPreEtsRosterEntries } from "./pre-ets-field-release";
+import { isPreEtsAuthorizationReleasedToField } from "./pre-ets-release";
+import {
+  notifyPreEtsRosterReleased,
+  notifyPreEtsRosterUpdated,
+} from "./pre-ets-roster-released-notify";
 import type { PreEtsYtdWarning } from "./pre-ets-worksheet-import";
 
 export type FinalizeRosterStudentInput = {
@@ -48,7 +53,7 @@ export async function finalizePreEtsAuthorization(
   const { data: authRow, error: authErr } = await admin
     .from("pre_ets_authorizations")
     .select(
-      "id, auth_type, auth_number, service_code, service_label, service_month, school_id, program_group_id, pre_ets_schools(name, pre_ets_districts(school_year))"
+      "id, auth_type, auth_number, field_released_at, service_code, service_label, service_month, school_id, program_group_id, pre_ets_schools(name, pre_ets_districts(school_year))"
     )
     .eq("id", input.authorizationId)
     .maybeSingle();
@@ -174,6 +179,8 @@ export async function finalizePreEtsAuthorization(
         class_time: row.classTime ?? null,
         not_approved: false,
         list_order: row.listOrder ?? i + 1,
+        removed_at: null,
+        removed_reason: null,
       },
       { onConflict: "authorization_id,student_id" }
     );
@@ -181,21 +188,28 @@ export async function finalizePreEtsAuthorization(
 
   const { data: existingEntries } = await admin
     .from("pre_ets_roster_entries")
-    .select("id, student_id")
+    .select("id, student_id, removed_at")
     .eq("authorization_id", input.authorizationId);
 
-  const toRemove = (existingEntries ?? []).filter(
-    (e) => !keptStudentIds.has(e.student_id as string)
+  const toHold = (existingEntries ?? []).filter(
+    (e) => !keptStudentIds.has(e.student_id as string) && !e.removed_at
   );
-  if (toRemove.length > 0) {
-    await admin
-      .from("pre_ets_roster_entries")
-      .delete()
-      .in(
-        "id",
-        toRemove.map((e) => e.id as string)
-      );
+  if (toHold.length > 0) {
+    await softHoldPreEtsRosterEntries(
+      admin,
+      toHold.map((e) => e.id as string),
+      "removed_on_finalize"
+    );
   }
+
+  const previousServiceCode = sanitizePreEtsServiceCodeText(
+    (authRow.service_code as string) || "UNKNOWN"
+  );
+  const wasReleased = isPreEtsAuthorizationReleasedToField({
+    auth_number: authRow.auth_number as string | null,
+    auth_type: authRow.auth_type as string,
+    field_released_at: authRow.field_released_at as string | null,
+  });
 
   const { error: updErr } = await admin
     .from("pre_ets_authorizations")
@@ -204,6 +218,12 @@ export async function finalizePreEtsAuthorization(
       auth_type: authType,
       service_code: serviceCode,
       service_label: serviceLabel,
+      ...(wasReleased
+        ? {}
+        : {
+            field_released_at: new Date().toISOString(),
+            field_released_by: input.actorUserId,
+          }),
     })
     .eq("id", input.authorizationId);
 
@@ -212,13 +232,30 @@ export async function finalizePreEtsAuthorization(
   }
 
   const schoolLabel = school?.name ?? "School";
-  await notifyPreEtsRosterReleased(admin, {
-    authorizationId: input.authorizationId,
-    schoolId,
-    schoolLabel,
-    authNumber,
-    serviceMonth,
-  });
+  if (wasReleased) {
+    const parts: string[] = ["Authorization number was added or updated"];
+    if (previousServiceCode !== serviceCode) {
+      parts.push(`service code changed to ${serviceCode}`);
+    }
+    if (toHold.length > 0) {
+      parts.push(`${toHold.length} student(s) removed from the active roster`);
+    }
+    await notifyPreEtsRosterUpdated(admin, {
+      authorizationId: input.authorizationId,
+      schoolId,
+      schoolLabel,
+      serviceMonth,
+      changeSummary: parts.join("; ") + ". Open Pre-ETS to review.",
+    });
+  } else {
+    await notifyPreEtsRosterReleased(admin, {
+      authorizationId: input.authorizationId,
+      schoolId,
+      schoolLabel,
+      authNumber,
+      serviceMonth,
+    });
+  }
 
   return { ok: true, authorizationId: input.authorizationId, ytdWarnings };
 }

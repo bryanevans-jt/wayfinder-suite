@@ -208,7 +208,7 @@ export async function loadProgramGroupRosterCounts(
       authIds,
       {
         applyFilters: (query) =>
-          query.eq("not_approved", false),
+          query.eq("not_approved", false).is("removed_at", null),
       }
     ),
     loadWorksheetParticipantAllowlistsForProgramGroups(admin, ids),
@@ -280,6 +280,7 @@ export async function loadEligibleRosterStudentsForProgramGroup(
     not_approved: boolean;
     pre_ets_students: { participant_id: string | null; full_name: string | null } | null;
   }>(admin, "pre_ets_roster_entries", "list_order, not_approved, pre_ets_students(participant_id, full_name)", "authorization_id", authIds, {
+    applyFilters: (query) => query.eq("not_approved", false).is("removed_at", null),
     order: { column: "list_order", ascending: true },
   });
 
@@ -322,7 +323,7 @@ export async function loadEligibleRosterStudentsForAuthorization(
     not_approved: boolean;
     pre_ets_students: { participant_id: string | null; full_name: string | null } | null;
   }>(admin, "pre_ets_roster_entries", "list_order, not_approved, pre_ets_students(participant_id, full_name)", {
-    applyFilters: (q) => q.eq("authorization_id", id),
+    applyFilters: (q) => q.eq("authorization_id", id).eq("not_approved", false).is("removed_at", null),
     order: { column: "list_order", ascending: true },
   });
 
@@ -353,7 +354,8 @@ export async function countRosterStudentsForAuthorization(
     .from("pre_ets_roster_entries")
     .select("id", { count: "exact", head: true })
     .eq("authorization_id", authorizationId)
-    .eq("not_approved", false);
+    .eq("not_approved", false)
+    .is("removed_at", null);
 
   if (error) return 0;
   return count ?? 0;
@@ -389,7 +391,7 @@ export async function loadEligibleRosterCountsForAuthorizations(
     ids,
     {
       applyFilters: (query) =>
-        query.eq("not_approved", false),
+        query.eq("not_approved", false).is("removed_at", null),
     }
   );
   for (const entry of entries) {

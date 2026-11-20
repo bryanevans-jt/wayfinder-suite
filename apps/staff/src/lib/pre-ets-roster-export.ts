@@ -1,4 +1,5 @@
 import { formatPreEtsRosterSchoolDisplayName } from "@wayfinder/supabase/pre-ets-roster-filename";
+import { formatPreEtsAuthNumberForPdf } from "@wayfinder/supabase/pre-ets-release";
 import type { PreEtsSettingsRow } from "@wayfinder/supabase/pre-ets-settings";
 import { fillGoogleDocTemplatePdf } from "@/lib/pre-ets-google-doc";
 import { splitPreEtsStudentName } from "@/lib/pre-ets-google-doc-roster-table";
@@ -10,9 +11,10 @@ import {
 const MAX_ROSTER_TEMPLATE_ROWS = 30;
 
 export function rosterPdfPlaceholders(input: RosterPdfInput): Record<string, string> {
+  const authNumber = formatPreEtsAuthNumberForPdf(input.authorizationNumber);
   const placeholders: Record<string, string> = {
-    AuthorizationNumber: input.authorizationNumber,
-    AuthNumber: input.authorizationNumber,
+    AuthorizationNumber: authNumber,
+    AuthNumber: authNumber,
     AuthType: input.authType === "individual" ? "Individual" : "Group",
     SessionDate: input.sessionDate ?? "",
     SchoolName: formatPreEtsRosterSchoolDisplayName(input.schoolName, input.groupName),

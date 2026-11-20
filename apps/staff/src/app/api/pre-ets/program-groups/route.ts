@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
+import { loadBlockedPreEtsServiceMonths } from "@wayfinder/supabase/pre-ets-field-release";
 import {
   filterProgramGroupsForFieldGate,
   preEtsReleasedAuthorizationGateApplies,
@@ -33,7 +34,7 @@ export async function GET(request: Request) {
     let query = admin
       .from("pre_ets_program_groups")
       .select(
-        "id, group_name, frequency, instructor_name, class_time, service_code, service_label, service_month, school_id, hidden_at, pre_ets_schools(name), pre_ets_authorizations(id, auth_number, auth_type, service_code)"
+        "id, group_name, frequency, instructor_name, class_time, service_code, service_label, service_month, school_id, hidden_at, pre_ets_schools(name), pre_ets_authorizations(id, auth_number, auth_type, field_released_at, service_month, service_code)"
       )
       .is("hidden_at", null)
       .order("service_month", { ascending: false })
@@ -55,7 +56,8 @@ export async function GET(request: Request) {
     }
 
     const gate = preEtsReleasedAuthorizationGateApplies(auth.role, auth.settings);
-    const groups = filterProgramGroupsForFieldGate(data ?? [], gate);
+    const blockedMonths = await loadBlockedPreEtsServiceMonths(admin);
+    const groups = filterProgramGroupsForFieldGate(data ?? [], gate, blockedMonths);
 
     return NextResponse.json({ groups });
   } catch (err) {

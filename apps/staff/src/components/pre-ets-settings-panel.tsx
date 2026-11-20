@@ -96,6 +96,10 @@ export function PreEtsSettingsPanel() {
   const [resetClearClassSetup, setResetClearClassSetup] = useState(false);
   const [resetBusy, setResetBusy] = useState(false);
   const [resetMessage, setResetMessage] = useState<string | null>(null);
+  const [blockedMonths, setBlockedMonths] = useState<string[]>([]);
+  const [blockMonthInput, setBlockMonthInput] = useState("");
+  const [blockBusy, setBlockBusy] = useState(false);
+  const [blockMessage, setBlockMessage] = useState<string | null>(null);
 
   async function testDriveFolder(folderId: string | null) {
     setDriveTestMessage(null);
@@ -114,6 +118,41 @@ export function PreEtsSettingsPanel() {
     );
   }
 
+  async function loadMonthBlocks() {
+    const res = await fetch("/api/admin/pre-ets-month-blocks");
+    if (!res.ok) return;
+    const data = (await res.json()) as {
+      activeServiceMonths?: string[];
+      suggestedServiceMonth?: string;
+    };
+    setBlockedMonths(data.activeServiceMonths ?? []);
+    if (data.suggestedServiceMonth) {
+      setBlockMonthInput(data.suggestedServiceMonth.slice(0, 7));
+    }
+  }
+
+  async function setMonthBlock(action: "block" | "unblock", serviceMonth: string) {
+    setBlockBusy(true);
+    setBlockMessage(null);
+    const res = await fetch("/api/admin/pre-ets-month-blocks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, serviceMonth }),
+    });
+    const data = (await res.json()) as { error?: string };
+    setBlockBusy(false);
+    if (!res.ok) {
+      setBlockMessage(data.error ?? "Could not update month block.");
+      return;
+    }
+    setBlockMessage(
+      action === "block"
+        ? `Blocked ${serviceMonth.slice(0, 7)} from instructor view.`
+        : `Unblocked ${serviceMonth.slice(0, 7)}.`
+    );
+    await loadMonthBlocks();
+  }
+
   useEffect(() => {
     void (async () => {
       const res = await fetch("/api/admin/pre-ets-settings");
@@ -128,6 +167,7 @@ export function PreEtsSettingsPanel() {
         );
         setRolloutRoles(data.rolloutRoles ?? []);
       }
+      await loadMonthBlocks();
     })();
   }, []);
 
@@ -227,6 +267,57 @@ export function PreEtsSettingsPanel() {
             onChange={(e) => setSettings({ ...settings, school_year: e.target.value })}
           />
         </label>
+      </section>
+
+      <section className="rounded-xl border border-neutral-200 bg-white p-5">
+        <h2 className="text-lg font-semibold text-brand-black">Instructor month release block</h2>
+        <p className="mt-1 text-sm text-brand-black/65">
+          Super Admin kill switch for the month about to go out (or that just went out). While
+          blocked, instructors cannot see that service month&apos;s rosters or sessions. Accounts
+          and Admin can still upload and edit.
+        </p>
+        <div className="mt-4 flex flex-wrap items-end gap-2">
+          <label className="block text-sm">
+            <span className="font-medium">Service month</span>
+            <input
+              type="month"
+              className="mt-1 block rounded-lg border border-neutral-300 px-3 py-2"
+              value={blockMonthInput}
+              onChange={(e) => setBlockMonthInput(e.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            disabled={blockBusy || !blockMonthInput}
+            className="rounded-lg bg-brand-black px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            onClick={() => void setMonthBlock("block", blockMonthInput)}
+          >
+            Block month
+          </button>
+        </div>
+        {blockedMonths.length > 0 ? (
+          <ul className="mt-4 space-y-2 text-sm">
+            {blockedMonths.map((month) => (
+              <li
+                key={month}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-neutral-200 px-3 py-2"
+              >
+                <span className="font-mono">{month.slice(0, 7)}</span>
+                <button
+                  type="button"
+                  disabled={blockBusy}
+                  className="rounded-lg border border-neutral-300 px-2 py-1 text-xs font-medium disabled:opacity-50"
+                  onClick={() => void setMonthBlock("unblock", month)}
+                >
+                  Unblock
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-3 text-sm text-brand-black/55">No service months are currently blocked.</p>
+        )}
+        {blockMessage ? <p className="mt-3 text-sm text-brand-black/70">{blockMessage}</p> : null}
       </section>
 
       <section className="rounded-xl border border-neutral-200 bg-white p-5">

@@ -11,6 +11,7 @@ import {
   loadEligibleRosterStudentsForProgramGroup,
   programGroupIdForAuthorization,
 } from "@wayfinder/supabase/pre-ets-program-group-roster";
+import { formatPreEtsAuthNumberForPdf } from "@wayfinder/supabase/pre-ets-release";
 import { buildPreEtsRosterPdf } from "@/lib/pre-ets-roster-export";
 
 type AdminClient = ReturnType<typeof createServiceRoleClient>;
@@ -101,7 +102,9 @@ export async function buildAuthorizationRosterPdf(
 
   const pdfBytes = await buildPreEtsRosterPdf(
     {
-      authorizationNumber: (authorization.auth_number as string | null) ?? "",
+      authorizationNumber: formatPreEtsAuthNumberForPdf(
+        authorization.auth_number as string | null
+      ),
       authType,
       sessionDate: options?.sessionDate ?? null,
       schoolName: school?.name ?? "",

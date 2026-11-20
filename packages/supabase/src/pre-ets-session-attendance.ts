@@ -9,7 +9,8 @@ export async function seedSessionAttendance(
     .from("pre_ets_roster_entries")
     .select("id, student_id")
     .eq("authorization_id", authorizationId)
-    .eq("not_approved", false);
+    .eq("not_approved", false)
+    .is("removed_at", null);
 
   if (!entries?.length) return;
 
