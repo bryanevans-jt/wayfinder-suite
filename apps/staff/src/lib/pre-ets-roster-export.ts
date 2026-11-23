@@ -7,8 +7,12 @@ import {
   generatePreEtsRosterPdf,
   type RosterPdfInput,
 } from "@/lib/pre-ets-roster-pdf";
+import {
+  MAX_ROSTER_TEMPLATE_ROWS,
+  shouldUseBuiltInRosterPdf,
+} from "@/lib/pre-ets-roster-pdf-strategy";
 
-const MAX_ROSTER_TEMPLATE_ROWS = 30;
+export { MAX_ROSTER_TEMPLATE_ROWS, shouldUseBuiltInRosterPdf };
 
 export function rosterPdfPlaceholders(input: RosterPdfInput): Record<string, string> {
   const authNumber = formatPreEtsAuthNumberForPdf(input.authorizationNumber);
@@ -51,7 +55,7 @@ export async function buildPreEtsRosterPdf(
       ? settings.template_individual_roster_doc_id ?? settings.template_roster_doc_id
       : settings.template_roster_doc_id;
 
-  if (templateId) {
+  if (templateId && !shouldUseBuiltInRosterPdf(input.students.length)) {
     try {
       return await fillGoogleDocTemplatePdf(
         templateId,
