@@ -141,30 +141,24 @@ export async function loadPreEtsSchoolPipeline(
     merged_into_program_group_id: string | null;
     header_raw: string | null;
     worksheet_header_key: string | null;
-    pre_ets_authorizations:
-      | {
-          id: string;
-          auth_number: string | null;
-          auth_type: string;
-          field_released_at: string | null;
-          service_code: string;
-          worksheet_header_key: string | null;
-        }
-      | {
-          id: string;
-          auth_number: string | null;
-          auth_type: string;
-          field_released_at: string | null;
-          service_code: string;
-          worksheet_header_key: string | null;
-        }[]
-      | null;
   };
 
+  type PipelineAuth = {
+    id: string;
+    program_group_id: string;
+    auth_number: string | null;
+    auth_type: string;
+    field_released_at: string | null;
+    service_code: string;
+    worksheet_header_key: string | null;
+  };
+
+  // Load groups and authorizations separately. Nested embeds under program_groups were
+  // dropping A&Is (Mary Persons → "Awaiting spreadsheet"; Peach lost its second roster).
   const groups = await fetchAllPostgrestRowsByIn<PipelineGroup>(
     admin,
     "pre_ets_program_groups",
-    "id, school_id, group_name, instructor_name, class_time, service_code, hidden_at, merged_into_program_group_id, header_raw, worksheet_header_key, pre_ets_authorizations(id, auth_number, auth_type, field_released_at, service_code, worksheet_header_key)",
+    "id, school_id, group_name, instructor_name, class_time, service_code, hidden_at, merged_into_program_group_id, header_raw, worksheet_header_key",
     "school_id",
     schoolIds,
     {
@@ -176,35 +170,51 @@ export async function loadPreEtsSchoolPipeline(
     }
   );
 
-  type PipelineAuth = {
-    id: string;
-    auth_number: string | null;
-    auth_type: string;
-    field_released_at: string | null;
-    service_code: string;
-    worksheet_header_key: string | null;
-  };
+  const groupIds = groups.map((group) => group.id);
+  const allAuths =
+    groupIds.length === 0
+      ? []
+      : await fetchAllPostgrestRowsByIn<PipelineAuth>(
+          admin,
+          "pre_ets_authorizations",
+          "id, program_group_id, auth_number, auth_type, field_released_at, service_code, worksheet_header_key",
+          "program_group_id",
+          groupIds,
+          { order: { column: "created_at", ascending: true } }
+        );
 
   const groupsBySchool = new Map<string, PipelineGroup[]>();
+  const groupsById = new Map(groups.map((group) => [group.id, group]));
   /** Every header-matching A&I for a program group (not just one representative). */
-  const authsByGroup = new Map<string, PipelineAuth[]>();
+  const authsByGroup = new Map<string, PipelineAuth[]>(
+    groupIds.map((id) => [id, []])
+  );
+
   for (const group of groups) {
     const current = groupsBySchool.get(group.school_id) ?? [];
     current.push(group);
     groupsBySchool.set(group.school_id, current);
+  }
 
-    const authsRaw = group.pre_ets_authorizations;
-    const authList = Array.isArray(authsRaw) ? authsRaw : authsRaw ? [authsRaw] : [];
+  for (const auth of allAuths) {
+    const group = groupsById.get(auth.program_group_id);
+    if (!group) continue;
     const headerMeta = {
       worksheet_header_key: group.worksheet_header_key,
       header_raw: String(group.header_raw ?? ""),
     };
-    const matching = sortPreEtsAuthorizationsForPipeline(
-      authList.filter((auth) =>
-        authorizationMatchesProgramGroupHeader(headerMeta, auth.worksheet_header_key)
-      )
-    );
-    authsByGroup.set(group.id, matching);
+    if (
+      !authorizationMatchesProgramGroupHeader(headerMeta, auth.worksheet_header_key)
+    ) {
+      continue;
+    }
+    const list = authsByGroup.get(auth.program_group_id) ?? [];
+    list.push(auth);
+    authsByGroup.set(auth.program_group_id, list);
+  }
+
+  for (const [groupId, list] of authsByGroup) {
+    authsByGroup.set(groupId, sortPreEtsAuthorizationsForPipeline(list));
   }
 
   const pipelineAuthIds = [
@@ -319,10 +329,18 @@ export async function loadPreEtsSchoolPipeline(
         continue;
       }
 
+      const multiAuth = matchingAuths.length > 1;
       for (const auth of matchingAuths) {
         const studentCount = rosterCountsByAuthorization.get(auth.id) ?? 0;
+        const authNumber = (auth.auth_number ?? "").trim();
+        const groupLabel = (group.group_name as string) || schoolName;
         rows.push({
           ...base,
+          // Distinguish Peach-style multi-A&I rows that share the same group name.
+          groupName:
+            multiAuth && authNumber
+              ? `${groupLabel} · ${authNumber}`
+              : groupLabel,
           authorizationId: auth.id,
           status: statusFromAuth(auth, studentCount),
           studentCount,

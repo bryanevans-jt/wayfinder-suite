@@ -14,6 +14,9 @@ test("roster auths must match the program group spreadsheet header key", () => {
     authorizationMatchesProgramGroupHeader(fairGroup, "APPLING COUNTY HIGH - DAY AT THE FAIR")
   );
   assert.equal(authorizationMatchesProgramGroupHeader(fairGroup, mainKey), false);
+  // Linked auth with blank header still belongs to this program group.
+  assert.ok(authorizationMatchesProgramGroupHeader(fairGroup, null));
+  assert.ok(authorizationMatchesProgramGroupHeader(fairGroup, ""));
 });
 
 test("Valdosta inclusion headers stay distinct", () => {

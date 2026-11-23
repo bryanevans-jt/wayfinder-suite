@@ -6,11 +6,7 @@ import {
   type PreEtsSettingsRow,
 } from "@wayfinder/supabase/pre-ets-settings";
 import { buildPreEtsRosterFileLabel } from "@wayfinder/supabase/pre-ets-roster-filename";
-import {
-  loadEligibleRosterStudentsForAuthorization,
-  loadEligibleRosterStudentsForProgramGroup,
-  programGroupIdForAuthorization,
-} from "@wayfinder/supabase/pre-ets-program-group-roster";
+import { loadEligibleRosterStudentsForAuthorization } from "@wayfinder/supabase/pre-ets-program-group-roster";
 import { formatPreEtsAuthNumberForPdf } from "@wayfinder/supabase/pre-ets-release";
 import { buildPreEtsRosterPdf } from "@/lib/pre-ets-roster-export";
 
@@ -67,18 +63,12 @@ export async function buildAuthorizationRosterPdf(
 
   const authType = authorization.auth_type as "group" | "individual" | "pending";
 
-  let aggregated = await loadEligibleRosterStudentsForAuthorization(admin, authorizationId);
-  if (
-    aggregated.length === 0 &&
-    (authType === "group" || authType === "pending")
-  ) {
-    const programGroupId =
-      (authorization.program_group_id as string | null) ??
-      (await programGroupIdForAuthorization(admin, authorizationId));
-    if (programGroupId) {
-      aggregated = await loadEligibleRosterStudentsForProgramGroup(admin, programGroupId);
-    }
-  }
+  // Always use this authorization's roster only — never fall back to the whole
+  // program group (that merged Peach 25720+25732 into one PDF).
+  const aggregated = await loadEligibleRosterStudentsForAuthorization(
+    admin,
+    authorizationId
+  );
 
   let students = aggregated.map((s) => ({
     participantId: s.participantId,

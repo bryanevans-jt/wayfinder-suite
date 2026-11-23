@@ -32,7 +32,11 @@ type ProgramGroupHeaderMeta = {
   header_raw: string;
 };
 
-/** Only authorizations imported under the same spreadsheet header as this program group. */
+/**
+ * Only authorizations imported under the same spreadsheet header as this program group.
+ * Auths already linked to the program group with a blank header key are kept — they belong
+ * to this group in the DB (blank used to hide real A&Is like Mary Persons / Peach).
+ */
 export function authorizationMatchesProgramGroupHeader(
   programGroup: ProgramGroupHeaderMeta,
   authHeaderKey: string | null | undefined
@@ -42,7 +46,7 @@ export function authorizationMatchesProgramGroupHeader(
   if (!pgKey && !pgRaw) return true;
 
   const authKey = authHeaderKey?.trim() ?? "";
-  if (!authKey) return false;
+  if (!authKey) return true;
 
   if (pgKey && worksheetHeaderKeysMatch(pgKey, authKey)) return true;
   if (pgRaw && worksheetHeaderKeysMatch(pgRaw, authKey)) return true;
