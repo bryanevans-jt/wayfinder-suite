@@ -48,6 +48,15 @@ const WORKSHEET_SCHOOL_CANONICAL: Array<{ pattern: RegExp; canonical: string }> 
     canonical: "Coffee County Wiregrass",
   },
   {
+    pattern:
+      /^coffee\s+county\s+george\s+washington\s+carver(\s+(college\s+prep(\s+academy)?|cpa|academy))?$/i,
+    canonical: "Coffee County George Washington Carver",
+  },
+  {
+    pattern: /^coffee\s+county\s+college\s+prep(\s+academy)?$/i,
+    canonical: "Coffee County George Washington Carver",
+  },
+  {
     pattern: /^thomas\s+county\s+central(\s+high(\s+school)?|\s+school)?$/i,
     canonical: "Thomas County Central High School",
   },
@@ -77,6 +86,9 @@ const KNOWN_SCHOOL_LABEL_PATTERNS: RegExp[] = [
   /\bhlc(\s+ware)?\b/i,
   /\blearning\s+center\b/i,
   /\bcoffee\s+county\s+wiregrass\b/i,
+  /\bcoffee\s+county\s+george\s+washington\s+carver\b/i,
+  /\bgeorge\s+washington\s+carver\b/i,
+  /\bcoffee\s+county\s+college\s+prep\b/i,
   /\bthomas\s+county\s+central\b/i,
   /\btransitional\s+learning\s+center\b/i,
   /^tlc$/i,

@@ -57,6 +57,19 @@ test("Coffee County Wiregrass is recognized and Coffe typo is corrected", () => 
   );
 });
 
+test("Coffee County George Washington Carver is a standalone school", () => {
+  assert.ok(looksLikeKnownWorksheetSchoolLabel("COFFEE COUNTY GEORGE WASHINGTON CARVER"));
+  assert.ok(isStandaloneWorksheetSchoolSite("COFFEE COUNTY GEORGE WASHINGTON CARVER"));
+  assert.equal(
+    canonicalizeWorksheetSchoolName("COFFEE COUNTY GEORGE WASHINGTON CARVER"),
+    "Coffee County George Washington Carver"
+  );
+  assert.equal(
+    canonicalizeWorksheetSchoolName("Coffee County College Prep Academy"),
+    "Coffee County George Washington Carver"
+  );
+});
+
 test("Transitional Learning Center and TLC map to class setup TLC", () => {
   assert.ok(isStandaloneWorksheetSchoolSite("Transitional Learning Center"));
   assert.ok(isStandaloneWorksheetSchoolSite("TLC"));

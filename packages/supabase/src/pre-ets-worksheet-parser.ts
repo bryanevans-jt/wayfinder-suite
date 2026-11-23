@@ -261,6 +261,15 @@ export function looksLikeWorksheetSchoolName(label: string): boolean {
   if (looksLikeKnownWorksheetSchoolLabel(normalized)) return true;
   if (looksLikeCountyInstituteSchoolLabel(normalized)) return true;
   if (normalized.length < 10) return false;
+  // e.g. "COFFEE COUNTY GEORGE WASHINGTON CARVER" (no High School / Academy suffix)
+  const countySiteWords = normalized.split(/\s+/).filter(Boolean);
+  if (
+    /\bcounty\b/i.test(normalized) &&
+    !/\b(high|middle|elementary)\b/i.test(normalized) &&
+    countySiteWords.length >= 4
+  ) {
+    return true;
+  }
   return (
     /\b(high\s+school|middle\s+school|elementary\s+school|primary\s+school)\b/i.test(normalized) ||
     /\bcharter\s+school\b/i.test(normalized) ||

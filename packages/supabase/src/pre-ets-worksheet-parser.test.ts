@@ -416,6 +416,38 @@ describe("pre-ets-worksheet-parser", () => {
     assert.equal(group?.students[0]?.participantId, "55555");
   });
 
+  it("starts Coffee County George Washington Carver after Lunch and Learn", () => {
+    assert.ok(
+      looksLikeWorksheetGroupHeaderLine("COFFEE COUNTY GEORGE WASHINGTON CARVER ,,,,,,,,,,,,,", [
+        "COFFEE COUNTY GEORGE WASHINGTON CARVER",
+      ])
+    );
+
+    const csv = [
+      "JOSHUA TREE DECEMBER PRE-ETS BILLING 2026-27,,,,,,,,,,,",
+      "DISTRICT 9 SCHOOLS,,,,,,,,,,,,",
+      "WAYCROSS OFFICE SCHOOLS,,,,,,,,,,,,",
+      "COFFEE COUNTY HIGH - LUNCH AND LEARN - ,,,,,,,,,,,,,",
+      "#,STUDENT NAME,PID #,A&I,SERVICE,CODE,UNITS,Class Time,Invoice #,Billed",
+      "1,Lunch Student,11111,25393,JCE,Pre-3241,2,,,",
+      "COFFEE COUNTY GEORGE WASHINGTON CARVER ,,,,,,,,,,,,,",
+      "SUPERVISOR: SPLASH KELLEY / INSTRUCTOR: NADINE BOWLES ,,,,,,,,,,,,,",
+      "#,STUDENT NAME,PID #,A&I,SERVICE,CODE,UNITS,Class Time,Invoice #,Billed",
+      "1,Carver Student,22222,25538,JCE,Pre-3242,1,,,",
+    ].join("\n");
+
+    const parsed = parseDistrictWorksheet(csv);
+    const lunch = parsed.offices[0]?.groups.find((g) => /lunch/i.test(g.headerRaw));
+    const carver = parsed.offices[0]?.groups.find((g) => /carver/i.test(g.headerRaw));
+    assert.ok(lunch);
+    assert.ok(carver);
+    assert.equal(lunch?.students.length, 1);
+    assert.equal(lunch?.students[0]?.authNumber, "25393");
+    assert.equal(carver?.schoolName, "COFFEE COUNTY GEORGE WASHINGTON CARVER");
+    assert.equal(carver?.students.length, 1);
+    assert.equal(carver?.students[0]?.authNumber, "25538");
+  });
+
   it("does not prefix Transitional Learning Center onto Lee County 9th Grade Center", () => {
     assert.equal(
       qualifyWorksheetGroupHeaderWithSchoolContext(
