@@ -4,6 +4,11 @@ import {
   fetchAllPostgrestRows,
   fetchAllPostgrestRowsByIn,
 } from "./postgrest-fetch-all";
+import {
+  isEmptyPreEtsPipelineGroupShell,
+  loadDistrictIdsWithCommittedWorksheetImport,
+  shouldOmitEmptySchoolShell,
+} from "./pre-ets-empty-pipeline-shells";
 import { normalizePreEtsServiceMonth } from "./pre-ets-service-month";
 import { loadPreEtsAssignedSchoolIds } from "./pre-ets-staff-assignments";
 import {
@@ -110,16 +115,16 @@ export async function loadPreEtsSchoolPipeline(
 
   const schools =
     scopedSchoolIds === null
-      ? await fetchAllPostgrestRows<{ id: string; name: string }>(
+      ? await fetchAllPostgrestRows<{ id: string; name: string; district_id: string }>(
           admin,
           "pre_ets_schools",
-          "id, name",
+          "id, name, district_id",
           { order: { column: "name", ascending: true } }
         )
-      : await fetchAllPostgrestRowsByIn<{ id: string; name: string }>(
+      : await fetchAllPostgrestRowsByIn<{ id: string; name: string; district_id: string }>(
           admin,
           "pre_ets_schools",
-          "id, name",
+          "id, name, district_id",
           "id",
           scopedSchoolIds,
           { order: { column: "name", ascending: true } }
@@ -129,6 +134,11 @@ export async function loadPreEtsSchoolPipeline(
 
   const schoolIds = schools.map((school) => school.id);
   if (schoolIds.length === 0) return [];
+
+  const districtsWithCommittedImport = await loadDistrictIdsWithCommittedWorksheetImport(
+    admin,
+    serviceMonth
+  );
 
   type PipelineGroup = {
     id: string;
@@ -271,8 +281,20 @@ export async function loadPreEtsSchoolPipeline(
     const schoolId = school.id;
     const schoolName = school.name;
     const visibleGroups = groupsBySchool.get(schoolId) ?? [];
+    const districtHasCommittedWorksheet = districtsWithCommittedImport.has(
+      school.district_id
+    );
 
     if (!visibleGroups.length) {
+      // After a district spreadsheet is committed for the month, do not resurrect
+      // empty school shells (including when the only group is already hidden).
+      if (
+        shouldOmitEmptySchoolShell({
+          districtHasCommittedWorksheet,
+        })
+      ) {
+        continue;
+      }
       rows.push({
         schoolId,
         schoolName,
@@ -314,8 +336,21 @@ export async function loadPreEtsSchoolPipeline(
         mergedIntoGroupName,
       };
 
+      const groupStudentCount = matchingAuths.reduce(
+        (sum, auth) => sum + (rosterCountsByAuthorization.get(auth.id) ?? 0),
+        0
+      );
+      const emptyAfterSpreadsheet =
+        districtHasCommittedWorksheet &&
+        !group.hidden_at &&
+        isEmptyPreEtsPipelineGroupShell({
+          authNumbers: matchingAuths.map((auth) => auth.auth_number),
+          activeStudentCount: groupStudentCount,
+        });
+
       // One Schools & groups row per A&I so multi-auth schools (e.g. Peach) are not collapsed.
       if (matchingAuths.length === 0) {
+        if (emptyAfterSpreadsheet) continue;
         rows.push({
           ...base,
           authorizationId: null,
@@ -328,6 +363,8 @@ export async function loadPreEtsSchoolPipeline(
         });
         continue;
       }
+
+      if (emptyAfterSpreadsheet) continue;
 
       const multiAuth = matchingAuths.length > 1;
       for (const auth of matchingAuths) {

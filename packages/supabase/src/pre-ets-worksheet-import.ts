@@ -21,6 +21,7 @@ import {
   type AuthMatchStats,
 } from "./pre-ets-worksheet-auth-match";
 import { syncPreEtsSchoolAssignmentsFromSpreadsheet } from "./pre-ets-instructor-sync";
+import { hideEmptyPreEtsProgramGroupsForMonth } from "./pre-ets-empty-pipeline-shells";
 import { restorePreEtsProgramGroupFromWorksheetImport } from "./pre-ets-program-group-visibility";
 import {
   applyWorksheetGroupMapping,
@@ -793,6 +794,17 @@ export async function commitWorksheetImport(
     });
   } catch {
     // Release must not block a successful commit.
+  }
+
+  // Hide leftover groups with no PIDs and no A&I for this district/month.
+  try {
+    await hideEmptyPreEtsProgramGroupsForMonth(admin, {
+      serviceMonth: parsed.serviceMonth,
+      actorUserId: userId,
+      districtIds: [districtId],
+    });
+  } catch {
+    // Visibility cleanup must not block a successful commit.
   }
 
   return {

@@ -9,6 +9,7 @@ import {
 } from "./pre-ets-instructor-match";
 import { expandSchoolAbbreviation, pickBestSchoolNameMatch } from "./pre-ets-school-name-match";
 import { canonicalizeWorksheetSchoolName } from "./pre-ets-worksheet-known-schools";
+import { parseGroupHeader } from "./pre-ets-worksheet-parser";
 
 export const PRE_ETS_CLASS_SETUP_MIGRATION = "20260909160000_pre_ets_class_setup.sql";
 
@@ -336,6 +337,43 @@ export async function resolveWorksheetSchoolName(
           }
         : null;
     return { resolvedName: match.name, warning };
+  }
+
+  // Headers that failed to split (e.g. "SCHOOL -SC 1") often land here as a full
+  // orphan school name. Retry against the school portion of parseGroupHeader.
+  const parsedSchool = parseGroupHeader(expanded).schoolName.trim();
+  if (
+    parsedSchool &&
+    normalizeLookup(parsedSchool) !== normalizeLookup(expanded)
+  ) {
+    const parsedExact = candidates.find(
+      (c) => normalizeLookup(c.name) === normalizeLookup(parsedSchool)
+    );
+    if (parsedExact) {
+      return {
+        resolvedName: parsedExact.name,
+        warning: {
+          worksheetSchoolName: expanded,
+          resolvedSchoolName: parsedExact.name,
+          source: parsedExact.source,
+        },
+      };
+    }
+    const parsedMatch = pickBestSchoolNameMatch(parsedSchool, candidates);
+    if (
+      parsedMatch.ambiguous.length === 0 &&
+      parsedMatch.match &&
+      parsedMatch.match.score >= 0.95
+    ) {
+      return {
+        resolvedName: parsedMatch.match.name,
+        warning: {
+          worksheetSchoolName: expanded,
+          resolvedSchoolName: parsedMatch.match.name,
+          source: parsedMatch.match.source,
+        },
+      };
+    }
   }
 
   return { resolvedName: expanded, warning: null };

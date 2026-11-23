@@ -596,7 +596,10 @@ const BI_WEEKLY_PLACEHOLDER = "BI__WEEKLY__FREQ";
 export function splitGroupHeaderParts(headerRaw: string): string[] {
   const normalized = stripWorksheetGroupHeaderMetadata(headerRaw.replace(/\u00a0/g, " "));
   const protectedHeader = normalized.replace(/bi-weekly/gi, BI_WEEKLY_PLACEHOLDER);
-  const parts = protectedHeader
+  // Force spaces around dashes so "SCHOOL- INCLUSION" / "SCHOOL -SC 1" split like
+  // "SCHOOL - INCLUSION" / "SCHOOL - SC 1" instead of becoming a whole-school orphan name.
+  const spacedDashes = protectedHeader.replace(/(\S)\s*[-–—]\s*(\S)/g, "$1 - $2");
+  const parts = spacedDashes
     .split(/\s+[-–—]\s+/)
     .map((p) => p.trim())
     .filter(Boolean)
