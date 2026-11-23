@@ -5,7 +5,7 @@ import {
   fetchAllPostgrestRowsByIn,
 } from "./postgrest-fetch-all";
 import { normalizePreEtsServiceMonth } from "./pre-ets-service-month";
-import { loadPreEtsAssignedSchoolIds } from "./pre-ets-upload-scope";
+import { loadPreEtsAssignedSchoolIds } from "./pre-ets-staff-assignments";
 import {
   authorizationMatchesProgramGroupHeader,
 } from "./pre-ets-program-group-roster";
@@ -35,7 +35,7 @@ export type PreEtsPipelineRow = {
   mergedIntoGroupName: string | null;
 };
 
-/** Same auth pick as Schools & groups (group/pending authorization when present). */
+/** Prefer a group/pending auth when a caller still needs a single representative. */
 export function pickRepresentativePreEtsAuthorization<
   T extends { auth_type: string },
 >(authList: T[]): T | null {
@@ -46,6 +46,33 @@ export function pickRepresentativePreEtsAuthorization<
     authList[0] ??
     null
   );
+}
+
+/**
+ * Stable order for multiple A&Is under one program group (e.g. Peach 25720 + 25732).
+ * Group/pending first, then by auth number, then id.
+ */
+export function sortPreEtsAuthorizationsForPipeline<
+  T extends { id: string; auth_type: string; auth_number: string | null },
+>(authList: T[]): T[] {
+  const typeRank = (authType: string) => {
+    if (authType === "group") return 0;
+    if (authType === "pending") return 1;
+    return 2;
+  };
+  return [...authList].sort((a, b) => {
+    const byType = typeRank(a.auth_type) - typeRank(b.auth_type);
+    if (byType !== 0) return byType;
+    const aNum = (a.auth_number ?? "").trim();
+    const bNum = (b.auth_number ?? "").trim();
+    if (aNum && bNum) {
+      const byNum = aNum.localeCompare(bNum, undefined, { numeric: true });
+      if (byNum !== 0) return byNum;
+    } else if (aNum !== bNum) {
+      return aNum ? -1 : 1;
+    }
+    return a.id.localeCompare(b.id);
+  });
 }
 
 function statusFromAuth(
@@ -149,18 +176,18 @@ export async function loadPreEtsSchoolPipeline(
     }
   );
 
+  type PipelineAuth = {
+    id: string;
+    auth_number: string | null;
+    auth_type: string;
+    field_released_at: string | null;
+    service_code: string;
+    worksheet_header_key: string | null;
+  };
+
   const groupsBySchool = new Map<string, PipelineGroup[]>();
-  const representativeAuthByGroup = new Map<
-    string,
-    {
-      id: string;
-      auth_number: string | null;
-      auth_type: string;
-      field_released_at: string | null;
-      service_code: string;
-      worksheet_header_key: string | null;
-    } | null
-  >();
+  /** Every header-matching A&I for a program group (not just one representative). */
+  const authsByGroup = new Map<string, PipelineAuth[]>();
   for (const group of groups) {
     const current = groupsBySchool.get(group.school_id) ?? [];
     current.push(group);
@@ -172,28 +199,19 @@ export async function loadPreEtsSchoolPipeline(
       worksheet_header_key: group.worksheet_header_key,
       header_raw: String(group.header_raw ?? ""),
     };
-    representativeAuthByGroup.set(
-      group.id,
-      pickRepresentativePreEtsAuthorization(
-        authList.filter((auth) =>
-          authorizationMatchesProgramGroupHeader(
-            headerMeta,
-            auth.worksheet_header_key
-          )
-        )
+    const matching = sortPreEtsAuthorizationsForPipeline(
+      authList.filter((auth) =>
+        authorizationMatchesProgramGroupHeader(headerMeta, auth.worksheet_header_key)
       )
     );
+    authsByGroup.set(group.id, matching);
   }
 
-  const representativeAuthIds = [
-    ...new Set(
-      [...representativeAuthByGroup.values()]
-        .map((auth) => auth?.id)
-        .filter((id): id is string => Boolean(id))
-    ),
+  const pipelineAuthIds = [
+    ...new Set([...authsByGroup.values()].flatMap((list) => list.map((auth) => auth.id))),
   ];
   const rosterCountsByAuthorization = new Map<string, number>();
-  if (representativeAuthIds.length > 0) {
+  if (pipelineAuthIds.length > 0) {
     const rosterEntries = await fetchAllPostgrestRowsByIn<{
       authorization_id: string;
     }>(
@@ -201,10 +219,10 @@ export async function loadPreEtsSchoolPipeline(
       "pre_ets_roster_entries",
       "authorization_id",
       "authorization_id",
-      representativeAuthIds,
+      pipelineAuthIds,
       {
         applyFilters: (query) =>
-          query.eq("not_approved", false),
+          query.eq("not_approved", false).is("removed_at", null),
       }
     );
     for (const entry of rosterEntries) {
@@ -268,36 +286,70 @@ export async function loadPreEtsSchoolPipeline(
     }
 
     for (const group of visibleGroups) {
-      const auth = representativeAuthByGroup.get(group.id) ?? null;
-      const studentCount = auth?.id
-        ? (rosterCountsByAuthorization.get(auth.id) ?? 0)
-        : 0;
-
+      const matchingAuths = authsByGroup.get(group.id) ?? [];
       const mergedIntoId = (group.merged_into_program_group_id as string | null) ?? null;
-
-      rows.push({
+      const mergedIntoGroupName = mergedIntoId
+        ? mergeTargetNames.get(mergedIntoId) ?? null
+        : null;
+      const base = {
         schoolId,
         schoolName,
         groupName: (group.group_name as string) || schoolName,
         programGroupId: group.id,
-        authorizationId: auth?.id ?? null,
         serviceMonth,
-        status: statusFromAuth(auth, studentCount),
-        studentCount,
-        authNumber: auth?.auth_number ?? null,
-        authType: auth?.auth_type ?? null,
-        fieldReleasedAt: auth?.field_released_at ?? null,
-        serviceCode: (auth?.service_code as string) ?? (group.service_code as string) ?? null,
         instructorName: (group.instructor_name as string | null) ?? null,
         classTime: (group.class_time as string | null) ?? null,
         hidden: Boolean(group.hidden_at),
         mergedIntoProgramGroupId: mergedIntoId,
-        mergedIntoGroupName: mergedIntoId ? mergeTargetNames.get(mergedIntoId) ?? null : null,
-      });
+        mergedIntoGroupName,
+      };
+
+      // One Schools & groups row per A&I so multi-auth schools (e.g. Peach) are not collapsed.
+      if (matchingAuths.length === 0) {
+        rows.push({
+          ...base,
+          authorizationId: null,
+          status: "awaiting_spreadsheet",
+          studentCount: 0,
+          authNumber: null,
+          authType: null,
+          fieldReleasedAt: null,
+          serviceCode: (group.service_code as string) ?? null,
+        });
+        continue;
+      }
+
+      for (const auth of matchingAuths) {
+        const studentCount = rosterCountsByAuthorization.get(auth.id) ?? 0;
+        rows.push({
+          ...base,
+          authorizationId: auth.id,
+          status: statusFromAuth(auth, studentCount),
+          studentCount,
+          authNumber: auth.auth_number ?? null,
+          authType: auth.auth_type ?? null,
+          fieldReleasedAt: auth.field_released_at ?? null,
+          serviceCode: (auth.service_code as string) ?? (group.service_code as string) ?? null,
+        });
+      }
     }
   }
 
-  return rows.sort((a, b) => a.schoolName.localeCompare(b.schoolName));
+  return rows.sort((a, b) => {
+    const bySchool = a.schoolName.localeCompare(b.schoolName);
+    if (bySchool !== 0) return bySchool;
+    const byGroup = a.groupName.localeCompare(b.groupName);
+    if (byGroup !== 0) return byGroup;
+    const aNum = (a.authNumber ?? "").trim();
+    const bNum = (b.authNumber ?? "").trim();
+    if (aNum && bNum) {
+      const byAuth = aNum.localeCompare(bNum, undefined, { numeric: true });
+      if (byAuth !== 0) return byAuth;
+    } else if (aNum !== bNum) {
+      return aNum ? -1 : 1;
+    }
+    return (a.authorizationId ?? "").localeCompare(b.authorizationId ?? "");
+  });
 }
 
 export function preEtsPipelineStatusLabel(status: PreEtsPipelineStatus): string {

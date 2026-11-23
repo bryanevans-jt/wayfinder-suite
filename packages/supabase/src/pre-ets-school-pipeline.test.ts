@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { authorizationMatchesProgramGroupHeader } from "./pre-ets-program-group-roster";
-import { pickRepresentativePreEtsAuthorization } from "./pre-ets-school-pipeline";
+import {
+  pickRepresentativePreEtsAuthorization,
+  sortPreEtsAuthorizationsForPipeline,
+} from "./pre-ets-school-pipeline";
 import { normalizePreEtsServiceMonth } from "./pre-ets-service-month";
 
 test("pickRepresentativePreEtsAuthorization prefers group then pending", () => {
@@ -48,6 +51,28 @@ test("pipeline auth pick ignores authorizations from another group header line",
     authorizationMatchesProgramGroupHeader(programGroup, a.worksheet_header_key)
   );
   assert.equal(pickRepresentativePreEtsAuthorization(scoped)?.id, "g2");
+});
+
+test("sortPreEtsAuthorizationsForPipeline keeps multi-auth Peach-style groups distinct and ordered", () => {
+  const peach = sortPreEtsAuthorizationsForPipeline([
+    { id: "b", auth_type: "group", auth_number: "25732" },
+    { id: "a", auth_type: "group", auth_number: "25720" },
+  ]);
+  assert.deepEqual(
+    peach.map((a) => a.auth_number),
+    ["25720", "25732"]
+  );
+
+  const mixed = sortPreEtsAuthorizationsForPipeline([
+    { id: "i1", auth_type: "individual", auth_number: "999" },
+    { id: "p1", auth_type: "pending", auth_number: null },
+    { id: "g2", auth_type: "group", auth_number: "25732" },
+    { id: "g1", auth_type: "group", auth_number: "25720" },
+  ]);
+  assert.deepEqual(
+    mixed.map((a) => a.id),
+    ["g1", "g2", "p1", "i1"]
+  );
 });
 
 test("normalizePreEtsServiceMonth rejects invalid months before date filters", () => {

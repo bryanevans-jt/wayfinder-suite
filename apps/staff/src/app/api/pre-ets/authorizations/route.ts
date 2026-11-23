@@ -1,6 +1,8 @@
 import { createServiceRoleClient } from "@wayfinder/supabase/admin-server";
 import { respondWithLoggedError } from "@wayfinder/supabase/error-log";
+import { fetchAllPostgrestRows } from "@wayfinder/supabase/postgrest-fetch-all";
 import { loadBlockedPreEtsServiceMonths } from "@wayfinder/supabase/pre-ets-field-release";
+import { loadPreEtsAssignedSchoolIds } from "@wayfinder/supabase/pre-ets-staff-assignments";
 import {
   filterAuthorizationsForFieldGate,
   isPreEtsAuthorizationVisibleToRole,
@@ -12,6 +14,34 @@ import {
   parsePreEtsServiceMonthFilter,
 } from "@/lib/pre-ets-service-month";
 import { NextResponse } from "next/server";
+
+type AuthorizationListRow = {
+  id: string;
+  auth_number: string | null;
+  auth_type: string;
+  field_released_at: string | null;
+  service_code: string;
+  service_label: string | null;
+  service_month: string;
+  status: string;
+  school_id: string;
+  pre_ets_schools: { name: string } | { name: string }[] | null;
+  pre_ets_program_groups: {
+    group_name: string;
+    instructor_name: string | null;
+    class_time: string | null;
+  } | {
+    group_name: string;
+    instructor_name: string | null;
+    class_time: string | null;
+  }[] | null;
+};
+
+function schoolName(row: AuthorizationListRow): string {
+  const raw = row.pre_ets_schools;
+  const school = Array.isArray(raw) ? raw[0] : raw;
+  return school?.name ?? "";
+}
 
 export async function GET(request: Request) {
   const route = "api/pre-ets/authorizations";
@@ -83,36 +113,57 @@ export async function GET(request: Request) {
       serviceMonthFilter = parsed.serviceMonth;
     }
 
-    let query = admin
-      .from("pre_ets_authorizations")
-      .select(
-        "id, auth_number, auth_type, field_released_at, service_code, service_label, service_month, status, school_id, pre_ets_schools(name), pre_ets_program_groups(group_name, instructor_name, class_time)"
-      )
-      .order("service_month", { ascending: false })
-      .limit(100);
-
-    if (schoolId) query = query.eq("school_id", schoolId);
-    if (serviceMonthFilter) {
-      query = query.eq("service_month", serviceMonthFilter);
-    }
-    if (authType && authType !== "all") {
-      query = query.eq("auth_type", authType);
+    const assignedSchoolIds = await loadPreEtsAssignedSchoolIds(
+      admin,
+      auth.userId,
+      auth.role
+    );
+    if (assignedSchoolIds && assignedSchoolIds.length === 0) {
+      return NextResponse.json({ authorizations: [] });
     }
 
-    const { data, error } = await query;
-    if (error) {
-      return respondWithLoggedError("staff", route, error, {
-        userId: auth.userId,
-        userRole: auth.role,
-      });
-    }
+    // Fetch every matching A&I — a hard limit(100) hid Peach's second roster among 132 Dec rows.
+    const data = await fetchAllPostgrestRows<AuthorizationListRow>(
+      admin,
+      "pre_ets_authorizations",
+      "id, auth_number, auth_type, field_released_at, service_code, service_label, service_month, status, school_id, pre_ets_schools(name), pre_ets_program_groups(group_name, instructor_name, class_time)",
+      {
+        order: { column: "service_month", ascending: false },
+        applyFilters: (query) => {
+          let filtered = query;
+          if (schoolId) filtered = filtered.eq("school_id", schoolId);
+          if (serviceMonthFilter) {
+            filtered = filtered.eq("service_month", serviceMonthFilter);
+          }
+          if (authType && authType !== "all") {
+            filtered = filtered.eq("auth_type", authType);
+          }
+          if (assignedSchoolIds) {
+            filtered = filtered.in("school_id", assignedSchoolIds);
+          }
+          return filtered;
+        },
+      }
+    );
 
     const gate = preEtsReleasedAuthorizationGateApplies(auth.role, auth.settings);
     const authorizations = filterAuthorizationsForFieldGate(
-      data ?? [],
+      data,
       gate,
       blockedMonths
-    );
+    ).sort((a, b) => {
+      const bySchool = schoolName(a).localeCompare(schoolName(b));
+      if (bySchool !== 0) return bySchool;
+      const aNum = (a.auth_number ?? "").trim();
+      const bNum = (b.auth_number ?? "").trim();
+      if (aNum && bNum) {
+        const byAuth = aNum.localeCompare(bNum, undefined, { numeric: true });
+        if (byAuth !== 0) return byAuth;
+      } else if (aNum !== bNum) {
+        return aNum ? -1 : 1;
+      }
+      return a.id.localeCompare(b.id);
+    });
 
     return NextResponse.json({ authorizations });
   } catch (err) {

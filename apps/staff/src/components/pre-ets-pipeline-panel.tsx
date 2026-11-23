@@ -384,7 +384,7 @@ export function PreEtsPipelinePanel() {
             ) : (
               rows.map((row) => (
                 <tr
-                  key={`${row.schoolId}-${row.programGroupId ?? "none"}-${row.groupName}`}
+                  key={`${row.schoolId}-${row.programGroupId ?? "none"}-${row.authorizationId ?? "none"}-${row.authNumber ?? "pending"}`}
                   className={`border-t border-neutral-100 ${row.hidden ? "bg-neutral-50/90" : ""}`}
                 >
                   <td className="px-3 py-2">
