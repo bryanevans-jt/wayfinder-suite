@@ -4,6 +4,7 @@ import {
   applyWorksheetTabDistrictHints,
   isWorksheetNotApprovedAuthCell,
   looksLikeWorksheetGroupHeaderLine,
+  markBlankAuthAsNotApprovedWhenGroupHasAuthNumbers,
   parseDistrictWorksheet,
   parseGroupHeader,
   parseWorksheetSupervisorInstructorLine,
@@ -12,6 +13,49 @@ import {
 } from "./pre-ets-worksheet-parser";
 
 describe("pre-ets-worksheet-parser", () => {
+  it("treats blank A&I as NOT APPROVED when the group has other A&I numbers", () => {
+    const csv = [
+      "JOSHUA TREE DECEMBER PRE-ETS BILLING 2026-27",
+      "DISTRICT 6 SCHOOLS",
+      "OFFICE SCHOOLS",
+      "PEACH COUNTY HIGH SCHOOL",
+      "#,STUDENT NAME,PID #,A&I,SERVICE,CODE,UNITS",
+      "1,Has Auth,11111,25720,PRE,PRE-1,1",
+      "2,Blank Auth,22222,,PRE,PRE-1,1",
+      "3,Other Auth,33333,25732,PRE,PRE-1,1",
+    ].join("\n");
+    const parsed = parseDistrictWorksheet(csv);
+    const group = parsed.offices[0]?.groups[0];
+    assert.equal(group?.students.length, 3);
+    assert.equal(group?.students.filter((s) => !s.notApproved).length, 2);
+    const blank = group?.students.find((s) => s.participantId === "22222");
+    assert.equal(blank?.notApproved, true);
+    assert.equal(blank?.authType, "skipped");
+    assert.ok(
+      parsed.issues.some((issue) =>
+        issue.includes("blank A&I treated as NOT APPROVED")
+      )
+    );
+  });
+
+  it("keeps blank A&I as pending when the whole group has no A&I numbers", () => {
+    const csv = [
+      "JOSHUA TREE DECEMBER PRE-ETS BILLING 2026-27",
+      "DISTRICT 6 SCHOOLS",
+      "OFFICE SCHOOLS",
+      "DOOLY COUNTY HIGH School",
+      "#,STUDENT NAME,PID #,A&I,SERVICE,CODE,UNITS",
+      "1,Pending One,11111,,PRE,PRE-1,1",
+      "2,Pending Two,22222,,PRE,PRE-1,1",
+    ].join("\n");
+    const parsed = parseDistrictWorksheet(csv);
+    const group = parsed.offices[0]?.groups[0];
+    assert.equal(group?.students.length, 2);
+    assert.equal(group?.students.every((s) => !s.notApproved), true);
+    assert.equal(group?.students.every((s) => s.authType === "pending"), true);
+    assert.equal(markBlankAuthAsNotApprovedWhenGroupHasAuthNumbers(group!), 0);
+  });
+
   it("treats N/A in A&I as not approved", () => {
     assert.ok(isWorksheetNotApprovedAuthCell("N/A"));
     assert.ok(isWorksheetNotApprovedAuthCell("n/a"));

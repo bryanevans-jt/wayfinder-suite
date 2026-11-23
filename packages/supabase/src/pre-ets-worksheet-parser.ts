@@ -925,6 +925,34 @@ function startParsedWorksheetGroup(
   };
 }
 
+/**
+ * When a group already has at least one real A&I number, blank A&I rows are treated
+ * as NOT APPROVED (spreadsheet omission). If every row in the group is blank, leave
+ * them as pending so a pending-auth roster can still be created.
+ */
+export function markBlankAuthAsNotApprovedWhenGroupHasAuthNumbers(
+  group: ParsedWorksheetGroup
+): number {
+  const hasNumberedAuth = group.students.some(
+    (student) => !student.notApproved && student.authNumber.trim().length > 0
+  );
+  if (!hasNumberedAuth) return 0;
+
+  let marked = 0;
+  for (const student of group.students) {
+    if (student.notApproved) continue;
+    if (student.authNumber.trim().length > 0) continue;
+    student.notApproved = true;
+    student.authType = "skipped";
+    student.issues = [
+      ...student.issues,
+      "Blank A&I treated as NOT APPROVED (group has other A&I numbers)",
+    ];
+    marked += 1;
+  }
+  return marked;
+}
+
 /** When a PID appears on both TLC and another roster, keep the TLC row only. */
 function dedupeWorksheetParticipantsPreferDedicatedSchoolGroups(
   offices: ParsedWorksheetOffice[]
@@ -1110,6 +1138,20 @@ export function parseDistrictWorksheet(
     currentOffice.groups.push(currentGroup);
   }
 
+  dedupeWorksheetParticipantsPreferDedicatedSchoolGroups(offices);
+
+  for (const office of offices) {
+    for (const group of office.groups) {
+      const marked = markBlankAuthAsNotApprovedWhenGroupHasAuthNumbers(group);
+      if (marked > 0) {
+        const label = `${group.schoolName} — ${group.groupName}`;
+        issues.push(
+          `Group "${label}": ${marked} student(s) with blank A&I treated as NOT APPROVED because the group has other A&I numbers`
+        );
+      }
+    }
+  }
+
   let studentCount = 0;
   let notApprovedCount = 0;
   let skippedMissingPidCount = 0;
@@ -1145,8 +1187,6 @@ export function parseDistrictWorksheet(
       }
     }
   }
-
-  dedupeWorksheetParticipantsPreferDedicatedSchoolGroups(offices);
 
   const serviceMonth = inferServiceMonth(monthLabel, schoolYear);
 

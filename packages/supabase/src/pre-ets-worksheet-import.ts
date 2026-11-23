@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadPreEtsSettings, resolvePreEtsWorksheetServiceFields } from "./pre-ets-settings";
 import {
+  markBlankAuthAsNotApprovedWhenGroupHasAuthNumbers,
   parseDistrictWorksheet,
   type ParsedDistrictWorksheet,
   type ParsedWorksheetGroup,
@@ -379,6 +380,10 @@ export async function commitWorksheetImport(
         });
         continue;
       }
+      // Defense in depth for older parse_result JSON: blank A&I in a numbered group
+      // is NOT APPROVED (whole-group blank stays pending).
+      markBlankAuthAsNotApprovedWhenGroupHasAuthNumbers(group);
+
       const groupStudents = group.students.filter(
         (s) =>
           !s.notApproved &&
