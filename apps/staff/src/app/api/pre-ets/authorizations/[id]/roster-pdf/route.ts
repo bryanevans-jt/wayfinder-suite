@@ -8,6 +8,9 @@ import { isPreEtsAuthorizationVisibleToRole } from "@/lib/pre-ets-field-gate";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
+/** Large Doc-template rosters (60+ students) need headroom for Drive/Docs + PDF export. */
+export const maxDuration = 300;
+
 type AuthRow = {
   auth_number: string | null;
   auth_type: string;

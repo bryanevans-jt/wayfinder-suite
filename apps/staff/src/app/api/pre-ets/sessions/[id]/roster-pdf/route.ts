@@ -10,6 +10,9 @@ import { buildPreEtsRosterPdf } from "@/lib/pre-ets-roster-export";
 import { isPreEtsApiError, requirePreEtsApi } from "@/lib/pre-ets-api-auth";
 import { NextResponse } from "next/server";
 
+/** Large Doc-template rosters need headroom for Drive/Docs + PDF export. */
+export const maxDuration = 300;
+
 type AuthRow = {
   auth_number: string | null;
   service_code: string;

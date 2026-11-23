@@ -135,6 +135,34 @@ function cellRewriteRequests(
 }
 
 /**
+ * batchUpdate indexes are relative to the document *before* the batch.
+ * N× insertBelow on the same template row stacks new rows so the *last* request
+ * ends up immediately under the template. Emit extras in reverse so final order
+ * is template(=students[0]), students[1], … students[n-1].
+ */
+export function buildRosterTableExtraRowInsertRequests(
+  tableStartIndex: number,
+  templateRowIndex: number,
+  studentCount: number
+): docs_v1.Schema$Request[] {
+  const extraRows = Math.max(0, studentCount - 1);
+  const requests: docs_v1.Schema$Request[] = [];
+  for (let i = extraRows; i >= 1; i--) {
+    requests.push({
+      insertTableRow: {
+        tableCellLocation: {
+          tableStartLocation: { index: tableStartIndex },
+          rowIndex: templateRowIndex,
+          columnIndex: 0,
+        },
+        insertBelow: true,
+      },
+    });
+  }
+  return requests;
+}
+
+/**
  * Expand a roster table that has one template data row with unnumbered tags
  * ({{PID}}, {{StudentLastName}}, {{StudentFirstName}}, optional {{StudentName}})
  * and fill one row per student. Signature / date columns are left blank.
@@ -151,25 +179,18 @@ export async function expandPreEtsRosterTableInDoc(
   if (!found) return false;
 
   const { tableStartIndex, templateRowIndex, columns } = found;
-  const extraRows = Math.max(0, students.length - 1);
+  const insertRequests = buildRosterTableExtraRowInsertRequests(
+    tableStartIndex,
+    templateRowIndex,
+    students.length
+  );
 
-  for (let i = 0; i < extraRows; i++) {
+  // One batch for all row inserts — sequential per-row calls timed out large
+  // classes (Fitzgerald Inclusion ~64) before PDF export could finish.
+  if (insertRequests.length > 0) {
     await docs.documents.batchUpdate({
       documentId,
-      requestBody: {
-        requests: [
-          {
-            insertTableRow: {
-              tableCellLocation: {
-                tableStartLocation: { index: tableStartIndex },
-                rowIndex: templateRowIndex + i,
-                columnIndex: 0,
-              },
-              insertBelow: true,
-            },
-          },
-        ],
-      },
+      requestBody: { requests: insertRequests },
     });
   }
 
