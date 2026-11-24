@@ -119,6 +119,8 @@ export function mapReferralServiceName(state: ReferralState, serviceLabel: strin
     "Job Coaching": "Job Coaching",
     "Individual Job Placement": "Individual Job Placement",
     "Workplace Readiness Training": "Workplace Readiness Training",
+    "PTS Job Preparation": "PTS Job Preparation",
+    "PTS Job Placement": "PTS Job Placement",
   };
   return map[s] ?? null;
 }
