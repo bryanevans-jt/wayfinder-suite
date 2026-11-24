@@ -20,6 +20,7 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import { IjpBillingClientPicker } from "@/components/ijp-billing-client-picker";
 import { IjpBillingHoursLedger } from "@/components/ijp-billing-hours-ledger";
 import { IjpBillingTestPreview } from "@/components/ijp-billing-test-preview";
+import { IjpOctoberAttestationBackfillPanel } from "@/components/ijp-october-attestation-backfill-panel";
 import { formatIjpGenerateInvoicesSummary } from "@/lib/ijp-billing-month-run-drain";
 
 const ACTIVITY_TYPE_SUGGESTIONS = [
@@ -114,6 +115,7 @@ export function IjpBillingWorkspace() {
   const [canTest, setCanTest] = useState(false);
   const [canGenerate, setCanGenerate] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
+  const [canRunOctoberBackfill, setCanRunOctoberBackfill] = useState(false);
   const [testClientId, setTestClientId] = useState("");
   const [testMonth, setTestMonth] = useState(currentServiceMonthStart());
   const [testSignature, setTestSignature] = useState("");
@@ -220,6 +222,7 @@ export function IjpBillingWorkspace() {
         canEdit?: boolean;
         canGenerate?: boolean;
         canTest?: boolean;
+        canRunOctoberAttestationBackfill?: boolean;
         hourlyRateCents?: number;
       };
       const editAllowed = Boolean(json.canEdit);
@@ -231,6 +234,11 @@ export function IjpBillingWorkspace() {
       setCanTest(testAllowed);
       setCanGenerate(generateAllowed);
       setCanEdit(editAllowed);
+      setCanRunOctoberBackfill(
+        typeof json.canRunOctoberAttestationBackfill === "boolean"
+          ? json.canRunOctoberAttestationBackfill
+          : json.role === "super_admin"
+      );
       if (typeof json.hourlyRateCents === "number" && json.hourlyRateCents > 0) {
         setHourlyRateCents(json.hourlyRateCents);
       }
@@ -1302,6 +1310,8 @@ export function IjpBillingWorkspace() {
           </div>
         </section>
       ) : null}
+
+      {canRunOctoberBackfill ? <IjpOctoberAttestationBackfillPanel /> : null}
 
       {canTest ? (
         <section className="rounded-xl border border-dashed border-amber-400 bg-amber-50/40 p-4">
