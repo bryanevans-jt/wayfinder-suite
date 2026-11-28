@@ -174,7 +174,8 @@ export function SupervisorOperationsWorkspace({
           <section className="rounded-xl border border-amber-200 bg-amber-50/50 p-5">
             <h2 className="text-base font-semibold text-brand-black">Coaching Queue — Contact Volume</h2>
             <p className="mt-1 text-sm text-brand-black/65">
-              Clients with fewer than {MIN_CONTACTS_PER_MONTH} contacts logged this month.
+              Active caseload clients with fewer than {MIN_CONTACTS_PER_MONTH} contacts
+              logged this month (excludes closed/dismissed pending archive and archived).
             </p>
             {coaching.thinLogs.length === 0 ? (
               <p className="mt-4 text-sm text-brand-black/60">All clients meet the monthly contact target.</p>

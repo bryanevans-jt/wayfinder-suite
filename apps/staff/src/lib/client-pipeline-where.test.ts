@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { countsTowardTeamOpsCaseload } from "./client-pipeline-where";
+import {
+  countsTowardTeamOpsCaseload,
+  countsTowardThinContactCoaching,
+} from "./client-pipeline-where";
 
 describe("countsTowardTeamOpsCaseload", () => {
   it("counts active non-demo clients like the default Clients list", () => {
@@ -51,6 +54,39 @@ describe("countsTowardTeamOpsCaseload", () => {
         archived_at: null,
         is_demo: false,
         intake_status: "discarded",
+      }),
+      false
+    );
+  });
+});
+
+describe("countsTowardThinContactCoaching", () => {
+  it("counts only live non-demo caseload clients", () => {
+    assert.equal(
+      countsTowardThinContactCoaching({
+        archived_at: null,
+        is_demo: false,
+        intake_status: "active",
+      }),
+      true
+    );
+  });
+
+  it("excludes pending-archive and fully archived clients", () => {
+    const future = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    assert.equal(
+      countsTowardThinContactCoaching({
+        archived_at: future,
+        is_demo: false,
+        intake_status: "active",
+      }),
+      false
+    );
+    assert.equal(
+      countsTowardThinContactCoaching({
+        archived_at: "2020-01-01T00:00:00.000Z",
+        is_demo: false,
+        intake_status: "active",
       }),
       false
     );

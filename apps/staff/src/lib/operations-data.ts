@@ -5,7 +5,10 @@ import { sumBillableMinutesFromTimeEntryRows } from "@wayfinder/supabase/client-
 import { todayLocalDate } from "@wayfinder/supabase/es-time-tracking";
 import { isAdminTierRole, isGvraPartnerRole, isStaffRole, roleDisplayName } from "@wayfinder/supabase/roles";
 import { loadClientDisplayNameById } from "@/lib/client-display-names";
-import { countsTowardTeamOpsCaseload } from "@/lib/client-pipeline-where";
+import {
+  countsTowardTeamOpsCaseload,
+  countsTowardThinContactCoaching,
+} from "@/lib/client-pipeline-where";
 import { formalReportLabel } from "@/lib/formal-report-labels";
 import { loadComplianceReportAlerts } from "@/lib/report-alerts-data";
 import { loadIjpAttestationSlaRows, type IjpAttestationSlaRow } from "@/lib/ijp-operations-alerts";
@@ -173,13 +176,21 @@ export async function loadCoachingQueue(
 
     const { data: clientRows } = await admin
       .from("clients")
-      .select("id, contact_email")
-      .in("id", clientIds)
-      .is("archived_at", null);
+      .select("id, contact_email, archived_at, is_demo, intake_status")
+      .in("id", clientIds);
 
     const thinNames = await loadClientDisplayNameById(admin, clientIds);
     const esName = esNameMap.get(esUserId) ?? "Employment Specialist";
     for (const c of clientRows ?? []) {
+      if (
+        !countsTowardThinContactCoaching({
+          archived_at: c.archived_at as string | null,
+          is_demo: c.is_demo as boolean | null,
+          intake_status: c.intake_status as string | null,
+        })
+      ) {
+        continue;
+      }
       const count = countByClient.get(c.id as string) ?? 0;
       if (count < MIN_CONTACTS_PER_MONTH) {
         thinLogs.push({

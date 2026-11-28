@@ -13,6 +13,7 @@ import {
   filterOfficesForPicker,
   queryAllOffices,
 } from "@/lib/office-visibility";
+import { countsTowardTeamOpsCaseload } from "@/lib/client-pipeline-where";
 import { loadSunsetKeepIds } from "@/lib/sunset-tn";
 import { loadStaffNameById } from "@/lib/operations-data";
 import type { AnalyticsScope } from "./access";
@@ -49,6 +50,7 @@ type ClientRow = {
   archived_at?: string | null;
   job_start_date?: string | null;
   is_demo?: boolean | null;
+  intake_status?: string | null;
 };
 
 function excludeDemoClients(rows: ClientRow[]): ClientRow[] {
@@ -62,7 +64,13 @@ export type ClientFact = {
   esUserIds: string[];
   intakeAt: Date;
   hireAt: Date | null;
+  /** Stage-based active flag used for hire-rate / placement outcome math. */
   isActive: boolean;
+  /**
+   * Matches Team Operations Capacity / default Clients list: assigned, not demo,
+   * not discarded, not fully archived (pending-archive still counts).
+   */
+  countsTowardActiveCaseload: boolean;
   currentStageTitle: string | null;
   hireRateEligible: boolean;
   isGaSe: boolean;
@@ -139,7 +147,7 @@ async function loadScopedClientRows(
   filters: { officeId?: string | null; esUserId?: string | null }
 ): Promise<ClientRow[]> {
   const select =
-    "id, user_id, profile_id, office_id, counselor_id, created_at, current_stage_id, current_service_id, archived_at, job_start_date, is_demo";
+    "id, user_id, profile_id, office_id, counselor_id, created_at, current_stage_id, current_service_id, archived_at, job_start_date, is_demo, intake_status";
 
   if (scope.kind === "es") {
     const links = await fetchAllPostgrestRows<{ client_id: string }>(
@@ -481,6 +489,14 @@ async function buildClientFacts(
       ? (stageTitleById.get(c.current_stage_id) ?? null)
       : null;
     const isActive = !stageTitle || !CLOSED_STAGE_PATTERN.test(stageTitle.trim());
+    const esUserIds = esByClient.get(c.id) ?? [];
+    const countsTowardActiveCaseload =
+      esUserIds.length > 0 &&
+      countsTowardTeamOpsCaseload({
+        archived_at: c.archived_at,
+        is_demo: c.is_demo,
+        intake_status: c.intake_status,
+      });
     const service = c.current_service_id ? serviceById.get(c.current_service_id) : null;
     const serviceName = service?.name ?? null;
     const serviceState = service?.state ?? null;
@@ -512,10 +528,11 @@ async function buildClientFacts(
       clientId: c.id,
       officeId: c.office_id,
       counselorId: c.counselor_id,
-      esUserIds: esByClient.get(c.id) ?? [],
+      esUserIds,
       intakeAt: intakeByClient.get(c.id) ?? new Date(c.created_at),
       hireAt,
       isActive,
+      countsTowardActiveCaseload,
       currentStageTitle: stageTitle,
       hireRateEligible: isHireRateEligibleService(serviceName, serviceState),
       isGaSe,
@@ -547,7 +564,7 @@ export async function loadAnalyticsSummary(
   const intakeMilestoneIds = await loadIntakeMilestoneIds(admin);
   const facts = await buildClientFacts(admin, clients, intakeMilestoneIds);
 
-  const activeCaseload = facts.filter((f) => f.isActive).length;
+  const activeCaseload = facts.filter((f) => f.countsTowardActiveCaseload).length;
   const hiredInPeriod = facts.filter(
     (f) => f.hireAt && inRange(f.hireAt, range.from, range.to)
   );
@@ -726,10 +743,10 @@ export async function loadAnalyticsSummary(
   const billableHoursPerHire =
     clientsHired > 0 ? Math.round((billableHours / clientsHired) * 10) / 10 : null;
 
-  // Soft caseload guidance: count ES over 20 active clients in scope.
+  // Soft caseload guidance: same active-caseload definition as Team Operations Capacity.
   const activeByEs = new Map<string, number>();
   for (const f of facts) {
-    if (!f.isActive) continue;
+    if (!f.countsTowardActiveCaseload) continue;
     for (const esId of f.esUserIds) {
       activeByEs.set(esId, (activeByEs.get(esId) ?? 0) + 1);
     }
@@ -873,14 +890,15 @@ export async function loadAnalyticsSummary(
       unsuccessfulClosures:
         "Resolved cases without a qualifying placement. GA SE closed from Phase 4 only are excluded from the rate.",
       medianDaysToHire: "Median days from intake to first hire (clients hired in period).",
-      activeCaseload: "Assigned clients not in Closed, Dismissed, or Services Interrupted.",
+      activeCaseload:
+        "Assigned clients matching Team Operations Capacity (excludes demo, discarded, and fully archived; pending-archive still counts).",
       contactsPerWeek: "Contact logs in range ÷ calendar weeks in range.",
       billableHoursPerHire: "Approved billable hours ÷ clients hired in period.",
       hoursWorked: "Approved time with overlapping clocks merged (payroll).",
       billableHours: "Sum of approved entry durations (state billing).",
       billableToWorkedRatio: "Billable hours ÷ hours worked.",
       applicationsPerWeek: "Applications in range ÷ calendar weeks.",
-      esOverCaseloadGuidance: `ES with more than ${SOFT_ACTIVE_CASELOAD_GUIDANCE} active clients (soft guidance).`,
+      esOverCaseloadGuidance: `ES with more than ${SOFT_ACTIVE_CASELOAD_GUIDANCE} active clients by the Team Operations Capacity definition (soft guidance).`,
     },
   };
 }

@@ -46,7 +46,7 @@ export const ANALYTICS_METRIC_DEFINITIONS = {
   activeCaseload: {
     label: "Active caseload",
     description:
-      "Assigned clients in scope whose current stage is not Closed, Dismissed, or Services Interrupted.",
+      "Assigned clients in scope matching Team Operations Capacity (excludes demo, discarded, and fully archived; pending-archive still counts for 24 hours).",
   },
   applicationsSubmitted: {
     label: "Applications submitted",
@@ -84,7 +84,7 @@ export const ANALYTICS_METRIC_DEFINITIONS = {
   esOverCaseloadGuidance: {
     label: "ES over caseload guidance",
     description:
-      "Employment Specialists whose active caseload exceeds the soft guidance of 20 clients (not a hard cap).",
+      "Employment Specialists whose Team Operations Capacity caseload exceeds the soft guidance of 20 clients (not a hard cap).",
   },
 } as const;
 

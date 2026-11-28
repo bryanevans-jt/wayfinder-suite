@@ -1,4 +1,8 @@
-import { isArchivedClient, isTerminalStageTitle } from "@wayfinder/supabase/client-archive";
+import {
+  isArchivedClient,
+  isRemovedFromEsCaseload,
+  isTerminalStageTitle,
+} from "@wayfinder/supabase/client-archive";
 
 export type ClientPipelineWhere =
   | "awaiting_authorization"
@@ -49,4 +53,18 @@ export function countsTowardTeamOpsCaseload(client: {
   if (client.is_demo) return false;
   if ((client.intake_status ?? "").trim() === "discarded") return false;
   return isDefaultPortalClientsListRow(client);
+}
+
+/**
+ * Thin-contact coaching queue: exclude demo/discarded and anyone already off the
+ * ES board (pending archive or fully archived).
+ */
+export function countsTowardThinContactCoaching(client: {
+  archived_at?: string | null;
+  is_demo?: boolean | null;
+  intake_status?: string | null;
+}): boolean {
+  if (client.is_demo) return false;
+  if ((client.intake_status ?? "").trim() === "discarded") return false;
+  return !isRemovedFromEsCaseload(client.archived_at);
 }
