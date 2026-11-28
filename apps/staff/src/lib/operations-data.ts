@@ -5,12 +5,14 @@ import { sumBillableMinutesFromTimeEntryRows } from "@wayfinder/supabase/client-
 import { todayLocalDate } from "@wayfinder/supabase/es-time-tracking";
 import { isAdminTierRole, isGvraPartnerRole, isStaffRole, roleDisplayName } from "@wayfinder/supabase/roles";
 import { loadClientDisplayNameById } from "@/lib/client-display-names";
+import { countsTowardTeamOpsCaseload } from "@/lib/client-pipeline-where";
 import { formalReportLabel } from "@/lib/formal-report-labels";
 import { loadComplianceReportAlerts } from "@/lib/report-alerts-data";
 import { loadIjpAttestationSlaRows, type IjpAttestationSlaRow } from "@/lib/ijp-operations-alerts";
 import { loadStaffNameById } from "@/lib/staff-names";
 
 export { loadStaffNameById } from "@/lib/staff-names";
+export { countsTowardTeamOpsCaseload } from "@/lib/client-pipeline-where";
 
 type Admin = ReturnType<typeof createServiceRoleClient>;
 
@@ -248,9 +250,15 @@ export async function loadEsCapacityRows(
   const caseloadByUser = new Map<string, number>();
   const { data: assignmentRows } = await admin
     .from("es_client_assignments")
-    .select("es_user_id")
+    .select("es_user_id, clients ( archived_at, is_demo, intake_status )")
     .in("es_user_id", targetIds);
   for (const row of assignmentRows ?? []) {
+    const clientRel = row.clients as
+      | { archived_at?: string | null; is_demo?: boolean | null; intake_status?: string | null }
+      | { archived_at?: string | null; is_demo?: boolean | null; intake_status?: string | null }[]
+      | null;
+    const client = Array.isArray(clientRel) ? clientRel[0] ?? null : clientRel;
+    if (!client || !countsTowardTeamOpsCaseload(client)) continue;
     const id = row.es_user_id as string;
     caseloadByUser.set(id, (caseloadByUser.get(id) ?? 0) + 1);
   }

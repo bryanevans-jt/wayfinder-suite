@@ -36,3 +36,17 @@ export function isDefaultPortalClientsListRow(client: {
 }): boolean {
   return !isArchivedClient(client.archived_at);
 }
+
+/**
+ * Team Operations Capacity caseload — same visibility as filtering Clients by
+ * specialist with “View archived” off (also drops demo / discarded).
+ */
+export function countsTowardTeamOpsCaseload(client: {
+  archived_at?: string | null;
+  is_demo?: boolean | null;
+  intake_status?: string | null;
+}): boolean {
+  if (client.is_demo) return false;
+  if ((client.intake_status ?? "").trim() === "discarded") return false;
+  return isDefaultPortalClientsListRow(client);
+}
